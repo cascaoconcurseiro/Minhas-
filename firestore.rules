@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: /workspaces/{userId} and /cloud_vaults/{vaultId}
+    // Fields:
+    //   - uid: string (required, immutable, matches document ID)
+    //   - email: string (optional, <= 200 chars)
+    //   - displayName: string (optional, <= 120 chars)
+    //   - updatedAt: string (required, ISO timestamp <= 64 chars)
+    //   - accountsJson: string (required, <= 100000 chars)
+    //   - cardsJson: string (required, <= 100000 chars)
+    //   - categoriesJson: string (required, <= 150000 chars)
+    //   - transactionsJson: string (required, <= 500000 chars)
+    //   - goalsJson: string (required, <= 100000 chars)
+    //   - familyMembersJson: string (optional, <= 50000 chars)
+    //   - investmentsJson: string (required, <= 150000 chars)
+    //   - investmentTargetsJson: string (optional, <= 10000 chars)
+    //   - tripsJson: string (optional, <= 200000 chars)
+    //   - settingsJson: string (optional, <= 20000 chars)
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidVaultId(vaultId) {
+      return vaultId is string && vaultId.size() >= 16 && vaultId.size() <= 64;
+    }
+
+    function isValidWorkspace(data, docId) {
+      let allowedKeys = [
+        'uid',
+        'email',
+        'displayName',
+        'updatedAt',
+        'accountsJson',
+        'cardsJson',
+        'categoriesJson',
+        'transactionsJson',
+        'goalsJson',
+        'familyMembersJson',
+        'investmentsJson',
+        'investmentTargetsJson',
+        'tripsJson',
+        'settingsJson'
+      ];
+      return data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll([
+          'uid',
+          'updatedAt',
+          'accountsJson',
+          'cardsJson',
+          'categoriesJson',
+          'transactionsJson',
+          'goalsJson',
+          'investmentsJson'
+        ]) &&
+        data.uid is string && data.uid == docId &&
+        data.updatedAt is string && data.updatedAt.size() > 0 && data.updatedAt.size() <= 64 &&
+        data.accountsJson is string && data.accountsJson.size() <= 100000 &&
+        data.cardsJson is string && data.cardsJson.size() <= 100000 &&
+        data.categoriesJson is string && data.categoriesJson.size() <= 150000 &&
+        data.transactionsJson is string && data.transactionsJson.size() <= 500000 &&
+        data.goalsJson is string && data.goalsJson.size() <= 100000 &&
+        data.investmentsJson is string && data.investmentsJson.size() <= 150000 &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
+        (!('familyMembersJson' in data) || (data.familyMembersJson is string && data.familyMembersJson.size() <= 50000)) &&
+        (!('investmentTargetsJson' in data) || (data.investmentTargetsJson is string && data.investmentTargetsJson.size() <= 10000)) &&
+        (!('tripsJson' in data) || (data.tripsJson is string && data.tripsJson.size() <= 200000)) &&
+        (!('settingsJson' in data) || (data.settingsJson is string && data.settingsJson.size() <= 20000));
+    }
+
+    match /workspaces/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidWorkspace(request.resource.data, userId);
+      allow update: if isOwner(userId) &&
+        isValidWorkspace(request.resource.data, userId) &&
+        request.resource.data.uid == resource.data.uid;
+      allow delete: if isOwner(userId);
+    }
+
+    match /cloud_vaults/{vaultId} {
+      allow get: if isValidVaultId(vaultId);
+      allow list: if false;
+      allow create: if isValidVaultId(vaultId) && isValidWorkspace(request.resource.data, vaultId);
+      allow update: if isValidVaultId(vaultId) &&
+        isValidWorkspace(request.resource.data, vaultId) &&
+        request.resource.data.uid == resource.data.uid;
+      allow delete: if false;
+    }
+  }
+}

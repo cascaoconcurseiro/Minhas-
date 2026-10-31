@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+dev-dist/
+coverage/
+.aistudio/
+.playwright-cli/
+.DS_Store
+*.log
+.env*
+!.env.example
+verify-*.png
+modal-*.png
+relatorio-*.pdf

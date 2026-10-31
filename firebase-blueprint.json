@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "Armazena o estado financeiro consolidado do usuário autenticado (contas, cartões, categorias, lançamentos, metas, investimentos e preferências).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "UID do usuário autenticado no Firebase Auth (imutável)."
+        },
+        "email": {
+          "type": "string",
+          "description": "E-mail do titular da conta."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Nome de exibição do titular da conta."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Data/hora ISO da última sincronização na nuvem."
+        },
+        "accountsJson": {
+          "type": "string",
+          "description": "JSON serializado das contas bancárias."
+        },
+        "cardsJson": {
+          "type": "string",
+          "description": "JSON serializado dos cartões de crédito."
+        },
+        "categoriesJson": {
+          "type": "string",
+          "description": "JSON serializado das categorias e orçamentos."
+        },
+        "transactionsJson": {
+          "type": "string",
+          "description": "JSON serializado dos lançamentos financeiros."
+        },
+        "goalsJson": {
+          "type": "string",
+          "description": "JSON serializado das metas financeiras."
+        },
+        "familyMembersJson": {
+          "type": "string",
+          "description": "JSON serializado dos membros da família para rateio."
+        },
+        "investmentsJson": {
+          "type": "string",
+          "description": "JSON serializado da carteira de investimentos."
+        },
+        "investmentTargetsJson": {
+          "type": "string",
+          "description": "JSON serializado da alocação-alvo da carteira."
+        },
+        "tripsJson": {
+          "type": "string",
+          "description": "JSON serializado das viagens e carteiras de câmbio."
+        },
+        "settingsJson": {
+          "type": "string",
+          "description": "JSON serializado das configurações e preferências do app."
+        }
+      },
+      "required": [
+        "uid",
+        "updatedAt",
+        "accountsJson",
+        "cardsJson",
+        "categoriesJson",
+        "transactionsJson",
+        "goalsJson",
+        "investmentsJson"
+      ]
+    }
+  },
+  "firestore": {
+    "/workspaces/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserWorkspace"
+      },
+      "description": "Documento privado de sincronização financeira do usuário autenticado (acesso restrito ao próprio titular)."
+    },
+    "/cloud_vaults/{vaultId}": {
+      "schema": {
+        "$ref": "#/entities/UserWorkspace"
+      },
+      "description": "Cofre em nuvem determinístico vinculado ao e-mail ou sessão do usuário para sincronização e convites familiares."
+    }
+  }
+}

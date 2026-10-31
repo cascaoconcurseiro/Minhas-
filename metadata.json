@@ -1,0 +1,6 @@
+{
+  "name": "Minhas Economias BR — Controle Financeiro Pessoal",
+  "description": "Sistema completo de controle financeiro pessoal e familiar para o público brasileiro, 100% manual e privado, com gestão de contas, cartões de crédito, parcelamentos, orçamentos e metas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

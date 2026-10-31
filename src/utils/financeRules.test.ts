@@ -1,0 +1,953 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  addMonthsToYearMonth,
+  applyCascadeTransactionDelete,
+  calculate503020Rule,
+  calculateAccountBalances,
+  calculateCategoryBreakdown,
+  calculateCreditCardSummary,
+  calculateMonthlySummary,
+  calculatePeriodReport,
+  calculateSixMonthComparativeSeries,
+  createTransactionBatch,
+  getBudgetAlerts,
+  getEffectiveExpenseAmountForUser,
+  normalizeSearchText,
+  parseBRLInput,
+  payCreditCardInvoice,
+  resolveCreditCardInvoiceMonth,
+  reverseCreditCardInvoicePayment,
+  searchTransactionsGlobal,
+  simulateFixedIncomeBR,
+  summarizeGlobalSearchResults,
+} from './financeRules';
+import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
+import { INITIAL_CATEGORIES } from './seedData';
+
+test('parseBRLInput parses Brazilian and standard decimal strings accurately', () => {
+  assert.equal(parseBRLInput('R$ 1.450,90'), 1450.9);
+  assert.equal(parseBRLInput('250,50'), 250.5);
+  assert.equal(parseBRLInput('1200.75'), 1200.75);
+  assert.equal(parseBRLInput(''), 0);
+});
+
+test('createTransactionBatch creates accurate installments with remainder on 1st parcel and preserves subcategoryId', () => {
+  const batch = createTransactionBatch({
+    description: 'Geladeira Brastemp Frost Free',
+    amount: 3000.01,
+    amountMode: 'total_divided',
+    date: '2026-10-15',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-moradia',
+    subcategoryId: 'sub-mor-manut',
+    creditCardId: 'card-nubank',
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentTotal: 3,
+  });
+
+  assert.equal(batch.length, 3);
+  assert.equal(batch[0].amount, 1000.01);
+  assert.equal(batch[1].amount, 1000.0);
+  assert.equal(batch[2].amount, 1000.0);
+  assert.equal(batch[0].subcategoryId, 'sub-mor-manut');
+  assert.equal(batch[0].competenceMonth, '2026-10');
+  assert.equal(batch[1].competenceMonth, '2026-11');
+  assert.equal(batch[2].competenceMonth, '2026-12');
+});
+
+test('calculateCreditCardSummary accounts for all unpaid future installments in usedLimit and payCreditCardInvoice settles current month', () => {
+  const card: CreditCard = {
+    id: 'card-1',
+    name: 'Nubank Ultravioleta',
+    brand: 'Mastercard',
+    limit: 10000,
+    closingDay: 25,
+    dueDay: 5,
+    defaultAccountId: 'acc-1',
+    color: '#7c3aed',
+  };
+
+  const txs = createTransactionBatch({
+    description: 'Notebook Dell',
+    amount: 4000,
+    amountMode: 'total_divided',
+    date: '2026-10-10',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-educacao',
+    creditCardId: 'card-1',
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentTotal: 4,
+  });
+
+  const summaryOct = calculateCreditCardSummary(card, txs, '2026-10');
+  assert.equal(summaryOct.invoiceTotal, 1000);
+  assert.equal(summaryOct.invoicePendingAmount, 1000);
+  assert.equal(summaryOct.usedLimit, 4000);
+  assert.equal(summaryOct.availableLimit, 6000);
+
+  const afterPayment = payCreditCardInvoice(card, txs, '2026-10', 'acc-1', '2026-10-25');
+  const summaryAfter = calculateCreditCardSummary(card, afterPayment, '2026-10');
+  assert.equal(summaryAfter.isInvoicePaid, true);
+  assert.equal(summaryAfter.invoicePendingAmount, 0);
+  assert.equal(summaryAfter.usedLimit, 3000);
+  assert.equal(summaryAfter.availableLimit, 7000);
+});
+
+test('calculateAccountBalances and calculateMonthlySummary separate realized vs projected balances', () => {
+  const accounts: BankAccount[] = [
+    {
+      id: 'acc-itau',
+      name: 'Itaú Uniclass',
+      institution: 'Itaú',
+      type: 'checking',
+      initialBalance: 2000,
+      color: '#ea580c',
+      includeInTotal: true,
+    },
+  ];
+  const cards: CreditCard[] = [];
+  const txs: Transaction[] = [
+    {
+      id: 't1',
+      description: 'Salário CLT',
+      amount: 8000,
+      date: '2026-10-05',
+      competenceMonth: '2026-10',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'cat-salario',
+      accountId: 'acc-itau',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 't2',
+      description: 'Aluguel + Condomínio',
+      amount: 2500,
+      date: '2026-10-10',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-moradia',
+      accountId: 'acc-itau',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+    },
+    {
+      id: 't3',
+      description: 'IPVA Parcela',
+      amount: 500,
+      date: '2026-10-28',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'pending',
+      categoryId: 'cat-transporte',
+      accountId: 'acc-itau',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+  ];
+
+  const balances = calculateAccountBalances(accounts, txs, '2026-10');
+  assert.equal(balances[0].currentBalance, 7500);
+  assert.equal(balances[0].projectedBalance, 7000);
+
+  const monthly = calculateMonthlySummary(accounts, cards, txs, '2026-10');
+  assert.equal(monthly.incomeRealized, 8000);
+  assert.equal(monthly.expenseRealized, 2500);
+  assert.equal(monthly.expensePending, 500);
+  assert.equal(monthly.netResultProjected, 5000);
+});
+
+test('simulateFixedIncomeBR applies Brazilian regressive IR rate and outperforms poupanca', () => {
+  const sim = simulateFixedIncomeBR({
+    initialAmount: 10000,
+    monthlyContribution: 500,
+    months: 12,
+    cdiAnnualRatePercent: 11.25,
+    cdiMultiplierPercent: 100,
+    isTaxExempt: false,
+  });
+
+  assert.equal(sim.totalInvested, 16000);
+  assert.equal(sim.irRatePercent, 20.0);
+  assert.ok(sim.netBalanceCdi > sim.poupancaBalance);
+  assert.ok(sim.advantageOverPoupanca > 0);
+});
+
+test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warning and over-limit budgets', () => {
+  const categories: Category[] = [
+    {
+      id: 'c-inc',
+      name: 'Salário',
+      type: 'income',
+      bucket: 'financial',
+      monthlyBudget: 0,
+      color: '#16a34a',
+      icon: 'briefcase',
+      subcategories: [{ id: 's-clt', name: 'CLT' }],
+    },
+    {
+      id: 'c-ess',
+      name: 'Moradia',
+      type: 'expense',
+      bucket: 'essential',
+      monthlyBudget: 3000,
+      color: '#0284c7',
+      icon: 'home',
+      subcategories: [
+        { id: 's-alug', name: 'Aluguel' },
+        { id: 's-cond', name: 'Condomínio' },
+      ],
+    },
+    {
+      id: 'c-life',
+      name: 'Restaurantes',
+      type: 'expense',
+      bucket: 'lifestyle',
+      monthlyBudget: 1000,
+      color: '#d97706',
+      icon: 'utensils',
+      subcategories: [],
+    },
+  ];
+  const txs: Transaction[] = [
+    {
+      id: '1',
+      description: 'Salário',
+      amount: 10000,
+      date: '2026-10-05',
+      competenceMonth: '2026-10',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'c-inc',
+      subcategoryId: 's-clt',
+      accountId: 'a1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: '2',
+      description: 'Aluguel',
+      amount: 2500,
+      date: '2026-10-10',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'c-ess',
+      subcategoryId: 's-alug',
+      accountId: 'a1',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+    },
+    {
+      id: '2b',
+      description: 'Condomínio',
+      amount: 700,
+      date: '2026-10-10',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'c-ess',
+      subcategoryId: 's-cond',
+      accountId: 'a1',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+    },
+    {
+      id: '3',
+      description: 'Jantar',
+      amount: 850,
+      date: '2026-10-12',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'c-life',
+      accountId: 'a1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+  ];
+
+  const catBreakdown = calculateCategoryBreakdown(categories, txs, '2026-10');
+  assert.equal(catBreakdown[0].categoryId, 'c-ess');
+  assert.equal(catBreakdown[0].status, 'over'); // 3200 > 3000
+  assert.equal(catBreakdown[0].subcategoryBreakdown.length, 2);
+  assert.equal(catBreakdown[0].subcategoryBreakdown[0].subcategoryName, 'Aluguel');
+  assert.equal(catBreakdown[1].categoryId, 'c-life');
+  assert.equal(catBreakdown[1].status, 'warning'); // 850 >= 80% of 1000
+
+  // With stricter 90% warning threshold, 850/1000 (85%) remains 'ok'
+  const catBreakdown90 = calculateCategoryBreakdown(categories, txs, '2026-10', 90);
+  assert.equal(catBreakdown90[1].status, 'ok');
+
+  const alerts = getBudgetAlerts(catBreakdown);
+  assert.equal(alerts.length, 2);
+  assert.equal(alerts[0].status, 'over');
+  assert.equal(alerts[1].status, 'warning');
+
+  const rule = calculate503020Rule(categories, txs, '2026-10');
+  assert.equal(rule.essentialPercent, 32);
+  assert.equal(rule.lifestylePercent, 8.5);
+  assert.equal(rule.financialPercent, 59.5);
+  assert.equal(addMonthsToYearMonth('2026-10', 3), '2027-01');
+});
+
+test('calculatePeriodReport computes multi-month comparative summary and category/source distributions', () => {
+  const accounts: BankAccount[] = [
+    {
+      id: 'a1',
+      name: 'Itaú',
+      institution: 'Itaú',
+      type: 'checking',
+      initialBalance: 1000,
+      color: '#ea580c',
+      includeInTotal: true,
+    },
+  ];
+  const categories: Category[] = [
+    {
+      id: 'c-inc',
+      name: 'Salário',
+      type: 'income',
+      bucket: 'financial',
+      monthlyBudget: 0,
+      color: '#059669',
+      icon: 'briefcase',
+      subcategories: [],
+    },
+    {
+      id: 'c-exp',
+      name: 'Moradia',
+      type: 'expense',
+      bucket: 'essential',
+      monthlyBudget: 2000,
+      color: '#1e293b',
+      icon: 'home',
+      subcategories: [],
+    },
+  ];
+  const txs: Transaction[] = [
+    {
+      id: 't1',
+      description: 'Salário Set',
+      amount: 5000,
+      date: '2026-09-05',
+      competenceMonth: '2026-09',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'c-inc',
+      accountId: 'a1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 't2',
+      description: 'Aluguel Set',
+      amount: 2000,
+      date: '2026-09-10',
+      competenceMonth: '2026-09',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'c-exp',
+      accountId: 'a1',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+    },
+    {
+      id: 't3',
+      description: 'Salário Out',
+      amount: 6000,
+      date: '2026-10-05',
+      competenceMonth: '2026-10',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'c-inc',
+      accountId: 'a1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 't4',
+      description: 'Aluguel Out',
+      amount: 2200,
+      date: '2026-10-10',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'c-exp',
+      accountId: 'a1',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+    },
+  ];
+
+  const report = calculatePeriodReport(accounts, [], categories, txs, '2026-09', '2026-10');
+  assert.equal(report.monthsCount, 2);
+  assert.equal(report.totalIncome, 11000);
+  assert.equal(report.totalExpense, 4200);
+  assert.equal(report.netSavings, 6800);
+  assert.equal(report.expensesByCategory.length, 1);
+  assert.equal(report.incomesBySource.length, 1);
+  assert.equal(report.monthlySeries.length, 2);
+  // Expense increased from 2000 to 2200 (+10%)
+  assert.equal(report.monthlySeries[1].expenseDeltaPercent, 10);
+  // Income increased from 5000 to 6000 (+20%)
+  assert.equal(report.monthlySeries[1].incomeDeltaPercent, 20);
+});
+
+test('createTransactionBatch correctly distributes sharedAmount across installments for family members', () => {
+  const sharedBatch = createTransactionBatch({
+    description: 'Smartphone Samsung Presente Família',
+    amount: 1500,
+    amountMode: 'total_divided',
+    date: '2026-10-15',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'c-exp',
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentTotal: 3,
+    isShared: true,
+    sharedMemberId: 'fam-lucas',
+    sharedAmount: 750, // 50% split of 1500
+    sharedSplitMode: 'half',
+  });
+
+  assert.equal(sharedBatch.length, 3);
+  assert.equal(sharedBatch[0].amount, 500);
+  assert.equal(sharedBatch[0].isShared, true);
+  assert.equal(sharedBatch[0].sharedMemberId, 'fam-lucas');
+  assert.equal(sharedBatch[0].sharedAmount, 250);
+  assert.equal(sharedBatch[0].sharedSplitMode, 'half');
+  assert.equal(sharedBatch[0].sharedStatus, 'pending');
+
+  assert.equal(sharedBatch[1].amount, 500);
+  assert.equal(sharedBatch[1].sharedAmount, 250);
+  assert.equal(sharedBatch[2].amount, 500);
+  assert.equal(sharedBatch[2].sharedAmount, 250);
+});
+
+test('searchTransactionsGlobal filters transactions by description, category, subcategory, and notes with accent insensitivity', () => {
+  const categories: Category[] = [
+    {
+      id: 'cat-saude',
+      name: 'Saúde & Farmácia',
+      type: 'expense',
+      bucket: 'essential',
+      monthlyBudget: 650,
+      color: '#dc2626',
+      icon: 'heart-pulse',
+      subcategories: [{ id: 'sub-med', name: 'Medicamentos Contínuos' }],
+    },
+    {
+      id: 'cat-freela',
+      name: 'Projetos Extras & PIX',
+      type: 'income',
+      bucket: 'financial',
+      monthlyBudget: 0,
+      color: '#0d9488',
+      icon: 'wallet',
+      subcategories: [],
+    },
+  ];
+
+  const txs: Transaction[] = [
+    {
+      id: 'tx-1',
+      description: 'Droga Raia Centro',
+      amount: 148.5,
+      date: '2026-10-21',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-saude',
+      subcategoryId: 'sub-med',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+      notes: 'Comprei para mamãe Dona Sônia, reembolso pendente',
+    },
+    {
+      id: 'tx-2',
+      description: 'Consultoria UI/UX São Paulo',
+      amount: 2400,
+      date: '2026-10-16',
+      competenceMonth: '2026-10',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'cat-freela',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+      notes: 'NF-e emitida referente ao mês de setembro',
+    },
+    {
+      id: 'tx-3',
+      description: 'Exame Laboratorial Fleury',
+      amount: 320,
+      date: '2026-09-10',
+      competenceMonth: '2026-09',
+      type: 'expense',
+      status: 'pending',
+      categoryId: 'cat-saude',
+      accountId: 'acc-1',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+      notes: 'Checkup anual',
+    },
+  ];
+
+  assert.equal(normalizeSearchText('Saúde & Farmácia'), 'saude & farmacia');
+
+  // 1. Search by description
+  const byDesc = searchTransactionsGlobal(txs, categories, { query: 'droga raia' });
+  assert.equal(byDesc.length, 1);
+  assert.equal(byDesc[0].transaction.id, 'tx-1');
+  assert.equal(byDesc[0].matchedByDescription, true);
+
+  // 2. Search by category (accent-insensitive: 'farmacia' matches 'Saúde & Farmácia')
+  const byCat = searchTransactionsGlobal(txs, categories, { query: 'farmacia' });
+  assert.equal(byCat.length, 2); // tx-1 and tx-3
+  assert.equal(byCat[0].matchedByCategory, true);
+
+  // 3. Search by note (accent-insensitive: 'mamae' or 'nf-e')
+  const byNote = searchTransactionsGlobal(txs, categories, { query: 'mamae sonia' });
+  assert.equal(byNote.length, 1);
+  assert.equal(byNote[0].transaction.id, 'tx-1');
+  assert.equal(byNote[0].matchedByNote, true);
+
+  // 4. Filter specifically by fieldFilter: 'notes'
+  const onlyNotes = searchTransactionsGlobal(txs, categories, {
+    query: 'nf-e emitida',
+    fieldFilter: 'notes',
+  });
+  assert.equal(onlyNotes.length, 1);
+  assert.equal(onlyNotes[0].transaction.id, 'tx-2');
+
+  // 5. Scope filter: 'selected_month' ('2026-10')
+  const octHealth = searchTransactionsGlobal(txs, categories, {
+    query: 'saude',
+    scope: 'selected_month',
+    selectedMonth: '2026-10',
+  });
+  assert.equal(octHealth.length, 1);
+  assert.equal(octHealth[0].transaction.id, 'tx-1');
+
+  // 6. Summary calculation
+  const allMatches = searchTransactionsGlobal(txs, categories, { query: '2026', fieldFilter: 'all' });
+  assert.equal(allMatches.length, 0);
+  const summaryCat = summarizeGlobalSearchResults(byCat);
+  assert.equal(summaryCat.totalCount, 2);
+  assert.equal(summaryCat.expenseTotal, 468.5);
+  assert.equal(summaryCat.pendingCount, 1);
+});
+
+test('payCreditCardInvoice supports partial payment and createTransactionBatch preserves targetInvestmentAssetId', () => {
+  const card: CreditCard = {
+    id: 'card-partial',
+    name: 'Itaú Personnalité',
+    brand: 'Visa',
+    limit: 8000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+
+  const txs = createTransactionBatch({
+    description: 'Compra Supermercado',
+    amount: 1000,
+    date: '2026-10-10',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-mercado',
+    creditCardId: 'card-partial',
+    paymentMethod: 'credit_card',
+    recurrence: 'single',
+  });
+
+  // Pay R$ 400 partially out of R$ 1.000
+  const afterPartial = payCreditCardInvoice(
+    card,
+    txs,
+    '2026-10',
+    'acc-1',
+    '2026-10-20',
+    400
+  );
+  const summaryPartial = calculateCreditCardSummary(card, afterPartial, '2026-10');
+  assert.equal(summaryPartial.invoiceTotal, 1000);
+  assert.equal(summaryPartial.invoicePendingAmount, 600);
+  assert.equal(summaryPartial.isInvoicePaid, false);
+
+  // Direct investment contribution via transfer
+  const invBatch = createTransactionBatch({
+    description: 'Aporte em MXRF11',
+    amount: 500,
+    date: '2026-10-15',
+    competenceMonth: '2026-10',
+    type: 'transfer',
+    status: 'paid',
+    categoryId: 'cat-aportes',
+    accountId: 'acc-1',
+    targetInvestmentAssetId: 'inv-mxrf11',
+    paymentMethod: 'transfer',
+    recurrence: 'single',
+  });
+  assert.equal(invBatch.length, 1);
+  assert.equal(invBatch[0].targetInvestmentAssetId, 'inv-mxrf11');
+
+  // Deleting the partial invoice payment reverses the cascade and merges split items back
+  const paymentTx = afterPartial.find((t) => t.isInvoicePayment);
+  assert.ok(paymentTx);
+  const afterDeleteCascade = applyCascadeTransactionDelete(
+    afterPartial,
+    paymentTx.id,
+    'single',
+    [card]
+  );
+  const summaryRestored = calculateCreditCardSummary(
+    card,
+    afterDeleteCascade.updatedTransactions,
+    '2026-10'
+  );
+  assert.equal(summaryRestored.invoiceTotal, 1000);
+  assert.equal(summaryRestored.invoicePendingAmount, 1000);
+  assert.equal(summaryRestored.isInvoicePaid, false);
+  assert.equal(summaryRestored.transactions.length, 1);
+  assert.equal(summaryRestored.transactions[0].amount, 1000);
+});
+
+test('resolveCreditCardInvoiceMonth advances competenceMonth when purchase day is after card closingDay', () => {
+  const card: CreditCard = {
+    id: 'card-closing',
+    name: 'Nubank Ultravioleta',
+    brand: 'Mastercard',
+    limit: 15000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+
+  assert.equal(resolveCreditCardInvoiceMonth('2026-10-15', card), '2026-10');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-10-20', card), '2026-10');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-10-21', card), '2026-11');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-12-25', card), '2027-01');
+});
+
+test('shared expenses paid by member count only user share while pending and avoid double counting once settled', () => {
+  const accounts: BankAccount[] = [
+    {
+      id: 'acc-1',
+      name: 'Conta Principal',
+      institution: 'Itaú',
+      type: 'checking',
+      initialBalance: 2000,
+      color: '#0f172a',
+      includeInTotal: true,
+    },
+  ];
+  const categories: Category[] = [
+    {
+      id: 'cat-mercado',
+      name: 'Supermercado',
+      type: 'expense',
+      bucket: 'essential',
+      monthlyBudget: 1000,
+      color: '#10b981',
+      icon: 'shopping-cart',
+      subcategories: [],
+    },
+  ];
+
+  // R$ 300 grocery bill paid by family member, where user owes R$ 150
+  const pendingSharedTx: Transaction = {
+    id: 'tx-shared-member-1',
+    description: 'Supermercado Pão de Açúcar',
+    amount: 300,
+    date: '2026-10-12',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-mercado',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    isShared: true,
+    sharedMemberId: 'fam-1',
+    sharedPaidBy: 'member',
+    sharedAmount: 150,
+    sharedStatus: 'pending',
+  };
+
+  const effPending = getEffectiveExpenseAmountForUser(pendingSharedTx);
+  assert.deepEqual(effPending, { amount: 150, status: 'pending' });
+
+  const summaryBeforeSettle = calculateMonthlySummary(
+    accounts,
+    [],
+    [pendingSharedTx],
+    '2026-10'
+  );
+  // Only the user's R$ 150 share counts as pending expense; bank current balance remains R$ 2.000
+  assert.equal(summaryBeforeSettle.expenseTotal, 150);
+  assert.equal(summaryBeforeSettle.expensePending, 150);
+  assert.equal(summaryBeforeSettle.expenseRealized, 0);
+  assert.equal(summaryBeforeSettle.totalCurrentBalance, 2000);
+  assert.equal(summaryBeforeSettle.totalProjectedBalance, 1850);
+
+  // Now settle the shared expense: original is marked 'received' and a real bank expense tx-reimb- is created
+  const settledSharedTx: Transaction = {
+    ...pendingSharedTx,
+    sharedStatus: 'received',
+    sharedSettledDate: '2026-10-14',
+    sharedSettledAccountId: 'acc-1',
+  };
+  const reimbTx: Transaction = {
+    id: 'tx-reimb-101',
+    description: 'Pagamento de Rateio Compartilhado — Esposa (Supermercado Pão de Açúcar)',
+    amount: 150,
+    date: '2026-10-14',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-mercado',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    notes: 'Pagamento da minha cota de despesa paga por Esposa [ref:tx-shared-member-1]',
+  };
+
+  assert.equal(getEffectiveExpenseAmountForUser(settledSharedTx), null);
+
+  const summaryAfterSettle = calculateMonthlySummary(
+    accounts,
+    [],
+    [reimbTx, settledSharedTx],
+    '2026-10'
+  );
+  // Total expense is STILL R$ 150 (now paid from acc-1), NOT R$ 450 or R$ 300!
+  assert.equal(summaryAfterSettle.expenseTotal, 150);
+  assert.equal(summaryAfterSettle.expenseRealized, 150);
+  assert.equal(summaryAfterSettle.expensePending, 0);
+  assert.equal(summaryAfterSettle.totalCurrentBalance, 1850);
+  assert.equal(summaryAfterSettle.totalProjectedBalance, 1850);
+
+  const catBreakdown = calculateCategoryBreakdown(
+    categories,
+    [reimbTx, settledSharedTx],
+    '2026-10',
+    0
+  );
+  assert.equal(catBreakdown[0].spent, 150);
+
+  // Deleting the settled shared transaction also removes its linked tx-reimb-101
+  const afterDelete = applyCascadeTransactionDelete(
+    [reimbTx, settledSharedTx],
+    settledSharedTx.id,
+    'single',
+    []
+  );
+  assert.equal(afterDelete.updatedTransactions.length, 0);
+});
+
+test('INITIAL_CATEGORIES includes cat-aportes and cat-outros, and deleting a shared tx from a consolidated tx-reimb-all batch reopens sibling shared expenses', () => {
+  assert.ok(INITIAL_CATEGORIES.some((c) => c.id === 'cat-aportes' && c.type === 'expense'));
+  assert.ok(INITIAL_CATEGORIES.some((c) => c.id === 'cat-outros' && c.type === 'expense'));
+
+  const sharedA: Transaction = {
+    id: 'tx-sh-a',
+    description: 'Jantar Compartilhado',
+    amount: 200,
+    date: '2026-10-10',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-outros',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    isShared: true,
+    sharedPaidBy: 'me',
+    sharedMemberId: 'fam-1',
+    sharedAmount: 100,
+    sharedStatus: 'received',
+    sharedSettledDate: '2026-10-20',
+    sharedSettledAccountId: 'acc-1',
+  };
+
+  const sharedB: Transaction = {
+    id: 'tx-sh-b',
+    description: 'Uber Compartilhado',
+    amount: 60,
+    date: '2026-10-12',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-outros',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    isShared: true,
+    sharedPaidBy: 'member',
+    sharedMemberId: 'fam-1',
+    sharedAmount: 30,
+    sharedStatus: 'received',
+    sharedSettledDate: '2026-10-20',
+    sharedSettledAccountId: 'acc-1',
+  };
+
+  const consolidatedReimb: Transaction = {
+    id: 'tx-reimb-all-999',
+    description: 'Acerto Compensado Recebido (Out/2026) — Familiar',
+    amount: 70,
+    date: '2026-10-20',
+    competenceMonth: '2026-10',
+    type: 'income',
+    status: 'paid',
+    categoryId: 'cat-rendimentos',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    notes: 'Encontro de contas bilateral [ref:tx-sh-a] [ref:tx-sh-b]',
+  };
+
+  const res = applyCascadeTransactionDelete(
+    [consolidatedReimb, sharedA, sharedB],
+    'tx-sh-a',
+    'single',
+    []
+  );
+
+  // tx-sh-a and tx-reimb-all-999 should be deleted, and tx-sh-b should be reopened as 'pending'
+  assert.equal(res.updatedTransactions.length, 1);
+  assert.equal(res.updatedTransactions[0].id, 'tx-sh-b');
+  assert.equal(res.updatedTransactions[0].sharedStatus, 'pending');
+  assert.equal(res.cascadeReopenedCount, 1);
+});
+
+test('calculateSixMonthComparativeSeries builds 6-month evolution of income vs expense and financial health indicators', () => {
+  const accounts: BankAccount[] = [
+    {
+      id: 'acc-1',
+      name: 'Nubank',
+      institution: 'Nubank',
+      type: 'checking',
+      initialBalance: 1000,
+      color: '#7c3aed',
+      includeInTotal: true,
+    },
+  ];
+
+  const txs: Transaction[] = [
+    {
+      id: 'tx-6m-1',
+      description: 'Salário Agosto',
+      amount: 6000,
+      date: '2026-08-05',
+      competenceMonth: '2026-08',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'cat-salario',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-6m-2',
+      description: 'Aluguel Agosto',
+      amount: 2400,
+      date: '2026-08-10',
+      competenceMonth: '2026-08',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-moradia',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-6m-3',
+      description: 'Salário Setembro',
+      amount: 6000,
+      date: '2026-09-05',
+      competenceMonth: '2026-09',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'cat-salario',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-6m-4',
+      description: 'Gastos Extras Setembro',
+      amount: 7000,
+      date: '2026-09-15',
+      competenceMonth: '2026-09',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-moradia',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-6m-5',
+      description: 'Salário Outubro',
+      amount: 8000,
+      date: '2026-10-05',
+      competenceMonth: '2026-10',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'cat-salario',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-6m-6',
+      description: 'Despesas Outubro',
+      amount: 3000,
+      date: '2026-10-12',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-moradia',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+  ];
+
+  const report6m = calculateSixMonthComparativeSeries(accounts, [], txs, '2026-10');
+  assert.equal(report6m.startMonth, '2026-05');
+  assert.equal(report6m.endMonth, '2026-10');
+  assert.equal(report6m.months.length, 6);
+  assert.deepEqual(
+    report6m.months.map((m) => m.month),
+    ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']
+  );
+
+  // Totals across 6m: Income = 6000 + 6000 + 8000 = 20000; Expense = 2400 + 7000 + 3000 = 12400
+  assert.equal(report6m.totalIncome6m, 20000);
+  assert.equal(report6m.totalExpense6m, 12400);
+  assert.equal(report6m.netSavings6m, 7600);
+  assert.equal(report6m.overallSavingsRate6m, 38);
+  assert.equal(report6m.surplusMonthsCount, 2); // Aug and Oct
+  assert.equal(report6m.deficitMonthsCount, 1); // Sep
+  assert.equal(report6m.financialHealthStatus, 'strong');
+  assert.equal(report6m.months[3].healthStatus, 'surplus'); // 2026-08
+  assert.equal(report6m.months[4].healthStatus, 'deficit'); // 2026-09
+  assert.equal(report6m.months[5].healthStatus, 'surplus'); // 2026-10
+});
