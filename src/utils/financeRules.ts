@@ -1114,7 +1114,6 @@ export function calculateDailyCashFlow(
     (tx) =>
       tx.competenceMonth === selectedMonth &&
       (!tx.creditCardId || tx.isInvoicePayment) &&
-      tx.type !== 'transfer' &&
       !tx.isCompanionOnlyExpense &&
       tx.sharedPaidBy !== 'member'
   );
@@ -1129,14 +1128,31 @@ export function calculateDailyCashFlow(
     let dayExpense = 0;
 
     for (const tx of dayTxs) {
+      const isAccountIncluded = !tx.accountId || includedIds.has(tx.accountId);
+
       if (tx.type === 'income') {
+        if (!isAccountIncluded) continue;
         dayIncome += tx.amount;
         runningProjected += tx.amount;
         if (tx.status === 'paid') runningRealized += tx.amount;
       } else if (tx.type === 'expense') {
+        if (!isAccountIncluded) continue;
         dayExpense += tx.amount;
         runningProjected -= tx.amount;
         if (tx.status === 'paid') runningRealized -= tx.amount;
+      } else if (tx.type === 'transfer') {
+        const fromIncluded = Boolean(tx.accountId && includedIds.has(tx.accountId));
+        const toIncluded = Boolean(
+          tx.destinationAccountId && includedIds.has(tx.destinationAccountId)
+        );
+        // Transfer out of liquid included accounts (e.g., direct investment contribution or transfer to excluded account)
+        if (fromIncluded && !toIncluded) {
+          runningProjected -= tx.amount;
+          if (tx.status === 'paid') runningRealized -= tx.amount;
+        } else if (!fromIncluded && toIncluded) {
+          runningProjected += tx.amount;
+          if (tx.status === 'paid') runningRealized += tx.amount;
+        }
       }
     }
 

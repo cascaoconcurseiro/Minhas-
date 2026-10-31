@@ -504,7 +504,60 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
     });
     assert.equal(mockPurge.accounts.length, 0);
     assert.equal(mockPurge.trips.length, 0);
+
+    // Direct investment transfer with targetInvestmentAssetId passes audit 100%
+    const invTransferAudit = runFinancialIntegrityAudit({
+      accountsCount: 1,
+      cardsCount: 0,
+      accounts: [
+        {
+          id: 'acc-real-1',
+          name: 'Conta Itaú',
+          institution: 'Itaú',
+          type: 'checking',
+          initialBalance: 3000,
+          color: '#0f172a',
+          includeInTotal: true,
+        },
+      ],
+      investments: [
+        {
+          id: 'inv-real-1',
+          ticker: 'TESOURO SELIC 2029',
+          name: 'Tesouro Selic',
+          assetClass: 'renda_fixa_pos',
+          institution: 'BTG Pactual',
+          quantity: 1,
+          averagePrice: 1500,
+          currentPrice: 1550,
+          indexerLabel: '100% SELIC',
+          liquidity: 'D+0 (Liquidez Diária)',
+          monthlyYieldPercent: 0.85,
+          isTaxExempt: false,
+        },
+      ],
+      transactions: [
+        {
+          id: 'tx-inv-transfer-1',
+          description: 'Aporte Direto Tesouro Selic',
+          amount: 500,
+          date: '2026-10-15',
+          competenceMonth: '2026-10',
+          type: 'transfer',
+          status: 'paid',
+          categoryId: 'cat-aportes',
+          accountId: 'acc-real-1',
+          targetInvestmentAssetId: 'inv-real-1',
+          paymentMethod: 'transfer',
+          recurrence: 'single',
+        },
+      ],
+      trips: [],
+    });
+    assert.equal(invTransferAudit.isAllHealthy, true);
+    assert.equal(invTransferAudit.totalIssuesFound, 0);
   });
 });
+
 
 

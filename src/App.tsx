@@ -2086,11 +2086,18 @@ export default function App() {
       )
     );
     setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.targetInvestmentAssetId === assetId
-          ? { ...tx, targetInvestmentAssetId: undefined }
-          : tx
-      )
+      prev.map((tx) => {
+        if (tx.targetInvestmentAssetId !== assetId) return tx;
+        if (tx.type === 'transfer' && !tx.destinationAccountId) {
+          return {
+            ...tx,
+            type: 'expense',
+            categoryId: tx.categoryId || 'cat-aportes',
+            targetInvestmentAssetId: undefined,
+          };
+        }
+        return { ...tx, targetInvestmentAssetId: undefined };
+      })
     );
     showNotice(`Ativo ${target?.ticker || ''} removido da carteira.`);
   };
@@ -2123,6 +2130,9 @@ export default function App() {
       (operationType === 'buy' || operationType === 'sell') &&
       financialTotal > 0
     ) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const operationDate =
+        todayIso.slice(0, 7) === selectedMonth ? todayIso : `${selectedMonth}-15`;
       const ledgerTx: Transaction = {
         id: `tx-inv-${Date.now()}`,
         description:
@@ -2130,12 +2140,13 @@ export default function App() {
             ? `Aporte Investimento — ${targetAsset.ticker} (${quantityDelta} un.)`
             : `Resgate Investimento — ${targetAsset.ticker} (${quantityDelta} un.)`,
         amount: financialTotal,
-        date: `${selectedMonth}-25`,
+        date: operationDate,
         competenceMonth: selectedMonth,
         type: operationType === 'buy' ? 'expense' : 'income',
         status: 'paid',
         categoryId: operationType === 'buy' ? 'cat-aportes' : 'cat-rendimentos',
         accountId: settlementAccountId,
+        targetInvestmentAssetId: assetId,
         paymentMethod: 'transfer',
         recurrence: 'single',
         notes: `${operationType === 'buy' ? 'Compra' : 'Venda'} de ${targetAsset.name} na corretora ${targetAsset.institution}`,

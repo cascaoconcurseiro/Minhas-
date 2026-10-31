@@ -1316,6 +1316,15 @@ export function runFinancialIntegrityAudit(params: {
       if (tx.tripId && !tripIds.has(tx.tripId)) {
         orphanRefIssues.push(`Lançamento "${tx.description}" aponta para viagem removida.`);
       }
+      if (
+        investments.length > 0 &&
+        tx.targetInvestmentAssetId &&
+        !assetIds.has(tx.targetInvestmentAssetId)
+      ) {
+        orphanRefIssues.push(
+          `Lançamento "${tx.description}" aponta para ativo de investimento removido.`
+        );
+      }
     }
     for (const g of goals) {
       if (g.linkedAssetId && !assetIds.has(g.linkedAssetId)) {
@@ -1324,14 +1333,15 @@ export function runFinancialIntegrityAudit(params: {
     }
   }
 
-  // 3. Partidas Dobradas em Transferências entre Contas
+  // 3. Partidas Dobradas em Transferências entre Contas e Aportes Diretos em Ativos
   const transfers = transactions.filter((t) => t.type === 'transfer');
-  const invalidTransfers = transfers.filter(
-    (t) =>
-      !t.accountId ||
-      !t.destinationAccountId ||
-      t.accountId === t.destinationAccountId
-  );
+  const invalidTransfers = transfers.filter((t) => {
+    if (!t.accountId) return true;
+    const hasValidAccountDest =
+      Boolean(t.destinationAccountId) && t.accountId !== t.destinationAccountId;
+    const hasValidInvestmentDest = Boolean(t.targetInvestmentAssetId);
+    return !hasValidAccountDest && !hasValidInvestmentDest;
+  });
 
   // 4. Pagamentos de Fatura Isolados das Categorias de Consumo (Sem Dupla Contagem)
   const invoicePayments = transactions.filter((t) => t.isInvoicePayment);
@@ -1661,6 +1671,38 @@ export function sanitizeAndRepairFinancialState(params: {
       // Orphan tripId cleanup
       if (nextTx.tripId && !tripIds.has(nextTx.tripId)) {
         nextTx.tripId = undefined;
+        modified = true;
+      }
+
+      // Orphan targetInvestmentAssetId cleanup
+      if (
+        cleanInvestments.length > 0 &&
+        nextTx.targetInvestmentAssetId &&
+        !assetIds.has(nextTx.targetInvestmentAssetId)
+      ) {
+        nextTx.targetInvestmentAssetId = undefined;
+        if (nextTx.type === 'transfer' && !nextTx.destinationAccountId) {
+          nextTx.type = 'expense';
+          nextTx.categoryId = categoryIds.has('cat-aportes')
+            ? 'cat-aportes'
+            : defaultExpenseCatId;
+        }
+        modified = true;
+      }
+
+      // Destination-less transfer repair
+      if (
+        nextTx.type === 'transfer' &&
+        !nextTx.destinationAccountId &&
+        !nextTx.targetInvestmentAssetId
+      ) {
+        nextTx.type = 'expense';
+        nextTx.categoryId =
+          nextTx.categoryId && categoryIds.has(nextTx.categoryId)
+            ? nextTx.categoryId
+            : categoryIds.has('cat-aportes')
+            ? 'cat-aportes'
+            : defaultExpenseCatId;
         modified = true;
       }
 

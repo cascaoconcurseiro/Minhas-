@@ -7,6 +7,7 @@ import {
   calculateAccountBalances,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
+  calculateDailyCashFlow,
   calculateMonthlySummary,
   calculatePeriodReport,
   calculateSixMonthComparativeSeries,
@@ -951,3 +952,97 @@ test('calculateSixMonthComparativeSeries builds 6-month evolution of income vs e
   assert.equal(report6m.months[4].healthStatus, 'deficit'); // 2026-09
   assert.equal(report6m.months[5].healthStatus, 'surplus'); // 2026-10
 });
+
+test('calculateDailyCashFlow reconciles end-of-month balance with calculateAccountBalances including direct investment transfers and excluded accounts', () => {
+  const accounts: BankAccount[] = [
+    {
+      id: 'acc-main',
+      name: 'Itaú Principal',
+      institution: 'Itaú',
+      type: 'checking',
+      initialBalance: 5000,
+      color: '#0f172a',
+      includeInTotal: true,
+    },
+    {
+      id: 'acc-savings',
+      name: 'Nubank Caixinha',
+      institution: 'Nubank',
+      type: 'savings',
+      initialBalance: 1000,
+      color: '#7c3aed',
+      includeInTotal: true,
+    },
+    {
+      id: 'acc-excluded',
+      name: 'Conta Isolada PJ',
+      institution: 'Cora',
+      type: 'checking',
+      initialBalance: 10000,
+      color: '#64748b',
+      includeInTotal: false,
+    },
+  ];
+
+  const txs: Transaction[] = [
+    // Internal transfer between two included accounts -> does not change total included liquidity
+    {
+      id: 'tx-cf-1',
+      description: 'Transferência Interna Itaú -> Nubank',
+      amount: 1200,
+      date: '2026-10-05',
+      competenceMonth: '2026-10',
+      type: 'transfer',
+      status: 'paid',
+      categoryId: 'cat-transfer',
+      accountId: 'acc-main',
+      destinationAccountId: 'acc-savings',
+      paymentMethod: 'transfer',
+      recurrence: 'single',
+    },
+    // Direct investment transfer out of acc-main -> reduces liquid included cash by R$ 800
+    {
+      id: 'tx-cf-2',
+      description: 'Aporte Direto Tesouro Selic',
+      amount: 800,
+      date: '2026-10-10',
+      competenceMonth: '2026-10',
+      type: 'transfer',
+      status: 'paid',
+      categoryId: 'cat-aportes',
+      accountId: 'acc-main',
+      targetInvestmentAssetId: 'inv-selic',
+      paymentMethod: 'transfer',
+      recurrence: 'single',
+    },
+    // Expense on excluded account -> should not affect included daily cash flow
+    {
+      id: 'tx-cf-3',
+      description: 'Imposto PJ Isolado',
+      amount: 900,
+      date: '2026-10-12',
+      competenceMonth: '2026-10',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-outros',
+      accountId: 'acc-excluded',
+      paymentMethod: 'boleto',
+      recurrence: 'single',
+    },
+  ];
+
+  const balances = calculateAccountBalances(accounts, txs, '2026-10');
+  const includedIds = new Set(accounts.filter((a) => a.includeInTotal).map((a) => a.id));
+  const includedRealizedEnd = balances
+    .filter((b) => includedIds.has(b.accountId))
+    .reduce((sum, b) => sum + b.currentBalance, 0);
+
+  // Starting included balance = 5000 + 1000 = 6000. Minus 800 investment contribution = 5200.
+  assert.equal(includedRealizedEnd, 5200);
+
+  const cashFlowPoints = calculateDailyCashFlow(accounts, txs, '2026-10');
+  const lastDayPoint = cashFlowPoints[cashFlowPoints.length - 1];
+  assert.equal(lastDayPoint.cumulativeBalance, includedRealizedEnd);
+  assert.equal(lastDayPoint.projectedBalance, includedRealizedEnd);
+});
+

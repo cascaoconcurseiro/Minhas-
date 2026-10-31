@@ -152,7 +152,10 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   // Personal DRE & Consolidated Wealth calculation for selectedMonth
   const personalDre = useMemo(() => {
     const monthTxs = transactions.filter(
-      (tx) => tx.competenceMonth === selectedMonth && !tx.isInvoicePayment
+      (tx) =>
+        tx.competenceMonth === selectedMonth &&
+        !tx.isInvoicePayment &&
+        !tx.isCompanionOnlyExpense
     );
     let operationalIncome = 0;
     let dividendIncome = 0;
@@ -161,12 +164,26 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
     for (const tx of monthTxs) {
       if (tx.type === 'income') {
-        if (tx.categoryId === 'cat-rendimentos') {
+        const isFamilyReimbursement =
+          tx.id.startsWith('tx-reimb-') ||
+          tx.description.toLowerCase().includes('reembolso compartilhado') ||
+          tx.description.toLowerCase().includes('acerto compensado');
+        if (tx.categoryId === 'cat-rendimentos' && !isFamilyReimbursement) {
           dividendIncome += tx.amount;
         } else {
           operationalIncome += tx.amount;
         }
       } else if (tx.type === 'expense') {
+        // Respect shared expenses paid by family members (skip if already settled via tx-reimb-, or count only user share if pending)
+        if (tx.isShared && tx.sharedPaidBy === 'member') {
+          if (tx.sharedStatus === 'received') continue;
+          const userShare =
+            typeof tx.sharedAmount === 'number' && tx.sharedAmount > 0
+              ? tx.sharedAmount
+              : Math.round((tx.amount / 2) * 100) / 100;
+          consumptionExpenses += userShare;
+          continue;
+        }
         if (
           tx.categoryId === 'cat-aportes' ||
           tx.categoryId === 'cat-rendimentos' ||
