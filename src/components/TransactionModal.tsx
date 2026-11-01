@@ -12,6 +12,7 @@ import {
   Repeat,
   RotateCcw,
   Sparkles,
+  Tag,
   UserPlus,
   Users,
   Wallet,
@@ -38,8 +39,11 @@ import {
   addMonthsToYearMonth,
   CascadeScope,
   CreateTransactionBatchInput,
+  extractAvailableTransactionTags,
   formatBRL,
   formatMonthYearPT,
+  normalizeSearchText,
+  normalizeTransactionTags,
   parseBRLInput,
   resolveCreditCardInvoiceMonth,
 } from '../utils/financeRules';
@@ -144,6 +148,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [cascadeScope, setCascadeScope] =
     useState<CascadeScope>('this_and_future');
   const [notes, setNotes] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [error, setError] = useState('');
 
   // Progressive disclosure toggle switch states (Liga/Desliga)
@@ -292,6 +298,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setFixedMonthsCount(editingTransaction.installmentTotal || 12);
       setCascadeScope('this_and_future');
       setNotes(editingTransaction.notes || '');
+      setTags(normalizeTransactionTags(editingTransaction.tags));
+      setTagInput('');
       setIsNotesOpen(Boolean(editingTransaction.notes));
 
       setIsShared(Boolean(editingTransaction.isShared && !editingTransaction.tripId));
@@ -399,6 +407,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setInstallmentTotal(2);
     setFixedMonthsCount(12);
     setNotes('');
+    setTags([]);
+    setTagInput('');
     setIsNotesOpen(false);
     setIsShared(false);
     setSharedMemberId(familyMembers[0]?.id || '');
@@ -1112,6 +1122,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     selectedMonth,
   ]);
 
+  const availableTagSuggestions = useMemo(() => {
+    const allSuggested = extractAvailableTransactionTags(transactions, true);
+    const activeKeys = new Set(tags.map((t) => normalizeSearchText(t)));
+    return allSuggested
+      .filter((t) => !activeKeys.has(normalizeSearchText(t)))
+      .slice(0, 8);
+  }, [transactions, tags]);
+
   if (!isOpen) return null;
 
   const calculatedSharedPreview = (): number => {
@@ -1160,6 +1178,32 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setAutoAppliedCategoryNotice(
       `Categoria "${sug.categoryName}" aplicada com base no histórico!`
     );
+  };
+
+  const handleAddTag = (rawValue?: string) => {
+    const targetRaw = rawValue !== undefined ? rawValue : tagInput;
+    if (!targetRaw || !targetRaw.trim()) return;
+    const nextTags = normalizeTransactionTags([...tags, targetRaw]);
+    setTags(nextTags);
+    if (rawValue === undefined) {
+      setTagInput('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    const targetKey = normalizeSearchText(tagToRemove);
+    setTags((prev) => prev.filter((t) => normalizeSearchText(t) !== targetKey));
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (tagInput.trim()) {
+        handleAddTag();
+      }
+    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+      setTags((prev) => prev.slice(0, -1));
+    }
   };
 
   const toggleTripParticipant = (partId: string) => {
@@ -1235,6 +1279,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     const isCardBillSettlement =
       entryMode === 'transfer' && transferSubMode === 'card_bill_payment';
 
+    const finalTags = normalizeTransactionTags(
+      tagInput.trim() ? [...tags, tagInput] : tags
+    );
+
     const batchInput: CreateTransactionBatchInput = {
       description: description.trim(),
       amount: numericAmount,
@@ -1291,6 +1339,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       fixedMonthsCount:
         safeRecurrence === 'fixed' ? fixedMonthsCount : undefined,
       notes: notes.trim() || undefined,
+      tags: finalTags.length > 0 ? finalTags : undefined,
       isShared:
         !activeMultiCurrency && entryMode !== 'income' && entryMode !== 'transfer'
           ? isShared
@@ -2682,6 +2731,102 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* Custom Tags Section: Granular Categorization beyond Standard Categories */}
+            <div
+              data-testid="custom-tags-section"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3 sm:p-3.5 space-y-2.5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label
+                  htmlFor="tx-tag-input"
+                  className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"
+                >
+                  <Tag className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Tags Personalizadas (#tags)</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Categorize além das categorias padrão ({tags.length}/12)
+                </span>
+              </div>
+
+              {/* Active Tags Chips */}
+              {tags.length > 0 && (
+                <div
+                  data-testid="tx-active-tags-list"
+                  className="flex flex-wrap items-center gap-1.5"
+                >
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      data-testid="tx-active-tag-chip"
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 text-xs font-bold text-emerald-900 dark:text-emerald-200 shadow-2xs"
+                    >
+                      <span className="text-emerald-600 dark:text-emerald-400 font-mono">#</span>
+                      <span>{tag}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        aria-label={`Remover tag ${tag}`}
+                        className="ml-0.5 rounded-full p-0.5 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Tag Input + Add Button */}
+              <div className="flex items-stretch gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-slate-400">
+                    #
+                  </span>
+                  <input
+                    id="tx-tag-input"
+                    data-testid="tx-tag-input"
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagInputKeyDown}
+                    placeholder="Ex: reembolsavel, imposto-renda, projeto-casa (Enter ou vírgula)"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 pl-7 pr-3 py-1.5 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-testid="tx-add-tag-btn"
+                  onClick={() => handleAddTag()}
+                  disabled={!tagInput.trim()}
+                  className="inline-flex items-center gap-1 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 disabled:opacity-40 transition-colors shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Adicionar Tag</span>
+                </button>
+              </div>
+
+              {/* Quick Suggestion Tag Pills */}
+              {availableTagSuggestions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                  <span className="text-[10px] font-semibold text-slate-400 mr-1">
+                    Sugestões rápidas:
+                  </span>
+                  {availableTagSuggestions.map((sugTag) => (
+                    <button
+                      key={sugTag}
+                      type="button"
+                      data-testid="tx-suggested-tag-pill"
+                      onClick={() => handleAddTag(sugTag)}
+                      className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors"
+                    >
+                      <span className="text-slate-400 font-mono">+#</span>
+                      <span>{sugTag}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Zone 2.2: Advanced Progressive Disclosure Cards (Viagem, Familiar & Notas via Botões Liga/Desliga) */}
             {entryMode !== 'transfer' && (

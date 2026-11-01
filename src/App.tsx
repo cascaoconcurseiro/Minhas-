@@ -1120,6 +1120,7 @@ export default function App() {
           creditCardId: input.creditCardId,
           paymentMethod: input.paymentMethod,
           notes: input.notes,
+          tags: input.tags && input.tags.length > 0 ? input.tags : undefined,
           isShared: input.isShared,
           sharedMemberId: input.sharedMemberId,
           sharedAmount: input.sharedAmount,

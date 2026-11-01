@@ -741,6 +741,7 @@ export function compactTransactionForStorage(tx: Transaction): Partial<Transacti
   for (const [key, value] of Object.entries(tx)) {
     if (value === undefined || value === null) continue;
     if (typeof value === 'string' && value.trim() === '') continue;
+    if (Array.isArray(value) && value.length === 0) continue;
     if (key === 'isShared' && value === false) continue;
     if (key === 'isInvoicePayment' && value === false) continue;
     if (key === 'isAnticipated' && value === false) continue;

@@ -3,18 +3,23 @@ import assert from 'node:assert/strict';
 import {
   addMonthsToYearMonth,
   applyCascadeTransactionDelete,
+  applyCascadeTransactionEdit,
   calculate503020Rule,
   calculateAccountBalances,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
   calculateDailyCashFlow,
+  calculateFinancialHealthScore360,
   calculateMonthlySummary,
   calculatePeriodReport,
   calculateSixMonthComparativeSeries,
   createTransactionBatch,
+  extractAvailableTransactionTags,
   getBudgetAlerts,
   getEffectiveExpenseAmountForUser,
   normalizeSearchText,
+  normalizeTransactionTag,
+  normalizeTransactionTags,
   parseBRLInput,
   payCreditCardInvoice,
   resolveCreditCardInvoiceMonth,
@@ -1045,4 +1050,199 @@ test('calculateDailyCashFlow reconciles end-of-month balance with calculateAccou
   assert.equal(lastDayPoint.cumulativeBalance, includedRealizedEnd);
   assert.equal(lastDayPoint.projectedBalance, includedRealizedEnd);
 });
+
+test('calculateFinancialHealthScore360 computes 0-1000 score, net worth, runway months, and safe-to-spend per day', () => {
+  const emptyMonthly = calculateMonthlySummary([], [], [], '2026-11');
+  const cleanHealth = calculateFinancialHealthScore360({
+    selectedMonth: '2026-11',
+    monthlySummary: emptyMonthly,
+    accounts: [],
+    accountBalances: [],
+    cards: [],
+    cardSummaries: [],
+    categoryBreakdown: [],
+    investments: [],
+    referenceDateIso: '2026-11-01',
+  });
+  assert.equal(cleanHealth.isCleanStart, true);
+  assert.equal(cleanHealth.grade, 'onboarding');
+  assert.equal(cleanHealth.daysRemainingInMonth, 30);
+
+  const accounts: BankAccount[] = [
+    {
+      id: 'acc-1',
+      name: 'Itaú Uniclass',
+      institution: 'Itaú',
+      type: 'checking',
+      initialBalance: 12000,
+      color: '#0f172a',
+      includeInTotal: true,
+    },
+  ];
+  const cards: CreditCard[] = [
+    {
+      id: 'card-1',
+      name: 'Nubank Ultravioleta',
+      brand: 'Mastercard',
+      limit: 10000,
+      closingDay: 20,
+      dueDay: 28,
+      defaultAccountId: 'acc-1',
+      color: '#7c3aed',
+    },
+  ];
+  const txs: Transaction[] = [
+    {
+      id: 'tx-h-1',
+      description: 'Salário Mensal',
+      amount: 10000,
+      date: '2026-11-05',
+      competenceMonth: '2026-11',
+      type: 'income',
+      status: 'paid',
+      categoryId: 'cat-salario',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-h-2',
+      description: 'Aluguel e Condomínio',
+      amount: 3000,
+      date: '2026-11-10',
+      competenceMonth: '2026-11',
+      type: 'expense',
+      status: 'paid',
+      categoryId: 'cat-moradia',
+      accountId: 'acc-1',
+      paymentMethod: 'pix',
+      recurrence: 'single',
+    },
+    {
+      id: 'tx-h-3',
+      description: 'Supermercado no Crédito',
+      amount: 1000,
+      date: '2026-11-12',
+      competenceMonth: '2026-11',
+      type: 'expense',
+      status: 'pending',
+      categoryId: 'cat-mercado',
+      creditCardId: 'card-1',
+      paymentMethod: 'credit_card',
+      recurrence: 'single',
+    },
+  ];
+
+  const monthlySummary = calculateMonthlySummary(accounts, cards, txs, '2026-11');
+  const accountBalances = calculateAccountBalances(accounts, txs, '2026-11');
+  const cardSummaries = cards.map((c) => calculateCreditCardSummary(c, txs, '2026-11'));
+  const categoryBreakdown = calculateCategoryBreakdown(
+    INITIAL_CATEGORIES,
+    txs,
+    '2026-11',
+    monthlySummary.expenseTotal
+  );
+
+  const activeHealth = calculateFinancialHealthScore360({
+    selectedMonth: '2026-11',
+    monthlySummary,
+    accounts,
+    accountBalances,
+    cards,
+    cardSummaries,
+    categoryBreakdown,
+    investments: [
+      {
+        id: 'inv-1',
+        ticker: 'TESOURO SELIC 2029',
+        name: 'Tesouro Selic',
+        assetClass: 'renda_fixa_pos',
+        institution: 'BTG',
+        quantity: 2,
+        averagePrice: 5000,
+        currentPrice: 5500,
+        indexerLabel: '100% SELIC',
+        liquidity: 'D+0 (Liquidez Diária)',
+        monthlyYieldPercent: 0.9,
+        isTaxExempt: false,
+      },
+    ],
+    referenceDateIso: '2026-11-16', // 15 days remaining in November (16..30)
+  });
+
+  // Liquid balance = 12000 + 10000 - 3000 = 19000. Investments = 11000. Card debt = 1000. Net worth = 29000.
+  assert.equal(activeHealth.isCleanStart, false);
+  assert.equal(activeHealth.liquidBalance, 19000);
+  assert.equal(activeHealth.investmentsTotal, 11000);
+  assert.equal(activeHealth.creditCardDebt, 1000);
+  assert.equal(activeHealth.netWorth, 29000);
+  assert.equal(activeHealth.daysRemainingInMonth, 15);
+  // Projected surplus = 10000 - 4000 = 6000 -> 6000 / 15 days = R$ 400.00/day
+  assert.equal(activeHealth.safeToSpendPerDay, 400);
+  assert.ok(activeHealth.score >= 850);
+  assert.equal(activeHealth.grade, 'excellent');
+});
+
+test('custom tags: normalizeTransactionTag, normalizeTransactionTags, createTransactionBatch, applyCascadeTransactionEdit, and searchTransactionsGlobal', () => {
+  assert.equal(normalizeTransactionTag('  #Reembolsável Corporativo! '), 'Reembolsável-Corporativo');
+  assert.equal(normalizeTransactionTag('###imposto_renda'), 'imposto_renda');
+  assert.equal(normalizeTransactionTag('   '), '');
+
+  const normalizedList = normalizeTransactionTags([
+    '#reembolsavel, #Imposto-Renda',
+    'reembolsável',
+    '  Projeto Casa ',
+    '',
+  ]);
+  assert.deepEqual(normalizedList, ['reembolsavel', 'Imposto-Renda', 'Projeto-Casa']);
+
+  // Batch creation with tags on installments
+  const instBatch = createTransactionBatch({
+    description: 'Notebook Dell Inspiron',
+    amount: 4500,
+    amountMode: 'total_divided',
+    date: '2026-11-10',
+    competenceMonth: '2026-11',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-educacao',
+    creditCardId: 'card-1',
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentTotal: 3,
+    tags: ['#trabalho, #dedutivel-ir', ' home office '],
+  });
+
+  assert.equal(instBatch.length, 3);
+  for (const parcel of instBatch) {
+    assert.deepEqual(parcel.tags, ['trabalho', 'dedutivel-ir', 'home-office']);
+  }
+
+  // Cascade edit propagates updated tags across series
+  const editedFirst: Transaction = {
+    ...instBatch[0],
+    tags: ['trabalho', 'reembolsado-empresa'],
+  };
+  const cascadeRes = applyCascadeTransactionEdit(instBatch, editedFirst, 'all_series');
+  assert.equal(cascadeRes.affectedCount, 3);
+  for (const tx of cascadeRes.updatedTransactions) {
+    assert.deepEqual(tx.tags, ['trabalho', 'reembolsado-empresa']);
+  }
+
+  // Extract available tags ranks user tags first
+  const extracted = extractAvailableTransactionTags(cascadeRes.updatedTransactions, false);
+  assert.deepEqual(extracted, ['reembolsado-empresa', 'trabalho']);
+
+  // Global search matches by #tag
+  const searchMatches = searchTransactionsGlobal(
+    cascadeRes.updatedTransactions,
+    INITIAL_CATEGORIES,
+    { query: '#reembolsado-empresa' }
+  );
+  assert.equal(searchMatches.length, 3);
+  assert.equal(searchMatches[0].matchedByTag, true);
+});
+
+
+
 

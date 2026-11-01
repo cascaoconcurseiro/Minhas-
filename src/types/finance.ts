@@ -111,6 +111,7 @@ export interface Transaction {
   installmentNumber?: number;
   installmentTotal?: number;
   notes?: string;
+  /** Custom user-defined tags for granular expense/income categorization beyond standard categories (e.g. ['reembolsavel', 'imposto-renda', 'projeto-x']) */
   tags?: string[];
   isInvoicePayment?: boolean; // True when this bank expense pays off a credit card invoice
   settledCardId?: string; // CreditCard ID whose invoice was settled by this payment

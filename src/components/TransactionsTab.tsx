@@ -10,6 +10,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Tag,
   Trash2,
 } from 'lucide-react';
 import {
@@ -19,6 +20,7 @@ import {
   Transaction,
 } from '../types/finance';
 import {
+  extractAvailableTransactionTags,
   formatBRL,
   formatShortDateBR,
   getEffectiveExpenseAmountForUser,
@@ -86,6 +88,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
   const [actionSheetTx, setActionSheetTx] = useState<Transaction | null>(null);
   const [isReconcileMode, setIsReconcileMode] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
@@ -126,8 +129,13 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     return set;
   }, [transactions, selectedMonth]);
 
+  const usedTagsInLedger = useMemo(
+    () => extractAvailableTransactionTags(transactions, false),
+    [transactions]
+  );
+
   const monthTransactions = useMemo(() => {
-    const normalizedQuery = normalizeSearchText(effectiveSearchQuery);
+    const normalizedQuery = normalizeSearchText(effectiveSearchQuery).replace(/#/g, '');
     const tokens = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
 
     return transactions
@@ -152,6 +160,11 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
         return tx.accountId === sourceFilter || tx.creditCardId === sourceFilter;
       })
       .filter((tx) => {
+        if (tagFilter === 'all') return true;
+        const normTarget = normalizeSearchText(tagFilter);
+        return (tx.tags || []).some((t) => normalizeSearchText(t) === normTarget);
+      })
+      .filter((tx) => {
         if (tokens.length === 0) return true;
         const cat = catMap.get(tx.categoryId);
         const catName = cat?.name || '';
@@ -170,6 +183,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     statusFilter,
     categoryFilter,
     sourceFilter,
+    tagFilter,
     effectiveSearchQuery,
     catMap,
   ]);
@@ -514,6 +528,45 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             </optgroup>
           </select>
         </div>
+
+        {usedTagsInLedger.length > 0 && (
+          <div
+            data-testid="ledger-tag-filter-bar"
+            className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100"
+          >
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 mr-1">
+              <Tag className="h-3 w-3 text-emerald-600" />
+              Filtrar por Tag:
+            </span>
+            <button
+              type="button"
+              onClick={() => setTagFilter('all')}
+              className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                tagFilter === 'all'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Todas
+            </button>
+            {usedTagsInLedger.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                data-testid={`ledger-filter-tag-${tag}`}
+                onClick={() => setTagFilter(tagFilter === tag ? 'all' : tag)}
+                className={`inline-flex items-center gap-0.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                  tagFilter === tag
+                    ? 'border-emerald-600 bg-emerald-600 text-white'
+                    : 'border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100'
+                }`}
+              >
+                <span className="font-mono">#</span>
+                <span>{tag}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* High-Density Ledger Table */}
@@ -633,6 +686,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                   setStatusFilter('all');
                   setCategoryFilter('all');
                   setSourceFilter('all');
+                  setTagFilter('all');
                 }}
                 className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
@@ -869,6 +923,30 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                                   </>
                                 )}
                               </div>
+                              {tx.tags && tx.tags.length > 0 && (
+                                <div
+                                  data-testid="ledger-row-tags"
+                                  className="mt-1 flex flex-wrap items-center gap-1"
+                                >
+                                  {tx.tags.map((tag) => (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      data-testid="ledger-tag-badge"
+                                      onClick={() =>
+                                        setTagFilter((prev) => (prev === tag ? 'all' : tag))
+                                      }
+                                      title={`Filtrar pela tag #${tag}`}
+                                      className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors"
+                                    >
+                                      <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                                        #
+                                      </span>
+                                      <span>{tag}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

@@ -425,7 +425,8 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                   const matchedFields: string[] = [];
                   if (item.matchedByDescription) matchedFields.push('Descrição');
                   if (item.matchedByCategory) matchedFields.push('Categoria');
-                  if (item.matchedByNote) matchedFields.push('Nota');
+                  if (item.matchedByTag) matchedFields.push('Tag');
+                  if (item.matchedByNote && !item.matchedByTag) matchedFields.push('Nota');
 
                   return (
                     <tr
@@ -442,7 +443,7 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                         </div>
                       </td>
 
-                      {/* Description + Note + Match Reason */}
+                      {/* Description + Note + Tags + Match Reason */}
                       <td className="py-3 px-4 align-top">
                         <div className="font-semibold text-slate-900 flex flex-wrap items-center gap-1.5">
                           <span>{tx.description}</span>
@@ -452,6 +453,22 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                             </span>
                           )}
                         </div>
+
+                        {tx.tags && tx.tags.length > 0 && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {tx.tags.map((tag) => (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => onChangeQuery(`#${tag}`)}
+                                className="inline-flex items-center gap-0.5 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                              >
+                                <span className="font-mono text-emerald-600">#</span>
+                                <span>{tag}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
                         {tx.notes && (
                           <p className="mt-0.5 text-[11px] text-slate-600">

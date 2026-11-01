@@ -8,6 +8,7 @@ import {
   CurrencyCode,
   CurrencyPaymentRegime,
   DailyCashFlowPoint,
+  InvestmentAsset,
   MonthlyComparisonRow,
   MonthlyFinancialSummary,
   PaymentMethod,
@@ -179,12 +180,118 @@ export interface CreateTransactionBatchInput {
   isCompanionOnlyExpense?: boolean;
 }
 
+export const DEFAULT_POPULAR_TRANSACTION_TAGS: string[] = [
+  'reembolsavel',
+  'imposto-renda',
+  'trabalho',
+  'viagem',
+  'emergencia',
+  'presente',
+  'assinatura',
+  'familia',
+];
+
+/**
+ * Normalizes a single custom transaction tag:
+ * - Strips leading '#' symbols and surrounding whitespace
+ * - Replaces internal whitespace sequences with a hyphen '-'
+ * - Preserves letters (including Portuguese diacritics), digits, hyphens, and underscores
+ * - Enforces a maximum of 30 characters
+ */
+export function normalizeTransactionTag(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const cleaned = raw
+    .trim()
+    .replace(/^#+/, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}_-]/gu, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 30);
+  return cleaned;
+}
+
+/**
+ * Normalizes and deduplicates an array of custom tags (or a comma-separated string),
+ * preserving original casing of the first occurrence while deduplicating case-insensitively.
+ * Bounded to at most 12 tags per transaction.
+ */
+export function normalizeTransactionTags(
+  rawTags?: string[] | string | null
+): string[] {
+  if (!rawTags) return [];
+  const rawList = Array.isArray(rawTags)
+    ? rawTags.flatMap((item) =>
+        typeof item === 'string' ? item.split(',') : []
+      )
+    : typeof rawTags === 'string'
+    ? rawTags.split(',')
+    : [];
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of rawList) {
+    const tag = normalizeTransactionTag(item);
+    if (!tag) continue;
+    const key = normalizeSearchText(tag);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(tag);
+    if (result.length >= 12) break;
+  }
+
+  return result;
+}
+
+/**
+ * Extracts all unique custom tags used across transactions (sorted by usage frequency descending),
+ * merged with curated Brazilian personal finance tag suggestions.
+ */
+export function extractAvailableTransactionTags(
+  transactions: Transaction[],
+  includeDefaults = true
+): string[] {
+  const counts = new Map<string, { display: string; count: number }>();
+
+  for (const tx of transactions) {
+    if (!tx.tags || !Array.isArray(tx.tags)) continue;
+    for (const raw of tx.tags) {
+      const normalized = normalizeTransactionTag(raw);
+      if (!normalized) continue;
+      const key = normalizeSearchText(normalized);
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(key, { display: normalized, count: 1 });
+      }
+    }
+  }
+
+  const sortedUserTags = Array.from(counts.values())
+    .sort((a, b) => b.count - a.count || a.display.localeCompare(b.display))
+    .map((entry) => entry.display);
+
+  if (!includeDefaults) {
+    return sortedUserTags;
+  }
+
+  return normalizeTransactionTags([
+    ...sortedUserTags,
+    ...DEFAULT_POPULAR_TRANSACTION_TAGS,
+  ]);
+}
+
 export function createTransactionBatch(
   input: CreateTransactionBatchInput,
   idPrefix = 'tx'
 ): Transaction[] {
   const baseMonth = input.competenceMonth || input.date.slice(0, 7);
   const groupId = `${idPrefix}-grp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const normalizedTags = normalizeTransactionTags(input.tags);
+  const cleanTags = normalizedTags.length > 0 ? normalizedTags : undefined;
 
   const tripExtras = {
     tripId: input.tripId,
@@ -256,7 +363,7 @@ export function createTransactionBatch(
         installmentNumber: instNumber,
         installmentTotal: totalCount,
         notes: input.notes,
-        tags: input.tags,
+        tags: cleanTags,
         isShared: input.isShared,
         sharedMemberId: input.sharedMemberId,
         sharedAmount: input.isShared ? instSharedAmount : undefined,
@@ -294,7 +401,7 @@ export function createTransactionBatch(
         recurrence: 'fixed',
         installmentGroupId: groupId,
         notes: input.notes,
-        tags: input.tags,
+        tags: cleanTags,
         isShared: input.isShared,
         sharedMemberId: input.sharedMemberId,
         sharedAmount: input.isShared ? input.sharedAmount : undefined,
@@ -325,7 +432,7 @@ export function createTransactionBatch(
       paymentMethod: input.paymentMethod,
       recurrence: 'single',
       notes: input.notes,
-      tags: input.tags,
+      tags: cleanTags,
       isShared: input.isShared,
       sharedMemberId: input.sharedMemberId,
       sharedAmount: input.isShared ? input.sharedAmount : undefined,
@@ -1311,6 +1418,7 @@ export interface GlobalSearchMatchItem {
   matchedByDescription: boolean;
   matchedByCategory: boolean;
   matchedByNote: boolean;
+  matchedByTag?: boolean;
   categoryName: string;
   subcategoryName?: string;
 }
@@ -1339,7 +1447,7 @@ export function searchTransactionsGlobal(
   categories: Category[],
   options: GlobalSearchFilterOptions
 ): GlobalSearchMatchItem[] {
-  const normalizedQuery = normalizeSearchText(options.query);
+  const normalizedQuery = normalizeSearchText(options.query).replace(/#/g, '');
   if (!normalizedQuery) return [];
 
   const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
@@ -1380,12 +1488,14 @@ export function searchTransactionsGlobal(
     const normCat = normalizeSearchText(
       subcategoryName ? `${categoryName} ${subcategoryName}` : categoryName
     );
+    const normTags = normalizeSearchText((tx.tags || []).join(' '));
     const normNote = normalizeSearchText(
       [tx.notes || '', ...(tx.tags || [])].join(' ')
     );
 
     const matchedByDescription = tokens.every((tk) => normDesc.includes(tk));
     const matchedByCategory = tokens.every((tk) => normCat.includes(tk));
+    const matchedByTag = Boolean(normTags) && tokens.every((tk) => normTags.includes(tk));
     const matchedByNote = tokens.every((tk) => normNote.includes(tk));
 
     // Also allow combined multi-token match across fields when fieldFilter is 'all'
@@ -1419,6 +1529,9 @@ export function searchTransactionsGlobal(
         matchedByNote:
           matchedByNote ||
           (!matchedByDescription && !matchedByCategory && tokens.some((tk) => normNote.includes(tk))),
+        matchedByTag:
+          matchedByTag ||
+          (Boolean(normTags) && tokens.some((tk) => normTags.includes(tk))),
         categoryName,
         subcategoryName,
       });
@@ -1672,6 +1785,7 @@ export function applyCascadeTransactionEdit(
           creditCardId: editedTx.creditCardId,
           paymentMethod: editedTx.paymentMethod,
           notes: editedTx.notes,
+          tags: editedTx.tags,
         };
       }
     }
@@ -1955,3 +2069,331 @@ export function calculateSixMonthComparativeSeries(
     financialHealthLabel,
   };
 }
+
+export interface FinancialHealthScore360 {
+  score: number; // 0 to 1000 (FEBRABAN / Planejamento Pessoal index)
+  grade: 'excellent' | 'good' | 'attention' | 'critical' | 'onboarding';
+  gradeLabel: string;
+  pillars: {
+    savingsScore: number; // 0-250
+    liquidityScore: number; // 0-250
+    creditScore: number; // 0-250
+    budgetDisciplineScore: number; // 0-250
+  };
+  netWorth: number; // Contas + Investimentos - Passivo de Cartões
+  liquidBalance: number; // Saldo total em contas bancárias
+  investmentsTotal: number; // Valor de mercado da carteira de ativos
+  creditCardDebt: number; // Limite total tomado em cartões
+  creditUsagePercent: number; // % de uso do limite total de cartões
+  runwayMonths: number; // Meses de custo de vida cobertos pela reserva líquida
+  safeToSpendPerDay: number; // Orçamento livre por dia até o fim do mês
+  daysRemainingInMonth: number;
+  isCleanStart: boolean;
+  recommendations: string[];
+}
+
+/**
+ * Calcula o Score de Saúde Financeira 360º (0 a 1000 pontos), Patrimônio Líquido Consolidado,
+ * Autonomia de Reserva de Emergência (Runway em meses) e o indicador "Livre para Gastar por Dia"
+ * (Safe-to-Spend).
+ */
+export function calculateFinancialHealthScore360(params: {
+  selectedMonth: string;
+  monthlySummary: MonthlyFinancialSummary;
+  accounts: BankAccount[];
+  accountBalances: AccountBalanceSummary[];
+  cards: CreditCard[];
+  cardSummaries: CreditCardSummary[];
+  categoryBreakdown: CategorySpendItem[];
+  investments?: InvestmentAsset[];
+  referenceDateIso?: string;
+}): FinancialHealthScore360 {
+  const {
+    selectedMonth,
+    monthlySummary,
+    accounts,
+    accountBalances,
+    cards,
+    cardSummaries,
+    categoryBreakdown,
+    investments = [],
+    referenceDateIso,
+  } = params;
+
+  const liquidBalance =
+    Math.round(
+      accountBalances.reduce((sum, b) => sum + b.currentBalance, 0) * 100
+    ) / 100;
+
+  const investmentsTotal =
+    Math.round(
+      investments.reduce(
+        (sum, inv) => sum + Math.max(0, inv.quantity) * Math.max(0, inv.currentPrice),
+        0
+      ) * 100
+    ) / 100;
+
+  const liquidInvestmentsTotal =
+    Math.round(
+      investments
+        .filter((inv) => inv.liquidity !== 'No Vencimento')
+        .reduce(
+          (sum, inv) => sum + Math.max(0, inv.quantity) * Math.max(0, inv.currentPrice),
+          0
+        ) * 100
+    ) / 100;
+
+  const creditCardDebt =
+    Math.round(
+      cardSummaries.reduce((sum, c) => sum + Math.max(0, c.usedLimit), 0) * 100
+    ) / 100;
+
+  const totalCreditLimit = cards.reduce((sum, c) => sum + Math.max(0, c.limit), 0);
+  const creditUsagePercent =
+    totalCreditLimit > 0
+      ? Math.round((creditCardDebt / totalCreditLimit) * 1000) / 10
+      : 0;
+
+  const netWorth =
+    Math.round((liquidBalance + investmentsTotal - creditCardDebt) * 100) / 100;
+
+  // Days remaining in selectedMonth
+  const [yStr, mStr] = selectedMonth.split('-');
+  const year = Number(yStr) || 2026;
+  const monthIdx = (Number(mStr) || 1) - 1;
+  const daysInMonth = new Date(Date.UTC(year, monthIdx + 1, 0)).getUTCDate();
+  const todayIso = referenceDateIso || new Date().toISOString().slice(0, 10);
+  const currentYearMonth = todayIso.slice(0, 7);
+
+  let daysRemainingInMonth = daysInMonth;
+  if (selectedMonth === currentYearMonth) {
+    const todayDay = Number(todayIso.slice(8, 10)) || 1;
+    daysRemainingInMonth = Math.max(1, daysInMonth - todayDay + 1);
+  } else if (selectedMonth < currentYearMonth) {
+    daysRemainingInMonth = 1;
+  }
+
+  // Safe to spend per day based on projected monthly surplus or remaining budget
+  const totalCategoryBudget = categoryBreakdown.reduce((s, c) => s + c.budget, 0);
+  const totalCategorySpent = categoryBreakdown.reduce((s, c) => s + c.spent, 0);
+  const remainingCategoryRoom =
+    totalCategoryBudget > 0 ? Math.max(0, totalCategoryBudget - totalCategorySpent) : 0;
+
+  const positiveSurplusRoom = Math.max(0, monthlySummary.netResultProjected);
+  const effectiveDisposableRoom =
+    monthlySummary.incomeTotal > 0
+      ? positiveSurplusRoom
+      : remainingCategoryRoom > 0
+      ? remainingCategoryRoom
+      : Math.max(0, monthlySummary.totalProjectedBalance);
+
+  const safeToSpendPerDay =
+    daysRemainingInMonth > 0
+      ? Math.round((effectiveDisposableRoom / daysRemainingInMonth) * 100) / 100
+      : 0;
+
+  // Runway in months (Emergency reserve coverage)
+  const monthlyBaselineExpense =
+    monthlySummary.expenseTotal > 0
+      ? monthlySummary.expenseTotal
+      : totalCategoryBudget > 0
+      ? totalCategoryBudget
+      : 0;
+
+  const totalEmergencyLiquidity = Math.max(0, liquidBalance + liquidInvestmentsTotal);
+  const runwayMonths =
+    monthlyBaselineExpense > 0
+      ? Math.round((totalEmergencyLiquidity / monthlyBaselineExpense) * 10) / 10
+      : totalEmergencyLiquidity > 0
+      ? 12
+      : 0;
+
+  const isCleanStart =
+    accounts.length === 0 &&
+    investments.length === 0 &&
+    monthlySummary.incomeTotal === 0 &&
+    monthlySummary.expenseTotal === 0;
+
+  if (isCleanStart) {
+    return {
+      score: 750,
+      grade: 'onboarding',
+      gradeLabel: 'Base Pronta p/ Ativação',
+      pillars: {
+        savingsScore: 200,
+        liquidityScore: 180,
+        creditScore: 250,
+        budgetDisciplineScore: 120,
+      },
+      netWorth: 0,
+      liquidBalance: 0,
+      investmentsTotal: 0,
+      creditCardDebt: 0,
+      creditUsagePercent: 0,
+      runwayMonths: 0,
+      safeToSpendPerDay: 0,
+      daysRemainingInMonth,
+      isCleanStart: true,
+      recommendations: [
+        'Cadastre sua primeira conta bancária ou carteira digital para acompanhar seu saldo líquido.',
+        'Registre suas receitas e despesas do mês para ativar o cálculo automático de Livre p/ Gastar Hoje.',
+        'Defina metas de orçamento na Regra 50/30/20 para monitorar seu índice de saúde financeira.',
+      ],
+    };
+  }
+
+  // 1. Savings Score (0-250)
+  let savingsScore = 0;
+  if (monthlySummary.incomeTotal > 0) {
+    if (monthlySummary.savingsRateProjected >= 20) {
+      savingsScore = 250;
+    } else if (monthlySummary.savingsRateProjected >= 0) {
+      savingsScore = Math.round(125 + (monthlySummary.savingsRateProjected / 20) * 125);
+    } else {
+      const deficitRatio = Math.min(
+        1,
+        Math.abs(monthlySummary.netResultProjected) / monthlySummary.incomeTotal
+      );
+      savingsScore = Math.max(0, Math.round(100 * (1 - deficitRatio)));
+    }
+  } else if (monthlySummary.expenseTotal === 0) {
+    savingsScore = 180;
+  } else {
+    savingsScore = 60;
+  }
+
+  // 2. Liquidity & Emergency Runway Score (0-250)
+  let liquidityScore = 0;
+  if (runwayMonths >= 6) {
+    liquidityScore = 250;
+  } else if (runwayMonths > 0) {
+    liquidityScore = Math.round((runwayMonths / 6) * 250);
+  } else if (liquidBalance > 0) {
+    liquidityScore = 150;
+  }
+
+  // 3. Credit Card Limit Utilization Score (0-250)
+  let creditScore = 250;
+  if (cards.length > 0 && totalCreditLimit > 0) {
+    if (creditUsagePercent <= 30) {
+      creditScore = 250;
+    } else if (creditUsagePercent <= 70) {
+      creditScore = Math.round(250 - ((creditUsagePercent - 30) / 40) * 130);
+    } else {
+      creditScore = Math.max(
+        0,
+        Math.round(120 - ((Math.min(100, creditUsagePercent) - 70) / 30) * 120)
+      );
+    }
+  }
+
+  // 4. Budget Discipline Score (0-250)
+  const overCount = categoryBreakdown.filter((c) => c.status === 'over').length;
+  const warningCount = categoryBreakdown.filter((c) => c.status === 'warning').length;
+  const budgetDisciplineScore = Math.max(
+    0,
+    250 - overCount * 55 - warningCount * 20
+  );
+
+  const score = Math.min(
+    1000,
+    Math.max(0, savingsScore + liquidityScore + creditScore + budgetDisciplineScore)
+  );
+
+  let grade: FinancialHealthScore360['grade'] = 'good';
+  let gradeLabel = 'Saudável';
+  if (score >= 800) {
+    grade = 'excellent';
+    gradeLabel = 'Excelente (Referência)';
+  } else if (score >= 650) {
+    grade = 'good';
+    gradeLabel = 'Saudável';
+  } else if (score >= 450) {
+    grade = 'attention';
+    gradeLabel = 'Atenção Moderada';
+  } else {
+    grade = 'critical';
+    gradeLabel = 'Crítico · Requer Ajuste';
+  }
+
+  const recommendations: string[] = [];
+  if (
+    monthlySummary.incomeTotal === 0 &&
+    monthlySummary.expenseTotal === 0 &&
+    liquidBalance > 0
+  ) {
+    recommendations.push(
+      `Ciclo de ${formatMonthYearPT(
+        selectedMonth
+      )} iniciado com saldo acumulado de ${formatBRL(
+        liquidBalance
+      )}. Registre as receitas e despesas previstas do mês para calibrar sua meta de poupança.`
+    );
+  } else if (monthlySummary.netResultProjected < 0) {
+    recommendations.push(
+      `Suas despesas superam as receitas em ${formatBRL(
+        Math.abs(monthlySummary.netResultProjected)
+      )} neste mês. Priorize renegociar ou adiar gastos variáveis.`
+    );
+  } else if (
+    monthlySummary.incomeTotal > 0 &&
+    monthlySummary.savingsRateProjected < 20
+  ) {
+    const missingTo20 = Math.max(
+      0,
+      monthlySummary.incomeTotal * 0.2 - monthlySummary.netResultProjected
+    );
+    recommendations.push(
+      `Você está poupando ${monthlySummary.savingsRateProjected}% da renda. Economize mais ${formatBRL(
+        missingTo20
+      )} para atingir o padrão ouro de 20%.`
+    );
+  }
+
+  if (overCount > 0) {
+    recommendations.push(
+      `${overCount} categoria(s) ultrapassaram o teto mensal. Revise os alertas de orçamento para reequilibrar o mês.`
+    );
+  }
+
+  if (runwayMonths < 6 && monthlyBaselineExpense > 0) {
+    recommendations.push(
+      `Sua reserva de liquidez cobre ${runwayMonths} mês(es) do seu custo mensal (meta ideal: 6 meses em Tesouro Selic / CDB D+0).`
+    );
+  }
+
+  if (creditUsagePercent > 50) {
+    recommendations.push(
+      `Você está utilizando ${creditUsagePercent}% do limite total dos cartões. Manter abaixo de 30% preserva sua saúde de crédito.`
+    );
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push(
+      'Parabéns! Seu fluxo de caixa, reserva de liquidez e limites de cartão estão no padrão máximo de excelência.'
+    );
+  }
+
+  return {
+    score,
+    grade,
+    gradeLabel,
+    pillars: {
+      savingsScore,
+      liquidityScore,
+      creditScore,
+      budgetDisciplineScore,
+    },
+    netWorth,
+    liquidBalance,
+    investmentsTotal,
+    creditCardDebt,
+    creditUsagePercent,
+    runwayMonths,
+    safeToSpendPerDay,
+    daysRemainingInMonth,
+    isCleanStart: false,
+    recommendations: recommendations.slice(0, 3),
+  };
+}
+
