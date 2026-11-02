@@ -8,7 +8,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 
 1. **[Visão Geral e Arquitetura (`README.md`)](./README.md)** — Visão executiva, módulos do sistema, stack tecnológica, instalação e testes.
 2. **[Documentação do Banco de Dados e Persistência (`docs/DATABASE_DOCUMENTATION.md`)](./docs/DATABASE_DOCUMENTATION.md)** — Esquema completo do Cloud Firestore (`firebase-blueprint.json`), regras de segurança (`firestore.rules`), dicionário de entidades, diagrama ER e auditoria SSOT.
-3. **[Arquitetura Técnica, Motores de Regras e API REST (`docs/ARCHITECTURE_AND_API.md`)](./docs/ARCHITECTURE_AND_API.md)** — Especificação das rotas do servidor Express (`server.ts`), motores matemáticos puros (`src/utils/*.ts`) e pipeline de CI/CD.
+3. **[Arquitetura Técnica, Motores de Regras e API REST (`docs/ARCHITECTURE_AND_API.md`)](./docs/ARCHITECTURE_AND_API.md)** — Especificação das rotas do servidor Express (`backend/app.ts`), motores matemáticos puros (`src/utils/*.ts`) e pipeline de CI/CD.
 4. **[Especificação de Segurança Firestore (`security_spec.md`)](./security_spec.md)** — Invariantes de segurança e proteção contra payloads inválidos.
 
 ---
@@ -20,8 +20,8 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 | **Frontend** | React 19 + TypeScript 7 + Vite 8 | Interface reativa SPA e PWA instalável |
 | **Estilização** | Tailwind CSS v4 + Lucide Icons | Design system responsivo (Light / Dark Mode) |
 | **Visualização de Dados** | Recharts + SVG Custom Charts | Gráficos comparativos de 6 meses, rosca, curvas e progresso |
-| **Backend / API** | Node.js + Express 4 (`server.ts`) | Proxy seguro para cotações B3/Google Finance, câmbio ao vivo e SMTP |
-| **Banco de Dados & Auth** | Firebase Authentication + Cloud Firestore | Autenticação e sincronização em nuvem em tempo real |
+| **Backend / API** | Node.js + Express 4 (`backend/app.ts`, exposto em `/api/*`) | Proxy seguro para cotações B3/Google Finance, câmbio ao vivo, SMTP e workspace Neon |
+| **Banco de Dados & Auth** | Firebase Authentication + Neon PostgreSQL; Firestore como espelho durante a migração | Login Firebase e workspace financeiro persistido no servidor |
 | **Inteligência & Cotações** | `@google/genai` (Google Search Grounding) | Consulta de câmbio comercial ao vivo e cotações internacionais |
 | **Relatórios Executivos** | `jspdf` | Exportação de relatórios financeiros mensais e de viagens em PDF |
 | **Testes Automatizados** | `node:test` + `tsx` + Playwright | 69 testes unitários determinísticos das regras financeiras e validação E2E |
@@ -128,7 +128,8 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 ├── firebase-blueprint.json            # Blueprint estrutural das entidades e coleções Firestore
 ├── firestore.rules                    # Regras de segurança Zero-Trust do Cloud Firestore
 ├── security_spec.md                   # Especificação de invariantes de segurança do banco
-├── server.ts                          # Servidor Express 4 + Vite middleware e rotas /api/*
+├── backend/app.ts                     # Rotas Express e integração Neon
+├── api/[...path].ts                   # Adaptador das rotas Express para Vercel Functions
 └── package.json                       # Dependências e scripts de execução
 ```
 
@@ -138,53 +139,32 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 
 ### 1. Instalar dependências
 ```bash
-npm install
+bun install --frozen-lockfile
 ```
 
 ### 2. Configurar variáveis de ambiente
-Copie o arquivo `.env.example` para `.env`:
+Copie o arquivo `.env.example` para `.env` e preencha as variáveis do servidor:
 ```bash
 cp .env.example .env
 ```
-Variáveis suportadas:
-- `GEMINI_API_KEY`: Chave da API Gemini para consulta de câmbio comercial ao vivo e fallback de cotações internacionais via Google Search Grounding.
-- `PORT`: Porta HTTP do servidor (padrão `3000`).
+`DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` habilitam a API do workspace Neon com Firebase Auth. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Nunca use prefixo `VITE_` nas credenciais do servidor.
 
 ### 3. Executar em ambiente de desenvolvimento
 ```bash
-npm run dev
+bun run dev
 ```
 O servidor Express + Vite iniciará em `http://localhost:3000`.
 
-### 4. Executar a suíte de testes automatizados (69 testes)
+### 4. Verificar tipagem TypeScript e gerar build de produção
 ```bash
-npx tsx --test src/utils/*.test.ts
-```
-
-### 5. Verificar tipagem TypeScript e gerar build de produção
-```bash
-npm run lint
-npm run build
+bun run lint
+bun run build
 ```
 
 ---
 
-## Como Sincronizar com o GitHub
+## Publicação e sincronização
 
-O repositório Git local já está inicializado na branch `main` com todos os arquivos versionados. Você pode sincronizar com o GitHub de duas formas:
+O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` nas variáveis de ambiente de produção da Vercel. O workflow diário do Neon usa o segredo de repositório `NEON_DATABASE_URL`.
 
-### Opção A — Pelo Painel Nativo do Google AI Studio
-1. No topo da tela do **Google AI Studio Build**, clique no ícone do **GitHub** (ou menu **Export / Sync to GitHub**).
-2. Autentique sua conta do GitHub, informe o nome do repositório (ex: `minhas-economias-br`) e clique em **Push / Sync**.
-
-### Opção B — Via Linha de Comando / Script Automático
-Execute o script incluído passando a URL do seu repositório GitHub:
-```bash
-bash scripts/sync-github.sh https://github.com/cascaoconcurseiro/Minhas-economias.git
-```
-Ou manualmente:
-```bash
-git remote add origin https://github.com/cascaoconcurseiro/Minhas-economias.git
-git branch -M main
-git push -u origin main
-```
+O Neon usa autosuspend no plano gratuito. A rotina diária executa `SELECT 1` e acorda o compute durante a consulta, mas não mantém o compute ligado continuamente.

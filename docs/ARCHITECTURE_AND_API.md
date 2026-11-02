@@ -15,11 +15,17 @@ flowchart TD
 
     subgraph Cloud ["Google Firebase"]
         Auth["Firebase Authentication (Google OAuth / Email)"]
-        Firestore["Cloud Firestore (/workspaces & /cloud_vaults)"]
+        Firestore["Cloud Firestore (espelho e fluxo familiar durante migração)"]
     end
 
-    subgraph Backend ["Servidor Express 4 (server.ts - Porta 3000)"]
+    subgraph Database ["Neon PostgreSQL"]
+        Workspace["finance_workspaces (snapshot JSONB, revisão otimista, RLS)"]
+        MigrationLog["finance_workspace_migrations (hash e contagens)"]
+    end
+
+    subgraph Backend ["Servidor Express 4 (backend/app.ts - Porta 3000 ou Function Vercel)"]
         Health["GET /api/health"]
+        WorkspaceAPI["GET/POST/PUT /api/workspace (Firebase ID token)"]
         LiveFX["POST /api/fx/live-rate"]
         Quotes["POST /api/investments/sync-quotes"]
         SMTP["POST /api/reminders/send-email"]
@@ -37,6 +43,8 @@ flowchart TD
     UI <-->|"onSnapshot / setDoc (Real-Time)"| Firestore
     UI <--> Auth
     UI -->|"HTTP JSON"| Backend
+    WorkspaceAPI -->|"UID validado + app.firebase_uid"| Workspace
+    WorkspaceAPI --> MigrationLog
     LiveFX --> Gemini
     Quotes --> GFinance
     Quotes -->|"Fallback Internacional"| Gemini
@@ -45,7 +53,7 @@ flowchart TD
 
 ---
 
-## 2. Especificação da API REST (`server.ts`)
+## 2. Especificação da API REST (`backend/app.ts`)
 
 ### 2.1. `GET /api/health`
 Verifica a disponibilidade do servidor Express e dos serviços integrados.
@@ -58,15 +66,32 @@ Verifica a disponibilidade do servidor Express e dos serviços integrados.
   "geminiConfigured": true,
   "services": {
     "liveFxSearch": true,
-    "googleFinanceSync": true
+    "googleFinanceSync": true,
+    "neonConfigured": true
   },
   "checkedAt": "2026-10-31T16:50:00.000Z"
 }
 ```
 
+### 2.2. Rotas autenticadas do workspace Neon
+
+Todas exigem `Authorization: Bearer <Firebase ID token>`. A API valida o token
+via Firebase Identity Toolkit e aplica o UID verificado no contexto RLS da
+transação PostgreSQL.
+
+- `GET /api/workspace`: carrega o snapshot da conta autenticada; retorna `404`
+  antes da primeira importação.
+- `POST /api/workspace/migrate`: importa o snapshot Firestore uma única vez,
+  sem substituir uma linha Neon existente; retorna hash SHA-256 e contagens.
+- `PUT /api/workspace`: salva com `expectedRevision`; conflito retorna `409`.
+
+O Firestore segue como espelho/contingência e mantém o compartilhamento familiar
+durante a primeira fase. Não desative esse fluxo até validar a migração e projetar
+autorização explícita para cofres compartilhados.
+
 ---
 
-### 2.2. `POST /api/fx/live-rate`
+### 2.3. `POST /api/fx/live-rate`
 Consulta a cotação comercial em tempo real de uma moeda estrangeira (`USD`, `EUR`, `GBP`, `CAD`, `CHF`, `ARS`, `CLP`, `JPY`) frente ao Real Brasileiro (`BRL`) usando **Gemini Google Search Grounding**.
 
 - **Payload de Requisição**:
@@ -94,7 +119,7 @@ Consulta a cotação comercial em tempo real de uma moeda estrangeira (`USD`, `E
 
 ---
 
-### 2.3. `POST /api/investments/sync-quotes`
+### 2.4. `POST /api/investments/sync-quotes`
 Sincroniza em lote (até 20 tickers por requisição) os preços atuais de mercado e a variação diária (`%`) de Ações B3, FIIs e ETFs diretamente do **Google Finance (`:BVMF`)**, com fallback via **Google Search Grounding** para ativos internacionais.
 
 - **Payload de Requisição**:
@@ -122,7 +147,7 @@ Sincroniza em lote (até 20 tickers por requisição) os preços atuais de merca
 
 ---
 
-### 2.4. `POST /api/reminders/send-email`
+### 2.5. `POST /api/reminders/send-email`
 Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas por e-mail utilizando as credenciais SMTP configuradas pelo usuário (`nodemailer`).
 
 - **Payload de Requisição**:

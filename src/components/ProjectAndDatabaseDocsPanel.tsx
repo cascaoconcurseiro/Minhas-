@@ -40,7 +40,7 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 
 ## 1. Arquitetura do Projeto
 - **Frontend**: React 19 + TypeScript 7 + Vite 8 + Tailwind CSS v4 + Recharts
-- **Backend**: Node.js + Express 4 (server.ts na porta 3000)
+- **Backend**: Node.js + Express 4 (backend/app.ts; servidor local ou Function Vercel)
 - **Banco de Dados & Nuvem**: Firebase Authentication + Cloud Firestore Enterprise Edition
 - **Database ID**: ai-studio-minhaseconomiasb-70c985b7-075c-4f08-9fdc-96a05658241f
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
@@ -75,7 +75,7 @@ Coleções Principais:
 - **InvestmentAsset**: Renda Fixa Pós, IPCA+, FIIs, Ações B3 e ETFs com sincronização Google Finance.
 - **Trip, TripExchangeLot & TripSettlement**: Gestão de viagens internacionais com carteira de câmbio (VET médio ponderado) e divisão Splitwise.
 
-## 4. Endpoints da API Backend (server.ts)
+## 4. Endpoints da API Backend (backend/app.ts)
 - \`GET /api/health\`: Diagnóstico em tempo real do servidor e serviços.
 - \`POST /api/fx/live-rate\`: Cotação comercial ao vivo via Gemini Google Search Grounding.
 - \`POST /api/investments/sync-quotes\`: Cotações e variação diária do Google Finance / B3.
@@ -354,7 +354,7 @@ git push -u origin main`;
                   Diagnóstico de Prontidão do Servidor e Integrações
                 </span>
               </div>
-              <span className="font-mono text-[11px] text-slate-500">server.ts</span>
+              <span className="font-mono text-[11px] text-slate-500">backend/app.ts</span>
             </div>
 
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">

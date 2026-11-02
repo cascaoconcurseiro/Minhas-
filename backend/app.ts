@@ -1,20 +1,194 @@
 import 'dotenv/config';
 import express from 'express';
+import type { RequestHandler } from 'express';
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { parseLiveExchangeRateFromText } from './src/utils/travelRules';
+import { Pool } from 'pg';
+import { createHash } from 'crypto';
+import { parseLiveExchangeRateFromText } from '../src/utils/travelRules';
 import {
   formatGoogleFinanceSymbol,
   normalizeTickerSymbol,
   ParsedGoogleFinanceQuote,
   parseGoogleFinanceHtmlQuote,
   parseGoogleFinanceQuotesFromText,
-} from './src/utils/investmentRules';
+} from '../src/utils/investmentRules';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const app = express();
+
+let neonPool: Pool | undefined;
+
+function getNeonPool(): Pool {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL não configurada no servidor.');
+  }
+  neonPool ??= new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 5,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+  });
+  return neonPool;
+}
+
+interface FirebaseUserIdentity {
+  uid: string;
+  email: string;
+  email_verified?: boolean;
+}
+
+async function verifyFirebaseIdToken(idToken: string): Promise<FirebaseUserIdentity> {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const apiKey = process.env.FIREBASE_API_KEY;
+  if (!projectId) {
+    throw new Error('FIREBASE_PROJECT_ID não configurado no servidor.');
+  }
+  if (!apiKey) {
+    throw new Error('FIREBASE_API_KEY não configurada no servidor.');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        signal: controller.signal,
+      }
+    );
+    if (!response.ok) throw new Error('Token Firebase inválido ou expirado.');
+
+    const result = (await response.json()) as {
+      users?: Array<{
+        localId?: string;
+        email?: string;
+        emailVerified?: boolean;
+        disabled?: boolean;
+      }>;
+    };
+    const account = result.users?.[0];
+    if (!account?.localId || !account.email || account.disabled) {
+      throw new Error('Conta Firebase inválida ou desativada.');
+    }
+    return {
+      uid: account.localId,
+      email: account.email,
+      email_verified: account.emailVerified,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function getVaultIdForEmail(email: string): string {
+  const cleanSlug = email
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  const candidate = `vault_usr_${cleanSlug}`;
+  const padded =
+    candidate.length < 18 ? `${candidate}_cloud_vault_br` : candidate;
+  return padded.slice(0, 60);
+}
+
+function getRequestWorkspacePayload(value: unknown, vaultId: string) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const payload = value as Record<string, unknown>;
+  const requiredJsonFields = [
+    'accountsJson',
+    'cardsJson',
+    'categoriesJson',
+    'transactionsJson',
+    'goalsJson',
+    'investmentsJson',
+  ];
+  if (
+    payload.uid !== vaultId ||
+    typeof payload.updatedAt !== 'string' ||
+    requiredJsonFields.some((field) => typeof payload[field] !== 'string')
+  ) {
+    return null;
+  }
+  for (const field of requiredJsonFields) {
+    try {
+      const parsed = JSON.parse(payload[field] as string);
+      if (['categoriesJson'].includes(field)) {
+        if (!Array.isArray(parsed)) return null;
+      } else if (!Array.isArray(parsed)) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  }
+  for (const field of [
+    'familyMembersJson',
+    'investmentTargetsJson',
+    'tripsJson',
+    'settingsJson',
+  ]) {
+    if (payload[field] === undefined) continue;
+    try {
+      JSON.parse(String(payload[field]));
+    } catch {
+      return null;
+    }
+  }
+  return payload;
+}
+
+function getWorkspaceEntityCounts(payload: Record<string, unknown>) {
+  const fields: Record<string, string> = {
+    accounts: 'accountsJson',
+    cards: 'cardsJson',
+    categories: 'categoriesJson',
+    transactions: 'transactionsJson',
+    goals: 'goalsJson',
+    familyMembers: 'familyMembersJson',
+    investments: 'investmentsJson',
+    trips: 'tripsJson',
+  };
+  return Object.fromEntries(
+    Object.entries(fields).map(([name, field]) => {
+      try {
+        const value = JSON.parse(String(payload[field] || '[]'));
+        return [name, Array.isArray(value) ? value.length : null];
+      } catch {
+        return [name, null];
+      }
+    })
+  );
+}
+
+async function withWorkspaceRls<T>(
+  user: FirebaseUserIdentity,
+  operation: (client: import('pg').PoolClient, vaultId: string) => Promise<T>
+): Promise<T> {
+  if (!user.email) throw new Error('A conta Firebase precisa ter um e-mail.');
+  const vaultId = getVaultIdForEmail(user.email);
+  const client = await getNeonPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('app.firebase_uid', $1, true)", [user.uid]);
+    const result = await operation(client, vaultId);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 const CURRENCY_NAMES_PT: Record<string, string> = {
   USD: 'Dólar Americano (USD)',
@@ -76,10 +250,182 @@ async function fetchDirectGoogleFinanceQuote(
 }
 
 async function startServer() {
-  const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '2mb' }));
+
+  const verifyFirebaseWorkspaceUser: RequestHandler = async (req, res, next) => {
+    const authorization = req.header('authorization') || '';
+    const token = authorization.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : '';
+    if (!token) {
+      res.status(401).json({ error: 'Autenticação Firebase obrigatória.' });
+      return;
+    }
+    try {
+      res.locals.firebaseUser = await verifyFirebaseIdToken(token);
+      next();
+    } catch {
+      res.status(401).json({ error: 'Token Firebase inválido ou expirado.' });
+    }
+  };
+
+  app.use('/api/workspace', verifyFirebaseWorkspaceUser);
+
+  app.get('/api/workspace', async (_req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    try {
+      const workspace = await withWorkspaceRls(user, async (client, vaultId) => {
+        const result = await client.query(
+          `SELECT payload, revision, updated_at
+             FROM public.finance_workspaces
+            WHERE vault_id = $1 AND owner_firebase_uid = $2`,
+          [vaultId, user.uid]
+        );
+        return result.rows[0] ?? null;
+      });
+      if (!workspace) {
+        res.status(404).json({ error: 'Workspace Neon ainda não migrado.' });
+        return;
+      }
+      res.json({
+        payload: workspace.payload,
+        revision: Number(workspace.revision),
+        updatedAt: workspace.updated_at,
+      });
+    } catch (error) {
+      console.error('Erro ao carregar workspace Neon:', error);
+      res.status(503).json({ error: 'Não foi possível carregar os dados em nuvem.' });
+    }
+  });
+
+  app.post('/api/workspace/migrate', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    if (!user.email) {
+      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      return;
+    }
+    const vaultId = getVaultIdForEmail(user.email);
+    const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
+    if (!payload) {
+      res.status(400).json({ error: 'Snapshot Firestore inválido para esta conta.' });
+      return;
+    }
+
+    const sourceUpdatedAt =
+      typeof req.body?.sourceUpdatedAt === 'string'
+        ? req.body.sourceUpdatedAt
+        : typeof payload.updatedAt === 'string'
+          ? payload.updatedAt
+          : null;
+    if (sourceUpdatedAt && !Number.isFinite(Date.parse(sourceUpdatedAt))) {
+      res.status(400).json({ error: 'Data sourceUpdatedAt inválida.' });
+      return;
+    }
+    const payloadJson = JSON.stringify(payload);
+    const payloadSha256 = createHash('sha256').update(payloadJson).digest('hex');
+    const entityCounts = getWorkspaceEntityCounts(payload);
+
+    try {
+      const imported = await withWorkspaceRls(user, async (client) => {
+        const inserted = await client.query(
+          `INSERT INTO public.finance_workspaces
+             (vault_id, owner_firebase_uid, owner_email, display_name, payload,
+              source_updated_at, revision, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6::timestamptz, 1, now(), now())
+           ON CONFLICT (vault_id) DO NOTHING
+           RETURNING revision`,
+          [
+            vaultId,
+            user.uid,
+            user.email.toLowerCase(),
+            typeof payload.displayName === 'string' ? payload.displayName : null,
+            payloadJson,
+            sourceUpdatedAt,
+          ]
+        );
+        if (inserted.rowCount !== 1) return false;
+        await client.query(
+          `INSERT INTO public.finance_workspace_migrations
+             (vault_id, owner_firebase_uid, source, source_updated_at,
+              payload_sha256, entity_counts)
+           VALUES ($1, $2, 'firestore', $3::timestamptz, $4, $5::jsonb)`,
+          [vaultId, user.uid, sourceUpdatedAt, payloadSha256, JSON.stringify(entityCounts)]
+        );
+        return true;
+      });
+
+      if (!imported) {
+        res.status(409).json({
+          error: 'Já existe um workspace Neon; a importação não substituiu dados.',
+        });
+        return;
+      }
+      res.status(201).json({
+        ok: true,
+        vaultId,
+        payloadSha256,
+        entityCounts,
+      });
+    } catch (error) {
+      console.error('Erro ao importar snapshot Firestore para Neon:', error);
+      res.status(503).json({ error: 'Não foi possível importar os dados para Neon.' });
+    }
+  });
+
+  app.put('/api/workspace', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    if (!user.email) {
+      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      return;
+    }
+    const vaultId = getVaultIdForEmail(user.email);
+    const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
+    const expectedRevision = Number(req.body?.expectedRevision);
+    if (
+      !payload ||
+      !Number.isSafeInteger(expectedRevision) ||
+      expectedRevision < 1
+    ) {
+      res.status(400).json({ error: 'Payload ou revisão esperada inválida.' });
+      return;
+    }
+
+    try {
+      const updated = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `UPDATE public.finance_workspaces
+              SET payload = $1::jsonb,
+                  owner_email = $2,
+                  display_name = $3,
+                  revision = revision + 1,
+                  updated_at = now()
+            WHERE vault_id = $4
+              AND owner_firebase_uid = $5
+              AND revision = $6
+          RETURNING revision, updated_at`,
+          [
+            JSON.stringify(payload),
+            user.email!.toLowerCase(),
+            typeof payload.displayName === 'string' ? payload.displayName : null,
+            vaultId,
+            user.uid,
+            expectedRevision,
+          ]
+        );
+        return result.rows[0] ?? null;
+      });
+      if (!updated) {
+        res.status(409).json({ error: 'Workspace ausente ou revisão desatualizada.' });
+        return;
+      }
+      res.json({ revision: Number(updated.revision), updatedAt: updated.updated_at });
+    } catch (error) {
+      console.error('Erro ao salvar workspace Neon:', error);
+      res.status(503).json({ error: 'Não foi possível salvar os dados em nuvem.' });
+    }
+  });
 
   // Real-Time Production Health & Readiness Endpoint
   app.get('/api/health', (_req, res) => {
@@ -91,6 +437,7 @@ async function startServer() {
       services: {
         liveFxSearch: hasGeminiKey,
         googleFinanceSync: true,
+        neonConfigured: Boolean(process.env.DATABASE_URL),
       },
       checkedAt: new Date().toISOString(),
     });
@@ -417,28 +764,32 @@ async function startServer() {
     }
   });
 
-  if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: false,
-        watch: null,
-      },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*all', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+  if (!process.env.VERCEL) {
+    if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: {
+          middlewareMode: true,
+          hmr: false,
+          watch: null,
+        },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.resolve(__dirname, '..', 'dist');
+      app.use(express.static(distPath));
+      app.get('*all', (_req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server listening on http://0.0.0.0:${PORT}`);
     });
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server listening on http://0.0.0.0:${PORT}`);
-  });
 }
 
-startServer();
+void startServer();
+
+export default app;

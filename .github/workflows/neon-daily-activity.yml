@@ -1,0 +1,30 @@
+name: Neon — atividade diária
+
+on:
+  schedule:
+    - cron: '15 12 * * *' # 09:15 America/Sao_Paulo
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  database-activity:
+    name: Verificar conexão com Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validar segredo e consultar o banco
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${NEON_DATABASE_URL:-}" ]]; then
+            echo "Configure o segredo NEON_DATABASE_URL nas Actions secrets do repositório."
+            exit 1
+          fi
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y postgresql-client
+          fi
+          psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'SELECT 1;'

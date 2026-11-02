@@ -24,7 +24,6 @@ import {
   onAuthStateChanged,
   onSnapshot,
   OperationType,
-  purgeMockDataAcrossKnownVaults,
   registerWithEmail,
   respondToCrossAccountFamilyInvite,
   sendCrossAccountFamilyInvite,
@@ -35,6 +34,12 @@ import {
   syncSharedTransactionsWithFamilyVaults,
   User,
 } from './lib/firebase';
+import {
+  importFirestoreWorkspace,
+  loadNeonWorkspace,
+  NeonWorkspaceError,
+  saveNeonWorkspace,
+} from './lib/neonWorkspace';
 import {
   AppSettings,
   BankAccount,
@@ -243,6 +248,8 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isApplyingRemoteSnapshotRef = useRef<boolean>(false);
   const hasLoadedRemoteOnceRef = useRef<boolean>(false);
+  const neonWorkspaceRevisionRef = useRef<number | null>(null);
+  const neonSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   // Persisted User Auth Session (Supports Firebase Auth + Cloud Vault Session Login/Logout)
   const [authSession, setAuthSession] = useState<{
@@ -262,9 +269,9 @@ export default function App() {
       // Fallback
     }
     return {
-      isLoggedIn: true,
-      email: 'wesley.diaslima@gmail.com',
-      displayName: 'Wesley',
+      isLoggedIn: false,
+      email: '',
+      displayName: '',
     };
   });
 
@@ -280,9 +287,6 @@ export default function App() {
   }, [authSession]);
 
   const effectiveUserEmail = useMemo(() => {
-    if (authSession.isLoggedIn && authSession.email) {
-      return authSession.email.trim().toLowerCase();
-    }
     if (currentUser && !currentUser.isAnonymous && currentUser.email) {
       return currentUser.email.trim().toLowerCase();
     }
@@ -290,20 +294,13 @@ export default function App() {
   }, [currentUser, authSession]);
 
   const effectiveUserDisplayName = useMemo(() => {
-    if (
-      authSession.isLoggedIn &&
-      authSession.displayName &&
-      authSession.displayName !== 'Minha Conta'
-    ) {
-      return authSession.displayName;
-    }
     if (currentUser && !currentUser.isAnonymous && currentUser.displayName) {
       return currentUser.displayName;
     }
     if (settingsUserNameFallback(effectiveUserEmail)) {
       return settingsUserNameFallback(effectiveUserEmail);
     }
-    return authSession.isLoggedIn ? authSession.displayName : null;
+    return null;
   }, [currentUser, authSession, effectiveUserEmail]);
 
   const autoVaultId = useMemo(() => {
@@ -315,7 +312,9 @@ export default function App() {
     [autoVaultId]
   );
 
-  const isUserAuthenticated = Boolean(effectiveUserEmail);
+  const isUserAuthenticated = Boolean(
+    currentUser && !currentUser.isAnonymous && currentUser.email
+  );
 
   const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [cards, setCards] = useState<CreditCard[]>(INITIAL_CREDIT_CARDS);
@@ -462,7 +461,17 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsAuthReady(true);
+      neonWorkspaceRevisionRef.current = null;
       hasLoadedRemoteOnceRef.current = false;
+      setAuthSession(
+        user && !user.isAnonymous && user.email
+          ? {
+              isLoggedIn: true,
+              email: user.email.trim().toLowerCase(),
+              displayName: user.displayName || settingsUserNameFallback(user.email) || user.email,
+            }
+          : { isLoggedIn: false, email: '', displayName: '' }
+      );
     });
     return () => unsubscribe();
   }, []);
@@ -485,9 +494,62 @@ export default function App() {
     settingsJson: JSON.stringify(settings),
   });
 
+  const queueNeonWorkspaceSave = (payload: Record<string, unknown>) => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || firebaseUser.isAnonymous || !firebaseUser.email) {
+      return Promise.reject(new Error('Autenticação Firebase obrigatória para Neon.'));
+    }
+
+    const queuedSave = neonSaveQueueRef.current.then(async () => {
+      if (auth.currentUser?.uid !== firebaseUser.uid) {
+        throw new Error('A conta ativa mudou antes de salvar o workspace.');
+      }
+
+      let revision = neonWorkspaceRevisionRef.current;
+      if (revision === null) {
+        try {
+          const existing = await loadNeonWorkspace();
+          revision = existing.revision;
+          neonWorkspaceRevisionRef.current = revision;
+        } catch (error) {
+          if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
+            throw error;
+          }
+          try {
+            await importFirestoreWorkspace(
+              payload,
+              typeof payload.updatedAt === 'string' ? payload.updatedAt : null
+            );
+            neonWorkspaceRevisionRef.current = 1;
+            return;
+          } catch (importError) {
+            if (
+              !(importError instanceof NeonWorkspaceError) ||
+              importError.status !== 409
+            ) {
+              throw importError;
+            }
+            const existing = await loadNeonWorkspace();
+            revision = existing.revision;
+            neonWorkspaceRevisionRef.current = revision;
+          }
+        }
+      }
+
+      const saved = await saveNeonWorkspace(payload, revision);
+      neonWorkspaceRevisionRef.current = saved.revision;
+    });
+
+    neonSaveQueueRef.current = queuedSave.then(
+      () => undefined,
+      () => undefined
+    );
+    return queuedSave;
+  };
+
   // Automatic Cloud Firestore Real-Time Connection (Deterministic per-email Cloud Vault)
   useEffect(() => {
-    if (!isAuthReady || !effectiveUserEmail) return;
+    if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
     hasLoadedRemoteOnceRef.current = false;
     isApplyingRemoteSnapshotRef.current = true;
@@ -529,23 +591,79 @@ export default function App() {
 
     const unsubscribe = onSnapshot(
       docRef,
-      (snap) => {
+      async (snap) => {
         if (snap.exists()) {
-          const data = snap.data();
+          let data = snap.data();
+          let neonSynced = false;
+          const firebaseUser = auth.currentUser;
+          if (firebaseUser && !firebaseUser.isAnonymous) {
+            try {
+              let neonSnapshot;
+              try {
+                neonSnapshot = await loadNeonWorkspace();
+              } catch (error) {
+                if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
+                  throw error;
+                }
+                try {
+                  await importFirestoreWorkspace(data, data.updatedAt || null);
+                } catch (importError) {
+                  if (
+                    !(importError instanceof NeonWorkspaceError) ||
+                    importError.status !== 409
+                  ) {
+                    throw importError;
+                  }
+                }
+                neonSnapshot = await loadNeonWorkspace();
+              }
+
+              const firestoreUpdatedAt = Date.parse(String(data.updatedAt || ''));
+              const neonUpdatedAt = Date.parse(
+                String(neonSnapshot.payload.updatedAt || '')
+              );
+              if (
+                Number.isFinite(firestoreUpdatedAt) &&
+                (!Number.isFinite(neonUpdatedAt) || firestoreUpdatedAt > neonUpdatedAt)
+              ) {
+                const saved = await saveNeonWorkspace(
+                  data,
+                  neonSnapshot.revision
+                );
+                neonWorkspaceRevisionRef.current = saved.revision;
+              } else {
+                const firestoreJson = JSON.stringify(data);
+                const neonJson = JSON.stringify(neonSnapshot.payload);
+                data = neonSnapshot.payload;
+                neonWorkspaceRevisionRef.current = neonSnapshot.revision;
+                if (firestoreJson !== neonJson) {
+                  void setDoc(docRef, data).catch((err) =>
+                    handleFirestoreError(err, OperationType.WRITE, docPath)
+                  );
+                }
+              }
+              neonSynced = true;
+            } catch (error) {
+              console.warn(
+                'Neon indisponível; mantendo a leitura de contingência do Firestore.',
+                error instanceof Error ? error.message : String(error)
+              );
+            }
+          }
           isApplyingRemoteSnapshotRef.current = true;
 
           const rawAccounts = safeParseArray<BankAccount>(
             data.accountsJson ?? data.accounts,
             INITIAL_ACCOUNTS
           );
-          const nextAccounts = stripLegacyMockItems(rawAccounts);
+          const nextAccounts = rawAccounts;
           setAccounts(nextAccounts);
 
           const rawCards = safeParseArray<CreditCard>(
             data.cardsJson ?? data.cards,
             INITIAL_CREDIT_CARDS
           );
-          const nextCards = stripLegacyMockItems(rawCards);
+          const nextCards = rawCards;
           setCards(nextCards);
 
           const parsedCategories = safeParseArray<Category>(
@@ -568,39 +686,35 @@ export default function App() {
             data.transactionsJson ?? data.transactions,
             INITIAL_TRANSACTIONS
           );
-          const nextTransactions = stripLegacyMockItems(rawTransactions).map((tx) =>
-            tx.categoryId === 'cat-investimentos'
-              ? { ...tx, categoryId: 'cat-aportes' }
-              : tx
-          );
+          const nextTransactions = rawTransactions;
           setTransactions(nextTransactions);
 
           const rawGoals = safeParseArray<SavingsGoal>(
             data.goalsJson ?? data.goals,
             INITIAL_SAVINGS_GOALS
           );
-          const nextGoals = stripLegacyMockItems(rawGoals);
+          const nextGoals = rawGoals;
           setGoals(nextGoals);
 
           const rawMembers = safeParseArray<FamilyMember>(
             data.familyMembersJson ?? data.familyMembers,
             INITIAL_FAMILY_MEMBERS
           );
-          const nextMembers = stripLegacyMockItems(rawMembers);
+          const nextMembers = rawMembers;
           setFamilyMembers(nextMembers);
 
           const rawInvestments = safeParseArray<InvestmentAsset>(
             data.investmentsJson ?? data.investments,
             INITIAL_INVESTMENTS
           );
-          const nextInvestments = stripLegacyMockItems(rawInvestments);
+          const nextInvestments = rawInvestments;
           setInvestments(nextInvestments);
 
           const rawTrips = safeParseArray<Trip>(
             data.tripsJson ?? data.trips,
             INITIAL_TRIPS
           );
-          const nextTrips = stripLegacyMockItems(rawTrips);
+          const nextTrips = rawTrips;
           setTrips(nextTrips);
 
           const nextTargets = safeParseObj(
@@ -614,38 +728,6 @@ export default function App() {
             DEFAULT_SETTINGS
           );
           setSettings(nextSettings);
-
-          const hadLegacyMockStripped =
-            nextAccounts.length !== rawAccounts.length ||
-            nextCards.length !== rawCards.length ||
-            nextTransactions.length !== rawTransactions.length ||
-            nextGoals.length !== rawGoals.length ||
-            nextMembers.length !== rawMembers.length ||
-            nextInvestments.length !== rawInvestments.length ||
-            nextTrips.length !== rawTrips.length;
-
-          if (hadLegacyMockStripped) {
-            setDoc(docRef, {
-              uid: docId,
-              ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
-              ...(effectiveUserDisplayName ? { displayName: effectiveUserDisplayName } : {}),
-              updatedAt: new Date().toISOString(),
-              accountsJson: JSON.stringify(nextAccounts),
-              cardsJson: JSON.stringify(nextCards),
-              categoriesJson: JSON.stringify(
-                nextCategories.length > 0 ? nextCategories : INITIAL_CATEGORIES
-              ),
-              transactionsJson: JSON.stringify(
-                compactTransactionListForStorage(nextTransactions)
-              ),
-              goalsJson: JSON.stringify(nextGoals),
-              familyMembersJson: JSON.stringify(nextMembers),
-              investmentsJson: JSON.stringify(nextInvestments),
-              investmentTargetsJson: JSON.stringify(nextTargets),
-              tripsJson: JSON.stringify(nextTrips),
-              settingsJson: JSON.stringify(nextSettings),
-            }).catch(() => {});
-          }
 
           if (!hasLoadedRemoteOnceRef.current && effectiveUserEmail) {
             const ownShared = nextTransactions.filter(
@@ -667,27 +749,34 @@ export default function App() {
             }
           }
 
-          if (!hasLoadedRemoteOnceRef.current) {
-            const memberEmails = rawMembers
-              .map((m) => (m.email || '').trim().toLowerCase())
-              .filter(Boolean);
-            void purgeMockDataAcrossKnownVaults({
-              stripFn: stripLegacyMockItems,
-              extraEmails: [
-                ...(effectiveUserEmail ? [effectiveUserEmail] : []),
-                ...memberEmails,
-              ],
-              defaultCategoriesJson: JSON.stringify(INITIAL_CATEGORIES),
-            });
-          }
-
           hasLoadedRemoteOnceRef.current = true;
-          setCloudSyncStatus('synced');
+          setCloudSyncStatus(
+            firebaseUser && !firebaseUser.isAnonymous && !neonSynced
+              ? 'error'
+              : 'synced'
+          );
           setLastSyncedAt(data.updatedAt || new Date().toISOString());
           window.setTimeout(() => {
             isApplyingRemoteSnapshotRef.current = false;
           }, 80);
         } else {
+          const firebaseUser = auth.currentUser;
+          if (firebaseUser && !firebaseUser.isAnonymous) {
+            try {
+              const neonSnapshot = await loadNeonWorkspace();
+              neonWorkspaceRevisionRef.current = neonSnapshot.revision;
+              await setDoc(docRef, neonSnapshot.payload);
+              setCloudSyncStatus('synced');
+              return;
+            } catch (error) {
+              if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
+                isApplyingRemoteSnapshotRef.current = false;
+                setCloudSyncStatus('error');
+                return;
+              }
+            }
+          }
+
           // Brand new account: ALWAYS initialize with 100% clean empty arrays (zero mock data)
           isApplyingRemoteSnapshotRef.current = true;
           setAccounts(INITIAL_ACCOUNTS);
@@ -720,10 +809,10 @@ export default function App() {
             }),
           };
 
-          hasLoadedRemoteOnceRef.current = true;
+          hasLoadedRemoteOnceRef.current = false;
           setDoc(docRef, cleanEmptyPayload)
             .then(() => {
-              setCloudSyncStatus('synced');
+              setCloudSyncStatus('syncing');
               setLastSyncedAt(cleanEmptyPayload.updatedAt);
               window.setTimeout(() => {
                 isApplyingRemoteSnapshotRef.current = false;
@@ -768,7 +857,7 @@ export default function App() {
     );
 
     return () => unsubscribe();
-  }, [isAuthReady, effectiveUserEmail, autoVaultId, scopedStorageKey]);
+  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId, scopedStorageKey]);
 
   // Save state to user-scoped localStorage + Automatic Cloud Firestore Sync
   useEffect(() => {
@@ -806,15 +895,26 @@ export default function App() {
       setCloudSyncStatus('syncing');
       const timer = setTimeout(() => {
         const payload = buildCloudPayload(docId);
-        setDoc(docRef, payload)
-          .then(() => {
-            setCloudSyncStatus('synced');
+        void (async () => {
+          let neonSaved = false;
+          try {
+            await queueNeonWorkspaceSave(payload);
+            neonSaved = true;
+          } catch (error) {
+            console.error(
+              'Falha ao salvar workspace Neon; mantendo a cópia Firestore.',
+              error instanceof Error ? error.message : String(error)
+            );
+          }
+          try {
+            await setDoc(docRef, payload);
+            setCloudSyncStatus(neonSaved ? 'synced' : 'error');
             setLastSyncedAt(payload.updatedAt);
-          })
-          .catch((err) => {
+          } catch (err) {
             setCloudSyncStatus('local');
             handleFirestoreError(err, OperationType.WRITE, docPath);
-          });
+          }
+        })();
       }, 420);
       return () => clearTimeout(timer);
     }
@@ -841,6 +941,7 @@ export default function App() {
     setCloudSyncStatus('syncing');
     try {
       const payload = buildCloudPayload(docId);
+      await queueNeonWorkspaceSave(payload);
       await setDoc(docRef, payload);
       setCloudSyncStatus('synced');
       setLastSyncedAt(payload.updatedAt);
@@ -852,57 +953,22 @@ export default function App() {
   };
 
   const handleSignInGoogle = async () => {
-    try {
-      const user = await signInWithGooglePopup();
-      if (user && !user.isAnonymous) {
-        const cleanEmail = (
-          user.email ||
-          authSession.email ||
-          'wesley.diaslima@gmail.com'
-        )
-          .trim()
-          .toLowerCase();
-        if (cleanEmail !== effectiveUserEmail) {
-          resetFinancialStateToCleanZero();
-          hasLoadedRemoteOnceRef.current = false;
-        }
-        setAuthSession({
-          isLoggedIn: true,
-          email: cleanEmail,
-          displayName:
-            user.displayName ||
-            authSession.displayName ||
-            settings.userName ||
-            'Wesley',
-        });
-        showNotice(
-          `Conectado à nuvem Firebase como ${cleanEmail}!`,
-          undefined,
-          true
-        );
-        return;
-      }
-    } catch {
-      // Fallback for preview iframe popup blocker: authenticate session directly with Cloud Vault
+    const user = await signInWithGooglePopup();
+    if (!user || user.isAnonymous || !user.email) {
+      throw new Error('A autenticação Google não retornou uma conta válida.');
     }
-    const fallbackEmail = (
-      authSession.email || 'wesley.diaslima@gmail.com'
-    )
-      .trim()
-      .toLowerCase();
-    const fallbackName =
-      authSession.displayName || settings.userName || 'Wesley';
-    if (fallbackEmail !== effectiveUserEmail) {
+    const cleanEmail = user.email.trim().toLowerCase();
+    if (cleanEmail !== effectiveUserEmail) {
       resetFinancialStateToCleanZero();
       hasLoadedRemoteOnceRef.current = false;
     }
     setAuthSession({
       isLoggedIn: true,
-      email: fallbackEmail,
-      displayName: fallbackName,
+      email: cleanEmail,
+      displayName: user.displayName || settings.userName || cleanEmail.split('@')[0],
     });
     showNotice(
-      `Sessão Google conectada como ${fallbackEmail} (Cofre Cloud Sincronizado)!`,
+      `Conectado à conta Firebase como ${cleanEmail}.`,
       undefined,
       true
     );
@@ -910,29 +976,12 @@ export default function App() {
 
   const handleSignInEmail = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
+    const user = await signInWithEmail(cleanEmail, pass);
     if (cleanEmail !== effectiveUserEmail) {
       resetFinancialStateToCleanZero();
       hasLoadedRemoteOnceRef.current = false;
     }
-    try {
-      const user = await signInWithEmail(cleanEmail, pass);
-      if (user) {
-        const displayName =
-          user.displayName || settingsUserNameFallback(cleanEmail) || cleanEmail.split('@')[0];
-        setSettings((prev) => ({ ...prev, userName: displayName }));
-        setAuthSession({
-          isLoggedIn: true,
-          email: cleanEmail,
-          displayName,
-        });
-        showNotice(`Bem-vindo de volta, ${displayName}!`, undefined, true);
-        return;
-      }
-    } catch {
-      // Fallback when Email/Password provider is not enabled in Firebase console
-    }
-    const displayName =
-      settingsUserNameFallback(cleanEmail) || cleanEmail.split('@')[0];
+    const displayName = user.displayName || settingsUserNameFallback(cleanEmail) || cleanEmail.split('@')[0];
     setSettings((prev) => ({ ...prev, userName: displayName }));
     setAuthSession({
       isLoggedIn: true,
@@ -940,7 +989,7 @@ export default function App() {
       displayName,
     });
     showNotice(
-      `Sessão iniciada como ${cleanEmail} e sincronizada na nuvem!`,
+      `Bem-vindo de volta, ${displayName}!`,
       undefined,
       true
     );
@@ -949,27 +998,9 @@ export default function App() {
   const handleRegisterEmail = async (name: string, email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim() || settingsUserNameFallback(cleanEmail) || cleanEmail.split('@')[0];
+    await registerWithEmail(cleanName, cleanEmail, pass);
     resetFinancialStateToCleanZero();
     hasLoadedRemoteOnceRef.current = false;
-    try {
-      const user = await registerWithEmail(cleanName, cleanEmail, pass);
-      if (user) {
-        setSettings((prev) => ({ ...prev, userName: cleanName }));
-        setAuthSession({
-          isLoggedIn: true,
-          email: cleanEmail,
-          displayName: cleanName,
-        });
-        showNotice(
-          `Conta criada e vinculada à nuvem como ${cleanEmail}!`,
-          undefined,
-          true
-        );
-        return;
-      }
-    } catch {
-      // Fallback to Cloud Vault session registration
-    }
     setSettings((prev) => ({ ...prev, userName: cleanName }));
     setAuthSession({
       isLoggedIn: true,
@@ -2719,7 +2750,7 @@ export default function App() {
     handleToggleTransactionStatus(txId, 'single');
   };
 
-  if (!authSession.isLoggedIn) {
+  if (!isAuthReady || !isUserAuthenticated) {
     return (
       <div
         className={`min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-slate-50 text-slate-900 transition-colors duration-200 ${
