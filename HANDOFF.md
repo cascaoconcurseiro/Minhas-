@@ -9,7 +9,8 @@
 - Importação JSON agora valida versão 1–5, coleções e esquema de categorias antes de aplicar qualquer setter. A mensagem distingue arquivo carregado na sessão de confirmação posterior do Neon.
 - Adicionei `docs/BACKUP_AND_RESTORE.md`: diferencia exportação do workspace, espelho Firestore e backup integral do Neon que também inclui tabelas familiares. Nenhum restore de produção foi executado.
 - Atualizei o blueprint pela decisão de carregar Neon diretamente e o checklist/CI para não manter contagem fixa de testes.
-- Verificações locais executadas após essas mudanças: lint, 78 testes unitários, build e `git diff --check` passaram. Pendente publicação e confirmação de CI/deploy desta revisão.
+- Verificações locais executadas após essas mudanças: lint, 78 testes unitários, build e `git diff --check` passaram. Commit `d1a545d` publicado em `main`; check Vercel `success`.
+- Smoke de produção após `d1a545d`: página 200, HTML sem script inline, CSP sem `unsafe-inline` em `script-src`, `/vite-websocket-guard.js` e bundle principal 200, `/api/workspace` 401 sem token. Isso confirma entrega e proteções básicas, não uma sessão autenticada completa.
 - Migrei o desenho do compartilhamento familiar para tabelas isoladas no Neon (`finance_family_invitations` e `finance_shared_transactions`). A migration `003_neon_family_sharing.sql` foi aplicada no projeto de produção; verificação agregada mostrou 3 convites (2 aceitos, 1 pendente), 0 espelhos migrados e RLS nas duas tabelas. Os snapshots antigos não foram apagados.
 - Substituí os fluxos que liam/escreviam o workspace Firestore de outra pessoa por endpoints autenticados no backend Neon. O espelho Firestore passa a omitir `tx-mirror-*`; a sincronização familiar usa as tabelas separadas.
 - Preparei regras owner-only para `cloud_vaults` e adicionei `ownerFirebaseUid` aos snapshots. As regras ainda não foram publicadas; enquanto isso, a regra de leitura sem autenticação continua ativa em produção.
