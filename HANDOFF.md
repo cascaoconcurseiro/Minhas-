@@ -6,13 +6,15 @@
 - Projeto Vercel Hobby `minhaseconomias` conectado a `cascaoconcurseiro/Minhas-` na branch `main`; o painel publicado abriu com a interface atual.
 - Neon São Paulo com schema inicial. Credencial runtime `minhas_app` criada com grants mínimos; `DATABASE_URL` guardada como secret de produção na Vercel.
 - `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` configuradas na Vercel. O segredo GitHub `NEON_DATABASE_URL` usa uma role separada `minhas_daily` para o ping diário.
-- Código local da API Express/Vercel, migração Firestore → Neon, rotina diária e documentação atualizado. `bun run lint`, `bun run build` e `git diff --check` passaram.
+- Código da API Express/Vercel, migração Firestore → Neon, rotina diária, cabeçalhos de segurança e documentação sincronizado no commit `5514533`.
+- A implantação iniciou automaticamente e o site estático publicou. A primeira chamada a `/api/health` falhou com `FUNCTION_INVOCATION_FAILED`; o log apontou import ESM local sem extensão. Corrigi a resolução e alinhei o CI ao Bun localmente; a correção aguarda push.
+- `bun run lint`, `bun run build` e `git diff --check` passaram após a correção local.
 - As credenciais não foram adicionadas a arquivos do projeto. Uma senha de role foi revelada por engano durante uma inspeção e imediatamente substituída antes de ser usada.
-- Nenhuma cópia Firestore foi migrada ainda. A produção segue no commit `c434138`; o código local ainda não foi enviado.
+- Nenhuma cópia Firestore foi migrada ainda. A Vercel publicou o commit `5514533`, mas `/api/health` falha até o patch local de import ESM ser publicado.
 
 ## Próximo passo
-**Arquivo:** `backend/app.ts`, `src/App.tsx`, `api/[...path].ts`, `db/migrations/002_neon_app_role_grants.sql`
-**Ação:** revisar o diff completo, sincronizar na branch `main`, aguardar a implantação automática da Vercel, executar a rotina diária manualmente e conferir `/api/health` e uma importação/leitura autenticada no Neon.
+**Arquivo:** `api/[...path].ts`, `backend/app.ts`, `.github/workflows/neon-daily-activity.yml`
+**Ação:** enviar a correção para `main`, aguardar Vercel/CI, confirmar `/api/health`, testar a autenticação e leitura/gravação de um workspace Firebase no Neon, e disparar manualmente o workflow diário para validar `NEON_DATABASE_URL`.
 
 ## Bloqueios
 - O código local está pendente de push e implantação.

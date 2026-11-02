@@ -15,20 +15,17 @@ jobs:
       - name: Checkout do Repositório
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Instalar Dependências
-        run: npm install
+        run: bun install --frozen-lockfile
 
       - name: Verificar Tipagem TypeScript (Lint)
-        run: npm run lint
+        run: bun run lint
 
       - name: Executar 69 Testes Unitários (node:test)
-        run: npx tsx --test src/utils/*.test.ts
+        run: bun x tsx --test src/utils/*.test.ts
 
       - name: Gerar Build de Produção (Vite)
-        run: npm run build
+        run: bun run build

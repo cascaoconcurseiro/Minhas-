@@ -7,14 +7,14 @@ import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
 import { createHash } from 'crypto';
-import { parseLiveExchangeRateFromText } from '../src/utils/travelRules';
+import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
 import {
   formatGoogleFinanceSymbol,
   normalizeTickerSymbol,
   ParsedGoogleFinanceQuote,
   parseGoogleFinanceHtmlQuote,
   parseGoogleFinanceQuotesFromText,
-} from '../src/utils/investmentRules';
+} from '../src/utils/investmentRules.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

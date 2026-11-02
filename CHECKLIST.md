@@ -6,6 +6,7 @@
 - [x] Publicar o commit existente e confirmar que o painel abre na URL de produção.
 - [x] Configurar `DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` como variáveis de produção na Vercel.
 - [x] Criar o segredo GitHub Actions `NEON_DATABASE_URL` com um papel de conexão separado.
+- [x] Alinhar o CI ao `bun.lock` e ao Bun 1.4.3 usado pelo projeto.
 
 ## Integração Neon
 - [x] Criar projeto e schema inicial no Neon.
