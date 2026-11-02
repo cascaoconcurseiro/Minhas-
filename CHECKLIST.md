@@ -27,7 +27,8 @@
 - [x] Trocar os fluxos do app/API para ler e gravar compartilhamentos no Neon com verificação de Firebase Auth e RLS.
 - [x] Publicar roteamento específico das rotas familiares na Vercel e confirmar que convites/compartilhamentos exigem autenticação (401 sem token).
 - [x] Remover referências de tipos Vite não resolvidas pelo compilador de funções Vercel; tipagem local limpa.
-- [ ] Confirmar no deploy Vercel que não há mais diagnósticos `TS2688` e revisar o aviso de bundle acima de 500 kB.
+- [x] Confirmar no deploy Vercel que os diagnósticos `TS2688` foram resolvidos.
+- [ ] Revisar o aviso de bundle acima de 500 kB; o chunk principal publicado tem 2,59 MB.
 - [ ] Validar ponta a ponta convite, aceite, recusa, revogação e lançamento compartilhado com duas contas reais.
 - [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
 - [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.
