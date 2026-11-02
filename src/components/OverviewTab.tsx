@@ -11,7 +11,6 @@ import {
   Plus,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   TrendingUp,
   Wallet,
 } from 'lucide-react';
@@ -365,41 +364,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Clean Start Quick Activation Bar (When database has 0 accounts and 0 transactions) */}
-        {health360.isCleanStart && (
-          <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-              <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span>
-                <strong>Guia Rápido de Ativação:</strong> Comece cadastrando suas contas, cartões ou o primeiro lançamento do mês.
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => onNavigateTab('accounts')}
-                className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 transition-colors"
-              >
-                1. Cadastrar Conta
-              </button>
-              <button
-                type="button"
-                onClick={() => onNavigateTab('cards')}
-                className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 transition-colors"
-              >
-                2. Adicionar Cartão
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenNewTransaction('expense')}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
-              >
-                3. Novo Lançamento
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Expandable 4 Pillars & Actionable Coaching Details */}
         {isHealthDetailsOpen && (

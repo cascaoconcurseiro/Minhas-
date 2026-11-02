@@ -47,6 +47,7 @@
 
 ## Interface
 - [x] Corrigir largura do modal de novo lançamento no desktop para respeitar o limite visual do componente.
+- [x] Remover a seção “Guia Rápido de Ativação” da visão geral.
 
 ## Sessão 2026-11-02 — continuidade
 - [x] Remover listener e escrita de rotina no Firestore; manter leitura legada do próprio cofre somente quando o Neon retornar 404.
