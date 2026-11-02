@@ -15,6 +15,7 @@
 - [x] Autorizar o domínio de produção na Firebase Authentication, mantendo Firebase Auth.
 - [x] Migrar a conta autenticada do Firestore para Neon; conferir migração, leitura e gravação no site publicado.
 - [x] Executar manualmente o workflow diário e confirmar `SELECT 1` com sucesso.
+- [x] Confirmar workflow ativo com agendamento diário às 09:15 (America/Sao_Paulo); a primeira execução automática está pendente porque o workflow entrou na branch após o cron de hoje.
 - [x] Auditar o workspace Neon em produção; nenhum registro correspondeu aos marcadores de mock existentes.
 - [x] Publicar a limpeza de registros mock reconhecidos ao carregar snapshots remotos.
 - [x] Deixar explícita na interface a diferença entre Firebase Auth, banco Neon e espelho Firestore.
@@ -29,7 +30,7 @@
 - [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
 - [x] Criar diálogo para conflitos `409`: comparar resumos, baixar cópia JSON das duas versões e escolher explicitamente a versão local ou a do Neon.
 - [x] Publicar o diálogo em `07cedd5`; Vercel `success`, bundle servido, APIs autenticadas (401 sem token).
-- [ ] Publicar a proteção final que mantém a resolução bloqueada até a conclusão do espelho Firestore.
+- [x] Publicar a proteção final que mantém a resolução bloqueada até a conclusão do espelho Firestore (`e3fc388`); conferir bundle 200 e APIs 401 sem token.
 - [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
 - [x] Criar estruturas isoladas no Neon para convites e lançamentos familiares; migrar convites e espelhos sem apagar os dados antigos.
 - [x] Trocar os fluxos do app/API para ler e gravar compartilhamentos no Neon com verificação de Firebase Auth e RLS.
