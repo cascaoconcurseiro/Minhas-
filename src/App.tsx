@@ -694,9 +694,10 @@ export default function App() {
               };
               neonWorkspaceRevisionRef.current = neonSnapshot.revision;
               if (firestoreJson !== JSON.stringify(data)) {
-                void setDoc(docRef, data).catch((err) =>
-                  handleFirestoreError(err, OperationType.WRITE, docPath)
-                );
+                void setDoc(docRef, data).catch((err) => {
+                  setCloudSyncStatus('error');
+                  handleFirestoreError(err, OperationType.WRITE, docPath);
+                });
               }
               neonSynced = true;
             } catch (error) {
@@ -710,9 +711,10 @@ export default function App() {
             firestoreDataNeedsCleanup &&
             (!firebaseUser || firebaseUser.isAnonymous || neonSynced)
           ) {
-            void setDoc(docRef, data).catch((err) =>
-              handleFirestoreError(err, OperationType.WRITE, docPath)
-            );
+            void setDoc(docRef, data).catch((err) => {
+              setCloudSyncStatus('error');
+              handleFirestoreError(err, OperationType.WRITE, docPath);
+            });
           }
           isApplyingRemoteSnapshotRef.current = true;
 
