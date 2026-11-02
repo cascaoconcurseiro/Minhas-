@@ -4,6 +4,7 @@
 **Data:** 2026-11-02
 **O que foi feito:**
 - Removi a barra “Guia Rápido de Ativação” da visão geral e retirei o ícone `Sparkles` que só era usado nela. `bun run lint`, `bun run build` e `git diff --check` passaram; o aviso pré-existente do chunk principal acima de 500 kB permanece.
+- Publiquei `cb14902` na `main`; CI passou e Vercel ficou Ready. Smoke na URL de produção: página e bundle principal 200, e o texto do guia não aparece mais no bundle.
 - Atualização mais recente: o Neon permanece como única persistência operacional; removi o listener e os espelhos Firestore, e deixei o SDK Firestore num chunk carregado somente se o Neon ainda não tiver o workspace e for preciso importar um snapshot legado próprio. Workspace novo é criado idempotentemente direto no Neon.
 - Adicionei a rota autenticada `/api/workspace/migrate`, que só insere quando a linha ainda não existe e registra hash/contagens. Nenhum fluxo de rotina grava no Firestore.
 - Publiquei no console Firebase as regras do banco nomeado: `get` só para o próprio titular durante importação (ou verificação do próprio ID ainda inexistente), sem `list`, `create`, `update` ou `delete`. A confirmação no console foi “Success”; dados legados não foram apagados.
@@ -48,8 +49,8 @@
 - A aba de navegador que já estava aberta ainda carregava um bundle anterior pelo service worker; atualize a página para ver o texto novo.
 
 ## Próximo passo
-**Arquivos:** `src/components/OverviewTab.tsx`
-**Ação:** publicar a remoção do Guia Rápido em `main` e confirmar a Vercel Ready; depois, em 3/nov após 09:15 BRT, consultar `.github/workflows/neon-daily-activity.yml` e confirmar um run `schedule`. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados.
+**Arquivos:** `.github/workflows/neon-daily-activity.yml`
+**Ação:** em 3/nov após 09:15 BRT, consultar o workflow e confirmar um run `schedule`. A remoção do Guia Rápido está publicada. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
