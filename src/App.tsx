@@ -680,10 +680,6 @@ export default function App() {
       const resolvedConflict = await save;
       if (!resolvedConflict) return;
 
-      workspaceConflictRef.current = null;
-      setWorkspaceConflict(null);
-      setIsWorkspaceConflictOpen(false);
-
       const mirrorPayload = {
         ...resolvedConflict.localPayload,
         ...(auth.currentUser?.uid ? { ownerFirebaseUid: auth.currentUser.uid } : {}),
@@ -710,6 +706,9 @@ export default function App() {
           true
         );
       }
+      workspaceConflictRef.current = null;
+      setWorkspaceConflict(null);
+      setIsWorkspaceConflictOpen(false);
     } catch (error) {
       if (error instanceof NeonWorkspaceError && error.status === 409) {
         try {
@@ -4278,7 +4277,9 @@ export default function App() {
           isOpen={isWorkspaceConflictOpen}
           isSaving={isResolvingWorkspaceConflict}
           errorMessage={workspaceConflictError}
-          onDismiss={() => setIsWorkspaceConflictOpen(false)}
+          onDismiss={() => {
+            if (!isResolvingWorkspaceConflict) setIsWorkspaceConflictOpen(false);
+          }}
           onKeepLocal={handleKeepLocalWorkspaceVersion}
           onUseCloud={handleUseCloudWorkspaceVersion}
         />
