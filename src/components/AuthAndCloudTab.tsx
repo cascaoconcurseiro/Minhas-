@@ -261,13 +261,15 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 px-3 py-1 text-xs font-bold text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${cloudSyncStatus === 'error' ? 'bg-rose-500/20 border-rose-400/30 text-rose-200' : 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300'}`}>
+                <span className={`h-2 w-2 rounded-full animate-pulse ${cloudSyncStatus === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`} />
                 {cloudSyncStatus === 'synced'
                   ? 'Dados sincronizados com Neon + Firestore'
                   : cloudSyncStatus === 'syncing'
                   ? 'Sincronizando em Tempo Real...'
-                  : 'Cofre Local + Nuvem Ativo'}
+                  : cloudSyncStatus === 'error'
+                  ? 'Falha na nuvem — dados locais preservados'
+                  : 'Cofre local — aguardando sincronização'}
               </span>
               <span
                 data-testid="auth-status-badge"

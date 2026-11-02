@@ -686,33 +686,17 @@ export default function App() {
                 firestoreDataNeedsCleanup = true;
               }
 
-              const firestoreUpdatedAt = Date.parse(String(data.updatedAt || ''));
-              const neonUpdatedAt = Date.parse(
-                String(neonSnapshot.payload.updatedAt || '')
-              );
-              if (
-                Number.isFinite(firestoreUpdatedAt) &&
-                (!Number.isFinite(neonUpdatedAt) || firestoreUpdatedAt > neonUpdatedAt)
-              ) {
-                const saved = await saveNeonWorkspace(
-                  data,
-                  neonSnapshot.revision
+              const firestoreJson = JSON.stringify(data);
+              data = {
+                ...neonSnapshot.payload,
+                ownerFirebaseUid: firebaseUser.uid,
+                ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
+              };
+              neonWorkspaceRevisionRef.current = neonSnapshot.revision;
+              if (firestoreJson !== JSON.stringify(data)) {
+                void setDoc(docRef, data).catch((err) =>
+                  handleFirestoreError(err, OperationType.WRITE, docPath)
                 );
-                neonWorkspaceRevisionRef.current = saved.revision;
-              } else {
-                const firestoreJson = JSON.stringify(data);
-                const neonJson = JSON.stringify(neonSnapshot.payload);
-                data = {
-                  ...neonSnapshot.payload,
-                  ownerFirebaseUid: firebaseUser.uid,
-                  ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
-                };
-                neonWorkspaceRevisionRef.current = neonSnapshot.revision;
-                if (firestoreJson !== neonJson) {
-                  void setDoc(docRef, data).catch((err) =>
-                    handleFirestoreError(err, OperationType.WRITE, docPath)
-                  );
-                }
               }
               neonSynced = true;
             } catch (error) {

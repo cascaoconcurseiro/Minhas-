@@ -21,7 +21,10 @@
 - [x] Com autorização explícita do usuário, excluir os 4 lançamentos identificados como demonstração; preservar a conta.
 - [x] Definir Neon como fonte principal do workspace e manter Firestore como espelho de contingência por enquanto.
 - [x] Impedir gravação no espelho quando o salvamento principal no Neon falha; preservar o estado local e sinalizar a falha.
+- [x] Manter Neon como autoridade quando o Firestore já existe; ignorar snapshots Firestore mais recentes em vez de promovê-los automaticamente.
+- [x] Mostrar falha de sincronização como erro visível, sem a mensagem enganosa de nuvem ativa.
 - [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
+- [ ] Criar resolução guiada para conflitos `409` sem retry destrutivo nem perda silenciosa de dados locais/remotos.
 - [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
 - [x] Criar estruturas isoladas no Neon para convites e lançamentos familiares; migrar convites e espelhos sem apagar os dados antigos.
 - [x] Trocar os fluxos do app/API para ler e gravar compartilhamentos no Neon com verificação de Firebase Auth e RLS.
