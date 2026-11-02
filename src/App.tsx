@@ -183,6 +183,43 @@ function stripLegacyMockItems<T extends { id: string }>(items: T[]): T[] {
   });
 }
 
+function stripLegacyMockItemsFromWorkspace(
+  workspace: Record<string, unknown>
+): { payload: Record<string, unknown>; removedCount: number } {
+  const payload = { ...workspace };
+  let removedCount = 0;
+  const fields = [
+    'accountsJson',
+    'cardsJson',
+    'transactionsJson',
+    'goalsJson',
+    'familyMembersJson',
+    'investmentsJson',
+    'tripsJson',
+  ];
+
+  for (const field of fields) {
+    const raw = payload[field];
+    if (typeof raw !== 'string' && !Array.isArray(raw)) continue;
+
+    let items: unknown;
+    try {
+      items = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(items)) continue;
+
+    const cleanItems = stripLegacyMockItems(items as Array<{ id: string }>);
+    if (cleanItems.length === items.length) continue;
+
+    removedCount += items.length - cleanItems.length;
+    payload[field] = typeof raw === 'string' ? JSON.stringify(cleanItems) : cleanItems;
+  }
+
+  return { payload, removedCount };
+}
+
 function settingsUserNameFallback(email: string | null): string | null {
   if (!email) return null;
   const localPart = email.split('@')[0] || '';
@@ -594,6 +631,9 @@ export default function App() {
       async (snap) => {
         if (snap.exists()) {
           let data = snap.data();
+          const cleanedFirestoreWorkspace = stripLegacyMockItemsFromWorkspace(data);
+          data = cleanedFirestoreWorkspace.payload;
+          let firestoreDataNeedsCleanup = cleanedFirestoreWorkspace.removedCount > 0;
           let neonSynced = false;
           const firebaseUser = auth.currentUser;
           if (firebaseUser && !firebaseUser.isAnonymous) {
@@ -616,6 +656,23 @@ export default function App() {
                   }
                 }
                 neonSnapshot = await loadNeonWorkspace();
+              }
+
+              const cleanedNeonWorkspace = stripLegacyMockItemsFromWorkspace(
+                neonSnapshot.payload
+              );
+              if (cleanedNeonWorkspace.removedCount > 0) {
+                const saved = await saveNeonWorkspace(
+                  cleanedNeonWorkspace.payload,
+                  neonSnapshot.revision
+                );
+                neonWorkspaceRevisionRef.current = saved.revision;
+                neonSnapshot = {
+                  ...neonSnapshot,
+                  payload: cleanedNeonWorkspace.payload,
+                  revision: saved.revision,
+                };
+                firestoreDataNeedsCleanup = true;
               }
 
               const firestoreUpdatedAt = Date.parse(String(data.updatedAt || ''));
@@ -650,20 +707,25 @@ export default function App() {
               );
             }
           }
+          if (firestoreDataNeedsCleanup) {
+            void setDoc(docRef, data).catch((err) =>
+              handleFirestoreError(err, OperationType.WRITE, docPath)
+            );
+          }
           isApplyingRemoteSnapshotRef.current = true;
 
           const rawAccounts = safeParseArray<BankAccount>(
             data.accountsJson ?? data.accounts,
             INITIAL_ACCOUNTS
           );
-          const nextAccounts = rawAccounts;
+          const nextAccounts = stripLegacyMockItems(rawAccounts);
           setAccounts(nextAccounts);
 
           const rawCards = safeParseArray<CreditCard>(
             data.cardsJson ?? data.cards,
             INITIAL_CREDIT_CARDS
           );
-          const nextCards = rawCards;
+          const nextCards = stripLegacyMockItems(rawCards);
           setCards(nextCards);
 
           const parsedCategories = safeParseArray<Category>(
@@ -686,35 +748,35 @@ export default function App() {
             data.transactionsJson ?? data.transactions,
             INITIAL_TRANSACTIONS
           );
-          const nextTransactions = rawTransactions;
+          const nextTransactions = stripLegacyMockItems(rawTransactions);
           setTransactions(nextTransactions);
 
           const rawGoals = safeParseArray<SavingsGoal>(
             data.goalsJson ?? data.goals,
             INITIAL_SAVINGS_GOALS
           );
-          const nextGoals = rawGoals;
+          const nextGoals = stripLegacyMockItems(rawGoals);
           setGoals(nextGoals);
 
           const rawMembers = safeParseArray<FamilyMember>(
             data.familyMembersJson ?? data.familyMembers,
             INITIAL_FAMILY_MEMBERS
           );
-          const nextMembers = rawMembers;
+          const nextMembers = stripLegacyMockItems(rawMembers);
           setFamilyMembers(nextMembers);
 
           const rawInvestments = safeParseArray<InvestmentAsset>(
             data.investmentsJson ?? data.investments,
             INITIAL_INVESTMENTS
           );
-          const nextInvestments = rawInvestments;
+          const nextInvestments = stripLegacyMockItems(rawInvestments);
           setInvestments(nextInvestments);
 
           const rawTrips = safeParseArray<Trip>(
             data.tripsJson ?? data.trips,
             INITIAL_TRIPS
           );
-          const nextTrips = rawTrips;
+          const nextTrips = stripLegacyMockItems(rawTrips);
           setTrips(nextTrips);
 
           const nextTargets = safeParseObj(

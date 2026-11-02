@@ -15,6 +15,8 @@
 - [x] Autorizar o domínio de produção na Firebase Authentication, mantendo Firebase Auth.
 - [x] Migrar a conta autenticada do Firestore para Neon; conferir migração, leitura e gravação no site publicado.
 - [x] Executar manualmente o workflow diário e confirmar `SELECT 1` com sucesso.
+- [x] Auditar o workspace Neon em produção; nenhum registro correspondeu aos marcadores de mock existentes.
+- [ ] Publicar e conferir a limpeza de registros mock ao carregar snapshots remotos.
 - [ ] Definir a fonte de verdade e o plano de contingência antes de desativar o espelho Firestore.
 - [ ] Validar concorrência e recuperação após indisponibilidade do Neon.
 - [ ] Migrar o compartilhamento familiar, hoje mantido no Firestore, após definir autorização entre contas.
