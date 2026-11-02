@@ -141,7 +141,6 @@
 
 /* Eliminate horizontal pulling, dragging and elastic stretch on all modal dialogs, drawers, and forms */
 [role="dialog"],
-.modal-shell,
 form,
 dialog {
   touch-action: pan-y !important;

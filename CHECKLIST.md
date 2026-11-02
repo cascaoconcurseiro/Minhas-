@@ -22,3 +22,6 @@
 - [ ] Definir a fonte de verdade e o plano de contingência antes de desativar o espelho Firestore.
 - [ ] Validar concorrência e recuperação após indisponibilidade do Neon.
 - [ ] Migrar o compartilhamento familiar, hoje mantido no Firestore, após definir autorização entre contas.
+
+## Interface
+- [x] Corrigir largura do modal de novo lançamento no desktop para respeitar o limite visual do componente.
