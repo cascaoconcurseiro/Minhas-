@@ -83,6 +83,7 @@ export interface FamilyMember {
   relationship: 'cônjuge' | 'filho(a)' | 'pai/mãe' | 'irmão/irmã' | 'amigo(a)' | 'outro';
   color: string;
   email?: string;
+  invitationId?: string;
   inviteStatus?: 'none' | 'invited' | 'accepted';
   invitedAt?: string;
   invitedByEmail?: string;

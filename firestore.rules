@@ -30,6 +30,16 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isVaultOwner(data) {
+      return isAuthenticated() && (
+        ('ownerFirebaseUid' in data)
+          ? data.ownerFirebaseUid == request.auth.uid
+          : (('email' in data) && data.email is string &&
+              request.auth.token.email is string &&
+              data.email.lower() == request.auth.token.email.lower())
+      );
+    }
+
     function isValidVaultId(vaultId) {
       return vaultId is string && vaultId.size() >= 16 && vaultId.size() <= 64;
     }
@@ -37,6 +47,7 @@ service cloud.firestore {
     function isValidWorkspace(data, docId) {
       let allowedKeys = [
         'uid',
+        'ownerFirebaseUid',
         'email',
         'displayName',
         'updatedAt',
@@ -63,6 +74,8 @@ service cloud.firestore {
           'investmentsJson'
         ]) &&
         data.uid is string && data.uid == docId &&
+        (!('ownerFirebaseUid' in data) ||
+          (data.ownerFirebaseUid is string && data.ownerFirebaseUid.size() <= 128)) &&
         data.updatedAt is string && data.updatedAt.size() > 0 && data.updatedAt.size() <= 64 &&
         data.accountsJson is string && data.accountsJson.size() <= 100000 &&
         data.cardsJson is string && data.cardsJson.size() <= 100000 &&
@@ -88,11 +101,19 @@ service cloud.firestore {
     }
 
     match /cloud_vaults/{vaultId} {
-      allow get: if isValidVaultId(vaultId);
+      allow get: if isValidVaultId(vaultId) && isVaultOwner(resource.data);
       allow list: if false;
-      allow create: if isValidVaultId(vaultId) && isValidWorkspace(request.resource.data, vaultId);
-      allow update: if isValidVaultId(vaultId) &&
+      allow create: if isValidVaultId(vaultId) &&
         isValidWorkspace(request.resource.data, vaultId) &&
+        request.resource.data.ownerFirebaseUid == request.auth.uid &&
+        request.resource.data.email is string &&
+        request.resource.data.email.lower() == request.auth.token.email.lower();
+      allow update: if isValidVaultId(vaultId) &&
+        isVaultOwner(resource.data) &&
+        isValidWorkspace(request.resource.data, vaultId) &&
+        request.resource.data.ownerFirebaseUid == request.auth.uid &&
+        request.resource.data.email is string &&
+        request.resource.data.email.lower() == request.auth.token.email.lower() &&
         request.resource.data.uid == resource.data.uid;
       allow delete: if false;
     }

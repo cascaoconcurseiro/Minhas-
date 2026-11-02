@@ -179,6 +179,9 @@ async function withWorkspaceRls<T>(
   try {
     await client.query('BEGIN');
     await client.query("SELECT set_config('app.firebase_uid', $1, true)", [user.uid]);
+    await client.query("SELECT set_config('app.firebase_email', $1, true)", [
+      user.email.toLowerCase(),
+    ]);
     const result = await operation(client, vaultId);
     await client.query('COMMIT');
     return result;
@@ -272,6 +275,7 @@ async function startServer() {
   };
 
   app.use('/api/workspace', verifyFirebaseWorkspaceUser);
+  app.use('/api/family', verifyFirebaseWorkspaceUser);
 
   app.get('/api/workspace', async (_req, res) => {
     const user = res.locals.firebaseUser as FirebaseUserIdentity;
@@ -424,6 +428,348 @@ async function startServer() {
     } catch (error) {
       console.error('Erro ao salvar workspace Neon:', error);
       res.status(503).json({ error: 'Não foi possível salvar os dados em nuvem.' });
+    }
+  });
+
+  app.get('/api/family/invitations', async (_req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    try {
+      const invitations = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `SELECT invitation_id, owner_firebase_uid, owner_email, invited_email,
+                  invited_firebase_uid, owner_member_id, owner_name, owner_pix_key,
+                  relationship, color, status, created_at, updated_at, responded_at
+             FROM public.finance_family_invitations
+            WHERE owner_firebase_uid = $1 OR lower(invited_email) = lower($2)
+            ORDER BY updated_at DESC`,
+          [user.uid, user.email]
+        );
+        return result.rows;
+      });
+      res.json({ invitations });
+    } catch (error) {
+      console.error('Erro ao carregar convites familiares:', error);
+      res.status(503).json({ error: 'Não foi possível carregar os convites familiares.' });
+    }
+  });
+
+  app.post('/api/family/invitations', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const invitedEmail = String(req.body?.invitedEmail || '').trim().toLowerCase();
+    const ownerMemberId = String(req.body?.ownerMemberId || '').trim();
+    const ownerName = String(req.body?.ownerName || '').trim().slice(0, 120);
+    const relationship = String(req.body?.relationship || 'outro').trim().slice(0, 40);
+    const color = String(req.body?.color || '#6366f1').trim().slice(0, 24);
+    const ownerPixKey = String(req.body?.ownerPixKey || '').trim().slice(0, 180);
+    if (
+      !user.email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invitedEmail) ||
+      invitedEmail === user.email.toLowerCase() ||
+      ownerMemberId.length < 1 || ownerMemberId.length > 128
+    ) {
+      res.status(400).json({ error: 'Convite familiar inválido.' });
+      return;
+    }
+    const invitationId = createHash('sha256')
+      .update(`${user.uid}:${invitedEmail}`)
+      .digest('hex');
+    try {
+      const invitation = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `INSERT INTO public.finance_family_invitations
+             (invitation_id, owner_firebase_uid, owner_email, invited_email,
+              owner_member_id, owner_name, owner_pix_key, relationship, color)
+           VALUES ($1, $2, $3, $4, $5, $6, nullif($7, ''), $8, $9)
+           ON CONFLICT (owner_firebase_uid, invited_email) DO UPDATE
+             SET owner_member_id = EXCLUDED.owner_member_id,
+                 owner_name = EXCLUDED.owner_name,
+                 owner_pix_key = EXCLUDED.owner_pix_key,
+                 relationship = EXCLUDED.relationship,
+                 color = EXCLUDED.color,
+                 status = CASE
+                   WHEN finance_family_invitations.status = 'accepted' THEN 'accepted'
+                   ELSE 'invited'
+                 END,
+                 invited_firebase_uid = CASE
+                   WHEN finance_family_invitations.status = 'accepted'
+                     THEN finance_family_invitations.invited_firebase_uid
+                   ELSE NULL
+                 END,
+                 updated_at = now(),
+                 responded_at = CASE
+                   WHEN finance_family_invitations.status = 'accepted'
+                     THEN finance_family_invitations.responded_at
+                   ELSE NULL
+                 END
+           RETURNING invitation_id, owner_firebase_uid, owner_email, invited_email,
+                     invited_firebase_uid, owner_member_id, owner_name, owner_pix_key,
+                     relationship, color, status, created_at, updated_at, responded_at`,
+          [
+            invitationId,
+            user.uid,
+            user.email.toLowerCase(),
+            invitedEmail,
+            ownerMemberId,
+            ownerName || user.email.split('@')[0],
+            ownerPixKey,
+            relationship,
+            color,
+          ]
+        );
+        return result.rows[0];
+      });
+      res.status(201).json({ invitation });
+    } catch (error) {
+      console.error('Erro ao criar convite familiar:', error);
+      res.status(503).json({ error: 'Não foi possível salvar o convite familiar.' });
+    }
+  });
+
+  app.post('/api/family/invitations/:invitationId/respond', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const action = req.body?.action;
+    if (!user.email || !['accepted', 'declined'].includes(action)) {
+      res.status(400).json({ error: 'Resposta de convite inválida.' });
+      return;
+    }
+    try {
+      const invitation = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `UPDATE public.finance_family_invitations
+              SET status = $1,
+                  invited_firebase_uid = $2,
+                  updated_at = now(),
+                  responded_at = now()
+            WHERE invitation_id = $3
+              AND lower(invited_email) = lower($4)
+              AND status IN ('invited', 'accepted', 'declined')
+          RETURNING invitation_id, owner_firebase_uid, owner_email, invited_email,
+                    invited_firebase_uid, owner_member_id, owner_name, owner_pix_key,
+                    relationship, color, status, created_at, updated_at, responded_at`,
+          [action, user.uid, req.params.invitationId, user.email]
+        );
+        return result.rows[0] ?? null;
+      });
+      if (!invitation) {
+        res.status(404).json({ error: 'Convite não encontrado para esta conta.' });
+        return;
+      }
+      res.json({ invitation });
+    } catch (error) {
+      console.error('Erro ao responder convite familiar:', error);
+      res.status(503).json({ error: 'Não foi possível responder ao convite.' });
+    }
+  });
+
+  app.post('/api/family/invitations/:invitationId/revoke', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    try {
+      const revoked = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `UPDATE public.finance_family_invitations
+              SET status = 'revoked', updated_at = now(), responded_at = now()
+            WHERE invitation_id = $1
+              AND (owner_firebase_uid = $2 OR invited_firebase_uid = $2)
+          RETURNING owner_firebase_uid, invited_firebase_uid`,
+          [req.params.invitationId, user.uid]
+        );
+        const link = result.rows[0];
+        if (!link) return false;
+        if (link.invited_firebase_uid) {
+          await client.query(
+            `DELETE FROM public.finance_shared_transactions
+              WHERE (sender_firebase_uid = $1 AND recipient_firebase_uid = $2)
+                 OR (sender_firebase_uid = $2 AND recipient_firebase_uid = $1)`,
+            [link.owner_firebase_uid, link.invited_firebase_uid]
+          );
+        }
+        return true;
+      });
+      if (!revoked) {
+        res.status(404).json({ error: 'Convite não encontrado para esta conta.' });
+        return;
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Erro ao revogar vínculo familiar:', error);
+      res.status(503).json({ error: 'Não foi possível revogar o vínculo familiar.' });
+    }
+  });
+
+  app.get('/api/family/shared', async (_req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    try {
+      const transactions = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `SELECT sender_firebase_uid, recipient_firebase_uid, shared_sync_id,
+                  payload, updated_at
+             FROM public.finance_shared_transactions
+            WHERE recipient_firebase_uid = $1 AND recipient_hidden = false
+            ORDER BY updated_at DESC`,
+          [user.uid]
+        );
+        return result.rows;
+      });
+      res.json({ transactions });
+    } catch (error) {
+      console.error('Erro ao carregar lançamentos compartilhados:', error);
+      res.status(503).json({ error: 'Não foi possível carregar os lançamentos compartilhados.' });
+    }
+  });
+
+  app.put('/api/family/shared', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const partnerEmail = String(req.body?.partnerEmail || '').trim().toLowerCase();
+    const transactions = req.body?.transactions;
+    const deletedSharedIds = Array.isArray(req.body?.deletedSharedIds)
+      ? req.body.deletedSharedIds.map((id: unknown) => String(id).replace(/^tx-mirror-/, ''))
+      : [];
+    if (
+      !user.email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail) ||
+      !Array.isArray(transactions) ||
+      transactions.length > 5000 ||
+      deletedSharedIds.length > 5000
+    ) {
+      res.status(400).json({ error: 'Snapshot de compartilhamento inválido.' });
+      return;
+    }
+
+    try {
+      const result = await withWorkspaceRls(user, async (client) => {
+        const linkResult = await client.query(
+          `SELECT owner_firebase_uid, owner_email, invited_email,
+                  invited_firebase_uid, owner_member_id, status
+             FROM public.finance_family_invitations
+            WHERE status = 'accepted'
+              AND ((owner_firebase_uid = $1 AND lower(invited_email) = lower($2))
+                OR (invited_firebase_uid = $1 AND lower(owner_email) = lower($2)))
+            LIMIT 1`,
+          [user.uid, partnerEmail]
+        );
+        const link = linkResult.rows[0];
+        if (!link || !link.invited_firebase_uid) return { forbidden: true };
+
+        const ownerIsSender = link.owner_firebase_uid === user.uid;
+        const partnerUid = ownerIsSender
+          ? String(link.invited_firebase_uid)
+          : String(link.owner_firebase_uid);
+        const senderEmail = user.email!.toLowerCase();
+        const recipientEmail = partnerEmail;
+        const recipientMemberId = ownerIsSender
+          ? `fam-inv-${senderEmail.replace(/[^a-z0-9]/g, '_')}`
+          : String(link.owner_member_id);
+        let upserted = 0;
+        let settled = 0;
+
+        for (const tx of transactions as Array<Record<string, unknown>>) {
+          if (!tx || typeof tx !== 'object') continue;
+          if (String(tx.id || '').startsWith('tx-mirror-')) {
+            const sharedSyncId = String(tx.sharedSyncId || tx.id).replace(/^tx-mirror-/, '');
+            if (!sharedSyncId) continue;
+            const sharedStatus = tx.sharedStatus === 'received' ? 'received' : 'pending';
+            const settledDate = typeof tx.sharedSettledDate === 'string'
+              ? tx.sharedSettledDate.slice(0, 32)
+              : null;
+            await client.query(
+              `UPDATE public.finance_shared_transactions
+                  SET payload = jsonb_set(
+                    CASE WHEN $5::text IS NULL
+                      THEN payload - 'sharedSettledDate'
+                      ELSE jsonb_set(payload, '{sharedSettledDate}', to_jsonb($5::text), true)
+                    END,
+                    '{sharedStatus}', to_jsonb($4::text), true
+                  ),
+                  updated_at = now()
+                WHERE sender_firebase_uid = $1
+                  AND recipient_firebase_uid = $2
+                  AND shared_sync_id = $3`,
+              [partnerUid, user.uid, sharedSyncId, sharedStatus, settledDate]
+            );
+            settled += 1;
+            continue;
+          }
+
+          if (tx.isShared !== true || tx.tripId || typeof tx.id !== 'string') continue;
+          const sharedSyncId = String(tx.sharedSyncId || tx.id).replace(/^tx-mirror-/, '');
+          const amount = Number(tx.amount);
+          if (
+            !sharedSyncId || sharedSyncId.length > 160 ||
+            !Number.isFinite(amount) || amount < 0 ||
+            typeof tx.description !== 'string' || tx.description.length > 500 ||
+            typeof tx.date !== 'string' || tx.date.length > 32
+          ) continue;
+
+          const senderPaidByMember = tx.sharedPaidBy === 'member';
+          const mirror = {
+            id: `tx-mirror-${sharedSyncId}`,
+            sharedSyncId,
+            sharedOriginEmail: senderEmail,
+            sharedTargetEmail: recipientEmail,
+            description: tx.description,
+            amount,
+            date: tx.date,
+            competenceMonth: typeof tx.competenceMonth === 'string' ? tx.competenceMonth : tx.date.slice(0, 7),
+            type: 'expense',
+            status: tx.status === 'pending' ? 'pending' : 'paid',
+            categoryId: typeof tx.categoryId === 'string' ? tx.categoryId : 'cat-outros',
+            ...(typeof tx.subcategoryId === 'string' ? { subcategoryId: tx.subcategoryId } : {}),
+            paymentMethod: typeof tx.paymentMethod === 'string' ? tx.paymentMethod : 'pix',
+            recurrence: typeof tx.recurrence === 'string' ? tx.recurrence : 'single',
+            ...(typeof tx.installmentGroupId === 'string' ? { installmentGroupId: `mirror-${tx.installmentGroupId}` } : {}),
+            ...(typeof tx.installmentNumber === 'number' ? { installmentNumber: tx.installmentNumber } : {}),
+            ...(typeof tx.installmentTotal === 'number' ? { installmentTotal: tx.installmentTotal } : {}),
+            ...(typeof tx.notes === 'string' ? { notes: tx.notes.slice(0, 2000) } : {}),
+            isShared: true,
+            sharedMemberId: recipientMemberId,
+            sharedAmount: Number.isFinite(Number(tx.sharedAmount)) ? Number(tx.sharedAmount) : amount,
+            sharedSplitMode: ['full', 'half', 'custom'].includes(String(tx.sharedSplitMode)) ? tx.sharedSplitMode : 'half',
+            sharedPaidBy: senderPaidByMember ? 'me' : 'member',
+            sharedStatus: tx.sharedStatus === 'received' ? 'received' : 'pending',
+            ...(typeof tx.sharedSettledDate === 'string' ? { sharedSettledDate: tx.sharedSettledDate } : {}),
+            isCompanionOnlyExpense: true,
+          };
+          await client.query(
+            `INSERT INTO public.finance_shared_transactions
+               (sender_firebase_uid, recipient_firebase_uid, shared_sync_id, payload, updated_at)
+             VALUES ($1, $2, $3, $4::jsonb, now())
+             ON CONFLICT (sender_firebase_uid, recipient_firebase_uid, shared_sync_id)
+             DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
+            [user.uid, partnerUid, sharedSyncId, JSON.stringify(mirror)]
+          );
+          upserted += 1;
+        }
+
+        let deleted = 0;
+        if (deletedSharedIds.length > 0) {
+          const deletion = await client.query(
+            `DELETE FROM public.finance_shared_transactions
+              WHERE sender_firebase_uid = $1
+                AND recipient_firebase_uid = $2
+                AND shared_sync_id = ANY($3::text[])`,
+            [user.uid, partnerUid, deletedSharedIds]
+          );
+          const hidden = await client.query(
+            `UPDATE public.finance_shared_transactions
+                SET recipient_hidden = true, updated_at = now()
+              WHERE sender_firebase_uid = $1
+                AND recipient_firebase_uid = $2
+                AND shared_sync_id = ANY($3::text[])
+                AND recipient_hidden = false`,
+            [partnerUid, user.uid, deletedSharedIds]
+          );
+          deleted = (deletion.rowCount ?? 0) + (hidden.rowCount ?? 0);
+        }
+        return { forbidden: false, upserted, settled, deleted };
+      });
+      if (result.forbidden) {
+        res.status(403).json({ error: 'O compartilhamento exige convite familiar aceito.' });
+        return;
+      }
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      console.error('Erro ao sincronizar lançamentos familiares no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível sincronizar os lançamentos compartilhados.' });
     }
   });
 

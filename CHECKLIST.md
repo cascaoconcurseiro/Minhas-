@@ -23,9 +23,11 @@
 - [x] Impedir gravação no espelho quando o salvamento principal no Neon falha; preservar o estado local e sinalizar a falha.
 - [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
 - [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
-- [ ] Migrar o compartilhamento familiar, hoje mantido no Firestore, após definir autorização entre contas.
-- [ ] Restringir `cloud_vaults` ao dono autenticado; as regras atuais permitem `get` sem autenticação e os IDs são derivados do e-mail.
-- [ ] Mover convites e transações compartilhadas para estruturas isoladas; não dar acesso ao workspace financeiro completo de outra pessoa.
+- [x] Criar estruturas isoladas no Neon para convites e lançamentos familiares; migrar convites e espelhos sem apagar os dados antigos.
+- [x] Trocar os fluxos do app/API para ler e gravar compartilhamentos no Neon com verificação de Firebase Auth e RLS.
+- [ ] Validar ponta a ponta convite, aceite, recusa, revogação e lançamento compartilhado com duas contas reais.
+- [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
+- [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.
 
 ## Interface
 - [x] Corrigir largura do modal de novo lançamento no desktop para respeitar o limite visual do componente.

@@ -25,20 +25,23 @@ import {
   onSnapshot,
   OperationType,
   registerWithEmail,
-  respondToCrossAccountFamilyInvite,
-  sendCrossAccountFamilyInvite,
   setDoc,
   signInWithEmail,
   signInWithGooglePopup,
   signOutFirebaseUser,
-  syncSharedTransactionsWithFamilyVaults,
   User,
 } from './lib/firebase';
 import {
   importFirestoreWorkspace,
+  createNeonFamilyInvitation,
+  loadNeonFamilyInvitations,
+  loadNeonSharedTransactions,
   loadNeonWorkspace,
   NeonWorkspaceError,
+  revokeNeonFamilyInvitation,
+  respondToNeonFamilyInvitation,
   saveNeonWorkspace,
+  syncNeonSharedTransactions,
 } from './lib/neonWorkspace';
 import {
   AppSettings,
@@ -516,13 +519,18 @@ export default function App() {
   // Helper to build the Firestore payload matching firestore.rules schema
   const buildCloudPayload = (targetId: string) => ({
     uid: targetId,
+    ...(auth.currentUser?.uid ? { ownerFirebaseUid: auth.currentUser.uid } : {}),
     ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
     ...(effectiveUserDisplayName ? { displayName: effectiveUserDisplayName } : {}),
     updatedAt: new Date().toISOString(),
     accountsJson: JSON.stringify(accounts),
     cardsJson: JSON.stringify(cards),
     categoriesJson: JSON.stringify(categories),
-    transactionsJson: JSON.stringify(compactTransactionListForStorage(transactions)),
+    transactionsJson: JSON.stringify(
+      compactTransactionListForStorage(
+        transactions.filter((transaction) => !transaction.id.startsWith('tx-mirror-'))
+      )
+    ),
     goalsJson: JSON.stringify(goals),
     familyMembersJson: JSON.stringify(familyMembers),
     investmentsJson: JSON.stringify(investments),
@@ -631,11 +639,14 @@ export default function App() {
       async (snap) => {
         if (snap.exists()) {
           let data = snap.data();
+          const firebaseUser = auth.currentUser;
+          if (firebaseUser && !firebaseUser.isAnonymous) {
+            data = { ...data, ownerFirebaseUid: firebaseUser.uid };
+          }
           const cleanedFirestoreWorkspace = stripLegacyMockItemsFromWorkspace(data);
           data = cleanedFirestoreWorkspace.payload;
           let firestoreDataNeedsCleanup = cleanedFirestoreWorkspace.removedCount > 0;
           let neonSynced = false;
-          const firebaseUser = auth.currentUser;
           if (firebaseUser && !firebaseUser.isAnonymous) {
             try {
               let neonSnapshot;
@@ -691,7 +702,11 @@ export default function App() {
               } else {
                 const firestoreJson = JSON.stringify(data);
                 const neonJson = JSON.stringify(neonSnapshot.payload);
-                data = neonSnapshot.payload;
+                data = {
+                  ...neonSnapshot.payload,
+                  ownerFirebaseUid: firebaseUser.uid,
+                  ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
+                };
                 neonWorkspaceRevisionRef.current = neonSnapshot.revision;
                 if (firestoreJson !== neonJson) {
                   void setDoc(docRef, data).catch((err) =>
@@ -716,6 +731,22 @@ export default function App() {
             );
           }
           isApplyingRemoteSnapshotRef.current = true;
+
+          let familyInvitations: Awaited<ReturnType<typeof loadNeonFamilyInvitations>> = [];
+          let neonSharedTransactions: Record<string, unknown>[] = [];
+          if (firebaseUser && !firebaseUser.isAnonymous && neonSynced) {
+            try {
+              [familyInvitations, neonSharedTransactions] = await Promise.all([
+                loadNeonFamilyInvitations(),
+                loadNeonSharedTransactions(),
+              ]);
+            } catch (error) {
+              console.warn(
+                'Não foi possível carregar os dados familiares do Neon.',
+                error instanceof Error ? error.message : String(error)
+              );
+            }
+          }
 
           const rawAccounts = safeParseArray<BankAccount>(
             data.accountsJson ?? data.accounts,
@@ -752,7 +783,21 @@ export default function App() {
             INITIAL_TRANSACTIONS
           );
           const nextTransactions = stripLegacyMockItems(rawTransactions);
-          setTransactions(nextTransactions);
+          const sharedById = new Map<string, Transaction>();
+          for (const sharedPayload of neonSharedTransactions) {
+            const sharedTx = sharedPayload as unknown as Transaction;
+            const sharedId = sharedTx.sharedSyncId || sharedTx.id?.replace(/^tx-mirror-/, '');
+            if (!sharedId) continue;
+            sharedById.set(sharedId, sharedTx);
+          }
+          const localNonMirrorTransactions = nextTransactions.filter(
+            (tx) => !tx.id.startsWith('tx-mirror-')
+          );
+          const visibleTransactions = [
+            ...localNonMirrorTransactions,
+            ...sharedById.values(),
+          ];
+          setTransactions(visibleTransactions);
 
           const rawGoals = safeParseArray<SavingsGoal>(
             data.goalsJson ?? data.goals,
@@ -766,6 +811,69 @@ export default function App() {
             INITIAL_FAMILY_MEMBERS
           );
           const nextMembers = stripLegacyMockItems(rawMembers);
+          for (const invitation of familyInvitations) {
+            const ownerEmail = invitation.owner_email.trim().toLowerCase();
+            const invitedEmail = invitation.invited_email.trim().toLowerCase();
+            const isIncoming = invitedEmail === effectiveUserEmail;
+            if (invitation.status === 'declined' || invitation.status === 'revoked') {
+              if (!isIncoming) {
+                const ownerMember = nextMembers.find(
+                  (member) => member.email?.trim().toLowerCase() === invitedEmail
+                );
+                if (ownerMember) {
+                  ownerMember.inviteStatus = 'none';
+                  ownerMember.invitationId = invitation.invitation_id;
+                }
+              }
+              continue;
+            }
+            const familyId = isIncoming
+              ? `fam-inv-${ownerEmail.replace(/[^a-z0-9]/g, '_')}`
+              : invitation.owner_member_id;
+            const nextMember: FamilyMember = isIncoming
+              ? {
+                  id: familyId,
+                  name: invitation.owner_name || ownerEmail.split('@')[0],
+                  relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
+                  color: invitation.color || '#6366f1',
+                  email: ownerEmail,
+                  inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+                  invitedAt: new Date().toISOString().slice(0, 10),
+                  invitedByEmail: ownerEmail,
+                  invitedByName: invitation.owner_name,
+                  direction: 'incoming',
+                  pixKey: invitation.owner_pix_key || undefined,
+                  invitationId: invitation.invitation_id,
+                }
+              : {
+                  id: familyId,
+                  name: invitation.owner_name || invitedEmail.split('@')[0],
+                  relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
+                  color: invitation.color || '#6366f1',
+                  email: invitedEmail,
+                  inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+                  direction: 'outgoing',
+                  invitationId: invitation.invitation_id,
+                };
+            const existingIndex = nextMembers.findIndex((member) =>
+              isIncoming
+                ? member.id === familyId ||
+                  (member.direction === 'incoming' &&
+                    member.email?.trim().toLowerCase() === ownerEmail)
+                : member.id === familyId ||
+                  (member.direction !== 'incoming' &&
+                    member.email?.trim().toLowerCase() === invitedEmail)
+            );
+            if (existingIndex >= 0) {
+              nextMembers[existingIndex] = {
+                ...nextMembers[existingIndex],
+                ...nextMember,
+                name: nextMembers[existingIndex].name || nextMember.name,
+              };
+            } else {
+              nextMembers.push(nextMember);
+            }
+          }
           setFamilyMembers(nextMembers);
 
           const rawInvestments = safeParseArray<InvestmentAsset>(
@@ -795,22 +903,11 @@ export default function App() {
           setSettings(nextSettings);
 
           if (!hasLoadedRemoteOnceRef.current && effectiveUserEmail) {
-            const ownShared = nextTransactions.filter(
+            const ownShared = visibleTransactions.filter(
               (t) => t.isShared && !t.tripId && !t.id.startsWith('tx-mirror-')
             );
             if (ownShared.length > 0 && nextMembers.length > 0) {
-              void syncSharedTransactionsWithFamilyVaults({
-                ownerEmail: effectiveUserEmail,
-                ownerName:
-                  effectiveUserDisplayName ||
-                  nextSettings.userName ||
-                  effectiveUserEmail.split('@')[0],
-                ownerPixKey: nextSettings.userPixKey,
-                familyMembers: nextMembers,
-                sharedTransactions: ownShared as unknown as Array<Record<string, unknown>>,
-                defaultCategoriesJson: JSON.stringify(INITIAL_CATEGORIES),
-                defaultInvestmentTargetsJson: JSON.stringify(DEFAULT_INVESTMENT_TARGETS),
-              });
+              triggerCrossAccountSharedTxSync(visibleTransactions, nextMembers);
             }
           }
 
@@ -830,7 +927,10 @@ export default function App() {
             try {
               const neonSnapshot = await loadNeonWorkspace();
               neonWorkspaceRevisionRef.current = neonSnapshot.revision;
-              await setDoc(docRef, neonSnapshot.payload);
+              await setDoc(docRef, {
+                ...neonSnapshot.payload,
+                ownerFirebaseUid: firebaseUser.uid,
+              });
               setCloudSyncStatus('synced');
               return;
             } catch (error) {
@@ -856,6 +956,7 @@ export default function App() {
 
           const cleanEmptyPayload = {
             uid: docId,
+            ...(firebaseUser?.uid ? { ownerFirebaseUid: firebaseUser.uid } : {}),
             ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
             ...(effectiveUserDisplayName ? { displayName: effectiveUserDisplayName } : {}),
             updatedAt: new Date().toISOString(),
@@ -923,6 +1024,104 @@ export default function App() {
 
     return () => unsubscribe();
   }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId, scopedStorageKey]);
+
+  // Poll Neon for family invitations and incoming shared expenses while the app is open.
+  useEffect(() => {
+    if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
+    let active = true;
+    const refreshFamilyData = async () => {
+      if (!hasLoadedRemoteOnceRef.current || !navigator.onLine) return;
+      try {
+        const [invitations, sharedPayloads] = await Promise.all([
+          loadNeonFamilyInvitations(),
+          loadNeonSharedTransactions(),
+        ]);
+        if (!active) return;
+        setFamilyMembers((previous) => {
+          const next = [...previous];
+          for (const invitation of invitations) {
+            const ownerEmail = invitation.owner_email.trim().toLowerCase();
+            const invitedEmail = invitation.invited_email.trim().toLowerCase();
+            const incoming = invitedEmail === effectiveUserEmail;
+            const memberId = incoming
+              ? `fam-inv-${ownerEmail.replace(/[^a-z0-9]/g, '_')}`
+              : invitation.owner_member_id;
+            const declined = invitation.status === 'declined' || invitation.status === 'revoked';
+            const index = next.findIndex((member) =>
+              incoming
+                ? member.direction === 'incoming' &&
+                  (member.id === memberId || member.email?.trim().toLowerCase() === ownerEmail)
+                : member.direction !== 'incoming' &&
+                  (member.id === memberId || member.email?.trim().toLowerCase() === invitedEmail)
+            );
+            if (declined) {
+              if (incoming && index >= 0) next.splice(index, 1);
+              else if (index >= 0) next[index] = { ...next[index], inviteStatus: 'none' };
+              continue;
+            }
+            const member: FamilyMember = incoming
+              ? {
+                  id: memberId,
+                  name: invitation.owner_name || ownerEmail.split('@')[0],
+                  relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
+                  color: invitation.color || '#6366f1',
+                  email: ownerEmail,
+                  inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+                  invitedByEmail: ownerEmail,
+                  invitedByName: invitation.owner_name,
+                  direction: 'incoming',
+                  pixKey: invitation.owner_pix_key || undefined,
+                  invitationId: invitation.invitation_id,
+                }
+              : {
+                  id: memberId,
+                  name: invitation.invited_email.split('@')[0],
+                  relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
+                  color: invitation.color || '#6366f1',
+                  email: invitedEmail,
+                  inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+                  direction: 'outgoing',
+                  invitationId: invitation.invitation_id,
+                };
+            if (index >= 0) {
+              next[index] = { ...next[index], ...member, name: next[index].name || member.name };
+            } else {
+              next.push(member);
+            }
+          }
+          return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+        });
+        setTransactions((previous) => {
+          const merged = new Map<string, Transaction>();
+          for (const tx of previous.filter((item) => item.id.startsWith('tx-mirror-'))) {
+            merged.set(tx.sharedSyncId || tx.id.replace(/^tx-mirror-/, ''), tx);
+          }
+          for (const payload of sharedPayloads) {
+            const tx = payload as unknown as Transaction;
+            const id = tx.sharedSyncId || tx.id?.replace(/^tx-mirror-/, '');
+            if (id) merged.set(id, tx);
+          }
+          const next = [
+            ...previous.filter((item) => !item.id.startsWith('tx-mirror-')),
+            ...merged.values(),
+          ];
+          return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+        });
+      } catch (error) {
+        if (active) {
+          console.warn(
+            'A atualização periódica dos dados familiares falhou.',
+            error instanceof Error ? error.message : String(error)
+          );
+        }
+      }
+    };
+    const timer = window.setInterval(() => void refreshFamilyData(), 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail]);
 
   // Save state to user-scoped localStorage + Automatic Cloud Firestore Sync
   useEffect(() => {
@@ -1180,22 +1379,38 @@ export default function App() {
   ) => {
     if (!effectiveUserEmail) return;
     const sharedList = nextTransactions.filter((t) => t.isShared && !t.tripId);
-    if (sharedList.length === 0 && (!deletedSharedSyncIds || deletedSharedSyncIds.length === 0)) {
+    if (
+      sharedList.length === 0 &&
+      (!deletedSharedSyncIds || deletedSharedSyncIds.length === 0)
+    ) {
       return;
     }
-    void syncSharedTransactionsWithFamilyVaults({
-      ownerEmail: effectiveUserEmail,
-      ownerName:
-        effectiveUserDisplayName ||
-        settings.userName ||
-        effectiveUserEmail.split('@')[0],
-      ownerPixKey: settings.userPixKey,
-      familyMembers: nextMembers,
-      sharedTransactions: sharedList as unknown as Array<Record<string, unknown>>,
-      deletedSharedSyncIds,
-      defaultCategoriesJson: JSON.stringify(INITIAL_CATEGORIES),
-      defaultInvestmentTargetsJson: JSON.stringify(DEFAULT_INVESTMENT_TARGETS),
-    });
+    for (const member of nextMembers) {
+      const partnerEmail = String(member.email || member.invitedByEmail || '')
+        .trim()
+        .toLowerCase();
+      if (
+        !partnerEmail ||
+        partnerEmail === effectiveUserEmail ||
+        member.inviteStatus !== 'accepted'
+      ) {
+        continue;
+      }
+      const memberTransactions = sharedList.filter(
+        (tx) => String(tx.sharedMemberId || '') === member.id
+      );
+      if (memberTransactions.length === 0 && !deletedSharedSyncIds?.length) continue;
+      void syncNeonSharedTransactions({
+        partnerEmail,
+        transactions: memberTransactions as unknown as Array<Record<string, unknown>>,
+        deletedSharedIds: deletedSharedSyncIds,
+      }).catch((error) => {
+        console.error(
+          `Falha ao sincronizar despesas compartilhadas com ${partnerEmail}.`,
+          error instanceof Error ? error.message : String(error)
+        );
+      });
+    }
   };
 
   const handleSaveTransactionBatch = (
@@ -1812,23 +2027,39 @@ export default function App() {
     showNotice('Meta de economia removida.');
   };
 
-  const triggerCrossAccountInviteSync = (member: FamilyMember) => {
-    if (!member.email || !effectiveUserEmail) return;
-    void sendCrossAccountFamilyInvite({
-      inviterEmail: effectiveUserEmail,
-      inviterName:
-        effectiveUserDisplayName ||
-        settings.userName ||
-        effectiveUserEmail.split('@')[0],
-      inviterPixKey: settings.userPixKey,
-      invitedEmail: member.email,
-      relationship: member.relationship,
-      color: member.color,
-      defaultCategoriesJson: JSON.stringify(INITIAL_CATEGORIES),
-      defaultInvestmentTargetsJson: JSON.stringify(DEFAULT_INVESTMENT_TARGETS),
-    }).then(() => {
-      triggerCrossAccountSharedTxSync(transactions, [...familyMembers, member]);
-    });
+  const triggerCrossAccountInviteSync = async (member: FamilyMember) => {
+    if (!member.email || !effectiveUserEmail) return false;
+    try {
+      const { invitation } = await createNeonFamilyInvitation({
+        invitedEmail: member.email,
+        ownerMemberId: member.id,
+        ownerName:
+          effectiveUserDisplayName ||
+          settings.userName ||
+          effectiveUserEmail.split('@')[0],
+        ownerPixKey: settings.userPixKey,
+        relationship: member.relationship,
+        color: member.color,
+      });
+      const savedMember = { ...member, invitationId: invitation.invitation_id };
+      const nextMembers = familyMembers.some((item) => item.id === member.id)
+        ? familyMembers.map((item) => item.id === member.id ? savedMember : item)
+        : [...familyMembers, savedMember];
+      setFamilyMembers(nextMembers);
+      showNotice(`Convite familiar enviado para ${member.email}.`);
+      triggerCrossAccountSharedTxSync(transactions, nextMembers);
+      return true;
+    } catch (error) {
+      console.error(
+        'Falha ao criar convite familiar no Neon.',
+        error instanceof Error ? error.message : String(error)
+      );
+      setFamilyMembers((prev) =>
+        prev.map((item) => item.id === member.id ? { ...item, inviteStatus: 'none' } : item)
+      );
+      showNotice('Não foi possível enviar o convite. Os dados locais foram mantidos.');
+      return false;
+    }
   };
 
   const handleAddFamilyMember = (newMember: Omit<FamilyMember, 'id'>): FamilyMember => {
@@ -1840,10 +2071,7 @@ export default function App() {
     };
     setFamilyMembers((prev) => [...prev, created]);
     if (created.email) {
-      triggerCrossAccountInviteSync(created);
-      showNotice(
-        `Convite familiar enviado para ${created.email} na nuvem!`
-      );
+      void triggerCrossAccountInviteSync(created);
     } else {
       showNotice(`"${created.name}" cadastrado(a) na família.`);
     }
@@ -1851,60 +2079,109 @@ export default function App() {
   };
 
   const handleUpdateFamilyMember = (updated: FamilyMember) => {
+    const previousMember = familyMembers.find((member) => member.id === updated.id);
     const nextMembers = familyMembers.map((m) =>
       m.id === updated.id ? updated : m
     );
+    const emailChanged =
+      previousMember?.email?.trim().toLowerCase() !==
+      updated.email?.trim().toLowerCase();
+    if (emailChanged && previousMember?.invitationId) {
+      void revokeNeonFamilyInvitation(previousMember.invitationId)
+        .then(() => {
+          setFamilyMembers(nextMembers);
+          if (updated.email && updated.direction !== 'incoming') {
+            void triggerCrossAccountInviteSync(updated);
+          } else {
+            triggerCrossAccountSharedTxSync(transactions, nextMembers);
+          }
+          showNotice(`Dados de "${updated.name}" atualizados.`);
+        })
+        .catch((error) => {
+          console.error('Falha ao atualizar o convite familiar:', error);
+          showNotice('Não foi possível substituir o convite anterior. Ele permanece ativo.');
+        });
+      showNotice(`Atualizando o vínculo de "${updated.name}".`);
+      return;
+    }
     setFamilyMembers(nextMembers);
     if (updated.email && updated.direction !== 'incoming') {
-      triggerCrossAccountInviteSync(updated);
+      void triggerCrossAccountInviteSync(updated);
     }
     triggerCrossAccountSharedTxSync(transactions, nextMembers);
     showNotice(`Dados de "${updated.name}" atualizados.`);
   };
 
   const handleAcceptFamilyInvite = (member: FamilyMember) => {
-    const nextMembers = familyMembers.map((m) =>
-      m.id === member.id ? { ...m, inviteStatus: 'accepted' as const } : m
-    );
-    setFamilyMembers(nextMembers);
-    if (effectiveUserEmail && (member.invitedByEmail || member.email)) {
-      void respondToCrossAccountFamilyInvite({
-        responderEmail: effectiveUserEmail,
-        responderName:
-          effectiveUserDisplayName ||
-          settings.userName ||
-          effectiveUserEmail.split('@')[0],
-        inviterEmail: member.invitedByEmail || member.email || '',
-        action: 'accepted',
-      }).then(() => {
-        triggerCrossAccountSharedTxSync(transactions, nextMembers);
-      });
+    if (!member.invitationId) {
+      showNotice('Este convite ainda não foi migrado para a sincronização segura no Neon.');
+      return;
     }
-    showNotice(
-      `Convite familiar de ${member.invitedByName || member.name} aceito com sucesso!`
-    );
+    void respondToNeonFamilyInvitation(member.invitationId, 'accepted')
+      .then(() => {
+        const nextMembers = familyMembers.map((item) =>
+          item.id === member.id ? { ...item, inviteStatus: 'accepted' as const } : item
+        );
+        setFamilyMembers(nextMembers);
+        triggerCrossAccountSharedTxSync(transactions, nextMembers);
+        showNotice(`Convite familiar de ${member.invitedByName || member.name} aceito.`);
+      })
+      .catch((error) => {
+        console.error('Falha ao aceitar convite familiar:', error);
+        showNotice('Não foi possível aceitar o convite. Nenhuma alteração foi confirmada.');
+      });
   };
 
   const handleDeclineFamilyInvite = (member: FamilyMember) => {
-    setFamilyMembers((prev) => prev.filter((m) => m.id !== member.id));
-    if (effectiveUserEmail && (member.invitedByEmail || member.email)) {
-      void respondToCrossAccountFamilyInvite({
-        responderEmail: effectiveUserEmail,
-        responderName:
-          effectiveUserDisplayName ||
-          settings.userName ||
-          effectiveUserEmail.split('@')[0],
-        inviterEmail: member.invitedByEmail || member.email || '',
-        action: 'declined',
-      });
+    if (!member.invitationId) {
+      showNotice('Este convite ainda não foi migrado para a sincronização segura no Neon.');
+      return;
     }
-    showNotice(`Convite familiar de ${member.invitedByName || member.name} recusado.`);
+    void respondToNeonFamilyInvitation(member.invitationId, 'declined')
+      .then(() => {
+        setFamilyMembers((prev) => prev.filter((item) => item.id !== member.id));
+        showNotice(`Convite familiar de ${member.invitedByName || member.name} recusado.`);
+      })
+      .catch((error) => {
+        console.error('Falha ao recusar convite familiar:', error);
+        showNotice('Não foi possível recusar o convite. Nenhuma alteração foi confirmada.');
+      });
   };
 
   const handleDeleteFamilyMember = (memberId: string) => {
     const target = familyMembers.find((m) => m.id === memberId);
-    setFamilyMembers((prev) => prev.filter((m) => m.id !== memberId));
-    showNotice(`"${target?.name || 'Pessoa'}" removida do controle compartilhado.`);
+    if (!target) return;
+    const removeLocalLink = () => {
+      setFamilyMembers((prev) => prev.filter((m) => m.id !== memberId));
+      setTransactions((prev) =>
+        target.direction === 'incoming'
+          ? prev.filter((tx) => tx.sharedMemberId !== memberId)
+          : prev.map((tx) =>
+              tx.sharedMemberId === memberId
+                ? {
+                    ...tx,
+                    isShared: false,
+                    sharedMemberId: undefined,
+                    sharedAmount: undefined,
+                    sharedPaidBy: undefined,
+                    sharedStatus: undefined,
+                    sharedSyncId: undefined,
+                  }
+                : tx
+            )
+      );
+      showNotice(`"${target.name || 'Pessoa'}" removida do controle compartilhado.`);
+    };
+    if (!target.invitationId) {
+      removeLocalLink();
+      return;
+    }
+    void revokeNeonFamilyInvitation(target.invitationId)
+      .then(removeLocalLink)
+      .catch((error) => {
+        console.error('Falha ao revogar vínculo familiar:', error);
+        showNotice('Não foi possível remover o vínculo. Os dados permaneceram intactos.');
+      });
   };
 
   const handleSettleSharedTransaction = (

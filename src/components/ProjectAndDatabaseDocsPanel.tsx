@@ -49,12 +49,14 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
 - **Suíte de Testes**: 69 testes automatizados (node:test) em src/utils/*.test.ts
 
-## 2. Esquema do Workspace no Neon (com espelho Firestore)
+## 2. Esquema do Workspace e Compartilhamento Familiar no Neon (com espelho Firestore)
 Tabelas PostgreSQL:
 1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo UID Firebase validado no backend.
 2. \`finance_workspace_migrations\`: recibo da migração Firestore com hash e contagens de entidades.
+3. \`finance_family_invitations\`: convites e estado de aceite, consultáveis apenas pelo proprietário ou pelo e-mail convidado.
+4. \`finance_shared_transactions\`: espelhos de despesas selecionadas; só os participantes podem consultar os registros compartilhados.
 
-O Firestore mantém o espelho \`/cloud_vaults/{vaultId}\` durante a fase de contingência e para compatibilidade com o compartilhamento familiar existente.
+O Firestore mantém o espelho \`/cloud_vaults/{vaultId}\` durante a contingência. Convites e transações familiares não dão acesso ao workspace completo da outra pessoa.
 
 ### Campos do Documento UserWorkspace (firebase-blueprint.json & firestore.rules):
 - \`uid\` (string, obrigatório, imutável, igual ao ID do documento)

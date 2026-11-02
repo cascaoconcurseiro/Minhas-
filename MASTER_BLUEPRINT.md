@@ -7,7 +7,7 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 - Frontend: React, TypeScript e Vite
 - Autenticação: Firebase Auth
 - Banco principal do workspace: PostgreSQL no Neon, acessado apenas pelo backend
-- Firestore: espelho de contingência e armazenamento ainda usado pelo compartilhamento familiar durante a migração
+- Firestore: espelho de contingência do workspace; convites e despesas familiares isolados em tabelas Neon
 - Backend: Express, publicado como função na Vercel
 - Hospedagem: Vercel Hobby, conectada ao GitHub
 
