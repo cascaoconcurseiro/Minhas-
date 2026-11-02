@@ -13,14 +13,12 @@ flowchart TD
         LocalVault["Cache Local Isolado (localStorage por Vault ID)"]
     end
 
-    subgraph Cloud ["Google Firebase"]
+    subgraph Identity ["Firebase Identity"]
         Auth["Firebase Authentication (Google OAuth / Email)"]
-        Firestore["Cloud Firestore (espelho e fluxo familiar durante migração)"]
     end
 
     subgraph Database ["Neon PostgreSQL"]
         Workspace["finance_workspaces (snapshot JSONB, revisão otimista, RLS)"]
-        MigrationLog["finance_workspace_migrations (hash e contagens)"]
     end
 
     subgraph Backend ["Servidor Express 4 (backend/app.ts - Porta 3000 ou Function Vercel)"]
@@ -40,7 +38,6 @@ flowchart TD
     UI --> Rules
     UI --> Charts
     UI <--> LocalVault
-    UI <-->|"onSnapshot / setDoc (Real-Time)"| Firestore
     UI <--> Auth
     UI -->|"HTTP JSON"| Backend
     WorkspaceAPI -->|"UID validado + app.firebase_uid"| Workspace
@@ -80,14 +77,15 @@ via Firebase Identity Toolkit e aplica o UID verificado no contexto RLS da
 transação PostgreSQL.
 
 - `GET /api/workspace`: carrega o snapshot da conta autenticada; retorna `404`
-  antes da primeira importação.
-- `POST /api/workspace/migrate`: importa o snapshot Firestore uma única vez,
-  sem substituir uma linha Neon existente; retorna hash SHA-256 e contagens.
+  quando ainda não há linha para a conta.
+- `POST /api/workspace`: cria o workspace inicial usando `INSERT ... ON CONFLICT DO NOTHING`, sem substituir dados existentes.
+- `POST /api/workspace/migrate`: importa uma vez o snapshot próprio legado do titular sem sobrescrever uma linha Neon existente.
 - `PUT /api/workspace`: salva com `expectedRevision`; conflito retorna `409`.
 
-O Firestore segue como espelho/contingência e mantém o compartilhamento familiar
-durante a primeira fase. Não desative esse fluxo até validar a migração e projetar
-autorização explícita para cofres compartilhados.
+Firebase é usado somente para login e emissão do ID token. O app não mantém listener,
+espelho, fallback ou gravação no Firestore. Se a conta ainda tiver um snapshot legado
+próprio, ele só é lido para importação inicial; senão o workspace nasce no Neon.
+Convites e lançamentos compartilhados usam tabelas Neon próprias.
 
 ---
 
@@ -173,7 +171,7 @@ Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos
 
 ## 3. Motores de Regras de Negócio (`src/utils/`)
 
-Toda a lógica matemática e contábil é desacoplada da árvore React e coberta por **69 testes unitários** (`node:test`):
+Toda a lógica matemática e contábil é desacoplada da árvore React e coberta pelos testes automatizados (`node:test`):
 
 1. **`src/utils/financeRules.ts` (`src/utils/financeRules.test.ts`)**:
    - `createTransactionBatch`: Geração de lançamentos únicos, parcelados (com ajuste de centavos na 1ª parcela) e fixos recorrentes.

@@ -362,7 +362,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                     <Cloud className="h-4 w-4 text-violet-600 shrink-0" />
                     <div>
                       <span className="block text-[10px] font-bold uppercase text-slate-400">
-                        Neon + Firestore
+                        Neon PostgreSQL
                       </span>
                       <span className="font-bold text-slate-900">
                         {cloudSyncStatus === 'synced'
@@ -513,8 +513,8 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                   {
                     title: 'Conta, Nuvem & Auditoria SSOT',
                     tab: 'cloud' as const,
-                    status: 'Neon + espelho Firestore',
-                    desc: 'Firebase Auth controla o acesso; o workspace sincroniza com Neon e mantém espelho Firestore durante a contingência.',
+                    status: 'Neon PostgreSQL',
+                    desc: 'Firebase Auth controla o acesso; o workspace e os dados familiares persistem no Neon PostgreSQL.',
                   },
                 ].map((item) => (
                   <div

@@ -3,6 +3,12 @@
 ## Última sessão
 **Data:** 2026-11-02
 **O que foi feito:**
+- Atualização mais recente: o Neon permanece como única persistência operacional; removi o listener e os espelhos Firestore, e deixei o SDK Firestore num chunk carregado somente se o Neon ainda não tiver o workspace e for preciso importar um snapshot legado próprio. Workspace novo é criado idempotentemente direto no Neon.
+- Adicionei a rota autenticada `/api/workspace/migrate`, que só insere quando a linha ainda não existe e registra hash/contagens. Nenhum fluxo de rotina grava no Firestore.
+- Publiquei no console Firebase as regras do banco nomeado: `get` só para o próprio titular durante importação (ou verificação do próprio ID ainda inexistente), sem `list`, `create`, `update` ou `delete`. A confirmação no console foi “Success”; dados legados não foram apagados.
+- Atualizei descrições e documentação para separar Firebase Auth, Neon e importação inicial Firestore.
+- `bun run lint`, `bun run build` e `git diff --check` passaram após a refatoração. O build mantém aviso do chunk principal acima de 500 kB; a leitura Firestore está em chunk separado carregado sob demanda.
+- Firebase CLI foi instalado via `npx`, mas `login:list` retornou sem sessão; as regras foram publicadas pela conta Google já autenticada no Console Firebase.
 - Continuidade: o app agora dispara a leitura do workspace no Neon assim que Firebase Auth fica pronto; Firestore é carregado sob demanda para migração legada e espelho/contingência. Foi removido o teste Firestore que rodava na inicialização do módulo.
 - Dividi os modais e a busca global em chunks sob demanda e removi e-mail/nome pessoal pré-preenchidos na tela de login. Build local: entrada 568 kB (168 kB gzip) e Firestore 454 kB (137 kB gzip); o alerta Vite de 500 kB continua ativo, sem aumento artificial do limite.
 - Removi `unsafe-inline` de `script-src`, movendo o guard de compatibilidade do HMR para `public/vite-websocket-guard.js`; o HTML gerado referencia scripts externos, incluindo o registro PWA externo.
@@ -39,15 +45,15 @@
 - A aba de navegador que já estava aberta ainda carregava um bundle anterior pelo service worker; atualize a página para ver o texto novo.
 
 ## Próximo passo
-**Arquivos:** `src/App.tsx`, `backend/app.ts`, `firestore.rules`
-**Ação:** pedir confirmação explícita e então publicar/verificar `firestore.rules` owner-only; a regra de leitura pública em `cloud_vaults` é o risco crítico pendente. Em 3/nov após 09:15 BRT, consultar o workflow `.github/workflows/neon-daily-activity.yml` e confirmar um run `schedule`. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados; não desativar o espelho antes disso.
+**Arquivos:** todos os arquivos modificados nesta sessão
+**Ação:** publicar a alteração de app/backend em `main`, conferir o status da Vercel e validar em produção HTTP 200 da página e 401 das rotas privadas sem token. Confirmar o hash/estado do ruleset implantado se a CLI autenticada for configurada. Em 3/nov após 09:15 BRT, consultar `.github/workflows/neon-daily-activity.yml` e confirmar um run `schedule`. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
-- Firestore continua como espelho/contingência do workspace principal; compartilhamentos familiares novos usam Neon.
+- Neon contém a operação normal; Firestore é somente origem de importação inicial de snapshot legado próprio e todas as escritas estão bloqueadas.
 - A migration Neon está aplicada e os commits `f457e68` e `af99151` foram publicados. As rotas familiares chegam à autenticação, mas o fluxo real com duas contas ainda não foi validado.
 - `.github/workflows/neon-daily-activity.yml` está ativo com cron `15 12 * * *` (09:15 em São Paulo). A execução manual de 2/nov terminou em sucesso; os logs mostram `SELECT 1` retornando uma linha. O workflow foi criado depois do cron de hoje, então a primeira execução automática ainda está pendente.
-- As regras Firestore abertas são risco de produção: `cloud_vaults` ainda permite leitura pública até a publicação do patch em `firestore.rules`.
+- Regras Firestore owner-only foram publicadas no Console, com leitura pontual do titular e todas as gravações/listagens bloqueadas; a confirmação de implantação veio da mensagem de sucesso do Console.
 - A resolução 409 foi publicada: compara resumos, exige backup JSON e aguarda o espelho antes de liberar edição. Não foi submetida a uma colisão real entre abas.
 - Não foi executado teste de concorrência ou de falha real de conexão nesta sessão.
 - As regras owner-only não foram publicadas; a confirmação explícita para essa alteração de segurança em produção ainda está pendente.

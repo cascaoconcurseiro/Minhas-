@@ -4,7 +4,7 @@
 
 - O arquivo JSON exportado em Configurações contém o workspace pessoal do app: contas, cartões, categorias, lançamentos, metas, investimentos, viagens, membros familiares e preferências incluídas pelo exportador.
 - Esse JSON **não** é um backup integral do banco Neon. Convites e lançamentos compartilhados são armazenados em tabelas próprias do Neon e não fazem parte desse arquivo.
-- O espelho `cloud_vaults` no Firestore também não cobre essas tabelas familiares. Ele é uma contingência do workspace, não um backup completo do PostgreSQL.
+- Documentos `cloud_vaults` antigos no Firestore não são atualizados nem usados como contingência; o titular só pode ler seu snapshot uma vez para importação inicial. Eles não substituem backup integral do PostgreSQL.
 
 ## Exportar e restaurar o workspace pelo app
 
@@ -24,4 +24,4 @@ Para cobrir também `finance_family_invitations` e `finance_shared_transactions`
 4. Só então aplique o procedimento de recuperação no ambiente principal, com o app sem gravar durante a janela de restauração.
 5. Reabra o app e valide com o titular: dados do workspace, autenticação, convites e lançamentos compartilhados.
 
-Este repositório não automatiza nem testa uma restauração de produção. O espelho Firestore deve permanecer habilitado até existir uma rotina de backup integral e um ensaio de recuperação aprovado; o fluxo JSON é apenas recuperação do workspace pelo app.
+Este repositório não automatiza nem testa uma restauração de produção. O app não depende do Firestore para persistência; antes de uma restauração real, faça um backup integral Neon e ensaie a recuperação em branch isolada. O fluxo JSON restaura apenas o workspace pessoal.

@@ -264,7 +264,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${cloudSyncStatus === 'error' ? 'bg-rose-500/20 border-rose-400/30 text-rose-200' : 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300'}`}>
                 <span className={`h-2 w-2 rounded-full animate-pulse ${cloudSyncStatus === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`} />
                 {cloudSyncStatus === 'synced'
-                  ? 'Dados sincronizados com Neon + Firestore'
+                  ? 'Dados sincronizados com Neon'
                   : cloudSyncStatus === 'syncing'
                   ? 'Sincronizando em Tempo Real...'
                   : cloudSyncStatus === 'error'
@@ -292,7 +292,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               Central de Conta, Nuvem & Verificador de Produção em Tempo Real
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Firebase Auth protege o acesso. O workspace é sincronizado com PostgreSQL no Neon e mantido também no Firestore como espelho de contingência.
+              Firebase Auth protege o acesso. Contas, lançamentos e demais dados financeiros são persistidos no PostgreSQL do Neon.
             </p>
           </div>
 
@@ -341,7 +341,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               <strong className="font-mono text-emerald-300">{lastSyncedAt}</strong>
             </span>
             <span>
-              Autenticação: <strong>Firebase Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong> · Espelho: <strong>Firestore</strong>
+              Autenticação: <strong>Firebase Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong>
             </span>
           </div>
         )}
@@ -697,7 +697,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   <Cloud className="h-4 w-4 text-violet-600 shrink-0" />
                   <div>
                     <span className="block text-[10px] font-bold uppercase text-slate-400">
-                      Neon + Firestore
+                      Neon PostgreSQL
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
                       {cloudSyncStatus === 'synced'

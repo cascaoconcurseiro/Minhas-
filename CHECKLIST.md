@@ -20,7 +20,7 @@
 - [x] Publicar a limpeza de registros mock reconhecidos ao carregar snapshots remotos.
 - [x] Deixar explícita na interface a diferença entre Firebase Auth, banco Neon e espelho Firestore.
 - [x] Com autorização explícita do usuário, excluir os 4 lançamentos identificados como demonstração; preservar a conta.
-- [x] Definir Neon como fonte principal do workspace e manter Firestore como espelho de contingência por enquanto.
+- [x] Definir Neon como única persistência operacional do workspace; manter Firestore somente para importação inicial de snapshots legados.
 - [x] Impedir gravação no espelho quando o salvamento principal no Neon falha; preservar o estado local e sinalizar a falha.
 - [x] Manter Neon como autoridade quando o Firestore já existe; ignorar snapshots Firestore mais recentes em vez de promovê-los automaticamente.
 - [x] Mostrar falha de sincronização como erro visível, sem a mensagem enganosa de nuvem ativa.
@@ -41,13 +41,17 @@
 - [x] Publicar a divisão em chunks na Vercel e confirmar o arquivo principal de 1.248.948 bytes.
 - [x] Adiar modais e busca; chunk inicial local caiu para 568 kB (168 kB gzip), com Firestore em chunk separado de 454 kB (137 kB gzip). O aviso do limite 500 kB permanece visível e foi justificado pelo tamanho comprimido; não foi aumentado o limite.
 - [x] Registrar decisão do usuário de encerrar sem validação ponta a ponta do compartilhamento com uma segunda conta; esses fluxos permanecem sem essa evidência.
-- [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
+- [x] Restringir leitura de `cloud_vaults` ao titular autenticado apenas para importação inicial e bloquear lista/criação/atualização/exclusão; regras publicadas no banco nomeado.
+- [x] Remover listener, espelho e gravações Firestore do app; workspaces novos são criados diretamente no Neon.
 - [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.
 
 ## Interface
 - [x] Corrigir largura do modal de novo lançamento no desktop para respeitar o limite visual do componente.
 
 ## Sessão 2026-11-02 — continuidade
+- [x] Remover listener e escrita de rotina no Firestore; manter leitura legada do próprio cofre somente quando o Neon retornar 404.
+- [x] Adicionar criação Neon idempotente para contas sem snapshot legado e manter conflito sem sobrescrita.
+- [x] Publicar regras Firestore com leitura de cofre restrita ao titular e todas as gravações/listagens negadas.
 - [x] Iniciar leitura Neon diretamente após autenticação; Firestore deixa de ser pré-requisito para carregar o workspace.
 - [x] Lazy-load do Firebase Firestore e dos modais/busca; remover e-mail/nome pessoal pré-preenchidos no login.
 - [x] Remover script inline e `unsafe-inline` de `script-src`; validar scripts externos no HTML de build.

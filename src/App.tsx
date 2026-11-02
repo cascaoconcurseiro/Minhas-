@@ -16,11 +16,8 @@ import {
 } from 'lucide-react';
 import {
   auth,
-  getOrCreateAutoCloudVaultId,
   getVaultIdForEmail,
-  handleFirestoreError,
   onAuthStateChanged,
-  OperationType,
   registerWithEmail,
   signInWithEmail,
   signInWithGooglePopup,
@@ -28,7 +25,8 @@ import {
   User,
 } from './lib/firebase';
 import {
-  importFirestoreWorkspace,
+  createNeonWorkspace,
+  migrateLegacyFirestoreWorkspace,
   createNeonFamilyInvitation,
   loadNeonFamilyInvitations,
   loadNeonSharedTransactions,
@@ -525,10 +523,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Helper to build the Firestore payload matching firestore.rules schema
+  // Build the authenticated workspace payload persisted by the Neon API.
   const buildCloudPayload = (targetId: string) => ({
     uid: targetId,
-    ...(auth.currentUser?.uid ? { ownerFirebaseUid: auth.currentUser.uid } : {}),
     ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
     ...(effectiveUserDisplayName ? { displayName: effectiveUserDisplayName } : {}),
     updatedAt: new Date().toISOString(),
@@ -576,11 +573,8 @@ export default function App() {
             throw error;
           }
           try {
-            await importFirestoreWorkspace(
-              payload,
-              typeof payload.updatedAt === 'string' ? payload.updatedAt : null
-            );
-            neonWorkspaceRevisionRef.current = 1;
+            const created = await createNeonWorkspace(payload);
+            neonWorkspaceRevisionRef.current = created.revision;
             return;
           } catch (importError) {
             if (
@@ -600,7 +594,7 @@ export default function App() {
             setIsWorkspaceConflictOpen(true);
             setCloudSyncStatus('error');
             throw new NeonWorkspaceError(
-              'O workspace Neon foi criado em outra aba durante a migração inicial.',
+              'O workspace Neon foi criado em outra aba durante a inicialização.',
               409
             );
           }
@@ -675,33 +669,12 @@ export default function App() {
       const resolvedConflict = await save;
       if (!resolvedConflict) return;
 
-      const mirrorPayload = {
-        ...resolvedConflict.localPayload,
-        ...(auth.currentUser?.uid ? { ownerFirebaseUid: auth.currentUser.uid } : {}),
-        ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
-      };
-      try {
-        const { db, doc, setDoc } = await import('./lib/firebaseFirestore');
-        await setDoc(doc(db, 'cloud_vaults', autoVaultId), mirrorPayload);
-        setCloudSyncStatus('synced');
-        setLastSyncedAt(
-          typeof resolvedConflict.localPayload.updatedAt === 'string'
-            ? resolvedConflict.localPayload.updatedAt
-            : new Date().toISOString()
-        );
-      } catch (error) {
-        setCloudSyncStatus('error');
-        handleFirestoreError(
-          error,
-          OperationType.WRITE,
-          `cloud_vaults/${autoVaultId}`
-        );
-        showNotice(
-          'Sua versão foi salva no Neon, mas o espelho Firestore falhou. O Neon está atualizado; confira o status da nuvem.',
-          undefined,
-          true
-        );
-      }
+      setCloudSyncStatus('synced');
+      setLastSyncedAt(
+        typeof resolvedConflict.localPayload.updatedAt === 'string'
+          ? resolvedConflict.localPayload.updatedAt
+          : new Date().toISOString()
+      );
       workspaceConflictRef.current = null;
       setWorkspaceConflict(null);
       setIsWorkspaceConflictOpen(false);
@@ -745,16 +718,14 @@ export default function App() {
     window.location.reload();
   };
 
-  // Automatic Cloud Firestore Real-Time Connection (Deterministic per-email Cloud Vault)
+  // Neon is the only operational data store; Firestore is read once only for legacy import.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
     hasLoadedRemoteOnceRef.current = false;
     isApplyingRemoteSnapshotRef.current = true;
 
-    const collectionName = 'cloud_vaults';
     const docId = autoVaultId;
-    const docPath = `${collectionName}/${docId}`;
 
     setCloudSyncStatus('syncing');
 
@@ -787,9 +758,6 @@ export default function App() {
     };
 
     let active = true;
-    let unsubscribe = () => {};
-    let neonLoadedDirectly = false;
-    let firestoreUnavailable = false;
     const initialNeonLoad = (async () => {
       try {
         return await loadNeonWorkspace();
@@ -798,24 +766,32 @@ export default function App() {
           throw error;
         }
 
-        const { db, doc, getDocFromServer } = await import('./lib/firebaseFirestore');
-        const legacySnapshot = await getDocFromServer(
-          doc(db, collectionName, docId)
-        );
-        const migrationPayload = legacySnapshot.exists()
-          ? legacySnapshot.data()
-          : buildCloudPayload(docId);
-        const sourceUpdatedAt = typeof migrationPayload.updatedAt === 'string'
-          ? migrationPayload.updatedAt
-          : null;
-        try {
-          await importFirestoreWorkspace(migrationPayload, sourceUpdatedAt);
-        } catch (migrationError) {
-          if (
-            !(migrationError instanceof NeonWorkspaceError) ||
-            migrationError.status !== 409
-          ) {
-            throw migrationError;
+        const { readLegacyFirestoreWorkspace } = await import('./lib/legacyFirestoreMigration');
+        const migrationPayload = await readLegacyFirestoreWorkspace(docId);
+        if (migrationPayload) {
+          const sourceUpdatedAt = typeof migrationPayload.updatedAt === 'string'
+            ? migrationPayload.updatedAt
+            : null;
+          try {
+            await migrateLegacyFirestoreWorkspace(migrationPayload, sourceUpdatedAt);
+          } catch (migrationError) {
+            if (
+              !(migrationError instanceof NeonWorkspaceError) ||
+              migrationError.status !== 409
+            ) {
+              throw migrationError;
+            }
+          }
+        } else {
+          try {
+            await createNeonWorkspace(buildCloudPayload(docId));
+          } catch (createError) {
+            if (
+              !(createError instanceof NeonWorkspaceError) ||
+              createError.status !== 409
+            ) {
+              throw createError;
+            }
           }
         }
         return loadNeonWorkspace();
@@ -933,10 +909,9 @@ export default function App() {
         setTrips(stripLegacyMockItems(safeParseArray<Trip>(data.tripsJson, INITIAL_TRIPS)));
         setInvestmentTargets(safeParseObj(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS));
         setSettings(safeParseObj(data.settingsJson, DEFAULT_SETTINGS));
-        neonLoadedDirectly = true;
         hasLoadedRemoteOnceRef.current = true;
         isApplyingRemoteSnapshotRef.current = false;
-        setCloudSyncStatus(firestoreUnavailable ? 'error' : 'synced');
+        setCloudSyncStatus('synced');
         setLastSyncedAt(
           typeof data.updatedAt === 'string'
             ? data.updatedAt
@@ -952,444 +927,10 @@ export default function App() {
           error instanceof Error ? error.message : String(error)
         );
       });
-
-    void import('./lib/firebaseFirestore')
-      .then(({ db, doc, onSnapshot, setDoc }) => {
-        if (!active) return;
-        const docRef = doc(db, collectionName, docId);
-        unsubscribe = onSnapshot(
-      docRef,
-      async (snap) => {
-        if (workspaceConflictRef.current) return;
-        if (snap.exists()) {
-          let data = snap.data();
-          const firebaseUser = auth.currentUser;
-          if (firebaseUser && !firebaseUser.isAnonymous) {
-            data = { ...data, ownerFirebaseUid: firebaseUser.uid };
-          }
-          const cleanedFirestoreWorkspace = stripLegacyMockItemsFromWorkspace(data);
-          data = cleanedFirestoreWorkspace.payload;
-          let firestoreDataNeedsCleanup = cleanedFirestoreWorkspace.removedCount > 0;
-          let firestoreMirrorNeedsWrite = false;
-          let firestoreMirrorWriteFailed = false;
-          let neonSynced = false;
-          if (firebaseUser && !firebaseUser.isAnonymous) {
-        try {
-              let neonSnapshot;
-              try {
-                neonSnapshot = await initialNeonLoad;
-              } catch (error) {
-                if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
-                  throw error;
-                }
-                try {
-                  await importFirestoreWorkspace(data, data.updatedAt || null);
-                } catch (importError) {
-                  if (
-                    !(importError instanceof NeonWorkspaceError) ||
-                    importError.status !== 409
-                  ) {
-                    throw importError;
-                  }
-                  const remoteSnapshot = await loadNeonWorkspace();
-                  const conflict = {
-                    localPayload: JSON.parse(JSON.stringify(data)) as Record<string, unknown>,
-                    remoteSnapshot,
-                  };
-                  workspaceConflictRef.current = conflict;
-                  setWorkspaceConflict(conflict);
-                  setWorkspaceConflictError(null);
-                  setIsWorkspaceConflictOpen(true);
-                  isApplyingRemoteSnapshotRef.current = false;
-                  setCloudSyncStatus('error');
-                  return;
-                }
-                neonSnapshot = await loadNeonWorkspace();
-              }
-
-              const cleanedNeonWorkspace = stripLegacyMockItemsFromWorkspace(
-                neonSnapshot.payload
-              );
-              if (cleanedNeonWorkspace.removedCount > 0) {
-                let saved: Awaited<ReturnType<typeof saveNeonWorkspace>>;
-                try {
-                  saved = await saveNeonWorkspace(
-                    cleanedNeonWorkspace.payload,
-                    neonSnapshot.revision
-                  );
-                } catch (error) {
-                  if (!(error instanceof NeonWorkspaceError) || error.status !== 409) {
-                    throw error;
-                  }
-                  const remoteSnapshot = await loadNeonWorkspace();
-                  const conflict = {
-                    localPayload: JSON.parse(
-                      JSON.stringify(cleanedNeonWorkspace.payload)
-                    ) as Record<string, unknown>,
-                    remoteSnapshot,
-                  };
-                  workspaceConflictRef.current = conflict;
-                  setWorkspaceConflict(conflict);
-                  setWorkspaceConflictError(null);
-                  setIsWorkspaceConflictOpen(true);
-                  isApplyingRemoteSnapshotRef.current = false;
-                  setCloudSyncStatus('error');
-                  return;
-                }
-                neonWorkspaceRevisionRef.current = saved.revision;
-                neonSnapshot = {
-                  ...neonSnapshot,
-                  payload: cleanedNeonWorkspace.payload,
-                  revision: saved.revision,
-                };
-                firestoreDataNeedsCleanup = true;
-              }
-
-              const firestoreJson = JSON.stringify(data);
-              data = {
-                ...neonSnapshot.payload,
-                ownerFirebaseUid: firebaseUser.uid,
-                ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
-              };
-              neonWorkspaceRevisionRef.current = neonSnapshot.revision;
-              if (firestoreJson !== JSON.stringify(data)) {
-                firestoreMirrorNeedsWrite = true;
-              }
-              neonSynced = true;
-            } catch (error) {
-              console.warn(
-                'Neon indisponível; mantendo a leitura de contingência do Firestore.',
-                error instanceof Error ? error.message : String(error)
-              );
-            }
-          }
-          if (
-            firestoreDataNeedsCleanup &&
-            (!firebaseUser || firebaseUser.isAnonymous || neonSynced)
-          ) {
-            firestoreMirrorNeedsWrite = true;
-          }
-          if (firestoreMirrorNeedsWrite) {
-            try {
-              await setDoc(docRef, data);
-            } catch (err) {
-              firestoreMirrorWriteFailed = true;
-              setCloudSyncStatus('error');
-              handleFirestoreError(err, OperationType.WRITE, docPath);
-            }
-          }
-          isApplyingRemoteSnapshotRef.current = true;
-
-          let familyInvitations: Awaited<ReturnType<typeof loadNeonFamilyInvitations>> = [];
-          let neonSharedTransactions: Record<string, unknown>[] = [];
-          if (firebaseUser && !firebaseUser.isAnonymous && neonSynced) {
-            try {
-              [familyInvitations, neonSharedTransactions] = await Promise.all([
-                loadNeonFamilyInvitations(),
-                loadNeonSharedTransactions(),
-              ]);
-            } catch (error) {
-              console.warn(
-                'Não foi possível carregar os dados familiares do Neon.',
-                error instanceof Error ? error.message : String(error)
-              );
-            }
-          }
-
-          const rawAccounts = safeParseArray<BankAccount>(
-            data.accountsJson ?? data.accounts,
-            INITIAL_ACCOUNTS
-          );
-          const nextAccounts = stripLegacyMockItems(rawAccounts);
-          setAccounts(nextAccounts);
-
-          const rawCards = safeParseArray<CreditCard>(
-            data.cardsJson ?? data.cards,
-            INITIAL_CREDIT_CARDS
-          );
-          const nextCards = stripLegacyMockItems(rawCards);
-          setCards(nextCards);
-
-          const parsedCategories = safeParseArray<Category>(
-            data.categoriesJson ?? data.categories,
-            INITIAL_CATEGORIES
-          );
-          const nextCategories =
-            parsedCategories.length > 0 ? [...parsedCategories] : [...INITIAL_CATEGORIES];
-          for (const coreCat of INITIAL_CATEGORIES) {
-            if (
-              (coreCat.id === 'cat-outros' || coreCat.id === 'cat-aportes') &&
-              !nextCategories.some((c) => c.id === coreCat.id)
-            ) {
-              nextCategories.push(coreCat);
-            }
-          }
-          setCategories(nextCategories);
-
-          const rawTransactions = safeParseArray<Transaction>(
-            data.transactionsJson ?? data.transactions,
-            INITIAL_TRANSACTIONS
-          );
-          const nextTransactions = stripLegacyMockItems(rawTransactions);
-          const sharedById = new Map<string, Transaction>();
-          for (const sharedPayload of neonSharedTransactions) {
-            const sharedTx = sharedPayload as unknown as Transaction;
-            const sharedId = sharedTx.sharedSyncId || sharedTx.id?.replace(/^tx-mirror-/, '');
-            if (!sharedId) continue;
-            sharedById.set(sharedId, sharedTx);
-          }
-          const localNonMirrorTransactions = nextTransactions.filter(
-            (tx) => !tx.id.startsWith('tx-mirror-')
-          );
-          const visibleTransactions = [
-            ...localNonMirrorTransactions,
-            ...sharedById.values(),
-          ];
-          setTransactions(visibleTransactions);
-
-          const rawGoals = safeParseArray<SavingsGoal>(
-            data.goalsJson ?? data.goals,
-            INITIAL_SAVINGS_GOALS
-          );
-          const nextGoals = stripLegacyMockItems(rawGoals);
-          setGoals(nextGoals);
-
-          const rawMembers = safeParseArray<FamilyMember>(
-            data.familyMembersJson ?? data.familyMembers,
-            INITIAL_FAMILY_MEMBERS
-          );
-          const nextMembers = stripLegacyMockItems(rawMembers);
-          for (const invitation of familyInvitations) {
-            const ownerEmail = invitation.owner_email.trim().toLowerCase();
-            const invitedEmail = invitation.invited_email.trim().toLowerCase();
-            const isIncoming = invitedEmail === effectiveUserEmail;
-            if (invitation.status === 'declined' || invitation.status === 'revoked') {
-              if (!isIncoming) {
-                const ownerMember = nextMembers.find(
-                  (member) => member.email?.trim().toLowerCase() === invitedEmail
-                );
-                if (ownerMember) {
-                  ownerMember.inviteStatus = 'none';
-                  ownerMember.invitationId = invitation.invitation_id;
-                }
-              }
-              continue;
-            }
-            const familyId = isIncoming
-              ? `fam-inv-${ownerEmail.replace(/[^a-z0-9]/g, '_')}`
-              : invitation.owner_member_id;
-            const nextMember: FamilyMember = isIncoming
-              ? {
-                  id: familyId,
-                  name: invitation.owner_name || ownerEmail.split('@')[0],
-                  relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
-                  color: invitation.color || '#6366f1',
-                  email: ownerEmail,
-                  inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
-                  invitedAt: new Date().toISOString().slice(0, 10),
-                  invitedByEmail: ownerEmail,
-                  invitedByName: invitation.owner_name,
-                  direction: 'incoming',
-                  pixKey: invitation.owner_pix_key || undefined,
-                  invitationId: invitation.invitation_id,
-                }
-              : {
-                  id: familyId,
-                  name: invitation.owner_name || invitedEmail.split('@')[0],
-                  relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
-                  color: invitation.color || '#6366f1',
-                  email: invitedEmail,
-                  inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
-                  direction: 'outgoing',
-                  invitationId: invitation.invitation_id,
-                };
-            const existingIndex = nextMembers.findIndex((member) =>
-              isIncoming
-                ? member.id === familyId ||
-                  (member.direction === 'incoming' &&
-                    member.email?.trim().toLowerCase() === ownerEmail)
-                : member.id === familyId ||
-                  (member.direction !== 'incoming' &&
-                    member.email?.trim().toLowerCase() === invitedEmail)
-            );
-            if (existingIndex >= 0) {
-              nextMembers[existingIndex] = {
-                ...nextMembers[existingIndex],
-                ...nextMember,
-                name: nextMembers[existingIndex].name || nextMember.name,
-              };
-            } else {
-              nextMembers.push(nextMember);
-            }
-          }
-          setFamilyMembers(nextMembers);
-
-          const rawInvestments = safeParseArray<InvestmentAsset>(
-            data.investmentsJson ?? data.investments,
-            INITIAL_INVESTMENTS
-          );
-          const nextInvestments = stripLegacyMockItems(rawInvestments);
-          setInvestments(nextInvestments);
-
-          const rawTrips = safeParseArray<Trip>(
-            data.tripsJson ?? data.trips,
-            INITIAL_TRIPS
-          );
-          const nextTrips = stripLegacyMockItems(rawTrips);
-          setTrips(nextTrips);
-
-          const nextTargets = safeParseObj(
-            data.investmentTargetsJson ?? data.investmentTargets,
-            DEFAULT_INVESTMENT_TARGETS
-          );
-          setInvestmentTargets(nextTargets);
-
-          const nextSettings = safeParseObj(
-            data.settingsJson ?? data.settings,
-            DEFAULT_SETTINGS
-          );
-          setSettings(nextSettings);
-
-          if (!hasLoadedRemoteOnceRef.current && effectiveUserEmail) {
-            const ownShared = visibleTransactions.filter(
-              (t) => t.isShared && !t.tripId && !t.id.startsWith('tx-mirror-')
-            );
-            if (ownShared.length > 0 && nextMembers.length > 0) {
-              triggerCrossAccountSharedTxSync(visibleTransactions, nextMembers);
-            }
-          }
-
-          hasLoadedRemoteOnceRef.current = true;
-          setCloudSyncStatus(
-            firestoreMirrorWriteFailed ||
-              (firebaseUser && !firebaseUser.isAnonymous && !neonSynced)
-              ? 'error'
-              : 'synced'
-          );
-          setLastSyncedAt(data.updatedAt || new Date().toISOString());
-          window.setTimeout(() => {
-            isApplyingRemoteSnapshotRef.current = false;
-          }, 80);
-        } else {
-          const firebaseUser = auth.currentUser;
-          if (firebaseUser && !firebaseUser.isAnonymous) {
-            try {
-              const neonSnapshot = await loadNeonWorkspace();
-              neonWorkspaceRevisionRef.current = neonSnapshot.revision;
-              await setDoc(docRef, {
-                ...neonSnapshot.payload,
-                ownerFirebaseUid: firebaseUser.uid,
-              });
-              setCloudSyncStatus('synced');
-              return;
-            } catch (error) {
-              if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
-                isApplyingRemoteSnapshotRef.current = false;
-                setCloudSyncStatus('error');
-                return;
-              }
-            }
-          }
-
-          // Brand new account: ALWAYS initialize with 100% clean empty arrays (zero mock data)
-          isApplyingRemoteSnapshotRef.current = true;
-          setAccounts(INITIAL_ACCOUNTS);
-          setCards(INITIAL_CREDIT_CARDS);
-          setCategories(INITIAL_CATEGORIES);
-          setTransactions(INITIAL_TRANSACTIONS);
-          setGoals(INITIAL_SAVINGS_GOALS);
-          setFamilyMembers(INITIAL_FAMILY_MEMBERS);
-          setInvestments(INITIAL_INVESTMENTS);
-          setInvestmentTargets(DEFAULT_INVESTMENT_TARGETS);
-          setTrips(INITIAL_TRIPS);
-
-          const cleanEmptyPayload = {
-            uid: docId,
-            ...(firebaseUser?.uid ? { ownerFirebaseUid: firebaseUser.uid } : {}),
-            ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
-            ...(effectiveUserDisplayName ? { displayName: effectiveUserDisplayName } : {}),
-            updatedAt: new Date().toISOString(),
-            accountsJson: '[]',
-            cardsJson: '[]',
-            categoriesJson: JSON.stringify(INITIAL_CATEGORIES),
-            transactionsJson: '[]',
-            goalsJson: '[]',
-            familyMembersJson: '[]',
-            investmentsJson: '[]',
-            investmentTargetsJson: JSON.stringify(DEFAULT_INVESTMENT_TARGETS),
-            tripsJson: '[]',
-            settingsJson: JSON.stringify({
-              ...DEFAULT_SETTINGS,
-              userName: effectiveUserDisplayName || 'Você',
-            }),
-          };
-
-          hasLoadedRemoteOnceRef.current = false;
-          setDoc(docRef, cleanEmptyPayload)
-            .then(() => {
-              setCloudSyncStatus('syncing');
-              setLastSyncedAt(cleanEmptyPayload.updatedAt);
-              window.setTimeout(() => {
-                isApplyingRemoteSnapshotRef.current = false;
-              }, 80);
-            })
-            .catch((err) => {
-              isApplyingRemoteSnapshotRef.current = false;
-              setCloudSyncStatus('local');
-              handleFirestoreError(err, OperationType.WRITE, docPath);
-            });
-        }
-      },
-      (err) => {
-        isApplyingRemoteSnapshotRef.current = false;
-        firestoreUnavailable = true;
-        if (neonLoadedDirectly) {
-          setCloudSyncStatus('error');
-          handleFirestoreError(err, OperationType.GET, docPath);
-          return;
-        }
-        setCloudSyncStatus('local');
-        try {
-          const localRaw = localStorage.getItem(scopedStorageKey);
-          if (localRaw) {
-            const parsed = JSON.parse(localRaw);
-            if (Array.isArray(parsed.accounts)) setAccounts(stripLegacyMockItems(parsed.accounts));
-            if (Array.isArray(parsed.cards)) setCards(stripLegacyMockItems(parsed.cards));
-            if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
-              setCategories(parsed.categories);
-            }
-            if (Array.isArray(parsed.transactions)) {
-              setTransactions(stripLegacyMockItems(parsed.transactions));
-            }
-            if (Array.isArray(parsed.goals)) setGoals(stripLegacyMockItems(parsed.goals));
-            if (Array.isArray(parsed.familyMembers)) {
-              setFamilyMembers(stripLegacyMockItems(parsed.familyMembers));
-            }
-            if (Array.isArray(parsed.investments)) {
-              setInvestments(stripLegacyMockItems(parsed.investments));
-            }
-            if (Array.isArray(parsed.trips)) setTrips(stripLegacyMockItems(parsed.trips));
-          }
-        } catch {
-          // Ignore local parse errors
-        }
-        handleFirestoreError(err, OperationType.GET, docPath);
-      }
-    );
-      })
-      .catch((err) => {
-        if (!active) return;
-        firestoreUnavailable = true;
-        isApplyingRemoteSnapshotRef.current = false;
-        setCloudSyncStatus(neonLoadedDirectly ? 'error' : 'local');
-        handleFirestoreError(err, OperationType.GET, docPath);
-      });
-
     return () => {
       active = false;
-      unsubscribe();
     };
-  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId, scopedStorageKey]);
+  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId]);
 
   // Poll Neon for family invitations and incoming shared expenses while the app is open.
   useEffect(() => {
@@ -1489,7 +1030,7 @@ export default function App() {
     };
   }, [isAuthReady, isUserAuthenticated, effectiveUserEmail]);
 
-  // Save state to user-scoped localStorage + Automatic Cloud Firestore Sync
+  // Save a local cache and persist the authenticated workspace in Neon.
   useEffect(() => {
     if (!effectiveUserEmail) return;
     try {
@@ -1517,9 +1058,7 @@ export default function App() {
       hasLoadedRemoteOnceRef.current &&
       !isApplyingRemoteSnapshotRef.current
     ) {
-      const collectionName = 'cloud_vaults';
       const docId = autoVaultId;
-      const docPath = `${collectionName}/${docId}`;
 
       setCloudSyncStatus('syncing');
       const timer = setTimeout(() => {
@@ -1529,21 +1068,14 @@ export default function App() {
             await queueNeonWorkspaceSave(payload);
           } catch (error) {
             console.error(
-              'Falha ao salvar workspace Neon; o espelho Firestore não será atualizado.',
+              'Falha ao salvar workspace no Neon; alterações locais foram mantidas.',
               error instanceof Error ? error.message : String(error)
             );
             setCloudSyncStatus('error');
             return;
           }
-          try {
-            const { db, doc, setDoc } = await import('./lib/firebaseFirestore');
-            await setDoc(doc(db, collectionName, docId), payload);
-            setCloudSyncStatus('synced');
-            setLastSyncedAt(payload.updatedAt);
-          } catch (err) {
-            setCloudSyncStatus('error');
-            handleFirestoreError(err, OperationType.WRITE, docPath);
-          }
+          setCloudSyncStatus('synced');
+          setLastSyncedAt(payload.updatedAt);
         })();
       }, 420);
       return () => clearTimeout(timer);
@@ -1571,15 +1103,13 @@ export default function App() {
     try {
       const payload = buildCloudPayload(docId);
       await queueNeonWorkspaceSave(payload);
-      const { db, doc, setDoc } = await import('./lib/firebaseFirestore');
-      await setDoc(doc(db, 'cloud_vaults', docId), payload);
       setCloudSyncStatus('synced');
       setLastSyncedAt(payload.updatedAt);
       showNotice('Sincronização em nuvem concluída agora!', undefined, true);
     } catch (error) {
       setCloudSyncStatus('error');
       console.error(
-        'Falha na sincronização manual; nenhum espelho Firestore foi escrito.',
+        'Falha na sincronização manual com Neon.',
         error instanceof Error ? error.message : String(error)
       );
       showNotice(

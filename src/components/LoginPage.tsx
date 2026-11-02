@@ -139,7 +139,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   Sincronização Automática em Nuvem
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Acesso protegido pelo Firebase Auth; dados sincronizados com Neon e espelhados no Firestore.
+                  Acesso protegido pelo Firebase Auth; os dados são sincronizados com Neon PostgreSQL.
                 </p>
               </div>
             </div>
@@ -340,7 +340,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
-            Entre com Firebase Auth para sincronizar seu workspace no Neon e no espelho Firestore.
+            Entre com Firebase Auth para sincronizar seu workspace no Neon PostgreSQL.
           </p>
         </div>
       </div>

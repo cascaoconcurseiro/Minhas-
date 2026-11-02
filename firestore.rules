@@ -1,121 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: /workspaces/{userId} and /cloud_vaults/{vaultId}
-    // Fields:
-    //   - uid: string (required, immutable, matches document ID)
-    //   - email: string (optional, <= 200 chars)
-    //   - displayName: string (optional, <= 120 chars)
-    //   - updatedAt: string (required, ISO timestamp <= 64 chars)
-    //   - accountsJson: string (required, <= 100000 chars)
-    //   - cardsJson: string (required, <= 100000 chars)
-    //   - categoriesJson: string (required, <= 150000 chars)
-    //   - transactionsJson: string (required, <= 500000 chars)
-    //   - goalsJson: string (required, <= 100000 chars)
-    //   - familyMembersJson: string (optional, <= 50000 chars)
-    //   - investmentsJson: string (required, <= 150000 chars)
-    //   - investmentTargetsJson: string (optional, <= 10000 chars)
-    //   - tripsJson: string (optional, <= 200000 chars)
-    //   - settingsJson: string (optional, <= 20000 chars)
-    // ===============================================================
-
-    function isAuthenticated() {
-      return request.auth != null;
+    function currentUsersLegacyVaultId() {
+      let email = request.auth.token.email.lower();
+      let slug = email.replace('[^a-z0-9]', '_').replace('_+', '_').replace('^_|_$', '');
+      let candidate = 'vault_usr_' + slug;
+      let padded = candidate.size() < 18 ? candidate + '_cloud_vault_br' : candidate;
+      return padded.size() > 60 ? padded[0:60] : padded;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isVaultOwner(data) {
-      return isAuthenticated() && (
+    function isLegacyVaultOwner(data) {
+      return request.auth != null && (
         ('ownerFirebaseUid' in data)
           ? data.ownerFirebaseUid == request.auth.uid
-          : (('email' in data) && data.email is string &&
+          : (
+              ('email' in data) &&
+              data.email is string &&
               request.auth.token.email is string &&
-              data.email.lower() == request.auth.token.email.lower())
+              request.auth.token.email_verified == true &&
+              data.email.lower() == request.auth.token.email.lower()
+            )
       );
     }
 
-    function isValidVaultId(vaultId) {
-      return vaultId is string && vaultId.size() >= 16 && vaultId.size() <= 64;
-    }
-
-    function isValidWorkspace(data, docId) {
-      let allowedKeys = [
-        'uid',
-        'ownerFirebaseUid',
-        'email',
-        'displayName',
-        'updatedAt',
-        'accountsJson',
-        'cardsJson',
-        'categoriesJson',
-        'transactionsJson',
-        'goalsJson',
-        'familyMembersJson',
-        'investmentsJson',
-        'investmentTargetsJson',
-        'tripsJson',
-        'settingsJson'
-      ];
-      return data.keys().hasOnly(allowedKeys) &&
-        data.keys().hasAll([
-          'uid',
-          'updatedAt',
-          'accountsJson',
-          'cardsJson',
-          'categoriesJson',
-          'transactionsJson',
-          'goalsJson',
-          'investmentsJson'
-        ]) &&
-        data.uid is string && data.uid == docId &&
-        (!('ownerFirebaseUid' in data) ||
-          (data.ownerFirebaseUid is string && data.ownerFirebaseUid.size() <= 128)) &&
-        data.updatedAt is string && data.updatedAt.size() > 0 && data.updatedAt.size() <= 64 &&
-        data.accountsJson is string && data.accountsJson.size() <= 100000 &&
-        data.cardsJson is string && data.cardsJson.size() <= 100000 &&
-        data.categoriesJson is string && data.categoriesJson.size() <= 150000 &&
-        data.transactionsJson is string && data.transactionsJson.size() <= 500000 &&
-        data.goalsJson is string && data.goalsJson.size() <= 100000 &&
-        data.investmentsJson is string && data.investmentsJson.size() <= 150000 &&
-        (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
-        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
-        (!('familyMembersJson' in data) || (data.familyMembersJson is string && data.familyMembersJson.size() <= 50000)) &&
-        (!('investmentTargetsJson' in data) || (data.investmentTargetsJson is string && data.investmentTargetsJson.size() <= 10000)) &&
-        (!('tripsJson' in data) || (data.tripsJson is string && data.tripsJson.size() <= 200000)) &&
-        (!('settingsJson' in data) || (data.settingsJson is string && data.settingsJson.size() <= 20000));
-    }
-
-    match /workspaces/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidWorkspace(request.resource.data, userId);
-      allow update: if isOwner(userId) &&
-        isValidWorkspace(request.resource.data, userId) &&
-        request.resource.data.uid == resource.data.uid;
-      allow delete: if isOwner(userId);
-    }
-
     match /cloud_vaults/{vaultId} {
-      allow get: if isValidVaultId(vaultId) && isVaultOwner(resource.data);
-      allow list: if false;
-      allow create: if isValidVaultId(vaultId) &&
-        isValidWorkspace(request.resource.data, vaultId) &&
-        request.resource.data.ownerFirebaseUid == request.auth.uid &&
-        request.resource.data.email is string &&
-        request.resource.data.email.lower() == request.auth.token.email.lower();
-      allow update: if isValidVaultId(vaultId) &&
-        isVaultOwner(resource.data) &&
-        isValidWorkspace(request.resource.data, vaultId) &&
-        request.resource.data.ownerFirebaseUid == request.auth.uid &&
-        request.resource.data.email is string &&
-        request.resource.data.email.lower() == request.auth.token.email.lower() &&
-        request.resource.data.uid == resource.data.uid;
-      allow delete: if false;
+      // A user's own existing snapshot can be read only for its one-time Neon import.
+      // The only permitted missing-document lookup is that user's deterministic ID.
+      allow get: if request.auth != null && (
+        (resource == null &&
+          request.auth.token.email is string &&
+          request.auth.token.email_verified == true &&
+          vaultId == currentUsersLegacyVaultId()) ||
+        (resource != null && isLegacyVaultOwner(resource.data))
+      );
+      allow list, create, update, delete: if false;
+    }
+
+    // New operational workspaces are created only in Neon.
+    match /{document=**} {
+      allow write: if false;
     }
   }
 }

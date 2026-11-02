@@ -43,36 +43,36 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 - **Backend**: Node.js + Express 4 (backend/app.ts; servidor local ou Function Vercel)
 - **Autenticação**: Firebase Auth
 - **Banco de Dados**: PostgreSQL no Neon, acessado pelo backend Express na Vercel
-- **Espelho de contingência**: Cloud Firestore (compatibilidade e sincronização existente)
+- **Dados**: Neon PostgreSQL é a base operacional; Firestore é consultado uma vez apenas para migrar um snapshot antigo quando a conta ainda não existe no Neon.
 - **Projeto Neon**: minhas-economias-br / production / neondb
 - **Projeto Firebase**: gen-lang-client-0890983411
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
-- **Suíte de Testes**: 69 testes automatizados (node:test) em src/utils/*.test.ts
+- **Testes**: node:test em src/utils/*.test.ts
 
-## 2. Esquema do Workspace e Compartilhamento Familiar no Neon (com espelho Firestore)
+## 2. Esquema do Workspace e Compartilhamento Familiar no Neon
 Tabelas PostgreSQL:
 1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo UID Firebase validado no backend.
-2. \`finance_workspace_migrations\`: recibo da migração Firestore com hash e contagens de entidades.
+2. \`finance_workspace_migrations\`: recibo da importação legada, com hash e contagens de entidades.
 3. \`finance_family_invitations\`: convites e estado de aceite, consultáveis apenas pelo proprietário ou pelo e-mail convidado.
-4. \`finance_shared_transactions\`: espelhos de despesas selecionadas; só os participantes podem consultar os registros compartilhados.
+4. \`finance_shared_transactions\`: registros das despesas explicitamente compartilhadas; somente participantes autorizados podem consultá-los.
 
-O Firestore mantém o espelho \`/cloud_vaults/{vaultId}\` durante a contingência. Convites e transações familiares não dão acesso ao workspace completo da outra pessoa.
+O workspace e o compartilhamento familiar são persistidos no Neon. Firebase Auth fornece a identidade; o backend valida o token e aplica o UID em RLS. Firestore só pode ser lido uma vez pelo titular para importar um snapshot antigo; não recebe gravações.
 
-### Campos do Documento UserWorkspace (firebase-blueprint.json & firestore.rules):
+### Campos do snapshot JSONB do workspace no Neon:
 - \`uid\` (string, obrigatório, imutável, igual ao ID do documento)
-- \`email\` (string, opcional, <= 200 chars)
-- \`displayName\` (string, opcional, <= 120 chars)
-- \`updatedAt\` (string ISO-8601, obrigatório, <= 64 chars)
-- \`accountsJson\` (string JSON de BankAccount[], obrigatório, <= 100.000 chars)
-- \`cardsJson\` (string JSON de CreditCard[], obrigatório, <= 100.000 chars)
-- \`categoriesJson\` (string JSON de Category[], obrigatório, <= 150.000 chars)
-- \`transactionsJson\` (string JSON de Transaction[], obrigatório, <= 500.000 chars)
-- \`goalsJson\` (string JSON de SavingsGoal[], obrigatório, <= 100.000 chars)
-- \`investmentsJson\` (string JSON de InvestmentAsset[], obrigatório, <= 150.000 chars)
-- \`familyMembersJson\` (string JSON de FamilyMember[], opcional, <= 50.000 chars)
-- \`investmentTargetsJson\` (string JSON de InvestmentTargetMap, opcional, <= 10.000 chars)
-- \`tripsJson\` (string JSON de Trip[], opcional, <= 200.000 chars)
-- \`settingsJson\` (string JSON de AppSettings, opcional, <= 20.000 chars)
+- \`email\` (string, opcional)
+- \`displayName\` (string, opcional)
+- \`updatedAt\` (string ISO-8601, obrigatório)
+- \`accountsJson\` (string JSON de BankAccount[], obrigatório)
+- \`cardsJson\` (string JSON de CreditCard[], obrigatório)
+- \`categoriesJson\` (string JSON de Category[], obrigatório)
+- \`transactionsJson\` (string JSON de Transaction[], obrigatório)
+- \`goalsJson\` (string JSON de SavingsGoal[], obrigatório)
+- \`investmentsJson\` (string JSON de InvestmentAsset[], obrigatório)
+- \`familyMembersJson\` (string JSON de FamilyMember[], opcional)
+- \`investmentTargetsJson\` (string JSON de InvestmentTargetMap, opcional)
+- \`tripsJson\` (string JSON de Trip[], opcional)
+- \`settingsJson\` (string JSON de AppSettings, opcional)
 
 ## 3. Entidades Principais (src/types/finance.ts)
 - **BankAccount**: Contas correntes, poupança, espécie, investimentos e contas internacionais multi-moeda (Wise, Nomad, Avenue, C6 Global).
@@ -128,7 +128,7 @@ git push -u origin main`;
               Documentação Oficial do Projeto, Banco de Dados & Sincronização GitHub
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Arquitetura Full-Stack, schema Neon, espelho Firestore, Firebase Auth e comandos Git
+              Arquitetura Full-Stack, schema Neon, Firebase Auth e comandos Git
             </p>
           </div>
         </div>
@@ -156,7 +156,7 @@ git push -u origin main`;
           }`}
         >
           <Database className="h-3.5 w-3.5" />
-          Banco de Dados (Neon + Firebase)
+          Banco de Dados (Neon)
         </button>
 
         <button
@@ -218,13 +218,13 @@ git push -u origin main`;
 
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-3.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Espelho Firebase / Firestore
+                  Login e banco de dados
                 </span>
                 <p className="mt-1 font-mono font-bold text-slate-900 dark:text-white">
-                  /workspaces/&#123;userId&#125;
+                  Firebase Auth
                 </p>
-                <p className="font-mono font-bold text-indigo-700 dark:text-indigo-400">
-                  /cloud_vaults/&#123;vaultId&#125;
+                <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                  Firebase Auth autentica; Neon guarda os dados ativos. Um snapshot legado pode ser lido uma vez pelo titular para importação.
                 </p>
               </div>
 
@@ -245,9 +245,9 @@ git push -u origin main`;
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                    <th className="py-2.5 px-3">Campo (UserWorkspace)</th>
+                    <th className="py-2.5 px-3">Campo (snapshot JSONB)</th>
                     <th className="py-2.5 px-3">Tipo / Entidade</th>
-                    <th className="py-2.5 px-3">Regra / Limite (firestore.rules)</th>
+                    <th className="py-2.5 px-3">Contrato no Neon</th>
                     <th className="py-2.5 px-3">Descrição</th>
                   </tr>
                 </thead>
@@ -255,7 +255,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-indigo-700 dark:text-indigo-400">uid</td>
                     <td className="py-2 px-3">string</td>
-                    <td className="py-2 px-3">Obrigatório • Imutável (== docId)</td>
+                    <td className="py-2 px-3">Obrigatório • igual ao vaultId</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Chave primária do titular ou cofre determinístico
                     </td>
@@ -263,7 +263,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-indigo-700 dark:text-indigo-400">updatedAt</td>
                     <td className="py-2 px-3">string (ISO-8601)</td>
-                    <td className="py-2 px-3">Obrigatório • &lt;= 64 chars</td>
+                    <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Timestamp da última sincronização em nuvem
                     </td>
@@ -271,7 +271,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">accountsJson</td>
                     <td className="py-2 px-3">BankAccount[]</td>
-                    <td className="py-2 px-3">Obrigatório • &lt;= 100.000 chars</td>
+                    <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Contas correntes, poupança, investimentos e contas globais (EUR/USD)
                     </td>
@@ -279,7 +279,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">cardsJson</td>
                     <td className="py-2 px-3">CreditCard[]</td>
-                    <td className="py-2 px-3">Obrigatório • &lt;= 100.000 chars</td>
+                    <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Cartões de crédito, limites, dia de fechamento e vencimento
                     </td>
@@ -287,7 +287,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">categoriesJson</td>
                     <td className="py-2 px-3">Category[]</td>
-                    <td className="py-2 px-3">Obrigatório • &lt;= 150.000 chars</td>
+                    <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Categorias, subcategorias, tetos mensais e blocos 50/30/20
                     </td>
@@ -295,7 +295,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">transactionsJson</td>
                     <td className="py-2 px-3">Transaction[]</td>
-                    <td className="py-2 px-3">Obrigatório • &lt;= 500.000 chars</td>
+                    <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Razão geral (contas, parcelas de cartão, OFX, rateios e câmbio)
                     </td>
@@ -303,7 +303,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">investmentsJson</td>
                     <td className="py-2 px-3">InvestmentAsset[]</td>
-                    <td className="py-2 px-3">Obrigatório • &lt;= 150.000 chars</td>
+                    <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Carteira de Renda Fixa, FIIs, Ações B3 e ETFs com sync Google Finance
                     </td>
@@ -311,7 +311,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">tripsJson</td>
                     <td className="py-2 px-3">Trip[]</td>
-                    <td className="py-2 px-3">Opcional • &lt;= 200.000 chars</td>
+                    <td className="py-2 px-3">Opcional</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Viagens internacionais, lotes de câmbio (VET) e acertos Splitwise
                     </td>
@@ -344,7 +344,7 @@ git push -u origin main`;
                 Qualidade & Testes Automatizados
               </div>
               <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                O sistema possui <strong>69 testes unitários determinísticos</strong> cobrindo parcelamentos, baixa de faturas, regra 50/30/20, câmbio VET + IOF, Splitwise de viagens, conciliação OFX, predição inteligente de categorias e evolução semestral Recharts.
+                O projeto mantém testes unitários determinísticos cobrindo parcelamentos, baixa de faturas, regra 50/30/20, câmbio VET + IOF, Splitwise de viagens, conciliação OFX, predição inteligente de categorias e relatórios.
               </p>
             </div>
           </div>
@@ -410,7 +410,7 @@ git push -u origin main`;
                 Repositório Git Local Inicializado e Comitado na Branch `main`
               </p>
               <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
-                Todos os arquivos do código-fonte, testes unitários, regras do Firestore (`firestore.rules`), blueprint (`firebase-blueprint.json`), workflow de CI (`.github/workflows/ci.yml`) e documentações estão comitados e prontos para envio ao GitHub.
+                O código-fonte, testes, backend Neon, regras legadas de migração, workflow de CI e documentação estão versionados no GitHub.
               </p>
             </div>
 

@@ -157,16 +157,14 @@ function getWorkspaceEntityCounts(payload: Record<string, unknown>) {
     investments: 'investmentsJson',
     trips: 'tripsJson',
   };
-  return Object.fromEntries(
-    Object.entries(fields).map(([name, field]) => {
-      try {
-        const value = JSON.parse(String(payload[field] || '[]'));
-        return [name, Array.isArray(value) ? value.length : null];
-      } catch {
-        return [name, null];
-      }
-    })
-  );
+  return Object.fromEntries(Object.entries(fields).map(([name, field]) => {
+    try {
+      const value = JSON.parse(String(payload[field] || '[]'));
+      return [name, Array.isArray(value) ? value.length : null];
+    } catch {
+      return [name, null];
+    }
+  }));
 }
 
 async function withWorkspaceRls<T>(
@@ -290,7 +288,7 @@ async function startServer() {
         return result.rows[0] ?? null;
       });
       if (!workspace) {
-        res.status(404).json({ error: 'Workspace Neon ainda não migrado.' });
+        res.status(404).json({ error: 'Workspace ainda não inicializado no Neon.' });
         return;
       }
       res.json({
@@ -304,6 +302,52 @@ async function startServer() {
     }
   });
 
+  app.post('/api/workspace', async (req, res) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    if (!user.email) {
+      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      return;
+    }
+    const vaultId = getVaultIdForEmail(user.email);
+    const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
+    if (!payload) {
+      res.status(400).json({ error: 'Payload inicial do workspace inválido.' });
+      return;
+    }
+
+    try {
+      const created = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `INSERT INTO public.finance_workspaces
+             (vault_id, owner_firebase_uid, owner_email, display_name, payload,
+              revision, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5::jsonb, 1, now(), now())
+           ON CONFLICT (vault_id) DO NOTHING
+           RETURNING revision, updated_at`,
+          [
+            vaultId,
+            user.uid,
+            user.email!.toLowerCase(),
+            typeof payload.displayName === 'string' ? payload.displayName : null,
+            JSON.stringify(payload),
+          ]
+        );
+        return result.rows[0] ?? null;
+      });
+      if (!created) {
+        res.status(409).json({ error: 'O workspace já foi criado no Neon.' });
+        return;
+      }
+      res.status(201).json({
+        revision: Number(created.revision),
+        updatedAt: created.updated_at,
+      });
+    } catch (error) {
+      console.error('Erro ao criar workspace Neon:', error);
+      res.status(503).json({ error: 'Não foi possível criar o workspace no Neon.' });
+    }
+  });
+
   app.post('/api/workspace/migrate', async (req, res) => {
     const user = res.locals.firebaseUser as FirebaseUserIdentity;
     if (!user.email) {
@@ -313,16 +357,12 @@ async function startServer() {
     const vaultId = getVaultIdForEmail(user.email);
     const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
     if (!payload) {
-      res.status(400).json({ error: 'Snapshot Firestore inválido para esta conta.' });
+      res.status(400).json({ error: 'Snapshot legado inválido para esta conta.' });
       return;
     }
-
-    const sourceUpdatedAt =
-      typeof req.body?.sourceUpdatedAt === 'string'
-        ? req.body.sourceUpdatedAt
-        : typeof payload.updatedAt === 'string'
-          ? payload.updatedAt
-          : null;
+    const sourceUpdatedAt = typeof req.body?.sourceUpdatedAt === 'string'
+      ? req.body.sourceUpdatedAt
+      : typeof payload.updatedAt === 'string' ? payload.updatedAt : null;
     if (sourceUpdatedAt && !Number.isFinite(Date.parse(sourceUpdatedAt))) {
       res.status(400).json({ error: 'Data sourceUpdatedAt inválida.' });
       return;
@@ -330,7 +370,6 @@ async function startServer() {
     const payloadJson = JSON.stringify(payload);
     const payloadSha256 = createHash('sha256').update(payloadJson).digest('hex');
     const entityCounts = getWorkspaceEntityCounts(payload);
-
     try {
       const imported = await withWorkspaceRls(user, async (client) => {
         const inserted = await client.query(
@@ -338,42 +377,27 @@ async function startServer() {
              (vault_id, owner_firebase_uid, owner_email, display_name, payload,
               source_updated_at, revision, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5::jsonb, $6::timestamptz, 1, now(), now())
-           ON CONFLICT (vault_id) DO NOTHING
-           RETURNING revision`,
-          [
-            vaultId,
-            user.uid,
-            user.email.toLowerCase(),
+           ON CONFLICT (vault_id) DO NOTHING RETURNING revision`,
+          [vaultId, user.uid, user.email.toLowerCase(),
             typeof payload.displayName === 'string' ? payload.displayName : null,
-            payloadJson,
-            sourceUpdatedAt,
-          ]
+            payloadJson, sourceUpdatedAt]
         );
         if (inserted.rowCount !== 1) return false;
         await client.query(
           `INSERT INTO public.finance_workspace_migrations
-             (vault_id, owner_firebase_uid, source, source_updated_at,
-              payload_sha256, entity_counts)
+             (vault_id, owner_firebase_uid, source, source_updated_at, payload_sha256, entity_counts)
            VALUES ($1, $2, 'firestore', $3::timestamptz, $4, $5::jsonb)`,
           [vaultId, user.uid, sourceUpdatedAt, payloadSha256, JSON.stringify(entityCounts)]
         );
         return true;
       });
-
       if (!imported) {
-        res.status(409).json({
-          error: 'Já existe um workspace Neon; a importação não substituiu dados.',
-        });
+        res.status(409).json({ error: 'Já existe um workspace Neon; nenhum dado foi substituído.' });
         return;
       }
-      res.status(201).json({
-        ok: true,
-        vaultId,
-        payloadSha256,
-        entityCounts,
-      });
+      res.status(201).json({ ok: true, vaultId });
     } catch (error) {
-      console.error('Erro ao importar snapshot Firestore para Neon:', error);
+      console.error('Erro ao importar snapshot legado para Neon:', error);
       res.status(503).json({ error: 'Não foi possível importar os dados para Neon.' });
     }
   });

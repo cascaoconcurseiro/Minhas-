@@ -77,15 +77,19 @@ export function loadNeonWorkspace(): Promise<NeonWorkspaceSnapshot> {
   return authorizedRequest<NeonWorkspaceSnapshot>('/api/workspace');
 }
 
-export function importFirestoreWorkspace(
+export function createNeonWorkspace(
+  payload: Record<string, unknown>
+): Promise<{ revision: number; updatedAt: string }> {
+  return authorizedRequest('/api/workspace', {
+    method: 'POST',
+    body: JSON.stringify({ payload }),
+  });
+}
+
+export function migrateLegacyFirestoreWorkspace(
   payload: Record<string, unknown>,
   sourceUpdatedAt: string | null
-): Promise<{
-  ok: true;
-  vaultId: string;
-  payloadSha256: string;
-  entityCounts: Record<string, number | null>;
-}> {
+): Promise<{ ok: true; vaultId: string }> {
   return authorizedRequest('/api/workspace/migrate', {
     method: 'POST',
     body: JSON.stringify({ payload, sourceUpdatedAt }),

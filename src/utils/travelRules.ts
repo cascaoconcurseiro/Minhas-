@@ -1473,7 +1473,7 @@ export function runFinancialIntegrityAudit(params: {
       id: 'zero_mock_data',
       title: 'Base Limpa de Produção (Zero Dados Mock)',
       description:
-        'Garante que 100% dos registros na memória, no Neon e no espelho Firestore são dados reais criados pelo usuário.',
+        'Garante que 100% dos registros na memória local e no Neon são dados reais criados pelo usuário.',
       passed: mockItemsCount === 0,
       issueCount: mockItemsCount,
       metricLabel:

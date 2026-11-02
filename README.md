@@ -1,15 +1,15 @@
 # Minhas Economias BR — Controle Financeiro Pessoal, Investimentos, Câmbio & Viagens
 
-Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e familiar adaptada à realidade brasileira, com controle de contas bancárias, conciliação de extratos **OFX/CSV**, faturas de cartão de crédito com efeito cascata e antecipação de parcelas, carteira de investimentos integrada ao **Google Finance / B3**, rateio familiar bilateral via PIX, gestão de viagens internacionais multi-moeda (**TravelSpend + Splitwise**) e sincronização em tempo real com **Firebase Cloud Firestore**.
+Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e familiar adaptada à realidade brasileira, com controle de contas bancárias, conciliação de extratos **OFX/CSV**, faturas de cartão de crédito com efeito cascata e antecipação de parcelas, carteira de investimentos integrada ao **Google Finance / B3**, rateio familiar bilateral via PIX e gestão de viagens internacionais multi-moeda (**TravelSpend + Splitwise**). Firebase Auth cuida do login; os dados persistentes da aplicação são salvos no PostgreSQL do Neon por uma API autenticada.
 
 ---
 
 ## Sumário da Documentação
 
 1. **[Visão Geral e Arquitetura (`README.md`)](./README.md)** — Visão executiva, módulos do sistema, stack tecnológica, instalação e testes.
-2. **[Documentação do Banco de Dados e Persistência (`docs/DATABASE_DOCUMENTATION.md`)](./docs/DATABASE_DOCUMENTATION.md)** — Esquema completo do Cloud Firestore (`firebase-blueprint.json`), regras de segurança (`firestore.rules`), dicionário de entidades, diagrama ER e auditoria SSOT.
+2. **[Documentação do Banco de Dados e Persistência (`docs/DATABASE_DOCUMENTATION.md`)](./docs/DATABASE_DOCUMENTATION.md)** — Esquema Neon, tabelas, isolamento por usuário e fluxo de migração legado.
 3. **[Arquitetura Técnica, Motores de Regras e API REST (`docs/ARCHITECTURE_AND_API.md`)](./docs/ARCHITECTURE_AND_API.md)** — Especificação das rotas do servidor Express (`backend/app.ts`), motores matemáticos puros (`src/utils/*.ts`) e pipeline de CI/CD.
-4. **[Especificação de Segurança Firestore (`security_spec.md`)](./security_spec.md)** — Invariantes de segurança e proteção contra payloads inválidos.
+4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes do modelo de identidade e dados, incluindo as regras históricas do Firestore.
 
 ---
 
@@ -21,10 +21,10 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 | **Estilização** | Tailwind CSS v4 + Lucide Icons | Design system responsivo (Light / Dark Mode) |
 | **Visualização de Dados** | Recharts + SVG Custom Charts | Gráficos comparativos de 6 meses, rosca, curvas e progresso |
 | **Backend / API** | Node.js + Express 4 (`backend/app.ts`, exposto em `/api/*`) | Proxy seguro para cotações B3/Google Finance, câmbio ao vivo, SMTP e workspace Neon |
-| **Banco de Dados & Auth** | Firebase Authentication + Neon PostgreSQL; Firestore como espelho durante a migração | Login Firebase e workspace financeiro persistido no servidor |
+| **Banco de Dados & Auth** | Firebase Authentication + Neon PostgreSQL | Firebase apenas autentica; workspace, convites e lançamentos compartilhados persistem no Neon |
 | **Inteligência & Cotações** | `@google/genai` (Google Search Grounding) | Consulta de câmbio comercial ao vivo e cotações internacionais |
 | **Relatórios Executivos** | `jspdf` | Exportação de relatórios financeiros mensais e de viagens em PDF |
-| **Testes Automatizados** | `node:test` + `tsx` + Playwright | 69 testes unitários determinísticos das regras financeiras e validação E2E |
+| **Testes Automatizados** | `node:test` + `tsx` | Testes unitários determinísticos das regras financeiras e validações de dados |
 
 ---
 
@@ -90,7 +90,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 /
 ├── .github/workflows/ci.yml           # Pipeline de CI (Testes, Typecheck e Build)
 ├── docs/
-│   ├── DATABASE_DOCUMENTATION.md      # Documentação completa do banco Firestore e entidades
+│   ├── DATABASE_DOCUMENTATION.md      # Schema Neon e persistência
 │   └── ARCHITECTURE_AND_API.md        # Arquitetura full-stack, regras contábeis e API REST
 ├── scripts/
 │   └── sync-github.sh                 # Script utilitário para sincronização com repositório GitHub
@@ -123,10 +123,10 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 │   │   ├── reminderRules.ts           # Motor de lembretes, notificações e disparo SMTP
 │   │   ├── reportPdfGenerator.ts      # Gerador de relatório mensal em PDF
 │   │   └── tripPdfGenerator.ts        # Gerador de relatório de viagem em PDF
-│   ├── App.tsx                        # Orquestrador de estado SSOT e sincronização Firebase
-│   └── firebase.ts                    # Inicialização do SDK Firebase Auth e Cloud Firestore
-├── firebase-blueprint.json            # Blueprint estrutural das entidades e coleções Firestore
-├── firestore.rules                    # Regras de segurança Zero-Trust do Cloud Firestore
+│   ├── App.tsx                        # Orquestrador de estado SSOT; persistência Neon
+│   ├── firebase.ts                    # Inicialização de Firebase Auth
+├── firebase-blueprint.json            # Blueprint legado do Firestore
+├── firestore.rules                    # Leitura do próprio snapshot para importação; bloqueia toda gravação
 ├── security_spec.md                   # Especificação de invariantes de segurança do banco
 ├── backend/app.ts                     # Rotas Express e integração Neon
 ├── api/[...path].ts                   # Adaptador das rotas Express para Vercel Functions
