@@ -7,8 +7,7 @@
 - Substituí os fluxos que liam/escreviam o workspace Firestore de outra pessoa por endpoints autenticados no backend Neon. O espelho Firestore passa a omitir `tx-mirror-*`; a sincronização familiar usa as tabelas separadas.
 - Preparei regras owner-only para `cloud_vaults` e adicionei `ownerFirebaseUid` aos snapshots. As regras ainda não foram publicadas; enquanto isso, a regra de leitura sem autenticação continua ativa em produção.
 - Corrigi a troca de e-mail do convite para só atualizar a interface depois que a revogação do vínculo anterior confirmar no servidor.
-- O deploy de `f457e68` está Ready e o painel lista a função `api/[...path]`; `/api/family` chega ao middleware de autenticação, mas `/api/family/invitations` retorna 404 sem autenticação, enquanto `/api/workspace` retorna 401. Investigar por que os endpoints familiares aninhados não aparecem no runtime antes de validar a migração com usuários.
-- Para resolver o roteamento mais específico, preparei `api/family/[...path].ts`, que envia o prefixo familiar ao mesmo Express. Ainda não publiquei esse ajuste; confirmar as rotas depois do próximo deploy.
+- O deploy `af99151` está Ready e inclui a função `api/family/[...path]`. Após o primeiro deploy, o prefixo `/api/family` respondia 401 mas rotas aninhadas davam 404; a função mais específica resolveu isso. Agora `/api/family/invitations` e `/api/family/shared` respondem 401 sem token, como `/api/workspace`.
 - `bun run lint`, `bun run build` e `git diff --check` passaram após a migração. O build ainda avisa sobre bundle principal acima de 500 kB e um aviso de compatibilidade da configuração Vite.
 - Na auditoria do compartilhamento familiar, encontrei uma exposição crítica pendente: as regras de produção permitem `get` em `cloud_vaults` sem autenticação quando o ID tem formato válido; IDs são derivados do e-mail e documentos contêm o workspace financeiro completo. Preparei em `firestore.rules` a restrição do cofre ao dono e acrescentei `ownerFirebaseUid` aos snapshots do app, mas ainda não publiquei as regras. Os fluxos familiares atuais escrevem diretamente nos workspaces de outras pessoas; primeiro é preciso migrar convites e lançamentos compartilhados para registros isolados no Neon, para não quebrar o recurso ao restringir o acesso.
 - Auditei a gravação do workspace: encontrei caminho que publicava no Firestore mesmo quando o Neon falhava/rejeitava uma revisão. Agora a cópia Firestore só é atualizada depois da confirmação do Neon; falhas mantêm os dados locais e exibem status de sincronização pendente.
@@ -21,12 +20,12 @@
 - A aba de navegador que já estava aberta ainda carregava um bundle anterior pelo service worker; atualize a página para ver o texto novo.
 
 ## Próximo passo
-**Arquivos:** `api/family/[...path].ts`, `backend/app.ts`, `firestore.rules`
-**Ação:** publicar e conferir a rota específica; validar que GET sem token responde 401 para `/api/family/invitations` e `/api/family/shared`. Depois validar convite/aceite/recusa/revogação e compartilhamento com duas contas. A publicação das regras owner-only depende de confirmação do usuário. Verificar também conflitos entre abas e recuperação após indisponibilidade do Neon.
+**Arquivos:** `src/App.tsx`, `backend/app.ts`, `firestore.rules`
+**Ação:** validar convite/aceite/recusa/revogação e lançamento compartilhado com duas contas reais. Depois, com confirmação do usuário, publicar as regras owner-only. Verificar também conflitos entre abas e recuperação após indisponibilidade do Neon.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
 - Firestore continua como espelho/contingência do workspace principal; compartilhamentos familiares novos usam Neon.
-- A migration Neon está aplicada e o commit `f457e68` foi publicado na Vercel. O handler catch-all aparece nos recursos, mas a rota aninhada de convites retorna 404 no runtime; o handler mais específico foi preparado localmente e ainda precisa ser publicado e verificado.
+- A migration Neon está aplicada e os commits `f457e68` e `af99151` foram publicados. As rotas familiares chegam à autenticação, mas o fluxo real com duas contas ainda não foi validado.
 - As regras Firestore abertas são risco de produção: `cloud_vaults` ainda permite leitura pública até a publicação do patch em `firestore.rules`.
 - Não foi executado teste de concorrência ou de falha real de conexão nesta sessão.
