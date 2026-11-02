@@ -9,8 +9,9 @@
 - Importação JSON agora valida versão 1–5, coleções e esquema de categorias antes de aplicar qualquer setter. A mensagem distingue arquivo carregado na sessão de confirmação posterior do Neon.
 - Adicionei `docs/BACKUP_AND_RESTORE.md`: diferencia exportação do workspace, espelho Firestore e backup integral do Neon que também inclui tabelas familiares. Nenhum restore de produção foi executado.
 - Atualizei o blueprint pela decisão de carregar Neon diretamente e o checklist/CI para não manter contagem fixa de testes.
-- Verificações locais executadas após essas mudanças: lint, 78 testes unitários, build e `git diff --check` passaram. Commit `d1a545d` publicado em `main`; check Vercel `success`.
+- Verificações locais executadas após essas mudanças: lint, 78 testes unitários, build e `git diff --check` passaram. Commit de app `d1a545d` publicado em `main`; Vercel `success`. O commit documental `1b05c89` também tem CI GitHub Actions run `41525311897` e check Vercel `success`.
 - Smoke de produção após `d1a545d`: página 200, HTML sem script inline, CSP sem `unsafe-inline` em `script-src`, `/vite-websocket-guard.js` e bundle principal 200, `/api/workspace` 401 sem token. Isso confirma entrega e proteções básicas, não uma sessão autenticada completa.
+- Em 2/nov, consultei o histórico completo do workflow Neon: só há a execução manual `41478873917` (concluída com sucesso); não há ainda evento `schedule`. A alteração de agendamento entrou depois da janela de hoje, então conferir a execução automática após 09:15 de 3/nov (horário de Brasília).
 - Migrei o desenho do compartilhamento familiar para tabelas isoladas no Neon (`finance_family_invitations` e `finance_shared_transactions`). A migration `003_neon_family_sharing.sql` foi aplicada no projeto de produção; verificação agregada mostrou 3 convites (2 aceitos, 1 pendente), 0 espelhos migrados e RLS nas duas tabelas. Os snapshots antigos não foram apagados.
 - Substituí os fluxos que liam/escreviam o workspace Firestore de outra pessoa por endpoints autenticados no backend Neon. O espelho Firestore passa a omitir `tx-mirror-*`; a sincronização familiar usa as tabelas separadas.
 - Preparei regras owner-only para `cloud_vaults` e adicionei `ownerFirebaseUid` aos snapshots. As regras ainda não foram publicadas; enquanto isso, a regra de leitura sem autenticação continua ativa em produção.
@@ -39,7 +40,7 @@
 
 ## Próximo passo
 **Arquivos:** `src/App.tsx`, `backend/app.ts`, `firestore.rules`
-**Ação:** aguardar confirmação explícita antes de publicar as regras owner-only. O usuário autorizou encerrar sem teste com segunda conta; os fluxos familiares permanecem sem validação ponta a ponta. Ainda faltam teste real de concorrência/indisponibilidade, procedimento de contingência/restore antes de retirar o espelho e reduzir ou justificar o chunk inicial de 1,25 MB.
+**Ação:** pedir confirmação explícita e então publicar/verificar `firestore.rules` owner-only; a regra de leitura pública em `cloud_vaults` é o risco crítico pendente. Em 3/nov após 09:15 BRT, consultar o workflow `.github/workflows/neon-daily-activity.yml` e confirmar um run `schedule`. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados; não desativar o espelho antes disso.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
@@ -49,4 +50,4 @@
 - As regras Firestore abertas são risco de produção: `cloud_vaults` ainda permite leitura pública até a publicação do patch em `firestore.rules`.
 - A resolução 409 foi publicada: compara resumos, exige backup JSON e aguarda o espelho antes de liberar edição. Não foi submetida a uma colisão real entre abas.
 - Não foi executado teste de concorrência ou de falha real de conexão nesta sessão.
-- As regras owner-only não foram publicadas; mantenho a confirmação explícita pendente para essa alteração de segurança em produção.
+- As regras owner-only não foram publicadas; a confirmação explícita para essa alteração de segurança em produção ainda está pendente.

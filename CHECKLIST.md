@@ -54,6 +54,8 @@
 - [x] Validar formato do backup JSON antes de aplicar estado e esclarecer que sucesso de importação local não confirma gravação no Neon.
 - [x] Atualizar passo de testes do CI para não exibir contagem fixa obsoleta.
 - [x] Publicar `d1a545d` em `main`; check Vercel `success` e smoke de produção: HTML/CSP/guard/bundle 200 e API protegida 401 sem token.
+- [x] Confirmar CI run `41525311897` concluído com sucesso e check Vercel `success` para `1b05c89`.
+- [x] Reconsultar histórico do workflow Neon em 2/nov: execução manual bem-sucedida existe; execução automática `schedule` ainda não existe, pois a primeira janela agendada depois da publicação é 3/nov às 09:15 BRT.
 - [ ] Confirmar execução automática diária do GitHub Actions; execução manual já foi validada.
 - [ ] Publicar regras Firestore owner-only após confirmação explícita; até lá, risco de leitura pública permanece.
 - [ ] Validar concorrência e recuperação de indisponibilidade real do Neon.
