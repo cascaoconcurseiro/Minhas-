@@ -19,8 +19,10 @@
 - [x] Publicar a limpeza de registros mock reconhecidos ao carregar snapshots remotos.
 - [x] Deixar explícita na interface a diferença entre Firebase Auth, banco Neon e espelho Firestore.
 - [x] Com autorização explícita do usuário, excluir os 4 lançamentos identificados como demonstração; preservar a conta.
-- [ ] Definir a fonte de verdade e o plano de contingência antes de desativar o espelho Firestore.
-- [ ] Validar concorrência e recuperação após indisponibilidade do Neon.
+- [x] Definir Neon como fonte principal do workspace e manter Firestore como espelho de contingência por enquanto.
+- [x] Impedir gravação no espelho quando o salvamento principal no Neon falha; preservar o estado local e sinalizar a falha.
+- [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
+- [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
 - [ ] Migrar o compartilhamento familiar, hoje mantido no Firestore, após definir autorização entre contas.
 
 ## Interface

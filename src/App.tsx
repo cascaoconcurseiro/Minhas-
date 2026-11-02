@@ -707,7 +707,10 @@ export default function App() {
               );
             }
           }
-          if (firestoreDataNeedsCleanup) {
+          if (
+            firestoreDataNeedsCleanup &&
+            (!firebaseUser || firebaseUser.isAnonymous || neonSynced)
+          ) {
             void setDoc(docRef, data).catch((err) =>
               handleFirestoreError(err, OperationType.WRITE, docPath)
             );
@@ -958,22 +961,22 @@ export default function App() {
       const timer = setTimeout(() => {
         const payload = buildCloudPayload(docId);
         void (async () => {
-          let neonSaved = false;
           try {
             await queueNeonWorkspaceSave(payload);
-            neonSaved = true;
           } catch (error) {
             console.error(
-              'Falha ao salvar workspace Neon; mantendo a cópia Firestore.',
+              'Falha ao salvar workspace Neon; o espelho Firestore não será atualizado.',
               error instanceof Error ? error.message : String(error)
             );
+            setCloudSyncStatus('error');
+            return;
           }
           try {
             await setDoc(docRef, payload);
-            setCloudSyncStatus(neonSaved ? 'synced' : 'error');
+            setCloudSyncStatus('synced');
             setLastSyncedAt(payload.updatedAt);
           } catch (err) {
-            setCloudSyncStatus('local');
+            setCloudSyncStatus('error');
             handleFirestoreError(err, OperationType.WRITE, docPath);
           }
         })();
@@ -1008,9 +1011,17 @@ export default function App() {
       setCloudSyncStatus('synced');
       setLastSyncedAt(payload.updatedAt);
       showNotice('Sincronização em nuvem concluída agora!', undefined, true);
-    } catch {
-      setCloudSyncStatus('local');
-      showNotice('Dados salvos localmente neste dispositivo.', undefined, true);
+    } catch (error) {
+      setCloudSyncStatus('error');
+      console.error(
+        'Falha na sincronização manual; nenhum espelho Firestore foi escrito.',
+        error instanceof Error ? error.message : String(error)
+      );
+      showNotice(
+        'Não foi possível concluir a sincronização. Seus dados locais foram preservados; tente novamente.',
+        undefined,
+        true
+      );
     }
   };
 

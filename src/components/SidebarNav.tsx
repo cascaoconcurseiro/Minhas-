@@ -93,8 +93,8 @@ const getSyncStatusConfig = (
       };
     case 'error':
       return {
-        label: 'Atenção na sincronização',
-        detail: 'Tentando reconectar...',
+        label: 'Falha na sincronização',
+        detail: 'Alterações podem estar pendentes',
         dotColor: 'bg-rose-500',
         pingColor: 'bg-rose-400',
         textColor: 'text-rose-800 dark:text-rose-300',
@@ -102,7 +102,7 @@ const getSyncStatusConfig = (
         badgeBg: 'bg-rose-50/80 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800',
         Icon: AlertCircle,
         iconClass: 'text-rose-600 dark:text-rose-400',
-        tooltip: 'Não foi possível sincronizar no momento. Tentando reconectar automaticamente.',
+        tooltip: 'O último salvamento não foi confirmado. Seus dados locais foram preservados; tente sincronizar novamente quando a conexão voltar.',
       };
     case 'local':
       return {

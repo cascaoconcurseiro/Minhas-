@@ -6,7 +6,8 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 ## Stack
 - Frontend: React, TypeScript e Vite
 - Autenticação: Firebase Auth
-- Banco atual: Firestore; migração planejada para PostgreSQL no Neon
+- Banco principal do workspace: PostgreSQL no Neon, acessado apenas pelo backend
+- Firestore: espelho de contingência e armazenamento ainda usado pelo compartilhamento familiar durante a migração
 - Backend: Express, publicado como função na Vercel
 - Hospedagem: Vercel Hobby, conectada ao GitHub
 
@@ -25,6 +26,7 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 | Data | Decisão | Motivo |
 |------|---------|--------|
 | 2026-11-02 | Manter Firebase Auth e mover o workspace para PostgreSQL/Neon via API Express na Vercel | Preservar os logins existentes e restringir acesso ao banco ao servidor |
+| 2026-11-02 | Tratar Neon como escrita principal do workspace e atualizar Firestore somente após confirmação do Neon | Evitar que uma gravação concorrente ou rejeitada pelo Neon publique um snapshot local antigo como cópia mais recente |
 
 ## Regras do projeto
 - Nunca expor `DATABASE_URL` no frontend.
