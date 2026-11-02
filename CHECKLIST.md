@@ -18,7 +18,7 @@
 - [x] Auditar o workspace Neon em produção; nenhum registro correspondeu aos marcadores de mock existentes.
 - [x] Publicar a limpeza de registros mock reconhecidos ao carregar snapshots remotos.
 - [x] Deixar explícita na interface a diferença entre Firebase Auth, banco Neon e espelho Firestore.
-- [ ] Confirmar quais dos 4 lançamentos e da 1 conta já existentes são dados fictícios; sem marcadores conhecidos, foram preservados.
+- [x] Com autorização explícita do usuário, excluir os 4 lançamentos identificados como demonstração; preservar a conta.
 - [ ] Definir a fonte de verdade e o plano de contingência antes de desativar o espelho Firestore.
 - [ ] Validar concorrência e recuperação após indisponibilidade do Neon.
 - [ ] Migrar o compartilhamento familiar, hoje mantido no Firestore, após definir autorização entre contas.
