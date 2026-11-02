@@ -24,6 +24,8 @@
 - [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
 - [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
 - [ ] Migrar o compartilhamento familiar, hoje mantido no Firestore, após definir autorização entre contas.
+- [ ] Restringir `cloud_vaults` ao dono autenticado; as regras atuais permitem `get` sem autenticação e os IDs são derivados do e-mail.
+- [ ] Mover convites e transações compartilhadas para estruturas isoladas; não dar acesso ao workspace financeiro completo de outra pessoa.
 
 ## Interface
 - [x] Corrigir largura do modal de novo lançamento no desktop para respeitar o limite visual do componente.

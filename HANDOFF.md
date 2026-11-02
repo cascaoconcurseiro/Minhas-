@@ -3,6 +3,7 @@
 ## Última sessão
 **Data:** 2026-11-02
 **O que foi feito:**
+- Na auditoria do compartilhamento familiar, encontrei uma exposição crítica pendente: `firestore.rules` permite `get` em `cloud_vaults` sem autenticação quando o ID tem formato válido; IDs são derivados do e-mail e documentos contêm o workspace financeiro completo. Ainda não alterei nem publiquei as regras porque os fluxos atuais de convite e compartilhamento escrevem diretamente nos workspaces de outras pessoas; endurecer só as regras quebraria esse recurso. Próximo corte de segurança é mover convites e lançamentos espelhados para registros isolados e então restringir os cofres ao proprietário.
 - Auditei a gravação do workspace: encontrei caminho que publicava no Firestore mesmo quando o Neon falhava/rejeitava uma revisão. Agora a cópia Firestore só é atualizada depois da confirmação do Neon; falhas mantêm os dados locais e exibem status de sincronização pendente.
 - Corrigi a regra global de CSS que sobrescrevia `max-w-2xl` do formulário de lançamento e o expandia horizontalmente no desktop. A largura agora respeita o limite definido pelo modal e continua responsiva.
 - Auditei o workspace Neon da conta autenticada: 1 conta e 4 lançamentos sem marcadores de mock conhecidos. O usuário confirmou que os quatro lançamentos eram dados de demonstração e autorizou sua exclusão.
@@ -14,9 +15,10 @@
 
 ## Próximo passo
 **Arquivos:** `src/App.tsx` (leitura do workspace), `src/utils/travelRules.ts` (marcadores de mock)
-**Ação:** validar duas abas concorrentes e uma falha temporária do Neon; confirmar que o 409 não grava snapshot no Firestore, que os dados locais permanecem disponíveis e que a cópia pode ser reconciliada sem sobrescrita silenciosa.
+**Ação:** primeiro implementar dados de convite e transações familiares isolados no Neon e remover acessos cruzados ao workspace Firestore; publicar regras que autorizem somente o dono do cofre. Depois validar duas abas concorrentes e recuperação do Neon sem sobrescrita silenciosa.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
 - Firestore continua como espelho/contingência e para compatibilidade com o compartilhamento familiar.
 - Não foi executado teste de concorrência ou falha real de conexão nesta sessão; a migração do compartilhamento familiar ainda depende de definir permissões entre contas.
+- As regras Firestore abertas são um risco de produção não corrigido ainda; revisar/deployar `firestore.rules` assim que a migração segura do compartilhamento estiver pronta.
