@@ -139,7 +139,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   Sincronização Automática em Nuvem
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Seus dados financeiros protegidos e salvos em tempo real no Google Cloud Firestore.
+                  Acesso protegido pelo Firebase Auth; dados sincronizados com Neon e espelhados no Firestore.
                 </p>
               </div>
             </div>
@@ -340,7 +340,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
-            Sincronização segura via Google Cloud Firestore. Seus dados permanecem salvos mesmo ao trocar de dispositivo.
+            Entre com Firebase Auth para sincronizar seu workspace no Neon e no espelho Firestore.
           </p>
         </div>
       </div>

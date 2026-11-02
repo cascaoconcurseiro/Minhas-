@@ -362,7 +362,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                     <Cloud className="h-4 w-4 text-violet-600 shrink-0" />
                     <div>
                       <span className="block text-[10px] font-bold uppercase text-slate-400">
-                        Cloud Firestore
+                        Neon + Firestore
                       </span>
                       <span className="font-bold text-slate-900">
                         {cloudSyncStatus === 'synced'
@@ -513,8 +513,8 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                   {
                     title: 'Conta, Nuvem & Auditoria SSOT',
                     tab: 'cloud' as const,
-                    status: 'Firestore Sync + Auto-Reparo',
-                    desc: 'Sincronização em tempo real com Google Cloud Firestore e verificador automático de integridade contábil.',
+                    status: 'Neon + espelho Firestore',
+                    desc: 'Firebase Auth controla o acesso; o workspace sincroniza com Neon e mantém espelho Firestore durante a contingência.',
                   },
                 ].map((item) => (
                   <div

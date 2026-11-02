@@ -89,7 +89,7 @@ const getSyncStatusConfig = (
         badgeBg: 'bg-sky-50/80 border-sky-200 dark:bg-sky-950/40 dark:border-sky-800',
         Icon: RefreshCw,
         iconClass: 'animate-spin text-sky-600 dark:text-sky-400',
-        tooltip: 'Sincronizando dados com a nuvem Firestore em segundo plano...',
+        tooltip: 'Firebase Auth ativa; sincronizando os dados com Neon e mantendo o espelho Firestore.',
       };
     case 'error':
       return {
@@ -121,7 +121,7 @@ const getSyncStatusConfig = (
     default:
       return {
         label: 'Nuvem sincronizada',
-        detail: 'Dados salvos e seguros',
+        detail: 'Neon + espelho Firestore',
         dotColor: 'bg-emerald-500',
         pingColor: 'bg-emerald-400',
         textColor: 'text-emerald-800 dark:text-emerald-300',
@@ -129,7 +129,7 @@ const getSyncStatusConfig = (
         badgeBg: 'bg-emerald-50/80 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800',
         Icon: CheckCircle2,
         iconClass: 'text-emerald-600 dark:text-emerald-400',
-        tooltip: 'Sincronização em tempo real ativa. Todas as alterações estão salvas e seguras na nuvem Firestore.',
+        tooltip: 'Workspace sincronizado com Neon e Firestore de contingência.',
       };
   }
 };

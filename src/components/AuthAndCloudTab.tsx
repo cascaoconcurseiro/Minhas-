@@ -203,7 +203,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         onUpdateSettings({ userName: cleanName });
         setAuthFeedback({
           type: 'success',
-          message: `Conta criada para ${emailInput.trim()} e vinculada ao Cofre Cloud Firebase!`,
+          message: `Conta criada para ${emailInput.trim()} com autenticação Firebase Auth.`,
         });
       }
       setPasswordInput('');
@@ -264,7 +264,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 px-3 py-1 text-xs font-bold text-emerald-300">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                 {cloudSyncStatus === 'synced'
-                  ? 'Nuvem Firebase Conectada Automaticamente'
+                  ? 'Dados sincronizados com Neon + Firestore'
                   : cloudSyncStatus === 'syncing'
                   ? 'Sincronizando em Tempo Real...'
                   : 'Cofre Local + Nuvem Ativo'}
@@ -290,7 +290,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               Central de Conta, Nuvem & Verificador de Produção em Tempo Real
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Seus lançamentos, contas, cartões, investimentos, metas e viagens são verificados em tempo real e salvos automaticamente no Google Cloud Firestore sem nenhum dado mock.
+              Firebase Auth protege o acesso. O workspace é sincronizado com PostgreSQL no Neon e mantido também no Firestore como espelho de contingência.
             </p>
           </div>
 
@@ -339,7 +339,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               <strong className="font-mono text-emerald-300">{lastSyncedAt}</strong>
             </span>
             <span>
-              Banco de Dados: <strong>Google Cloud Firestore (Produção)</strong>
+              Autenticação: <strong>Firebase Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong> · Espelho: <strong>Firestore</strong>
             </span>
           </div>
         )}
@@ -695,7 +695,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   <Cloud className="h-4 w-4 text-violet-600 shrink-0" />
                   <div>
                     <span className="block text-[10px] font-bold uppercase text-slate-400">
-                      Cloud Firestore
+                      Neon + Firestore
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
                       {cloudSyncStatus === 'synced'

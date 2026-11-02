@@ -41,15 +41,20 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 ## 1. Arquitetura do Projeto
 - **Frontend**: React 19 + TypeScript 7 + Vite 8 + Tailwind CSS v4 + Recharts
 - **Backend**: Node.js + Express 4 (backend/app.ts; servidor local ou Function Vercel)
-- **Banco de Dados & Nuvem**: Firebase Authentication + Cloud Firestore Enterprise Edition
-- **Database ID**: ai-studio-minhaseconomiasb-70c985b7-075c-4f08-9fdc-96a05658241f
+- **Autenticação**: Firebase Auth
+- **Banco de Dados**: PostgreSQL no Neon, acessado pelo backend Express na Vercel
+- **Espelho de contingência**: Cloud Firestore (compatibilidade e sincronização existente)
+- **Projeto Neon**: minhas-economias-br / production / neondb
+- **Projeto Firebase**: gen-lang-client-0890983411
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
 - **Suíte de Testes**: 69 testes automatizados (node:test) em src/utils/*.test.ts
 
-## 2. Esquema do Banco de Dados (Cloud Firestore)
-Coleções Principais:
-1. \`/workspaces/{userId}\`: Documento privado vinculado ao UID do Firebase Auth.
-2. \`/cloud_vaults/{vaultId}\`: Cofre determinístico em nuvem (\`vault_usr_<email>\`) para sincronização multi-dispositivo e rateio familiar.
+## 2. Esquema do Workspace no Neon (com espelho Firestore)
+Tabelas PostgreSQL:
+1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo UID Firebase validado no backend.
+2. \`finance_workspace_migrations\`: recibo da migração Firestore com hash e contagens de entidades.
+
+O Firestore mantém o espelho \`/cloud_vaults/{vaultId}\` durante a fase de contingência e para compatibilidade com o compartilhamento familiar existente.
 
 ### Campos do Documento UserWorkspace (firebase-blueprint.json & firestore.rules):
 - \`uid\` (string, obrigatório, imutável, igual ao ID do documento)
@@ -121,7 +126,7 @@ git push -u origin main`;
               Documentação Oficial do Projeto, Banco de Dados & Sincronização GitHub
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Arquitetura Full-Stack, Dicionário de Dados Cloud Firestore, Regras Zero-Trust e Comandos Git
+              Arquitetura Full-Stack, schema Neon, espelho Firestore, Firebase Auth e comandos Git
             </p>
           </div>
         </div>
@@ -149,7 +154,7 @@ git push -u origin main`;
           }`}
         >
           <Database className="h-3.5 w-3.5" />
-          Banco de Dados & Firestore
+          Banco de Dados (Neon + Firebase)
         </button>
 
         <button
@@ -199,19 +204,19 @@ git push -u origin main`;
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-3.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Instância Cloud Firestore
+                  Banco PostgreSQL no Neon
                 </span>
                 <p className="mt-1 font-mono font-bold text-slate-900 dark:text-white break-all">
-                  ai-studio-minhaseconomiasb-70c985b7-075c-4f08-9fdc-96a05658241f
+                  minhas-economias-br / production / neondb
                 </p>
                 <span className="mt-1 inline-block text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
-                  Enterprise Edition • Tempo Real (onSnapshot)
+                  PostgreSQL • API protegida na Vercel
                 </span>
               </div>
 
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-3.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Coleções Ativas
+                  Espelho Firebase / Firestore
                 </span>
                 <p className="mt-1 font-mono font-bold text-slate-900 dark:text-white">
                   /workspaces/&#123;userId&#125;

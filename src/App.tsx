@@ -1030,7 +1030,7 @@ export default function App() {
       displayName: user.displayName || settings.userName || cleanEmail.split('@')[0],
     });
     showNotice(
-      `Conectado à conta Firebase como ${cleanEmail}.`,
+      `Sessão autenticada com Firebase Auth como ${cleanEmail}. Sincronização de dados pela nuvem em andamento.`,
       undefined,
       true
     );
