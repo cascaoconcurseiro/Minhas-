@@ -646,6 +646,8 @@ export default function App() {
           const cleanedFirestoreWorkspace = stripLegacyMockItemsFromWorkspace(data);
           data = cleanedFirestoreWorkspace.payload;
           let firestoreDataNeedsCleanup = cleanedFirestoreWorkspace.removedCount > 0;
+          let firestoreMirrorNeedsWrite = false;
+          let firestoreMirrorWriteFailed = false;
           let neonSynced = false;
           if (firebaseUser && !firebaseUser.isAnonymous) {
             try {
@@ -694,10 +696,7 @@ export default function App() {
               };
               neonWorkspaceRevisionRef.current = neonSnapshot.revision;
               if (firestoreJson !== JSON.stringify(data)) {
-                void setDoc(docRef, data).catch((err) => {
-                  setCloudSyncStatus('error');
-                  handleFirestoreError(err, OperationType.WRITE, docPath);
-                });
+                firestoreMirrorNeedsWrite = true;
               }
               neonSynced = true;
             } catch (error) {
@@ -711,10 +710,16 @@ export default function App() {
             firestoreDataNeedsCleanup &&
             (!firebaseUser || firebaseUser.isAnonymous || neonSynced)
           ) {
-            void setDoc(docRef, data).catch((err) => {
+            firestoreMirrorNeedsWrite = true;
+          }
+          if (firestoreMirrorNeedsWrite) {
+            try {
+              await setDoc(docRef, data);
+            } catch (err) {
+              firestoreMirrorWriteFailed = true;
               setCloudSyncStatus('error');
               handleFirestoreError(err, OperationType.WRITE, docPath);
-            });
+            }
           }
           isApplyingRemoteSnapshotRef.current = true;
 
@@ -899,7 +904,8 @@ export default function App() {
 
           hasLoadedRemoteOnceRef.current = true;
           setCloudSyncStatus(
-            firebaseUser && !firebaseUser.isAnonymous && !neonSynced
+            firestoreMirrorWriteFailed ||
+              (firebaseUser && !firebaseUser.isAnonymous && !neonSynced)
               ? 'error'
               : 'synced'
           );
