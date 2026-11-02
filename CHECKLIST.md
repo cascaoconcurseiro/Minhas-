@@ -29,6 +29,7 @@
 - [x] Remover referências de tipos Vite não resolvidas pelo compilador de funções Vercel; tipagem local limpa.
 - [x] Confirmar no deploy Vercel que os diagnósticos `TS2688` foram resolvidos.
 - [x] Carregar telas pesadas sob demanda, reduzindo o chunk inicial para 1,25 MB (350 kB gzip), e remover o aviso de configuração do Vite.
+- [x] Publicar a divisão em chunks na Vercel e confirmar o arquivo principal de 1.248.948 bytes.
 - [ ] Reduzir ou justificar o chunk inicial restante de 1,25 MB (aviso do limite de 500 kB).
 - [ ] Validar ponta a ponta convite, aceite, recusa, revogação e lançamento compartilhado com duas contas reais.
 - [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
