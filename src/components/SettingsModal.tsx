@@ -118,6 +118,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     reader.onload = (event) => {
       const content = event.target?.result;
       if (typeof content === 'string') {
+        const confirmed = window.confirm(
+          'Restaurar este arquivo substituirá os dados atuais do workspace. Se ainda não fez isso, baixe um backup atual antes de continuar. Depois da restauração, confira o status da nuvem até confirmar a sincronização com o Neon. Continuar?'
+        );
+        if (!confirmed) return;
+
         const ok = onImportFullBackupJson(content);
         if (ok) {
           setImportSuccess(true);
@@ -1555,10 +1560,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <div>
                       <h3 className="text-xs font-bold text-slate-900">
-                        Cópia de Segurança Local & Restauração Instantânea
+                        Backup local e restauração
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                        Exporte todas as suas contas, lançamentos, cartões, viagens, investimentos, metas e preferências em um único arquivo JSON.
+                        O arquivo é salvo no seu dispositivo. Antes de restaurar, baixe a versão atual; depois confira o status da nuvem até o Neon confirmar a sincronização.
                       </p>
                     </div>
                   </div>
@@ -1571,7 +1576,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {importSuccess && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-                      Backup JSON restaurado com sucesso!
+                      Backup carregado na sessão. Confira o status da nuvem para confirmar o Neon.
                     </div>
                   )}
 

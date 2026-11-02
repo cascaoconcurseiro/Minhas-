@@ -31,7 +31,7 @@
 - [x] Criar diálogo para conflitos `409`: comparar resumos, baixar cópia JSON das duas versões e escolher explicitamente a versão local ou a do Neon.
 - [x] Publicar o diálogo em `07cedd5`; Vercel `success`, bundle servido, APIs autenticadas (401 sem token).
 - [x] Publicar a proteção final que mantém a resolução bloqueada até a conclusão do espelho Firestore (`e3fc388`); conferir bundle 200 e APIs 401 sem token.
-- [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
+- [x] Documentar escopo do JSON do app, limites do espelho Firestore e roteiro de recuperação integral do Neon; o ensaio real de restore continua pendente antes de desativar o espelho.
 - [x] Criar estruturas isoladas no Neon para convites e lançamentos familiares; migrar convites e espelhos sem apagar os dados antigos.
 - [x] Trocar os fluxos do app/API para ler e gravar compartilhamentos no Neon com verificação de Firebase Auth e RLS.
 - [x] Publicar roteamento específico das rotas familiares na Vercel e confirmar que convites/compartilhamentos exigem autenticação (401 sem token).
@@ -39,10 +39,21 @@
 - [x] Confirmar no deploy Vercel que os diagnósticos `TS2688` foram resolvidos.
 - [x] Carregar telas pesadas sob demanda, reduzindo o chunk inicial para 1,25 MB (350 kB gzip), e remover o aviso de configuração do Vite.
 - [x] Publicar a divisão em chunks na Vercel e confirmar o arquivo principal de 1.248.948 bytes.
-- [ ] Reduzir ou justificar o chunk inicial restante de 1,25 MB (aviso do limite de 500 kB).
+- [x] Adiar modais e busca; chunk inicial local caiu para 568 kB (168 kB gzip), com Firestore em chunk separado de 454 kB (137 kB gzip). O aviso do limite 500 kB permanece visível e foi justificado pelo tamanho comprimido; não foi aumentado o limite.
 - [x] Registrar decisão do usuário de encerrar sem validação ponta a ponta do compartilhamento com uma segunda conta; esses fluxos permanecem sem essa evidência.
 - [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
 - [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.
 
 ## Interface
 - [x] Corrigir largura do modal de novo lançamento no desktop para respeitar o limite visual do componente.
+
+## Sessão 2026-11-02 — continuidade
+- [x] Iniciar leitura Neon diretamente após autenticação; Firestore deixa de ser pré-requisito para carregar o workspace.
+- [x] Lazy-load do Firebase Firestore e dos modais/busca; remover e-mail/nome pessoal pré-preenchidos no login.
+- [x] Remover script inline e `unsafe-inline` de `script-src`; validar scripts externos no HTML de build.
+- [x] Validar formato do backup JSON antes de aplicar estado e esclarecer que sucesso de importação local não confirma gravação no Neon.
+- [x] Atualizar passo de testes do CI para não exibir contagem fixa obsoleta.
+- [ ] Confirmar execução automática diária do GitHub Actions; execução manual já foi validada.
+- [ ] Publicar regras Firestore owner-only após confirmação explícita; até lá, risco de leitura pública permanece.
+- [ ] Validar concorrência e recuperação de indisponibilidade real do Neon.
+- [ ] Ensaio de restauração integral do Neon e validação familiar ponta a ponta foram dispensados ou permanecem pendentes conforme escopo anterior.

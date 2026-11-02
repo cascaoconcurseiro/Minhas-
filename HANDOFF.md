@@ -3,6 +3,13 @@
 ## Última sessão
 **Data:** 2026-11-02
 **O que foi feito:**
+- Continuidade: o app agora dispara a leitura do workspace no Neon assim que Firebase Auth fica pronto; Firestore é carregado sob demanda para migração legada e espelho/contingência. Foi removido o teste Firestore que rodava na inicialização do módulo.
+- Dividi os modais e a busca global em chunks sob demanda e removi e-mail/nome pessoal pré-preenchidos na tela de login. Build local: entrada 568 kB (168 kB gzip) e Firestore 454 kB (137 kB gzip); o alerta Vite de 500 kB continua ativo, sem aumento artificial do limite.
+- Removi `unsafe-inline` de `script-src`, movendo o guard de compatibilidade do HMR para `public/vite-websocket-guard.js`; o HTML gerado referencia scripts externos, incluindo o registro PWA externo.
+- Importação JSON agora valida versão 1–5, coleções e esquema de categorias antes de aplicar qualquer setter. A mensagem distingue arquivo carregado na sessão de confirmação posterior do Neon.
+- Adicionei `docs/BACKUP_AND_RESTORE.md`: diferencia exportação do workspace, espelho Firestore e backup integral do Neon que também inclui tabelas familiares. Nenhum restore de produção foi executado.
+- Atualizei o blueprint pela decisão de carregar Neon diretamente e o checklist/CI para não manter contagem fixa de testes.
+- Verificações locais executadas após essas mudanças: lint, 78 testes unitários, build e `git diff --check` passaram. Pendente publicação e confirmação de CI/deploy desta revisão.
 - Migrei o desenho do compartilhamento familiar para tabelas isoladas no Neon (`finance_family_invitations` e `finance_shared_transactions`). A migration `003_neon_family_sharing.sql` foi aplicada no projeto de produção; verificação agregada mostrou 3 convites (2 aceitos, 1 pendente), 0 espelhos migrados e RLS nas duas tabelas. Os snapshots antigos não foram apagados.
 - Substituí os fluxos que liam/escreviam o workspace Firestore de outra pessoa por endpoints autenticados no backend Neon. O espelho Firestore passa a omitir `tx-mirror-*`; a sincronização familiar usa as tabelas separadas.
 - Preparei regras owner-only para `cloud_vaults` e adicionei `ownerFirebaseUid` aos snapshots. As regras ainda não foram publicadas; enquanto isso, a regra de leitura sem autenticação continua ativa em produção.

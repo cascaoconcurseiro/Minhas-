@@ -16,16 +16,12 @@ import {
 } from 'lucide-react';
 import {
   auth,
-  db,
-  doc,
   getOrCreateAutoCloudVaultId,
   getVaultIdForEmail,
   handleFirestoreError,
   onAuthStateChanged,
-  onSnapshot,
   OperationType,
   registerWithEmail,
-  setDoc,
   signInWithEmail,
   signInWithGooglePopup,
   signOutFirebaseUser,
@@ -101,10 +97,14 @@ const BudgetsTab = lazy(() => import('./components/BudgetsTab').then((m) => ({ d
 const GoalsAndSimulatorTab = lazy(() => import('./components/GoalsAndSimulatorTab').then((m) => ({ default: m.GoalsAndSimulatorTab })));
 const ReportsAndDataTab = lazy(() => import('./components/ReportsAndDataTab').then((m) => ({ default: m.ReportsAndDataTab })));
 const AuthAndCloudTab = lazy(() => import('./components/AuthAndCloudTab').then((m) => ({ default: m.AuthAndCloudTab })));
-import { LoginPage } from './components/LoginPage';
-import { TransactionModal } from './components/TransactionModal';
-import { GlobalSearchPanel } from './components/GlobalSearchPanel';
-import { SettingsModal } from './components/SettingsModal';
+const LoginPage = lazy(() => import('./components/LoginPage').then((m) => ({ default: m.LoginPage })));
+const TransactionModal = lazy(() => import('./components/TransactionModal').then((m) => ({ default: m.TransactionModal })));
+const GlobalSearchPanel = lazy(() => import('./components/GlobalSearchPanel').then((m) => ({ default: m.GlobalSearchPanel })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const ReminderCenterModal = lazy(() => import('./components/ReminderCenterModal').then((m) => ({ default: m.ReminderCenterModal })));
+const ExpertSystemReviewModal = lazy(() => import('./components/ExpertSystemReviewModal').then((m) => ({ default: m.ExpertSystemReviewModal })));
+const BankReconciliationModal = lazy(() => import('./components/BankReconciliationModal').then((m) => ({ default: m.BankReconciliationModal })));
+const WorkspaceConflictModal = lazy(() => import('./components/WorkspaceConflictModal').then((m) => ({ default: m.WorkspaceConflictModal })));
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { SidebarNav } from './components/SidebarNav';
 import { PWAInstallButton } from './components/PWAInstallButton';
@@ -115,18 +115,13 @@ import {
   ReportsSkeleton,
   TransactionsSkeleton,
 } from './components/SkeletonScreens';
-import { ExpertSystemReviewModal } from './components/ExpertSystemReviewModal';
-import { BankReconciliationModal } from './components/BankReconciliationModal';
-import {
-  WorkspaceConflictModal,
-  type WorkspaceConflictState,
-} from './components/WorkspaceConflictModal';
+import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
 import {
   anticipateCardInstallments,
   reverseInstallmentAnticipation,
 } from './utils/uxEnhancementRules';
 import { compactTransactionListForStorage } from './utils/ofxParser';
-import { ReminderCenterModal } from './components/ReminderCenterModal';
+import { parseFullFinanceBackup } from './utils/fullBackup';
 import {
   calculateDailyReminders,
   DEFAULT_REMINDER_SETTINGS,
@@ -686,6 +681,7 @@ export default function App() {
         ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
       };
       try {
+        const { db, doc, setDoc } = await import('./lib/firebaseFirestore');
         await setDoc(doc(db, 'cloud_vaults', autoVaultId), mirrorPayload);
         setCloudSyncStatus('synced');
         setLastSyncedAt(
@@ -758,7 +754,6 @@ export default function App() {
 
     const collectionName = 'cloud_vaults';
     const docId = autoVaultId;
-    const docRef = doc(db, collectionName, docId);
     const docPath = `${collectionName}/${docId}`;
 
     setCloudSyncStatus('syncing');
@@ -791,7 +786,178 @@ export default function App() {
       return fallback;
     };
 
-    const unsubscribe = onSnapshot(
+    let active = true;
+    let unsubscribe = () => {};
+    let neonLoadedDirectly = false;
+    let firestoreUnavailable = false;
+    const initialNeonLoad = (async () => {
+      try {
+        return await loadNeonWorkspace();
+      } catch (error) {
+        if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
+          throw error;
+        }
+
+        const { db, doc, getDocFromServer } = await import('./lib/firebaseFirestore');
+        const legacySnapshot = await getDocFromServer(
+          doc(db, collectionName, docId)
+        );
+        const migrationPayload = legacySnapshot.exists()
+          ? legacySnapshot.data()
+          : buildCloudPayload(docId);
+        const sourceUpdatedAt = typeof migrationPayload.updatedAt === 'string'
+          ? migrationPayload.updatedAt
+          : null;
+        try {
+          await importFirestoreWorkspace(migrationPayload, sourceUpdatedAt);
+        } catch (migrationError) {
+          if (
+            !(migrationError instanceof NeonWorkspaceError) ||
+            migrationError.status !== 409
+          ) {
+            throw migrationError;
+          }
+        }
+        return loadNeonWorkspace();
+      }
+    })();
+
+    void initialNeonLoad
+      .then(async (snapshot) => {
+        if (!active) return;
+        const cleaned = stripLegacyMockItemsFromWorkspace(snapshot.payload);
+        const data = cleaned.payload;
+        const [familyInvitations, sharedPayloads] = await Promise.all([
+          loadNeonFamilyInvitations().catch(() => []),
+          loadNeonSharedTransactions().catch(() => []),
+        ]);
+        if (!active) return;
+
+        neonWorkspaceRevisionRef.current = snapshot.revision;
+        const rawAccounts = safeParseArray<BankAccount>(data.accountsJson, INITIAL_ACCOUNTS);
+        const rawCards = safeParseArray<CreditCard>(data.cardsJson, INITIAL_CREDIT_CARDS);
+        const parsedCategories = safeParseArray<Category>(data.categoriesJson, INITIAL_CATEGORIES);
+        const nextCategories = parsedCategories.length > 0
+          ? [...parsedCategories]
+          : [...INITIAL_CATEGORIES];
+        for (const coreCategory of INITIAL_CATEGORIES) {
+          if (
+            (coreCategory.id === 'cat-outros' || coreCategory.id === 'cat-aportes') &&
+            !nextCategories.some((category) => category.id === coreCategory.id)
+          ) {
+            nextCategories.push(coreCategory);
+          }
+        }
+
+        const rawTransactions = safeParseArray<Transaction>(data.transactionsJson, INITIAL_TRANSACTIONS);
+        const sharedById = new Map<string, Transaction>();
+        for (const sharedPayload of sharedPayloads) {
+          const sharedTransaction = sharedPayload as unknown as Transaction;
+          const sharedId = sharedTransaction.sharedSyncId ||
+            sharedTransaction.id?.replace(/^tx-mirror-/, '');
+          if (sharedId) sharedById.set(sharedId, sharedTransaction);
+        }
+        const localTransactions = stripLegacyMockItems(rawTransactions)
+          .filter((transaction) => !transaction.id.startsWith('tx-mirror-'));
+
+        const familyMembers = stripLegacyMockItems(
+          safeParseArray<FamilyMember>(data.familyMembersJson, INITIAL_FAMILY_MEMBERS)
+        );
+        for (const invitation of familyInvitations) {
+          const ownerEmail = invitation.owner_email.trim().toLowerCase();
+          const invitedEmail = invitation.invited_email.trim().toLowerCase();
+          const incoming = invitedEmail === effectiveUserEmail;
+          const memberId = incoming
+            ? `fam-inv-${ownerEmail.replace(/[^a-z0-9]/g, '_')}`
+            : invitation.owner_member_id;
+          const index = familyMembers.findIndex((member) =>
+            incoming
+              ? member.id === memberId ||
+                (member.direction === 'incoming' && member.email?.trim().toLowerCase() === ownerEmail)
+              : member.id === memberId ||
+                (member.direction !== 'incoming' && member.email?.trim().toLowerCase() === invitedEmail)
+          );
+          if (invitation.status === 'declined' || invitation.status === 'revoked') {
+            if (!incoming) {
+              const ownerMember = familyMembers.find(
+                (member) => member.email?.trim().toLowerCase() === invitedEmail
+              );
+              if (ownerMember) {
+                ownerMember.inviteStatus = 'none';
+                ownerMember.invitationId = invitation.invitation_id;
+              }
+            }
+            continue;
+          }
+          const member: FamilyMember = incoming
+            ? {
+                id: memberId,
+                name: invitation.owner_name || ownerEmail.split('@')[0],
+                relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
+                color: invitation.color || '#6366f1',
+                email: ownerEmail,
+                inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+                invitedByEmail: ownerEmail,
+                invitedByName: invitation.owner_name,
+                direction: 'incoming',
+                pixKey: invitation.owner_pix_key || undefined,
+                invitationId: invitation.invitation_id,
+              }
+            : {
+                id: memberId,
+                name: invitation.owner_name || invitedEmail.split('@')[0],
+                relationship: (invitation.relationship as FamilyMember['relationship']) || 'outro',
+                color: invitation.color || '#6366f1',
+                email: invitedEmail,
+                inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+                direction: 'outgoing',
+                invitationId: invitation.invitation_id,
+              };
+          if (index >= 0) {
+            familyMembers[index] = {
+              ...familyMembers[index],
+              ...member,
+              name: familyMembers[index].name || member.name,
+            };
+          }
+          else familyMembers.push(member);
+        }
+
+        setAccounts(stripLegacyMockItems(rawAccounts));
+        setCards(stripLegacyMockItems(rawCards));
+        setCategories(nextCategories);
+        setTransactions([...localTransactions, ...sharedById.values()]);
+        setGoals(stripLegacyMockItems(safeParseArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS)));
+        setFamilyMembers(familyMembers);
+        setInvestments(stripLegacyMockItems(safeParseArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS)));
+        setTrips(stripLegacyMockItems(safeParseArray<Trip>(data.tripsJson, INITIAL_TRIPS)));
+        setInvestmentTargets(safeParseObj(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS));
+        setSettings(safeParseObj(data.settingsJson, DEFAULT_SETTINGS));
+        neonLoadedDirectly = true;
+        hasLoadedRemoteOnceRef.current = true;
+        isApplyingRemoteSnapshotRef.current = false;
+        setCloudSyncStatus(firestoreUnavailable ? 'error' : 'synced');
+        setLastSyncedAt(
+          typeof data.updatedAt === 'string'
+            ? data.updatedAt
+            : new Date().toISOString()
+        );
+      })
+      .catch((error) => {
+        if (!active) return;
+        isApplyingRemoteSnapshotRef.current = false;
+        setCloudSyncStatus('error');
+        console.error(
+          'Falha ao carregar o workspace principal do Neon.',
+          error instanceof Error ? error.message : String(error)
+        );
+      });
+
+    void import('./lib/firebaseFirestore')
+      .then(({ db, doc, onSnapshot, setDoc }) => {
+        if (!active) return;
+        const docRef = doc(db, collectionName, docId);
+        unsubscribe = onSnapshot(
       docRef,
       async (snap) => {
         if (workspaceConflictRef.current) return;
@@ -808,10 +974,10 @@ export default function App() {
           let firestoreMirrorWriteFailed = false;
           let neonSynced = false;
           if (firebaseUser && !firebaseUser.isAnonymous) {
-            try {
+        try {
               let neonSnapshot;
               try {
-                neonSnapshot = await loadNeonWorkspace();
+                neonSnapshot = await initialNeonLoad;
               } catch (error) {
                 if (!(error instanceof NeonWorkspaceError) || error.status !== 404) {
                   throw error;
@@ -1176,6 +1342,12 @@ export default function App() {
       },
       (err) => {
         isApplyingRemoteSnapshotRef.current = false;
+        firestoreUnavailable = true;
+        if (neonLoadedDirectly) {
+          setCloudSyncStatus('error');
+          handleFirestoreError(err, OperationType.GET, docPath);
+          return;
+        }
         setCloudSyncStatus('local');
         try {
           const localRaw = localStorage.getItem(scopedStorageKey);
@@ -1204,8 +1376,19 @@ export default function App() {
         handleFirestoreError(err, OperationType.GET, docPath);
       }
     );
+      })
+      .catch((err) => {
+        if (!active) return;
+        firestoreUnavailable = true;
+        isApplyingRemoteSnapshotRef.current = false;
+        setCloudSyncStatus(neonLoadedDirectly ? 'error' : 'local');
+        handleFirestoreError(err, OperationType.GET, docPath);
+      });
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId, scopedStorageKey]);
 
   // Poll Neon for family invitations and incoming shared expenses while the app is open.
@@ -1336,7 +1519,6 @@ export default function App() {
     ) {
       const collectionName = 'cloud_vaults';
       const docId = autoVaultId;
-      const docRef = doc(db, collectionName, docId);
       const docPath = `${collectionName}/${docId}`;
 
       setCloudSyncStatus('syncing');
@@ -1354,7 +1536,8 @@ export default function App() {
             return;
           }
           try {
-            await setDoc(docRef, payload);
+            const { db, doc, setDoc } = await import('./lib/firebaseFirestore');
+            await setDoc(doc(db, collectionName, docId), payload);
             setCloudSyncStatus('synced');
             setLastSyncedAt(payload.updatedAt);
           } catch (err) {
@@ -1384,12 +1567,12 @@ export default function App() {
 
   const handleForceCloudSync = async () => {
     const docId = autoVaultId;
-    const docRef = doc(db, 'cloud_vaults', docId);
     setCloudSyncStatus('syncing');
     try {
       const payload = buildCloudPayload(docId);
       await queueNeonWorkspaceSave(payload);
-      await setDoc(docRef, payload);
+      const { db, doc, setDoc } = await import('./lib/firebaseFirestore');
+      await setDoc(doc(db, 'cloud_vaults', docId), payload);
       setCloudSyncStatus('synced');
       setLastSyncedAt(payload.updatedAt);
       showNotice('Sincronização em nuvem concluída agora!', undefined, true);
@@ -2857,40 +3040,42 @@ export default function App() {
 
   const handleImportFullBackupJson = (jsonText: string): boolean => {
     try {
-      const parsed = JSON.parse(jsonText);
-      if (!parsed || typeof parsed !== 'object') return false;
+      const parsed = parseFullFinanceBackup(jsonText);
+      if (!parsed) return false;
+
       const repaired = sanitizeAndRepairFinancialState({
-        accounts: Array.isArray(parsed.accounts) ? parsed.accounts : accounts,
-        cards: Array.isArray(parsed.cards) ? parsed.cards : cards,
-        categories: Array.isArray(parsed.categories) ? parsed.categories : categories,
-        transactions: Array.isArray(parsed.transactions)
-          ? parsed.transactions
-          : transactions,
-        goals: Array.isArray(parsed.goals) ? parsed.goals : goals,
-        investments: Array.isArray(parsed.investments)
-          ? parsed.investments
-          : investments,
-        trips: Array.isArray(parsed.trips) ? parsed.trips : trips,
+        accounts: parsed.accounts,
+        cards: parsed.cards,
+        categories: parsed.categories,
+        transactions: parsed.transactions,
+        goals: parsed.goals,
+        investments: parsed.investments,
+        trips: parsed.trips,
       });
       setAccounts(repaired.accounts);
       setCards(repaired.cards);
-      if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
-        setCategories(parsed.categories);
-      }
+      setCategories(parsed.categories as Category[]);
       setTransactions(repaired.transactions);
       setGoals(repaired.goals);
       if (Array.isArray(parsed.familyMembers)) {
-        setFamilyMembers(stripLegacyMockItems(parsed.familyMembers));
+        setFamilyMembers(
+          stripLegacyMockItems(parsed.familyMembers)
+        );
       }
       setInvestments(repaired.investments);
       setTrips(repaired.trips);
       if (parsed.investmentTargets && typeof parsed.investmentTargets === 'object') {
-        setInvestmentTargets((prev) => ({ ...prev, ...parsed.investmentTargets }));
+        setInvestmentTargets((prev) => ({
+          ...prev,
+          ...parsed.investmentTargets,
+        }));
       }
       if (parsed.settings && typeof parsed.settings === 'object') {
         setSettings((prev) => ({ ...prev, ...parsed.settings }));
       }
-      showNotice('Backup JSON importado, verificado e restaurado com sucesso!');
+      showNotice(
+        'Backup carregado nesta sessão. Confira o status da nuvem para confirmar o salvamento no Neon.'
+      );
       triggerDataLoadingTransition(260);
       return true;
     } catch {
@@ -3290,13 +3475,15 @@ export default function App() {
           settings.theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : ''
         }`}
       >
-        <LoginPage
-          defaultEmail={authSession.email || 'wesley.diaslima@gmail.com'}
-          defaultName={authSession.displayName || settings.userName || 'Wesley Lima'}
-          onSignInGoogle={handleSignInGoogle}
-          onSignInEmail={handleSignInEmail}
-          onRegisterEmail={handleRegisterEmail}
-        />
+        <Suspense fallback={<div role="status" className="grid min-h-screen place-items-center">Carregando acesso...</div>}>
+          <LoginPage
+            defaultEmail=""
+            defaultName=""
+            onSignInGoogle={handleSignInGoogle}
+            onSignInEmail={handleSignInEmail}
+            onRegisterEmail={handleRegisterEmail}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -3804,23 +3991,27 @@ export default function App() {
           )}
 
         {/* Global Search Instant Results Panel */}
-        <GlobalSearchPanel
-          query={globalSearchQuery}
-          onChangeQuery={setGlobalSearchQuery}
-          onClearSearch={() => setGlobalSearchQuery('')}
-          selectedMonth={selectedMonth}
-          transactions={transactions}
-          categories={categories}
-          accounts={accounts}
-          cards={cards}
-          familyMembers={familyMembers}
-          onToggleStatus={(id) => handleToggleTransactionStatus(id, 'single')}
-          onEditTransaction={(tx) => {
-            setEditingTransaction(tx);
-            setIsModalOpen(true);
-          }}
-          onJumpToTransactionInLedger={handleJumpToTransactionInLedger}
-        />
+        {(isMobileSearchOpen || globalSearchQuery.trim().length > 0) && (
+          <Suspense fallback={null}>
+            <GlobalSearchPanel
+              query={globalSearchQuery}
+              onChangeQuery={setGlobalSearchQuery}
+              onClearSearch={() => setGlobalSearchQuery('')}
+              selectedMonth={selectedMonth}
+              transactions={transactions}
+              categories={categories}
+              accounts={accounts}
+              cards={cards}
+              familyMembers={familyMembers}
+              onToggleStatus={(id) => handleToggleTransactionStatus(id, 'single')}
+              onEditTransaction={(tx) => {
+                setEditingTransaction(tx);
+                setIsModalOpen(true);
+              }}
+              onJumpToTransactionInLedger={handleJumpToTransactionInLedger}
+            />
+          </Suspense>
+        )}
 
         {/* Main Content Container */}
         <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden flex-1 px-3.5 sm:px-6 py-4 sm:py-6 pb-28 lg:pb-8">
@@ -4155,8 +4346,9 @@ export default function App() {
       {/* In-App Mobile PWA Install Banner */}
       <PWAInstallButton variant="banner" />
 
-      {/* New / Edit Transaction Modal */}
-      <TransactionModal
+      <Suspense fallback={null}>
+        {/* New / Edit Transaction Modal */}
+        {isModalOpen && <TransactionModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -4179,10 +4371,10 @@ export default function App() {
         defaultMode={modalDefaultMode}
         initialDate={modalInitialDate}
         initialTripId={modalInitialTripId}
-      />
+        />}
 
-      {/* Settings & Preferences Modal */}
-      <SettingsModal
+        {/* Settings & Preferences Modal */}
+        {isSettingsOpen && <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         initialTab={settingsInitialTab}
@@ -4201,10 +4393,10 @@ export default function App() {
         onExportFullBackupJson={handleExportFullBackupJson}
         onImportFullBackupJson={handleImportFullBackupJson}
         onResetToDemoData={handleResetToDemoData}
-      />
+        />}
 
-      {/* Daily Reminders & Scheduled Notifications Modal */}
-      <ReminderCenterModal
+        {/* Daily Reminders & Scheduled Notifications Modal */}
+        {isReminderModalOpen && <ReminderCenterModal
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
         reminders={dailyReminders}
@@ -4236,10 +4428,10 @@ export default function App() {
           setSettingsInitialTab(tab as any);
           setIsSettingsOpen(true);
         }}
-      />
+        />}
 
-      {/* Real-Time System Verifier & Clarity Guide Modal */}
-      <ExpertSystemReviewModal
+        {/* Real-Time System Verifier & Clarity Guide Modal */}
+        {isExpertReviewOpen && <ExpertSystemReviewModal
         isOpen={isExpertReviewOpen}
         onClose={() => setIsExpertReviewOpen(false)}
         viewClarityMode={settings.viewClarityMode || 'complete'}
@@ -4257,10 +4449,10 @@ export default function App() {
         cloudSyncStatus={cloudSyncStatus}
         lastSyncedAt={lastSyncedAt}
         onRunDiagnosticAndRepair={handleRunDiagnosticAndRepair}
-      />
+        />}
 
-      {/* Bank Reconciliation & Smart OFX/CSV Import Modal */}
-      <BankReconciliationModal
+        {/* Bank Reconciliation & Smart OFX/CSV Import Modal */}
+        {isReconciliationModalOpen && <BankReconciliationModal
         isOpen={isReconciliationModalOpen}
         onClose={() => setIsReconciliationModalOpen(false)}
         accounts={accounts}
@@ -4269,9 +4461,9 @@ export default function App() {
         defaultAccountId={reconciliationTargetAccountId}
         onCommitImport={handleCommitReconciliationBatch}
         onAddAccount={handleAddAccount}
-      />
+        />}
 
-      {workspaceConflict && (
+        {workspaceConflict && (
         <WorkspaceConflictModal
           conflict={workspaceConflict}
           isOpen={isWorkspaceConflictOpen}
@@ -4283,7 +4475,8 @@ export default function App() {
           onKeepLocal={handleKeepLocalWorkspaceVersion}
           onUseCloud={handleUseCloudWorkspaceVersion}
         />
-      )}
+        )}
+      </Suspense>
     </div>
   );
 }

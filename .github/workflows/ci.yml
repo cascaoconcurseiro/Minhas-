@@ -24,7 +24,7 @@ jobs:
       - name: Verificar Tipagem TypeScript (Lint)
         run: bun run lint
 
-      - name: Executar 69 Testes Unitários (node:test)
+      - name: Executar testes unitários (node:test)
         run: bun x tsx --test src/utils/*.test.ts
 
       - name: Gerar Build de Produção (Vite)

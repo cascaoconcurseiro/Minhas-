@@ -11,18 +11,10 @@ import {
   onAuthStateChanged,
   User,
 } from 'firebase/auth';
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  onSnapshot,
-  getDocFromServer,
-} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+export const firebaseApp = initializeApp(firebaseConfig);
+export const auth = getAuth(firebaseApp);
 export const googleProvider = new GoogleAuthProvider();
 
 export const AUTO_VAULT_STORAGE_KEY = 'minhas_economias_cloud_vault_id_v2';
@@ -102,20 +94,6 @@ export function handleFirestoreError(
   console.warn('Firestore Sync Notice: ', JSON.stringify(errInfo));
 }
 
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('the client is offline')
-    ) {
-      console.error('Please check your Firebase configuration.');
-    }
-  }
-}
-void testConnection();
-
 export async function signInWithGooglePopup(): Promise<User | null> {
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
@@ -176,9 +154,6 @@ export function getVaultIdForEmail(email: string | null | undefined): string {
 }
 
 export {
-  doc,
-  setDoc,
-  onSnapshot,
   onAuthStateChanged,
   type User,
 };
