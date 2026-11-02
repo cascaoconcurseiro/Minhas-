@@ -3,21 +3,21 @@
 ## Última sessão
 **Data:** 2026-11-02
 **O que foi feito:**
-- Projeto Vercel Hobby `minhaseconomias` conectado a `cascaoconcurseiro/Minhas-` na branch `main`; o painel publicado abriu com a interface atual.
-- Neon São Paulo com schema inicial. Credencial runtime `minhas_app` criada com grants mínimos; `DATABASE_URL` guardada como secret de produção na Vercel.
-- `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` configuradas na Vercel. O segredo GitHub `NEON_DATABASE_URL` usa uma role separada `minhas_daily` para o ping diário.
-- Código da API Express/Vercel, migração Firestore → Neon, rotina diária, cabeçalhos de segurança e documentação sincronizado no commit `5514533`.
-- A implantação iniciou automaticamente e o site estático publicou. A primeira chamada a `/api/health` falhou com `FUNCTION_INVOCATION_FAILED`; o log apontou import ESM local sem extensão. Corrigi a resolução e alinhei o CI ao Bun localmente; a correção aguarda push.
-- `bun run lint`, `bun run build` e `git diff --check` passaram após a correção local.
-- As credenciais não foram adicionadas a arquivos do projeto. Uma senha de role foi revelada por engano durante uma inspeção e imediatamente substituída antes de ser usada.
-- Nenhuma cópia Firestore foi migrada ainda. A Vercel publicou o commit `5514533`, mas `/api/health` falha até o patch local de import ESM ser publicado.
+- Vercel Hobby `minhaseconomias` segue conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`; produção em https://minhaseconomias-blue.vercel.app/.
+- O login Google falhava porque o domínio de produção não estava autorizado no Firebase Auth. Adicionei somente `minhaseconomias-blue.vercel.app`; login autenticado validado.
+- A API `/api/workspace/migrate` retornava 404 na Vercel. Criei `api/workspace/migrate.ts` e publiquei no commit `30bb213`.
+- Migrei o workspace Firestore da conta autenticada para Neon: 1 conta, 16 categorias, 4 lançamentos, 1 membro de família; sem cartões, metas, investimentos ou viagens. Neon confirmou 1 linha de workspace e 1 recibo de migração com as contagens esperadas; a API confirmou migração e leitura.
+- Validei escrita sem alterar o conteúdo financeiro: gravei o mesmo snapshot com controle de revisão; API respondeu 200 e revisão avançou para 2. O painel mostrou “Nuvem sincronizada”.
+- Disparei o workflow manual `Neon — atividade diária` no GitHub Actions; execução `41478873917` terminou com sucesso e executou `SELECT 1`.
+- `bun run lint`, `bun run build` e `git diff --check` passaram. O CI automático do commit `30bb213` também terminou com sucesso.
 
 ## Próximo passo
-**Arquivo:** `api/[...path].ts`, `backend/app.ts`, `.github/workflows/neon-daily-activity.yml`
-**Ação:** enviar a correção para `main`, aguardar Vercel/CI, confirmar `/api/health`, testar a autenticação e leitura/gravação de um workspace Firebase no Neon, e disparar manualmente o workflow diário para validar `NEON_DATABASE_URL`.
+**Arquivos:** `src/App.tsx` (sincronização e compartilhamento), `firestore.rules`, `backend/app.ts`
+**Ação:** decidir e documentar a fonte de verdade e a recuperação antes de remover o espelho Firestore; em seguida desenhar a autorização multi-conta para compartilhar dados familiares. Manter a rotina diária e acompanhar o próximo ciclo agendado.
 
-## Bloqueios
-- O código local está pendente de push e implantação.
-- Ainda não foi validado um ciclo real de migração/gravação com uma conta Firebase autenticada; a política de espelho Firestore permanece ativa.
-- Compartilhamento entre familiares ainda usa Firestore e precisa de desenho de autorização antes de migrar.
-- O workflow diário executa uma consulta breve que acorda Neon, mas o plano gratuito ainda pode suspender o compute entre execuções.
+## Bloqueios e limites
+- Firestore continua como espelho/contingência; ainda não foi definido um corte seguro para torná-lo não autoritativo.
+- Compartilhamento familiar permanece no Firestore; a migração exige autorização explícita por membro e não deve herdar automaticamente o escopo privado do dono.
+- Concorrência entre clientes e recuperação após indisponibilidade do Neon ainda não foram validadas.
+- O ping diário acorda o compute uma vez ao dia, mas o plano gratuito pode suspender o compute entre execuções; ele não mantém o banco continuamente ativo.
+- Gemini não está configurado na Vercel; recursos que dependem da chave continuam indisponíveis.
