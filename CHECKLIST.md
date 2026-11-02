@@ -40,7 +40,7 @@
 - [x] Carregar telas pesadas sob demanda, reduzindo o chunk inicial para 1,25 MB (350 kB gzip), e remover o aviso de configuração do Vite.
 - [x] Publicar a divisão em chunks na Vercel e confirmar o arquivo principal de 1.248.948 bytes.
 - [ ] Reduzir ou justificar o chunk inicial restante de 1,25 MB (aviso do limite de 500 kB).
-- [ ] Validar ponta a ponta convite, aceite, recusa, revogação e lançamento compartilhado com duas contas reais.
+- [x] Registrar decisão do usuário de encerrar sem validação ponta a ponta do compartilhamento com uma segunda conta; esses fluxos permanecem sem essa evidência.
 - [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
 - [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.
 

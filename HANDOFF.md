@@ -17,6 +17,9 @@
 - Implementei um fluxo para conflitos `409`: congela novas tentativas, mostra resumo das duas versões, exige baixar um backup JSON de ambas e deixa o usuário escolher entre gravar a versão local no Neon ou recarregar a versão do Neon. O commit `e3fc388` está ativo e serve `index-Dt-MM7ua.js`; página 200 e APIs 401 sem token. A escolha local mantém o diálogo bloqueando novas edições até o espelho Firestore terminar de gravar. Lint e build passaram. Não rodei teste real de concorrência.
 - `bun run lint`, `bun run build` e `git diff --check` passaram após a migração; o build ainda avisa apenas que o chunk inicial está acima de 500 kB.
 - Na auditoria do compartilhamento familiar, encontrei uma exposição crítica pendente: as regras de produção permitem `get` em `cloud_vaults` sem autenticação quando o ID tem formato válido; IDs são derivados do e-mail e documentos contêm o workspace financeiro completo. Preparei em `firestore.rules` a restrição do cofre ao dono e acrescentei `ownerFirebaseUid` aos snapshots do app, mas ainda não publiquei as regras. Os novos fluxos familiares usam tabelas Neon separadas; validação com duas contas ainda falta.
+- Em 2/nov, o usuário dispensou explicitamente a validação ponta a ponta do compartilhamento com uma segunda conta; os fluxos permanecem não testados nessa configuração.
+- Em 2/nov, confirmei o check Vercel `success` para `fadab7d` e HTTP 200 na página de produção. A consulta ao Actions encontrou apenas a execução manual diária, ainda sem execução automática do cron.
+- A rota Segurança do banco Firestore abriu, mas o console exibiu somente conteúdo parcial do editor; não obtive confirmação independente das regras completas publicadas. Mantenho a evidência da auditoria anterior: o risco de leitura pública continua até o deploy owner-only. Não alterei regras nesta sessão.
 - Auditei a gravação do workspace: encontrei caminho que publicava no Firestore mesmo quando o Neon falhava/rejeitava uma revisão. Agora a cópia Firestore só é atualizada depois da confirmação do Neon; falhas mantêm os dados locais e exibem status de sincronização pendente.
 - Corrigi a regra global de CSS que sobrescrevia `max-w-2xl` do formulário de lançamento e o expandia horizontalmente no desktop. A largura agora respeita o limite definido pelo modal e continua responsiva.
 - Auditei o workspace Neon da conta autenticada: 1 conta e 4 lançamentos sem marcadores de mock conhecidos. O usuário confirmou que os quatro lançamentos eram dados de demonstração e autorizou sua exclusão.
@@ -28,7 +31,7 @@
 
 ## Próximo passo
 **Arquivos:** `src/App.tsx`, `backend/app.ts`, `firestore.rules`
-**Ação:** aguardar confirmação explícita antes de publicar as regras owner-only. O usuário autorizou encerrar sem teste com segunda conta; os fluxos familiares permanecem sem validação ponta a ponta. Ainda faltam teste real de concorrência/indisponibilidade, procedimento de contingência/restore e reduzir ou justificar o chunk inicial de 1,25 MB.
+**Ação:** aguardar confirmação explícita antes de publicar as regras owner-only. O usuário autorizou encerrar sem teste com segunda conta; os fluxos familiares permanecem sem validação ponta a ponta. Ainda faltam teste real de concorrência/indisponibilidade, procedimento de contingência/restore antes de retirar o espelho e reduzir ou justificar o chunk inicial de 1,25 MB.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
@@ -36,5 +39,6 @@
 - A migration Neon está aplicada e os commits `f457e68` e `af99151` foram publicados. As rotas familiares chegam à autenticação, mas o fluxo real com duas contas ainda não foi validado.
 - `.github/workflows/neon-daily-activity.yml` está ativo com cron `15 12 * * *` (09:15 em São Paulo). A execução manual de 2/nov terminou em sucesso; os logs mostram `SELECT 1` retornando uma linha. O workflow foi criado depois do cron de hoje, então a primeira execução automática ainda está pendente.
 - As regras Firestore abertas são risco de produção: `cloud_vaults` ainda permite leitura pública até a publicação do patch em `firestore.rules`.
-- O conflito de revisão 409 ainda deixa o cliente em falha até recarregar e não tem uma resolução guiada que compare alterações locais e remotas; não tentei retry automático porque poderia sobrescrever mudanças da outra aba.
+- A resolução 409 foi publicada: compara resumos, exige backup JSON e aguarda o espelho antes de liberar edição. Não foi submetida a uma colisão real entre abas.
 - Não foi executado teste de concorrência ou de falha real de conexão nesta sessão.
+- As regras owner-only não foram publicadas; mantenho a confirmação explícita pendente para essa alteração de segurança em produção.
