@@ -27,7 +27,7 @@
 - [x] Marcar como erro uma falha ao atualizar o espelho Firestore durante a carga inicial ou limpeza.
 - [x] Publicar essa correção no commit `697e05f` e confirmar o status Vercel `success`.
 - [x] Aguardar a gravação do espelho na carga inicial para evitar que uma falha seja sobrescrita pelo status de sucesso; publicar em `8c46ba6` e confirmar a Vercel `success`.
-- [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
+- [ ] Validar concorrência em várias abas com workspace sintético isolado.
 - [x] Criar diálogo para conflitos `409`: comparar resumos, baixar cópia JSON das duas versões e escolher explicitamente a versão local ou a do Neon.
 - [x] Publicar o diálogo em `07cedd5`; Vercel `success`, bundle servido, APIs autenticadas (401 sem token).
 - [x] Publicar a proteção final que mantém a resolução bloqueada até a conclusão do espelho Firestore (`e3fc388`); conferir bundle 200 e APIs 401 sem token.
@@ -40,7 +40,7 @@
 - [x] Carregar telas pesadas sob demanda, reduzindo o chunk inicial para 1,25 MB (350 kB gzip), e remover o aviso de configuração do Vite.
 - [x] Publicar a divisão em chunks na Vercel e confirmar o arquivo principal de 1.248.948 bytes.
 - [x] Adiar modais e busca; chunk inicial local caiu para 568 kB (168 kB gzip), com Firestore em chunk separado de 454 kB (137 kB gzip). O aviso do limite 500 kB permanece visível e foi justificado pelo tamanho comprimido; não foi aumentado o limite.
-- [x] Registrar decisão do usuário de encerrar sem validação ponta a ponta do compartilhamento com uma segunda conta; esses fluxos permanecem sem essa evidência.
+- [x] Registrar que o usuário dispensou a validação ponta a ponta do compartilhamento com uma segunda conta.
 - [x] Restringir leitura de `cloud_vaults` ao titular autenticado apenas para importação inicial e bloquear lista/criação/atualização/exclusão; regras publicadas no banco nomeado.
 - [x] Remover listener, espelho e gravações Firestore do app; workspaces novos são criados diretamente no Neon.
 - [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.
@@ -64,6 +64,5 @@
 - [x] Confirmar CI run `41525311897` concluído com sucesso e check Vercel `success` para `1b05c89`.
 - [x] Reconsultar histórico do workflow Neon em 2/nov: execução manual bem-sucedida existe; execução automática `schedule` ainda não existe, pois a primeira janela agendada depois da publicação é 3/nov às 09:15 BRT.
 - [ ] Confirmar execução automática diária do GitHub Actions; execução manual já foi validada.
-- [ ] Publicar regras Firestore owner-only após confirmação explícita; até lá, risco de leitura pública permanece.
-- [ ] Validar concorrência e recuperação de indisponibilidade real do Neon.
-- [ ] Ensaio de restauração integral do Neon e validação familiar ponta a ponta foram dispensados ou permanecem pendentes conforme escopo anterior.
+- [ ] Validar recuperação após indisponibilidade real do Neon.
+- [ ] Ensaiar restauração integral do Neon em ambiente isolado.
