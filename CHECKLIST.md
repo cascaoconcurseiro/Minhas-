@@ -25,6 +25,7 @@
 - [x] Mostrar falha de sincronização como erro visível, sem a mensagem enganosa de nuvem ativa.
 - [x] Marcar como erro uma falha ao atualizar o espelho Firestore durante a carga inicial ou limpeza.
 - [x] Publicar essa correção no commit `697e05f` e confirmar o status Vercel `success`.
+- [x] Aguardar a gravação do espelho na carga inicial para evitar que uma falha seja sobrescrita pelo status de sucesso; publicar em `8c46ba6` e confirmar a Vercel `success`.
 - [ ] Validar concorrência em várias abas e a recuperação após indisponibilidade real do Neon.
 - [ ] Criar resolução guiada para conflitos `409` sem retry destrutivo nem perda silenciosa de dados locais/remotos.
 - [ ] Definir a cópia de contingência e o procedimento de restauração antes de desativar o espelho Firestore.
