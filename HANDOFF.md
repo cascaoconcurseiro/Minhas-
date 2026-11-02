@@ -14,6 +14,7 @@
 - Removi a promoção automática Firestore→Neon baseada apenas em `updatedAt`: quando Neon já tem workspace, ele é a autoridade e o Firestore volta a ser espelho. A tela de conta agora mostra falha de sincronização em vermelho em vez de afirmar que a nuvem continua ativa. `bun run lint` e `bun run build` passaram.
 - Corrigi também os erros da escrita inicial/limpeza do espelho: uma falha Firestore agora altera o status para erro mesmo se a leitura do Neon tiver funcionado. `bun run lint` e `bun run build` passaram; o commit `697e05f` está publicado e o status da Vercel concluiu com sucesso.
 - Em uma revisão posterior, eliminei a corrida desse status: a carga inicial agora aguarda a escrita do espelho e conserva o estado de erro até o fim da leitura familiar. `bun run lint` e `bun run build` passaram; o commit `8c46ba6` está Ready na Vercel. A página serve `index-CPcasHdQ.js` e as rotas de workspace/compartilhamento continuam exigindo autenticação (401 sem token).
+- Implementei um fluxo para conflitos `409`: congela novas tentativas, mostra resumo das duas versões, exige baixar um backup JSON de ambas e deixa o usuário escolher entre gravar a versão local no Neon ou recarregar a versão do Neon. O build e o lint passaram localmente; publicação pendente. Não rodei teste real de concorrência.
 - `bun run lint`, `bun run build` e `git diff --check` passaram após a migração; o build ainda avisa apenas que o chunk inicial está acima de 500 kB.
 - Na auditoria do compartilhamento familiar, encontrei uma exposição crítica pendente: as regras de produção permitem `get` em `cloud_vaults` sem autenticação quando o ID tem formato válido; IDs são derivados do e-mail e documentos contêm o workspace financeiro completo. Preparei em `firestore.rules` a restrição do cofre ao dono e acrescentei `ownerFirebaseUid` aos snapshots do app, mas ainda não publiquei as regras. Os novos fluxos familiares usam tabelas Neon separadas; validação com duas contas ainda falta.
 - Auditei a gravação do workspace: encontrei caminho que publicava no Firestore mesmo quando o Neon falhava/rejeitava uma revisão. Agora a cópia Firestore só é atualizada depois da confirmação do Neon; falhas mantêm os dados locais e exibem status de sincronização pendente.
@@ -27,7 +28,7 @@
 
 ## Próximo passo
 **Arquivos:** `src/App.tsx`, `backend/app.ts`, `firestore.rules`
-**Ação:** aguardar confirmação explícita antes de publicar as regras owner-only. O usuário autorizou encerrar sem teste com segunda conta; os fluxos familiares permanecem sem validação ponta a ponta. Ainda falta verificar conflitos entre abas e recuperação após indisponibilidade do Neon.
+**Ação:** publicar e verificar o fluxo de resolução `409` que está localmente pendente; depois aguardar confirmação explícita antes de publicar as regras owner-only. O usuário autorizou encerrar sem teste com segunda conta; os fluxos familiares permanecem sem validação ponta a ponta. Ainda faltam teste real de concorrência/indisponibilidade, procedimento de contingência/restore e reduzir ou justificar o chunk inicial de 1,25 MB.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.

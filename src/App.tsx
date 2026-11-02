@@ -38,6 +38,7 @@ import {
   loadNeonSharedTransactions,
   loadNeonWorkspace,
   NeonWorkspaceError,
+  type NeonWorkspaceSnapshot,
   revokeNeonFamilyInvitation,
   respondToNeonFamilyInvitation,
   saveNeonWorkspace,
@@ -116,6 +117,10 @@ import {
 } from './components/SkeletonScreens';
 import { ExpertSystemReviewModal } from './components/ExpertSystemReviewModal';
 import { BankReconciliationModal } from './components/BankReconciliationModal';
+import {
+  WorkspaceConflictModal,
+  type WorkspaceConflictState,
+} from './components/WorkspaceConflictModal';
 import {
   anticipateCardInstallments,
   reverseInstallmentAnticipation,
@@ -285,11 +290,16 @@ export default function App() {
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
     'local' | 'syncing' | 'synced' | 'error'
   >('syncing');
+  const [workspaceConflict, setWorkspaceConflict] = useState<WorkspaceConflictState | null>(null);
+  const [isWorkspaceConflictOpen, setIsWorkspaceConflictOpen] = useState(false);
+  const [isResolvingWorkspaceConflict, setIsResolvingWorkspaceConflict] = useState(false);
+  const [workspaceConflictError, setWorkspaceConflictError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isApplyingRemoteSnapshotRef = useRef<boolean>(false);
   const hasLoadedRemoteOnceRef = useRef<boolean>(false);
   const neonWorkspaceRevisionRef = useRef<number | null>(null);
   const neonSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const workspaceConflictRef = useRef<WorkspaceConflictState | null>(null);
 
   // Persisted User Auth Session (Supports Firebase Auth + Cloud Vault Session Login/Logout)
   const [authSession, setAuthSession] = useState<{
@@ -503,6 +513,10 @@ export default function App() {
       setIsAuthReady(true);
       neonWorkspaceRevisionRef.current = null;
       hasLoadedRemoteOnceRef.current = false;
+      workspaceConflictRef.current = null;
+      setWorkspaceConflict(null);
+      setIsWorkspaceConflictOpen(false);
+      setWorkspaceConflictError(null);
       setAuthSession(
         user && !user.isAnonymous && user.email
           ? {
@@ -549,6 +563,12 @@ export default function App() {
       if (auth.currentUser?.uid !== firebaseUser.uid) {
         throw new Error('A conta ativa mudou antes de salvar o workspace.');
       }
+      if (workspaceConflictRef.current) {
+        throw new NeonWorkspaceError(
+          'Resolva o conflito entre esta aba e o Neon antes de sincronizar novamente.',
+          409
+        );
+      }
 
       let revision = neonWorkspaceRevisionRef.current;
       if (revision === null) {
@@ -575,14 +595,56 @@ export default function App() {
               throw importError;
             }
             const existing = await loadNeonWorkspace();
-            revision = existing.revision;
-            neonWorkspaceRevisionRef.current = revision;
+            const conflict = {
+              localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
+              remoteSnapshot: existing,
+            };
+            workspaceConflictRef.current = conflict;
+            setWorkspaceConflict(conflict);
+            setWorkspaceConflictError(null);
+            setIsWorkspaceConflictOpen(true);
+            setCloudSyncStatus('error');
+            throw new NeonWorkspaceError(
+              'O workspace Neon foi criado em outra aba durante a migração inicial.',
+              409
+            );
           }
         }
       }
 
-      const saved = await saveNeonWorkspace(payload, revision);
-      neonWorkspaceRevisionRef.current = saved.revision;
+      try {
+        const saved = await saveNeonWorkspace(payload, revision);
+        neonWorkspaceRevisionRef.current = saved.revision;
+      } catch (error) {
+        if (error instanceof NeonWorkspaceError && error.status === 409) {
+          try {
+            const remoteSnapshot = await loadNeonWorkspace();
+            const conflict = {
+              localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
+              remoteSnapshot,
+            };
+            workspaceConflictRef.current = conflict;
+            setWorkspaceConflict(conflict);
+            setWorkspaceConflictError(null);
+            setIsWorkspaceConflictOpen(true);
+          } catch (refreshError) {
+            console.error(
+              'Não foi possível carregar a versão atual do Neon para resolver o conflito.',
+              refreshError instanceof Error ? refreshError.message : String(refreshError)
+            );
+            setWorkspaceConflictError(
+              'O Neon recusou a revisão, mas não foi possível carregar a versão mais recente. Suas alterações locais foram mantidas; tente sincronizar novamente quando a conexão voltar.'
+            );
+            showNotice(
+              'O Neon recusou a sincronização. As alterações locais foram preservadas, mas a versão atual da nuvem não pôde ser carregada.',
+              undefined,
+              true
+            );
+          }
+          setCloudSyncStatus('error');
+        }
+        throw error;
+      }
     });
 
     neonSaveQueueRef.current = queuedSave.then(
@@ -590,6 +652,102 @@ export default function App() {
       () => undefined
     );
     return queuedSave;
+  };
+
+  const handleKeepLocalWorkspaceVersion = async () => {
+    const conflict = workspaceConflictRef.current;
+    if (!conflict || isResolvingWorkspaceConflict) return;
+
+    setIsResolvingWorkspaceConflict(true);
+    setWorkspaceConflictError(null);
+    setCloudSyncStatus('syncing');
+    const save = neonSaveQueueRef.current.then(async () => {
+      const latestConflict = workspaceConflictRef.current;
+      if (!latestConflict) return null;
+      const saved = await saveNeonWorkspace(
+        latestConflict.localPayload,
+        latestConflict.remoteSnapshot.revision
+      );
+      neonWorkspaceRevisionRef.current = saved.revision;
+      return latestConflict;
+    });
+    neonSaveQueueRef.current = save.then(
+      () => undefined,
+      () => undefined
+    );
+
+    try {
+      const resolvedConflict = await save;
+      if (!resolvedConflict) return;
+
+      workspaceConflictRef.current = null;
+      setWorkspaceConflict(null);
+      setIsWorkspaceConflictOpen(false);
+
+      const mirrorPayload = {
+        ...resolvedConflict.localPayload,
+        ...(auth.currentUser?.uid ? { ownerFirebaseUid: auth.currentUser.uid } : {}),
+        ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
+      };
+      try {
+        await setDoc(doc(db, 'cloud_vaults', autoVaultId), mirrorPayload);
+        setCloudSyncStatus('synced');
+        setLastSyncedAt(
+          typeof resolvedConflict.localPayload.updatedAt === 'string'
+            ? resolvedConflict.localPayload.updatedAt
+            : new Date().toISOString()
+        );
+      } catch (error) {
+        setCloudSyncStatus('error');
+        handleFirestoreError(
+          error,
+          OperationType.WRITE,
+          `cloud_vaults/${autoVaultId}`
+        );
+        showNotice(
+          'Sua versão foi salva no Neon, mas o espelho Firestore falhou. O Neon está atualizado; confira o status da nuvem.',
+          undefined,
+          true
+        );
+      }
+    } catch (error) {
+      if (error instanceof NeonWorkspaceError && error.status === 409) {
+        try {
+          const latest = await loadNeonWorkspace();
+          const updatedConflict = {
+            ...conflict,
+            remoteSnapshot: latest,
+          };
+          workspaceConflictRef.current = updatedConflict;
+          setWorkspaceConflict(updatedConflict);
+          setWorkspaceConflictError(
+            'O Neon mudou novamente antes de salvar. Baixe uma nova cópia das duas versões e escolha novamente.'
+          );
+        } catch {
+          setWorkspaceConflictError(
+            'O Neon mudou novamente e a versão mais recente não pôde ser carregada. Suas duas versões continuam preservadas; verifique a conexão e tente outra vez.'
+          );
+        }
+      } else {
+        setWorkspaceConflictError(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível salvar sua versão. As alterações locais foram mantidas.'
+        );
+      }
+      setCloudSyncStatus('error');
+    } finally {
+      setIsResolvingWorkspaceConflict(false);
+    }
+  };
+
+  const handleUseCloudWorkspaceVersion = () => {
+    if (!workspaceConflictRef.current || isResolvingWorkspaceConflict) return;
+    workspaceConflictRef.current = null;
+    setWorkspaceConflict(null);
+    setIsWorkspaceConflictOpen(false);
+    setCloudSyncStatus('syncing');
+    window.location.reload();
   };
 
   // Automatic Cloud Firestore Real-Time Connection (Deterministic per-email Cloud Vault)
@@ -637,6 +795,7 @@ export default function App() {
     const unsubscribe = onSnapshot(
       docRef,
       async (snap) => {
+        if (workspaceConflictRef.current) return;
         if (snap.exists()) {
           let data = snap.data();
           const firebaseUser = auth.currentUser;
@@ -667,6 +826,18 @@ export default function App() {
                   ) {
                     throw importError;
                   }
+                  const remoteSnapshot = await loadNeonWorkspace();
+                  const conflict = {
+                    localPayload: JSON.parse(JSON.stringify(data)) as Record<string, unknown>,
+                    remoteSnapshot,
+                  };
+                  workspaceConflictRef.current = conflict;
+                  setWorkspaceConflict(conflict);
+                  setWorkspaceConflictError(null);
+                  setIsWorkspaceConflictOpen(true);
+                  isApplyingRemoteSnapshotRef.current = false;
+                  setCloudSyncStatus('error');
+                  return;
                 }
                 neonSnapshot = await loadNeonWorkspace();
               }
@@ -675,10 +846,31 @@ export default function App() {
                 neonSnapshot.payload
               );
               if (cleanedNeonWorkspace.removedCount > 0) {
-                const saved = await saveNeonWorkspace(
-                  cleanedNeonWorkspace.payload,
-                  neonSnapshot.revision
-                );
+                let saved: Awaited<ReturnType<typeof saveNeonWorkspace>>;
+                try {
+                  saved = await saveNeonWorkspace(
+                    cleanedNeonWorkspace.payload,
+                    neonSnapshot.revision
+                  );
+                } catch (error) {
+                  if (!(error instanceof NeonWorkspaceError) || error.status !== 409) {
+                    throw error;
+                  }
+                  const remoteSnapshot = await loadNeonWorkspace();
+                  const conflict = {
+                    localPayload: JSON.parse(
+                      JSON.stringify(cleanedNeonWorkspace.payload)
+                    ) as Record<string, unknown>,
+                    remoteSnapshot,
+                  };
+                  workspaceConflictRef.current = conflict;
+                  setWorkspaceConflict(conflict);
+                  setWorkspaceConflictError(null);
+                  setIsWorkspaceConflictOpen(true);
+                  isApplyingRemoteSnapshotRef.current = false;
+                  setCloudSyncStatus('error');
+                  return;
+                }
                 neonWorkspaceRevisionRef.current = saved.revision;
                 neonSnapshot = {
                   ...neonSnapshot,
@@ -3118,6 +3310,25 @@ export default function App() {
         settings.density === 'compact' ? 'density-compact' : ''
       }`}
     >
+      {workspaceConflict && !isWorkspaceConflictOpen && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-3 z-[70] w-[min(92vw,40rem)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>Há duas versões diferentes dos seus dados financeiros aguardando decisão.</span>
+            <button
+              type="button"
+              onClick={() => setIsWorkspaceConflictOpen(true)}
+              className="min-h-10 rounded-lg bg-amber-800 px-3 py-1.5 font-semibold text-white hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
+            >
+              Resolver conflito
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Collapsible Left Sidebar Navigation */}
       <SidebarNav
         activeTab={activeTab}
@@ -4060,6 +4271,18 @@ export default function App() {
         onCommitImport={handleCommitReconciliationBatch}
         onAddAccount={handleAddAccount}
       />
+
+      {workspaceConflict && (
+        <WorkspaceConflictModal
+          conflict={workspaceConflict}
+          isOpen={isWorkspaceConflictOpen}
+          isSaving={isResolvingWorkspaceConflict}
+          errorMessage={workspaceConflictError}
+          onDismiss={() => setIsWorkspaceConflictOpen(false)}
+          onKeepLocal={handleKeepLocalWorkspaceVersion}
+          onUseCloud={handleUseCloudWorkspaceVersion}
+        />
+      )}
     </div>
   );
 }
