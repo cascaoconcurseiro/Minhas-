@@ -9,6 +9,8 @@
 - Atualizei descrições e documentação para separar Firebase Auth, Neon e importação inicial Firestore.
 - `bun run lint`, `bun run build` e `git diff --check` passaram após a refatoração. O build mantém aviso do chunk principal acima de 500 kB; a leitura Firestore está em chunk separado carregado sob demanda.
 - Firebase CLI foi instalado via `npx`, mas `login:list` retornou sem sessão; as regras foram publicadas pela conta Google já autenticada no Console Firebase.
+- O commit `969172f` foi enviado para `main`; GitHub Actions run `41528070359` concluiu com sucesso e a Vercel ficou Ready, com alias `minhaseconomias-blue.vercel.app`.
+- Smoke de produção após `969172f`: homepage 200, bundle principal e chunk isolado de migração legada 200; `/api/workspace` GET/POST, `/api/workspace/migrate` e rotas familiares retornam 401 sem token. A migração não foi submetida a uma sessão autenticada nova nesta verificação.
 - Continuidade: o app agora dispara a leitura do workspace no Neon assim que Firebase Auth fica pronto; Firestore é carregado sob demanda para migração legada e espelho/contingência. Foi removido o teste Firestore que rodava na inicialização do módulo.
 - Dividi os modais e a busca global em chunks sob demanda e removi e-mail/nome pessoal pré-preenchidos na tela de login. Build local: entrada 568 kB (168 kB gzip) e Firestore 454 kB (137 kB gzip); o alerta Vite de 500 kB continua ativo, sem aumento artificial do limite.
 - Removi `unsafe-inline` de `script-src`, movendo o guard de compatibilidade do HMR para `public/vite-websocket-guard.js`; o HTML gerado referencia scripts externos, incluindo o registro PWA externo.
@@ -46,7 +48,7 @@
 
 ## Próximo passo
 **Arquivos:** todos os arquivos modificados nesta sessão
-**Ação:** publicar a alteração de app/backend em `main`, conferir o status da Vercel e validar em produção HTTP 200 da página e 401 das rotas privadas sem token. Confirmar o hash/estado do ruleset implantado se a CLI autenticada for configurada. Em 3/nov após 09:15 BRT, consultar `.github/workflows/neon-daily-activity.yml` e confirmar um run `schedule`. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados.
+**Ação:** em 3/nov após 09:15 BRT, consultar `.github/workflows/neon-daily-activity.yml` e confirmar um run `schedule`. GitHub/Vercel e rotas privadas já foram verificados após `969172f`. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados.
 
 ## Bloqueios e limites
 - A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
@@ -54,6 +56,5 @@
 - A migration Neon está aplicada e os commits `f457e68` e `af99151` foram publicados. As rotas familiares chegam à autenticação, mas o fluxo real com duas contas ainda não foi validado.
 - `.github/workflows/neon-daily-activity.yml` está ativo com cron `15 12 * * *` (09:15 em São Paulo). A execução manual de 2/nov terminou em sucesso; os logs mostram `SELECT 1` retornando uma linha. O workflow foi criado depois do cron de hoje, então a primeira execução automática ainda está pendente.
 - Regras Firestore owner-only foram publicadas no Console, com leitura pontual do titular e todas as gravações/listagens bloqueadas; a confirmação de implantação veio da mensagem de sucesso do Console.
-- A resolução 409 foi publicada: compara resumos, exige backup JSON e aguarda o espelho antes de liberar edição. Não foi submetida a uma colisão real entre abas.
+- A resolução 409 compara resumos, exige backup JSON das versões e persiste no Neon com revisão otimista. Não foi submetida a uma colisão real entre abas.
 - Não foi executado teste de concorrência ou de falha real de conexão nesta sessão.
-- As regras owner-only não foram publicadas; a confirmação explícita para essa alteração de segurança em produção ainda está pendente.

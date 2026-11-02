@@ -52,6 +52,8 @@
 - [x] Remover listener e escrita de rotina no Firestore; manter leitura legada do próprio cofre somente quando o Neon retornar 404.
 - [x] Adicionar criação Neon idempotente para contas sem snapshot legado e manter conflito sem sobrescrita.
 - [x] Publicar regras Firestore com leitura de cofre restrita ao titular e todas as gravações/listagens negadas.
+- [x] Publicar commit `969172f` na `main`; GitHub Actions e Vercel concluíram com sucesso.
+- [x] Confirmar produção na URL Vercel: página/bundles 200 e APIs workspace, migração e familiares 401 sem token.
 - [x] Iniciar leitura Neon diretamente após autenticação; Firestore deixa de ser pré-requisito para carregar o workspace.
 - [x] Lazy-load do Firebase Firestore e dos modais/busca; remover e-mail/nome pessoal pré-preenchidos no login.
 - [x] Remover script inline e `unsafe-inline` de `script-src`; validar scripts externos no HTML de build.
