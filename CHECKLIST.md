@@ -28,7 +28,8 @@
 - [x] Publicar roteamento específico das rotas familiares na Vercel e confirmar que convites/compartilhamentos exigem autenticação (401 sem token).
 - [x] Remover referências de tipos Vite não resolvidas pelo compilador de funções Vercel; tipagem local limpa.
 - [x] Confirmar no deploy Vercel que os diagnósticos `TS2688` foram resolvidos.
-- [ ] Revisar o aviso de bundle acima de 500 kB; o chunk principal publicado tem 2,59 MB.
+- [x] Carregar telas pesadas sob demanda, reduzindo o chunk inicial para 1,25 MB (350 kB gzip), e remover o aviso de configuração do Vite.
+- [ ] Reduzir ou justificar o chunk inicial restante de 1,25 MB (aviso do limite de 500 kB).
 - [ ] Validar ponta a ponta convite, aceite, recusa, revogação e lançamento compartilhado com duas contas reais.
 - [ ] Restringir `cloud_vaults` ao dono autenticado; patch owner-only preparado, implantação pendente.
 - [x] Remover acesso cruzado entre workspaces Firestore do código cliente; os dados familiares novos ficam em tabelas Neon separadas.

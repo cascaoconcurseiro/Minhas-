@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -89,17 +89,17 @@ import {
   applyAssetOperation,
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
-import { OverviewTab } from './components/OverviewTab';
-import { AccountsTab } from './components/AccountsTab';
-import { InvestmentsTab } from './components/InvestmentsTab';
-import { TransactionsTab } from './components/TransactionsTab';
-import { CreditCardsTab } from './components/CreditCardsTab';
-import { SharedExpensesTab } from './components/SharedExpensesTab';
-import { TripsTab } from './components/TripsTab';
-import { BudgetsTab } from './components/BudgetsTab';
-import { GoalsAndSimulatorTab } from './components/GoalsAndSimulatorTab';
-import { ReportsAndDataTab } from './components/ReportsAndDataTab';
-import { AuthAndCloudTab } from './components/AuthAndCloudTab';
+const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
+const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
+const InvestmentsTab = lazy(() => import('./components/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
+const TransactionsTab = lazy(() => import('./components/TransactionsTab').then((m) => ({ default: m.TransactionsTab })));
+const CreditCardsTab = lazy(() => import('./components/CreditCardsTab').then((m) => ({ default: m.CreditCardsTab })));
+const SharedExpensesTab = lazy(() => import('./components/SharedExpensesTab').then((m) => ({ default: m.SharedExpensesTab })));
+const TripsTab = lazy(() => import('./components/TripsTab').then((m) => ({ default: m.TripsTab })));
+const BudgetsTab = lazy(() => import('./components/BudgetsTab').then((m) => ({ default: m.BudgetsTab })));
+const GoalsAndSimulatorTab = lazy(() => import('./components/GoalsAndSimulatorTab').then((m) => ({ default: m.GoalsAndSimulatorTab })));
+const ReportsAndDataTab = lazy(() => import('./components/ReportsAndDataTab').then((m) => ({ default: m.ReportsAndDataTab })));
+const AuthAndCloudTab = lazy(() => import('./components/AuthAndCloudTab').then((m) => ({ default: m.AuthAndCloudTab })));
 import { LoginPage } from './components/LoginPage';
 import { TransactionModal } from './components/TransactionModal';
 import { GlobalSearchPanel } from './components/GlobalSearchPanel';
@@ -3637,7 +3637,22 @@ export default function App() {
               <DashboardSkeleton />
             )
           ) : (
-            <>
+            <Suspense
+              fallback={
+                activeTab === 'transactions' ? (
+                  <TransactionsSkeleton />
+                ) : activeTab === 'cards' ? (
+                  <CreditCardsSkeleton />
+                ) : activeTab === 'budgets' ? (
+                  <BudgetsSkeleton />
+                ) : activeTab === 'reports' ? (
+                  <ReportsSkeleton />
+                ) : (
+                  <DashboardSkeleton />
+                )
+              }
+            >
+              <>
               {activeTab === 'overview' && (
                 <OverviewTab
                   selectedMonth={selectedMonth}
@@ -3891,7 +3906,8 @@ export default function App() {
                   onRunDiagnosticAndRepair={handleRunDiagnosticAndRepair}
                 />
               )}
-            </>
+              </>
+            </Suspense>
           )}
         </main>
 

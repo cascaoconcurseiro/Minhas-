@@ -1,8 +1,11 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import {defineConfig, type Plugin} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
+
+const configDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 function disableViteClientWebSocketPlugin(): Plugin {
   return {
@@ -106,7 +109,7 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(configDirectory, '.'),
       },
     },
     server: {
