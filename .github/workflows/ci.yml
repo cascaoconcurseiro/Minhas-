@@ -27,5 +27,8 @@ jobs:
       - name: Executar testes unitários (node:test)
         run: bun x tsx --test src/utils/*.test.ts
 
+      - name: Executar integração HTTP local da API familiar
+        run: bun x tsx --test backend/familyApi.test.ts
+
       - name: Gerar Build de Produção (Vite)
         run: bun run build

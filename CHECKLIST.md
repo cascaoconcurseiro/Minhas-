@@ -127,7 +127,9 @@
 - [x] Testar duas ordens concorrentes na tabela sintética `codex_qa_20261103.family_race_fixture`: sync primeiro seguido de revogação termina sem espelho; revogação primeiro impede criação do espelho.
 - [x] Corrigir `DATABASE_DOCUMENTATION.md`, `NEON_MIGRATION.md` e `README.md`: atividade diária ocorre no Vercel Cron; GitHub Actions é manual; janela de seis horas não é backup independente de longo prazo.
 - [x] Publicar documentação de restore/PITR em `9715661`; CI `41728982501` passou, Vercel `dpl_FA9yTHsdvyQZgv9j3vvzvjFN3L8k` ficou `READY` e `/api/health` respondeu 200 com Neon `ok`.
-- [ ] Validar a corrida pelo endpoint real `/api/family/shared` com identidade Firebase controlada; o teste SQL não verifica middleware/API.
+- [x] Validar localmente `/api/family/shared` por HTTP com identidade Firebase controlada e pool Neon simulado; cobre middleware/API e upsert/revogação, mas não substitui concorrência real pela API nem navegador autenticado.
 - [x] Com autorização explícita do usuário, excluir as duas branches QA; confirmar que só `production` permanece e que health de produção segue 200/Neon `ok`.
+- [x] Adicionar teste HTTP local para `/api/family/shared` e revogação: 401 sem token; identidade Firebase controlada alcança a rota, grava espelho e a revogação remove o espelho via pool Neon simulado. O teste comprova integração HTTP/middleware/SQL esperado, não concorrência do banco real.
+- [x] Incluir o teste HTTP familiar no CI e executar localmente os testes da aplicação/backend, `bun run lint` e `bun run build`; tudo passou. Build ainda alerta para chunk principal acima de 500 kB.
 
 
