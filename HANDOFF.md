@@ -1,7 +1,7 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Última publicação: `21df8f7` em `main`; check Vercel `success`, deploy `dpl_HRHcWTH9BucsNwezxR2ZH4RNE8jz` `READY`, health 200/Neon `ok`.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção funcional `21df8f7` e atualização documental `e0943cc` estão na `main`; ambas as implantações Vercel ficaram `READY`, health 200/Neon `ok`.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
