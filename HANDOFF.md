@@ -14,6 +14,7 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - Tentativas de captura por CDP/BrowserOS falharam por timeout; a revisão pixel-level continua pendente, apesar da validação estrutural responsiva.
 - Acrescentei no harness HTTP local testes de escrita com revisão esperada e falha do pool: primeira gravação revision 2→3, gravação obsoleta recebe 409 sem sobrescrever, e pane simulada retorna 503 sem avançar revision. São verificações da API com pool mock, ainda sem Neon real.
 - A suíte agora tem 98 testes passando; lint e build também passaram, com o aviso conhecido de bundle >500 kB.
+- Revisei o workflow GitHub `neon-daily-activity.yml`: ele só tem `workflow_dispatch` e executou manualmente com `SELECT 1` no run `41688417355`. A agenda diária real é o Cron Vercel `/api/health` às `15 12 * * *` UTC (09:15 São Paulo); aguardar e verificar o disparo automático em 4/nov.
 - Estado Git observado no início: branch `main`, sem alterações locais; commits mais recentes incluem a correção do cartão e documentação da auditoria CRUD.
 
 ## Próximo passo concreto

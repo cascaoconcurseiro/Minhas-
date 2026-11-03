@@ -14,8 +14,8 @@
 - [x] Publicar a API de workspace e validar as credenciais Firebase no runtime de produção.
 - [x] Autorizar o domínio de produção na Firebase Authentication, mantendo Firebase Auth.
 - [x] Migrar a conta autenticada do Firestore para Neon; conferir migração, leitura e gravação no site publicado.
-- [x] Executar manualmente o workflow diário e confirmar `SELECT 1` com sucesso.
-- [x] Confirmar workflow ativo com agendamento diário às 09:15 (America/Sao_Paulo); a primeira execução automática está pendente porque o workflow entrou na branch após o cron de hoje.
+- [x] Executar manualmente o workflow GitHub `neon-daily-activity.yml` e confirmar `SELECT 1` com sucesso; essa execução é `workflow_dispatch`, não agenda diária.
+- [x] Confirmar o Cron diário ativo na Vercel: `/api/health`, `15 12 * * *` UTC (09:15 America/Sao_Paulo). O primeiro disparo automático segue pendente até a janela programada.
 - [x] Auditar o workspace Neon em produção; nenhum registro correspondeu aos marcadores de mock existentes.
 - [x] Publicar limpeza automática apenas para marcadores explícitos de mock (`isMock`/`isDemo` e IDs `mock-`/`demo-`/`seed-`); IDs genéricos de banco, cartão e viagem devem ser preservados.
 - [x] Deixar explícita na interface a diferença entre Firebase Auth, banco Neon e espelho Firestore.
@@ -192,6 +192,7 @@
 - [ ] Validar a restauração completa com arquivo sintético pela interface e confirmar persistência/releitura no Neon; os testes existentes validam o parser/regras, não o fluxo UI→estado→API→Neon.
 - [ ] Validar visualmente desktop e mobile; captura BrowserOS permanece sem permissão e não houve leitura de pixels/viewport móvel nesta rodada.
 - [ ] Confirmar execução cron automática (não manual) após `2026-11-04T12:15:00Z`.
+- [x] Conferir o arquivo `.github/workflows/neon-daily-activity.yml` e o histórico GitHub: workflow manual (`workflow_dispatch`) com `SELECT 1`; separar sua execução `41688417355` do Cron diário Vercel, que permanece agendado mas ainda não disparou automaticamente.
 - [x] Acrescentar testes HTTP locais de workspace: revisão 2 salva uma vez e avança para 3; segunda gravação concorrente com revisão 2 recebe `409` e não altera a revisão; erro simulado no banco retorna `503` sem avançar revisão.
 - [x] Reexecutar suíte completa (`bun test`: 98 testes), lint e build após ampliar os testes; passou. Os mocks não representam uma corrida concorrente ou pane reais no Neon.
 - [x] Inspecionar DOM/layout renderizado em viewport desktop 1920×921 e móvel 390×844; dashboard e formulário não apresentaram overflow horizontal; no modal, scroller interno de 504 px percorreu 1.293 px até o rodapé, e overlay `z-50` permanece acima da navegação móvel `z-40`.
