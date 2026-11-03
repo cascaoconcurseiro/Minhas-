@@ -22,6 +22,9 @@ let invitation = {
 const shared = new Map<string, unknown>();
 const sqlLog: string[] = [];
 const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
+let workspaceRevision = 2;
+let failWorkspaceUpdates = false;
+const workspaceUpdateParameters: unknown[][] = [];
 
 function restoreEnv(name: keyof typeof oldEnv) {
   const value = oldEnv[name];
@@ -55,8 +58,15 @@ before(async () => {
         if (normalized.startsWith('SELECT payload, revision, updated_at')) {
           workspaceQueries.push({ sql: normalized, params });
           return params[1] === 'owner-uid'
-            ? { rows: [{ payload: { accountsJson: '[]' }, revision: 2, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
+            ? { rows: [{ payload: { accountsJson: '[]' }, revision: workspaceRevision, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
             : { rows: [], rowCount: 0 };
+        }
+        if (normalized.startsWith('UPDATE public.finance_workspaces')) {
+          workspaceUpdateParameters.push(params);
+          if (failWorkspaceUpdates) throw new Error('simulated database unavailable');
+          if (params[5] !== workspaceRevision) return { rows: [], rowCount: 0 };
+          workspaceRevision += 1;
+          return { rows: [{ revision: workspaceRevision, updated_at: '2026-11-03T00:01:00.000Z' }], rowCount: 1 };
         }
         if (normalized.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) {
           return { rows: invitation.status === 'accepted' ? [{ ...invitation }] : [], rowCount: 1 };
@@ -155,4 +165,58 @@ test('API de workspace mantém leituras isoladas pelo UID autenticado', async ()
   assert.ok(otherQuery);
   assert.match(otherQuery.sql, /WHERE vault_id = \$1 AND owner_firebase_uid = \$2/);
   assert.equal(otherQuery.params[1], 'other-uid');
+});
+
+test('API de workspace serializa gravações concorrentes pela revisão esperada', async () => {
+  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const payload = {
+    uid: 'vault_usr_owner_example_com',
+    updatedAt: '2026-11-03T00:01:00.000Z',
+    accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
+    transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
+  };
+  const firstWrite = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers, body: JSON.stringify({ payload, expectedRevision: 2 }),
+  });
+  assert.equal(firstWrite.status, 200, await firstWrite.clone().text());
+  assert.deepEqual(await firstWrite.json(), {
+    revision: 3, updatedAt: '2026-11-03T00:01:00.000Z',
+  });
+
+  const staleConcurrentWrite = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers, body: JSON.stringify({ payload, expectedRevision: 2 }),
+  });
+  assert.equal(staleConcurrentWrite.status, 409);
+  assert.match((await staleConcurrentWrite.json() as { error: string }).error, /revisão desatualizada/);
+
+  assert.equal(workspaceRevision, 3, 'gravação obsoleta não deve sobrescrever a versão mais nova');
+  assert.equal(workspaceUpdateParameters.length, 2);
+  assert.match(String(workspaceUpdateParameters[0]?.[0]), /accountsJson/);
+});
+
+test('API de workspace responde 503 quando o banco fica indisponível', async () => {
+  const originalConsoleError = console.error;
+  failWorkspaceUpdates = true;
+  console.error = () => undefined;
+  try {
+    const response = await originalFetch(`${baseUrl}/api/workspace`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        payload: {
+          uid: 'vault_usr_owner_example_com',
+          updatedAt: '2026-11-03T00:02:00.000Z',
+          accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
+          transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
+        },
+        expectedRevision: 3,
+      }),
+    });
+    assert.equal(response.status, 503);
+    assert.match((await response.json() as { error: string }).error, /Não foi possível salvar/);
+  } finally {
+    failWorkspaceUpdates = false;
+    console.error = originalConsoleError;
+  }
+  assert.equal(workspaceRevision, 3, 'falha de banco não pode avançar a revisão');
 });

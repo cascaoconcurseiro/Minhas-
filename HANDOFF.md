@@ -12,6 +12,8 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - Confirmei que isso ainda não comprova a restauração real via UI até Neon. Não fiz importação no workspace de produção nem criei branch Neon, pois não há sandbox disponível para esta operação.
 - Em viewport renderizado, medi desktop 1920×921 e mobile 390×844. O dashboard e formulário não mostraram overflow horizontal; formulário tem área interna rolável (504 px visíveis / 1.293 px totais), rodapé alcançável, e overlay `z-50` fica acima do menu inferior `z-40`.
 - Tentativas de captura por CDP/BrowserOS falharam por timeout; a revisão pixel-level continua pendente, apesar da validação estrutural responsiva.
+- Acrescentei no harness HTTP local testes de escrita com revisão esperada e falha do pool: primeira gravação revision 2→3, gravação obsoleta recebe 409 sem sobrescrever, e pane simulada retorna 503 sem avançar revision. São verificações da API com pool mock, ainda sem Neon real.
+- A suíte agora tem 98 testes passando; lint e build também passaram, com o aviso conhecido de bundle >500 kB.
 - Estado Git observado no início: branch `main`, sem alterações locais; commits mais recentes incluem a correção do cartão e documentação da auditoria CRUD.
 
 ## Próximo passo concreto
