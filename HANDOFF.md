@@ -1,7 +1,7 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção funcional `21df8f7` e atualizações documentais `e0943cc`/`bd0be42` estão na `main`; implantações ficaram `READY`, health 200/Neon `ok`.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção de integridade `21df8f7` e registros até `7646e62` estão na `main`; foi preparada uma proteção nova para compartilhamento familiar e ainda precisa publicar/confirmar.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
@@ -12,9 +12,11 @@ Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco opera
 - Auditoria de segurança verificou RLS habilitado e forçado nas quatro tabelas operacionais, com políticas baseadas em `app.firebase_uid`. Porém `minhas_app` e `minhas_daily` têm membership `neon_superuser` e atributos `CREATEROLE`, `CREATEDB`, `BYPASSRLS`, `REPLICATION`.
 - Tentei revogar membership e reduzir atributos pelo Neon MCP; o banco negou `REVOKE neon_superuser FROM minhas_app` e `ALTER ROLE`. As transações falharam sem alteração. A redução de privilégio precisa de acesso administrativo de roles não disponível pelo atual `neondb_owner`/MCP.
 - Não há necessidade de recuperação: o usuário confirmou que todas as contas eram de demonstração.
+- Investigação de segurança confirmou risco no convite por e-mail: Firebase permite token válido de conta ainda sem e-mail verificado, que poderia reivindicar um convite dirigido àquele endereço. A API agora exige `email_verified=true` para todas as rotas familiares; o teste HTTP cobre 403 sem consulta ao Neon e sucesso com identidade verificada.
+- A interface agora mostra faixa para conta não verificada, permite reenviar a confirmação e atualizar o estado; o cadastro informa que compartilhar requer confirmação. Suíte completa (94), lint, build e diff check passaram localmente. Próxima ação: `git status`/`git diff`/`git log`, commit/push e conferir CI, deploy e smoke.
 
 ## Próximo passo concreto
-Próxima ação: resolver via Neon Console/API administrativa o excesso de privilégios de `minhas_app` e `minhas_daily`; depois testar a API e health. Em 4/nov, verificar a execução automática do Vercel Cron em `15 12 * * *` UTC.
+Próxima ação: publicar e confirmar a proteção de e-mail verificado; depois resolver via Neon Console/API administrativa o excesso de privilégios de `minhas_app` e `minhas_daily`. Em 4/nov, verificar a execução automática do Vercel Cron em `15 12 * * *` UTC.
 
 ## Pendências e limites
 - O usuário confirmou que todas as contas existentes eram demos; nenhuma conta precisa ser recuperada.

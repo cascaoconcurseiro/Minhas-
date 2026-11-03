@@ -274,8 +274,17 @@ async function startServer() {
     }
   };
 
+  const requireVerifiedFamilyEmail: RequestHandler = (_req, res, next) => {
+    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    if (user.email_verified !== true) {
+      res.status(403).json({ error: 'Verifique o e-mail da conta antes de usar o compartilhamento familiar.' });
+      return;
+    }
+    next();
+  };
+
   app.use('/api/workspace', verifyFirebaseWorkspaceUser);
-  app.use('/api/family', verifyFirebaseWorkspaceUser);
+  app.use('/api/family', verifyFirebaseWorkspaceUser, requireVerifiedFamilyEmail);
   app.use('/api/reminders/send-email', verifyFirebaseWorkspaceUser);
   app.use('/api/fx/live-rate', verifyFirebaseWorkspaceUser);
   app.use('/api/investments/sync-quotes', verifyFirebaseWorkspaceUser);

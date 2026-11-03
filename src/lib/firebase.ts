@@ -9,6 +9,8 @@ import {
   updateProfile,
   signOut,
   onAuthStateChanged,
+  sendEmailVerification,
+  reload,
   User,
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -66,6 +68,16 @@ export async function registerWithEmail(
     await updateProfile(result.user, { displayName: displayName.trim() });
   }
   return result.user;
+}
+
+export async function resendEmailVerification(user: User): Promise<void> {
+  await sendEmailVerification(user);
+}
+
+export async function refreshFirebaseUser(user: User): Promise<User> {
+  await reload(user);
+  await user.getIdToken(true);
+  return auth.currentUser ?? user;
 }
 
 export async function tryAutoAnonymousSignIn(): Promise<User | null> {

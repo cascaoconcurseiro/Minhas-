@@ -33,10 +33,12 @@ before(async () => {
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
   process.env.FIREBASE_PROJECT_ID = 'test-project';
   process.env.FIREBASE_API_KEY = 'test-api-key';
-  globalThis.fetch = (async (input: string | URL | Request) => {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     if (String(input).includes('identitytoolkit.googleapis.com')) {
+      const authRequest = JSON.parse(String(init?.body || '{}')) as { idToken?: string };
       return new Response(JSON.stringify({ users: [{
-        localId: 'owner-uid', email: 'owner@example.com', emailVerified: true,
+        localId: 'owner-uid', email: 'owner@example.com',
+        emailVerified: authRequest.idToken !== 'unverified-test-token',
       }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     return originalFetch(input);
@@ -96,6 +98,13 @@ after(async () => {
 test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', async () => {
   const unauthenticated = await originalFetch(`${baseUrl}/api/family/shared`);
   assert.equal(unauthenticated.status, 401);
+
+  const sqlBeforeUnverified = sqlLog.length;
+  const unverified = await originalFetch(`${baseUrl}/api/family/shared`, {
+    headers: { Authorization: 'Bearer unverified-test-token' },
+  });
+  assert.equal(unverified.status, 403);
+  assert.equal(sqlLog.length, sqlBeforeUnverified, 'conta sem email verificado não deve consultar tabelas familiares');
 
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
   const sync = await originalFetch(`${baseUrl}/api/family/shared`, {

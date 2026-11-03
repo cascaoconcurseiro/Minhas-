@@ -132,6 +132,12 @@
 - [x] Adicionar teste HTTP local para `/api/family/shared` e revogação: 401 sem token; identidade Firebase controlada alcança a rota, grava espelho e a revogação remove o espelho via pool Neon simulado. O teste comprova integração HTTP/middleware/SQL esperado, não concorrência do banco real.
 - [x] Incluir o teste HTTP familiar no CI e executar localmente os testes da aplicação/backend, `bun run lint` e `bun run build`; tudo passou. Build ainda alerta para chunk principal acima de 500 kB.
 
+## Sessão 2026-11-03 — verificação de e-mail no compartilhamento
+- [x] Exigir e-mail Firebase verificado antes de qualquer endpoint `/api/family`; teste HTTP local comprova 403 e zero consultas para token não verificado, e acesso normal com identidade verificada.
+- [x] Adicionar faixa na interface para contas não verificadas, com reenvio do link e atualização do estado; informar no cadastro que a verificação libera o compartilhamento.
+- [x] Revalidar suíte completa (94 testes), lint, build e `git diff --check`; todos passaram. Build ainda mostra aviso de chunk principal acima de 500 kB.
+- [ ] Publicar e confirmar CI/Vercel e smoke de produção após o commit.
+
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
 - [x] Confirmar com o usuário que todas as contas eram demonstrações; portanto, zero contas/lançamentos é o estado esperado e não se deve restaurar conta Nubank nem saldo.
