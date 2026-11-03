@@ -116,18 +116,18 @@
 - [x] Corrigir proteção SMTP contra SSRF: permitir somente hostname DNS público e portas `25/465/587/2525`, rejeitar DNS misto/privado, fixar IP validado, exigir TLS e aplicar timeout de DNS; documentar que credenciais fornecidas pelo usuário podem integrar o snapshot Neon.
 - [x] Revalidar `bun test` (93 testes), `bun run lint` e `bun run build`; todos passaram. O build ainda alerta sobre o bundle principal acima de 500 kB.
 - [x] Publicar a proteção SMTP em `5f8f6d2`; CI `41694953882` passou e Vercel ficou `READY`. Smoke pós-deploy: health 200 com Neon `ok`; `/api/reminders/send-email` sem token retornou 401.
-- [ ] Validar revogação e sincronização familiar concorrentes usando a branch isolada; o incremento SQL sintético não cobre essa lógica de API.
+- [ ] Validar a revogação e a sincronização pelo endpoint real `/api/family/shared`; os testes atuais exercitam locks/estado SQL em fixture sintética, sem middleware Firebase.
 - [ ] Validar SMTP autenticado com servidor de teste, sem entrega real de e-mail.
 - [ ] Observar a primeira execução automática Vercel após a implantação; Hobby executa uma vez por dia com precisão horária.
 
 ## Sessão 2026-11-03 — restore e revisão de retenção
 - [x] Consultar o projeto Neon atual: plano `free_v3`, branch production primária, `history_retention_seconds=21600` (6h), sem agenda de snapshots e sem snapshots existentes antes do ensaio.
 - [x] Criar snapshot manual somente da branch raiz e restaurá-lo como `qa-restore-branch-2026-11-03` (`br-bold-fog-b6cn368o`), sem promoção; confirmar restore concluído, schema sem diferenças e presença das tabelas operacionais; compute suspenso após leitura.
-- [x] Configurar expiração do snapshot temporário para `2026-11-04T22:00:00Z`; a branch restaurada continua preservada para revisão.
+- [x] Configurar expiração do snapshot temporário para `2026-11-04T22:00:00Z`.
 - [x] Testar duas ordens concorrentes na tabela sintética `codex_qa_20261103.family_race_fixture`: sync primeiro seguido de revogação termina sem espelho; revogação primeiro impede criação do espelho.
 - [x] Corrigir `DATABASE_DOCUMENTATION.md`, `NEON_MIGRATION.md` e `README.md`: atividade diária ocorre no Vercel Cron; GitHub Actions é manual; janela de seis horas não é backup independente de longo prazo.
 - [x] Publicar documentação de restore/PITR em `9715661`; CI `41728982501` passou, Vercel `dpl_FA9yTHsdvyQZgv9j3vvzvjFN3L8k` ficou `READY` e `/api/health` respondeu 200 com Neon `ok`.
 - [ ] Validar a corrida pelo endpoint real `/api/family/shared` com identidade Firebase controlada; o teste SQL não verifica middleware/API.
-- [ ] Revisar/excluir as branches de QA, que são cópias isoladas da produção; limpeza exige autorização explícita porque apaga dados das branches.
+- [x] Com autorização explícita do usuário, excluir as duas branches QA; confirmar que só `production` permanece e que health de produção segue 200/Neon `ok`.
 
 
