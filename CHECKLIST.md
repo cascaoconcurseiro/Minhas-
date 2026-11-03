@@ -126,6 +126,7 @@
 - [x] Configurar expiração do snapshot temporário para `2026-11-04T22:00:00Z`; a branch restaurada continua preservada para revisão.
 - [x] Testar duas ordens concorrentes na tabela sintética `codex_qa_20261103.family_race_fixture`: sync primeiro seguido de revogação termina sem espelho; revogação primeiro impede criação do espelho.
 - [x] Corrigir `DATABASE_DOCUMENTATION.md`, `NEON_MIGRATION.md` e `README.md`: atividade diária ocorre no Vercel Cron; GitHub Actions é manual; janela de seis horas não é backup independente de longo prazo.
+- [x] Publicar documentação de restore/PITR em `9715661`; CI `41728982501` passou, Vercel `dpl_FA9yTHsdvyQZgv9j3vvzvjFN3L8k` ficou `READY` e `/api/health` respondeu 200 com Neon `ok`.
 - [ ] Validar a corrida pelo endpoint real `/api/family/shared` com identidade Firebase controlada; o teste SQL não verifica middleware/API.
 - [ ] Revisar/excluir as branches de QA, que são cópias isoladas da produção; limpeza exige autorização explícita porque apaga dados das branches.
 

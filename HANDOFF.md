@@ -1,7 +1,7 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria integral com Neon como banco operacional e Firebase Auth. A última versão em `main` antes destas atualizações documentais era `4fceeaa`; a proteção SMTP de `5f8f6d2` está publicada em produção.
+Meta ativa: concluir auditoria integral com Neon como banco operacional e Firebase Auth. `main` chegou ao commit `9715661`; CI `41728982501` passou e Vercel `dpl_FA9yTHsdvyQZgv9j3vvzvjFN3L8k` ficou `READY` no alias de produção.
 
 ## Trabalho concluído nesta etapa
 - Neon MCP conectado; branch isolada `qa-synthetic-2026-11-03` (`br-round-surf-b6rbhdmk`) criada da produção e schema comparado sem diferenças.
@@ -15,6 +15,7 @@ Meta ativa: concluir auditoria integral com Neon como banco operacional e Fireba
 - Snapshot manual `snap-dawn-dream-b6672ety` restaurado com sucesso em `qa-restore-branch-2026-11-03` (`br-bold-fog-b6cn368o`). Schema coincide com produção; estão presentes as quatro tabelas operacionais. A produção permanece primária/padrão e não foi substituída. Compute de QA suspenso; snapshot expira em 4/nov às 22:00 UTC.
 - Corrigidas as referências de documentação à rotina: Vercel Cron chama `/api/health`; workflow GitHub é manual.
 - Nas duas ordens concorrentes sobre `codex_qa_20261103.family_race_fixture`, revogação e sincronização serializaram como esperado; ambos os estados finais ficaram revogados e sem espelho sintético. É um ensaio de locks/estado no PostgreSQL, não uma execução autenticada da API.
+- Smoke após publicação `9715661`: `/api/health` respondeu 200 com `services.neon: ok`; o compute da branch restaurada está idle.
 
 ## Próximo passo concreto
 **Arquivo:** `backend/app.ts`, `api/family/[...path].ts`, branch Neon `br-round-surf-b6rbhdmk`
