@@ -149,7 +149,15 @@
 - [ ] Corrigir privilégios das roles Neon com acesso que possa administrar role membership/attributes; não tentar upgrade de plano nem girar credenciais sem avaliar custo e impacto.
 - [ ] Fazer backup/dump portátil e restore independente; o Neon Free atual não permite agenda de snapshots automáticos e PITR está em 6h. O snapshot manual de QA existente expira 4/nov 22:00 UTC.
 - [ ] Confirmar a primeira execução automática do cron depois de 4/nov 12:15 UTC.
-- [ ] Executar inspeção responsiva/autenticada no BrowserOS; nenhuma ferramenta BrowserOS está disponível nesta sessão.
+- [ ] Concluir revisão visual desktop/mobile e ações autenticadas que gravam dados; a sessão BrowserOS carregou autenticada, mas screenshot e teste mobile não foram possíveis.
+
+## Sessão 2026-11-03 — inspeção no BrowserOS
+- [x] Confirmar que o deploy documental `adf3897` terminou em Vercel `READY` e o status GitHub Vercel ficou `success`; `vercel crons list` continua mostrando `/api/health` em `15 12 * * *`.
+- [x] Abrir o site no BrowserOS com sessão autenticada; confirmar a Visão Geral, workspace sem contas/cartões/lançamentos e ausência de indicador de sincronização pendente após carregar.
+- [x] Abrir e fechar o formulário de novo lançamento; alternar Despesa, Cartão, Receita e Transferência; conferir labels, datas, seleção de categoria/cartão e mudança dos campos sem submeter/gravar.
+- [x] Navegar pelos módulos Lançamentos, Contas, Cartões, Orçamentos, Viagens, Compartilhado, Investimentos, Metas e Relatórios; os controles e estados DOM correspondentes foram carregados sem erro de navegação.
+- [ ] Capturar revisão visual desktop/mobile: BrowserOS screenshot foi negado por permissão `activeTab`/`<all_urls>` e não há leitura pixel-level disponível; a fonte mostra modal responsivo `max-w-2xl` com regras `sm:`/`lg:`, mas isso não prova layout mobile renderizado.
+- [ ] Confirmar a execução cron automática prevista para `2026-11-04T12:15:00Z`; a chamada manual foi aceita em 3/nov.
 
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.

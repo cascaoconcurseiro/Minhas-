@@ -22,6 +22,9 @@ Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco opera
 - Commit `025b18b` está na `main`; GitHub check `Vercel` `success`, deploy `dpl_FzMQzZLf3RkVes1PjScumzt2JpAx` `READY`. Depois do deploy, homepage 200, bundle manteve a faixa de verificação e não contém Guia Rápido ou marcador `tx-demo`; health segue `ok` no Neon.
 - `vercel crons list` mostrou `/api/health` `15 12 * * *`; `vercel crons run /api/health` foi aceito em `2026-11-03T22:53:50.160Z`. Isso confirma que a invocação manual funciona; o disparo automático de `2026-11-04T12:15:00Z` ainda não ocorreu.
 - Pesquisa da documentação Neon atual confirmou que agendas automáticas de snapshots exigem plano pago; Neon Free continua em PITR de 6h e limite de snapshot manual, então não alterei o plano nem configurei custo. O snapshot de QA anterior expira 4/nov às 22:00 UTC.
+- Depois disso, `adf3897` terminou com GitHub Vercel `success` e Vercel `READY` (`https://minhaseconomias-7609s170y-wesleys-projects-de111a83.vercel.app`).
+- BrowserOS MCP ficou acessível após iniciar o app instalado. Na sessão autenticada, abri a Visão Geral, confirmei workspace vazio e sem sincronização pendente, abri/fechei o formulário e naveguei sem gravar pelos módulos principais; os modos Despesa/Cartão/Receita/Transferência exibiram controles específicos. Isso é validação DOM/fluxo; screenshot foi bloqueado pela permissão `activeTab`/`<all_urls>`, portanto visual desktop/mobile continua incompleto.
+- A inspeção estatística do código do modal mostra `max-w-2xl`, `max-h-[90vh]`, rolagem interna e breakpoints `sm:`; sem viewport mobile renderizado não marco layout como validado.
 
 ## Próximo passo concreto
 Próxima ação: substituir a role de runtime por credencial de menor privilégio administrável, depois validar smoke e acesso RLS. Enquanto isso, em 4/nov às 12:15 UTC verificar a primeira execução cron; seguem pendentes backup/restore independente e navegador BrowserOS.
@@ -29,7 +32,7 @@ Próxima ação: substituir a role de runtime por credencial de menor privilégi
 ## Pendências e limites
 - O usuário confirmou que todas as contas existentes eram demos; nenhuma conta precisa ser recuperada.
 - A correção dos privilégios de roles está pendente: o Neon MCP conectado como `neondb_owner` não tem admin option para revogar membership nem permissão para alterar role. API com RLS estática continua filtrando por Firebase UID, mas BYPASSRLS reduz a defesa em profundidade.
-- BrowserOS Neo não está exposto como ferramenta nesta sessão. Não trocar por outro navegador; a verificação autenticada Firestore e a revisão visual desktop/mobile seguem pendentes.
+- BrowserOS MCP está disponível agora e confirmou autenticação/sessão e navegação DOM no workspace vazio; captura visual foi bloqueada por permissão do BrowserOS, então a inspeção visual desktop/mobile segue pendente. O fluxo de importação Firestore legado permanece sem aceitação autenticada real.
 - A validação com segunda conta foi dispensada pelo usuário. O teste HTTP local usa identidade controlada e pool simulado; não é uma sessão real nem corrida API contra Neon real.
 - Restore snapshot em branch e corrida SQL sintética no Neon foram ensaiados; dump/restore independente, falha/recuperação real e corrida pela API com sessões autenticadas ainda pendem.
 - Vercel Cron `/api/health` está configurado para `15 12 * * *` UTC; primeira execução automática será após 4/nov 12:15 UTC e ainda não ocorreu nesta sessão.
