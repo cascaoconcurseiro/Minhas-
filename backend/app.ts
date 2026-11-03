@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
 import { createHash } from 'crypto';
+import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
 import {
   formatGoogleFinanceSymbol,
@@ -662,6 +663,21 @@ async function startServer() {
       return;
     }
 
+    const invalidSharedAmount = (transactions as unknown[]).some((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
+      const tx = entry as Record<string, unknown>;
+      if (String(tx.id || '').startsWith('tx-mirror-') || tx.isShared !== true || tx.tripId) {
+        return false;
+      }
+      return normalizeSharedAmount(tx.amount, tx.sharedAmount) === null;
+    });
+    if (invalidSharedAmount) {
+      res.status(400).json({
+        error: 'A cota compartilhada deve estar entre zero e o valor do lançamento.',
+      });
+      return;
+    }
+
     try {
       const result = await withWorkspaceRls(user, async (client) => {
         const linkResult = await client.query(
@@ -728,6 +744,7 @@ async function startServer() {
           ) continue;
 
           const senderPaidByMember = tx.sharedPaidBy === 'member';
+          const sharedAmount = normalizeSharedAmount(tx.amount, tx.sharedAmount);
           const mirror = {
             id: `tx-mirror-${sharedSyncId}`,
             sharedSyncId,
@@ -749,7 +766,7 @@ async function startServer() {
             ...(typeof tx.notes === 'string' ? { notes: tx.notes.slice(0, 2000) } : {}),
             isShared: true,
             sharedMemberId: recipientMemberId,
-            sharedAmount: Number.isFinite(Number(tx.sharedAmount)) ? Number(tx.sharedAmount) : amount,
+            sharedAmount: sharedAmount ?? amount,
             sharedSplitMode: ['full', 'half', 'custom'].includes(String(tx.sharedSplitMode)) ? tx.sharedSplitMode : 'half',
             sharedPaidBy: senderPaidByMember ? 'me' : 'member',
             sharedStatus: tx.sharedStatus === 'received' ? 'received' : 'pending',
