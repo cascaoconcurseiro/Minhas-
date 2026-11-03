@@ -109,6 +109,7 @@
 - [ ] Ensaiar a corrida entre sincronizar e revogar com duas sessões em branch Neon isolada.
 - [ ] Confirmar evento automático schedule do workflow diário; em 3/nov o histórico ainda só mostrou execuções workflow_dispatch.
 - [x] Mover a agenda diária para Cron da Vercel: `GET /api/health` às 12:15 UTC consulta `finance_workspaces`; remover o cron duplicado do GitHub e manter `workflow_dispatch` manual.
-- [ ] Confirmar no dashboard/logs Vercel que o Cron foi registrado e observar sua primeira execução automática; Hobby permite janela de até 59 min após a hora agendada.
+- [x] Publicar em `5a701df`; CI `41693460673` e Vercel `success`. `vercel inspect` mostra Cron `/api/health` com schedule `15 12 * * *`; health de produção 200 com Neon `ok`.
+- [ ] Observar a primeira execução automática Vercel após a implantação; Hobby executa uma vez por dia com precisão horária.
 
 

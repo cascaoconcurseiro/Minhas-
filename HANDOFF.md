@@ -1,27 +1,23 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria integral com Neon operacional e Firebase Auth. Código em produção: `6789504`; configuração de Cron Vercel recém-alterada ainda não publicada.
+Meta ativa: concluir auditoria integral com Neon operacional e Firebase Auth. `main` e Vercel produção estão no commit `5a701df`.
 
 ## Trabalho concluído nesta etapa
-- Migrei a rotina diária para Vercel Cron no plano Hobby: `GET /api/health` às 12:15 UTC, que consulta `finance_workspaces` e retorna 200/503 conforme a conexão Neon. Removi o schedule duplicado do GitHub, mantendo `workflow_dispatch` manual.
-- A documentação informa que, no Hobby, a execução tem janela de até 59 minutos depois da hora. Falta publicar, conferir o Cron registrado na Vercel e observar a primeira execução agendada.
-- A rotina usa health-check público já existente, sem escrita de dados nem novo segredo; a resposta expõe apenas estado agregado.
-
-## Validações já confirmadas
-- Commit `6789504` implantado na Vercel, CI `41692724273` passou; health 200/Neon `ok`; endpoints familiares 401 sem token.
-- Proteção de snapshot Neon malformado publicada (`f66e89a`), e API de despesas compartilhadas valida cotas seguras (`d952a04`).
-- A sincronização de despesas bloqueia o convite aceito com `FOR UPDATE` para serializar com revogação (`6789504`), mas falta exercitar corrida real no Neon.
+- Configurei Cron no `vercel.json`: diariamente, schedule `15 12 * * *` chama `GET /api/health`, que executa `SELECT 1 FROM public.finance_workspaces LIMIT 0` e responde 200/503 conforme a conectividade do Neon.
+- Removi o schedule duplicado do GitHub Actions; o workflow continua manual (`workflow_dispatch`) para diagnóstico.
+- Publiquei no plano Hobby Vercel; CI `41693460673` e deployment Vercel `success`. `vercel inspect` confirma a configuração Cron `/api/health`/`15 12 * * *` no deploy de produção. Health em produção retornou 200 e `services.neon: ok` às 18:25 UTC de 3/nov.
+- A primeira execução agendada ainda não ocorreu: próxima janela diária após deploy em 4/nov. O plano Hobby tem precisão horária, então conferir logs do Cron Vercel após a próxima janela.
+- Últimas verificações de código: 89 testes, lint, build e `git diff --check` passaram; build tem warning de chunk principal >500 kB.
 
 ## Próximos passos concretos
-1. Rodar testes, publicar a configuração Vercel Cron e confirmar que o deploy de produção registra `/api/health` no agendamento.
-2. Inspecionar logs da Vercel no próximo ciclo e confirmar execução automática com Neon saudável.
-3. Com conector Neon conectado, testar revogação/sync concorrentes, indisponibilidade/recuperação e restore integral em branch isolada.
-4. Fazer smoke autenticado com Firebase de teste (sem segunda conta para o compartilhamento, conforme dispensado) e SMTP de teste.
-5. Validar desktop/mobile no navegador autorizado.
+1. Após a janela diária de 4/nov, abrir logs de Cron na Vercel e confirmar resposta 200 do `/api/health`; se não executar, revisar Settings → Cron Jobs no projeto.
+2. Com Neon conectado, usar branch isolada para testar concorrência entre revogar e sincronizar, indisponibilidade/recuperação e restore integral.
+3. Com BrowserOS e Firebase autorizados, validar sessão, fluxos de dados e interface desktop/mobile. Não testar compartilhamento com segunda conta porque o usuário dispensou essa parte.
+4. Usar SMTP de teste para validar o envio de lembrete sem entregar e-mail real.
 
 ## Pendências e limites
-- Neon connector não conectado; ensaios reais de concorrência, restore e recuperação pendentes.
-- BrowserOS Neo indisponível; validação visual completa pendente.
-- Câmbio ao vivo via Gemini desativado em produção (`geminiConfigured: false`).
-- Cron novo ainda não publicado nem executado automaticamente; o workflow GitHub anterior só teve execuções manuais observadas.
+- Cron configurado/registrado, mas primeira execução automática ainda não observada.
+- Neon connector ainda não foi confirmado conectado; concorrência, restore e recuperação reais pendentes.
+- BrowserOS session ainda não foi confirmada aberta; revisão visual e smoke autenticado pendentes.
+- Gemini está desconfigurado em produção (`geminiConfigured: false`), então a busca de câmbio ao vivo segue desativada.
