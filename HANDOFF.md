@@ -1,7 +1,13 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção `af97e14` e teste HTTP de isolamento `025b18b` publicados; CI do último commit `success`, Vercel `READY`, health público 200 com Neon `ok`, rotas privadas 401 sem token e cron diário configurado.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. O cadastro do primeiro cartão de crédito foi corrigido localmente e aguarda publicação/verificação em produção. A reprodução no navegador mostrava falha de renderização ao criar o primeiro cartão; Neon não tinha gravado cartão de teste. Correção `af97e14` e teste HTTP de isolamento `025b18b` publicados anteriormente; antes desta mudança, CI estava `success`, Vercel `READY`, health público 200 com Neon `ok`, rotas privadas 401 sem token e cron diário configurado.
+
+## Trabalho desta sessão — cadastro de cartão
+- Reproduzi no BrowserOS autenticado que submeter o formulário do primeiro cartão desmontava a árvore DOM do app; a verificação SQL confirmou que `cardsJson` continuava vazio e nenhum cartão sintético permaneceu no Neon.
+- A causa raiz era a ordem inválida de hooks em `CreditCardsTab`: o estado vazio retornava antes de um `useMemo`; adicionar o primeiro cartão fazia a próxima renderização executar um hook adicional e o React quebrava.
+- Mudei `globalCardsTotals` para antes do retorno antecipado e adicionei teste de regressão garantindo que hooks não sejam definidos após essa guarda.
+- A regressão e a suíte completa (96 testes), lint e build locais passaram. A validação autenticada após deploy ainda precisa ser executada.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
@@ -27,7 +33,7 @@ Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco opera
 - A inspeção estatística do código do modal mostra `max-w-2xl`, `max-h-[90vh]`, rolagem interna e breakpoints `sm:`; sem viewport mobile renderizado não marco layout como validado.
 
 ## Próximo passo concreto
-Próxima ação: substituir a role de runtime por credencial de menor privilégio administrável, depois validar smoke e acesso RLS. Enquanto isso, em 4/nov às 12:15 UTC verificar a primeira execução cron; seguem pendentes backup/restore independente e navegador BrowserOS.
+Próxima ação: executar `bun test`, publicar a correção em `main`, verificar CI/Vercel e reproduzir o cadastro do cartão no BrowserOS; confirmar o registro no Neon e removê-lo ao fim. Em seguida, encerrar a revisão no `CHECKLIST.md`. Também permanecem pendentes as limitações de roles RLS, backup/restore independente, inspeção visual/mobile e a primeira execução automática do cron em 4/nov às 12:15 UTC.
 
 ## Pendências e limites
 - O usuário confirmou que todas as contas existentes eram demos; nenhuma conta precisa ser recuperada.

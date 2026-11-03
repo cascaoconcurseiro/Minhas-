@@ -189,6 +189,21 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
     });
   }, [activeCard, transactions, selectedMonth]);
 
+  const globalCardsTotals = useMemo(() => {
+    let totalInvoicesMonth = 0;
+    let totalLimit = 0;
+    let totalUsed = 0;
+    let totalAvailable = 0;
+    for (const c of cards) {
+      const sum = cardSummaries.find((s) => s.cardId === c.id);
+      totalLimit += c.limit;
+      totalInvoicesMonth += sum?.invoiceTotal ?? 0;
+      totalUsed += sum?.usedLimit ?? 0;
+      totalAvailable += sum?.availableLimit ?? c.limit;
+    }
+    return { totalInvoicesMonth, totalLimit, totalUsed, totalAvailable };
+  }, [cards, cardSummaries]);
+
   const handleCreateCard = (e: React.FormEvent) => {
     e.preventDefault();
     const limitVal = parseBRLInput(newCardLimit);
@@ -359,21 +374,6 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const isCardDetailOpen = Boolean(
     activeViewCardId && cards.some((c) => c.id === activeViewCardId)
   );
-
-  const globalCardsTotals = useMemo(() => {
-    let totalInvoicesMonth = 0;
-    let totalLimit = 0;
-    let totalUsed = 0;
-    let totalAvailable = 0;
-    for (const c of cards) {
-      const sum = cardSummaries.find((s) => s.cardId === c.id);
-      totalLimit += c.limit;
-      totalInvoicesMonth += sum?.invoiceTotal ?? 0;
-      totalUsed += sum?.usedLimit ?? 0;
-      totalAvailable += sum?.availableLimit ?? c.limit;
-    }
-    return { totalInvoicesMonth, totalLimit, totalUsed, totalAvailable };
-  }, [cards, cardSummaries]);
 
   return (
     <div className="space-y-6 min-w-0 max-w-full" data-testid="cards-tab-view">

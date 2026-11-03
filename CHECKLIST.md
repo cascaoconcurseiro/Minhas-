@@ -159,6 +159,14 @@
 - [ ] Capturar revisão visual desktop/mobile: BrowserOS screenshot foi negado por permissão `activeTab`/`<all_urls>` e não há leitura pixel-level disponível; a fonte mostra modal responsivo `max-w-2xl` com regras `sm:`/`lg:`, mas isso não prova layout mobile renderizado.
 - [ ] Confirmar a execução cron automática prevista para `2026-11-04T12:15:00Z`; a chamada manual foi aceita em 3/nov.
 
+## Sessão 2026-11-03 — correção do cadastro do primeiro cartão
+- [x] Reproduzir o cadastro no navegador autenticado: ao salvar o primeiro cartão, a tela quebrava e o workspace Neon permanecia sem cartão.
+- [x] Localizar violação da ordem de hooks React: um `useMemo` era executado só depois do retorno de estado vazio. Mover o hook para antes do retorno.
+- [x] Adicionar regressão verificando que nenhum hook React é declarado abaixo do retorno antecipado de workspace sem cartão.
+- [x] Validar o teste de regressão, `bun run lint` e `bun run build`; sem erros. O aviso do bundle acima de 500 kB segue existente.
+- [x] Executar suíte completa (`bun test`: 96 testes), `bun run lint` e `bun run build`; todos passaram localmente.
+- [ ] Publicar em `main`/Vercel, criar cartão sintético de ponta a ponta no navegador, confirmar gravação Neon e apagá-lo ao final.
+
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
 - [x] Confirmar com o usuário que todas as contas eram demonstrações; portanto, zero contas/lançamentos é o estado esperado e não se deve restaurar conta Nubank nem saldo.
