@@ -136,7 +136,7 @@
 - [x] Exigir e-mail Firebase verificado antes de qualquer endpoint `/api/family`; teste HTTP local comprova 403 e zero consultas para token não verificado, e acesso normal com identidade verificada.
 - [x] Adicionar faixa na interface para contas não verificadas, com reenvio do link e atualização do estado; informar no cadastro que a verificação libera o compartilhamento.
 - [x] Revalidar suíte completa (94 testes), lint, build e `git diff --check`; todos passaram. Build ainda mostra aviso de chunk principal acima de 500 kB.
-- [ ] Publicar e confirmar CI/Vercel e smoke de produção após o commit.
+- [x] Publicar em `af97e14`; CI GitHub `success`, Vercel `READY` (`dpl_EsqemzuHuCMko1vvCRmXMtYxC5ZH`); alias de produção entrega a faixa nova e health 200 com Neon `ok`.
 
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
