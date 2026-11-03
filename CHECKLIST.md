@@ -192,5 +192,7 @@
 - [ ] Validar a restauração completa com arquivo sintético pela interface e confirmar persistência/releitura no Neon; os testes existentes validam o parser/regras, não o fluxo UI→estado→API→Neon.
 - [ ] Validar visualmente desktop e mobile; captura BrowserOS permanece sem permissão e não houve leitura de pixels/viewport móvel nesta rodada.
 - [ ] Confirmar execução cron automática (não manual) após `2026-11-04T12:15:00Z`.
+- [x] Inspecionar DOM/layout renderizado em viewport desktop 1920×921 e móvel 390×844; dashboard e formulário não apresentaram overflow horizontal; no modal, scroller interno de 504 px percorreu 1.293 px até o rodapé, e overlay `z-50` permanece acima da navegação móvel `z-40`.
+- [ ] Capturar e revisar imagem pixel-level do desktop/mobile; captura via CDP/BrowserOS expirou, portanto medições DOM não encerram a revisão visual.
 
 
