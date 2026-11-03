@@ -78,9 +78,13 @@
 - [x] Atualizar documentos de segurança/API e indicadores para separar Firebase Auth, estado real do Neon e auditoria local.
 - [x] Validar falha isolada do Neon: endpoint local respondeu HTTP 503 e `services.neon=error` com conexão deliberadamente inválida em localhost.
 - [x] Consultar produção: `/api/health` respondeu 200, mas o bundle/API publicada ainda usa resposta antiga sem campo `services.neon`; portanto esse 200 não prova conectividade atual com o Neon.
+- [x] Publicar `90aeccb` na `main`; CI `41688048038` e implantação Vercel concluíram com sucesso.
+- [x] Reconsultar produção após o deploy: `/api/health` retorna `services.neon: ok` e `status: ok` após consulta ao banco; assets publicados incluem a nova auditoria e não incluem o login rápido nem o Guia Rápido.
+- [x] Confirmar `/api/workspace`, `/api/workspace/migrate`, `/api/family/invitations` e `/api/family/shared` retornam 401 sem token.
+- [x] Executar a checagem Neon manualmente hoje: GitHub Actions run `41688417355` concluiu com sucesso no commit `90aeccb`.
 - [x] Revalidar `bun test` (83 testes), `bun run lint`, `bun run build` e `git diff --check`; o build ainda alerta para o chunk principal acima de 500 kB.
 - [ ] Confirmar execução automática diária: consulta em 3/nov às 14:47 BRT encontrou somente o run manual de 2/nov; não há evento `schedule` comprovado.
 - [ ] Validar concorrência real entre abas/workspaces com dados sintéticos isolados.
 - [ ] Ensaiar restore integral em branch Neon isolada e validar indisponibilidade/recuperação com banco controlado.
 - [ ] Validar fluxos visuais e responsivos completos no navegador; ferramenta BrowserOS Neo não está disponível nesta sessão.
-- [ ] Publicar a correção de health-check e UI em `main`; confirmar o novo payload `services.neon` na URL de produção.
+- [x] Publicar a correção de health-check e UI em `main`; confirmar o novo payload `services.neon` na URL de produção.
