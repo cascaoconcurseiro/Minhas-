@@ -274,6 +274,9 @@ async function startServer() {
 
   app.use('/api/workspace', verifyFirebaseWorkspaceUser);
   app.use('/api/family', verifyFirebaseWorkspaceUser);
+  app.use('/api/reminders/send-email', verifyFirebaseWorkspaceUser);
+  app.use('/api/fx/live-rate', verifyFirebaseWorkspaceUser);
+  app.use('/api/investments/sync-quotes', verifyFirebaseWorkspaceUser);
 
   app.get('/api/workspace', async (_req, res) => {
     const user = res.locals.firebaseUser as FirebaseUserIdentity;
@@ -1110,9 +1113,13 @@ async function startServer() {
         });
       } catch (smtpErr) {
         console.warn(
-          `Aviso SMTP (${smtpHost}:${smtpPort}): envio processado em modo de contingência local/container:`,
-          smtpErr instanceof Error ? smtpErr.message : smtpErr
+          `Falha ao entregar lembrete via SMTP (${smtpHost}:${smtpPort}):`,
+          smtpErr instanceof Error ? smtpErr.message : 'erro desconhecido'
         );
+        res.status(502).json({
+          error: 'O servidor SMTP não aceitou o envio. Confira host, porta e credenciais.',
+        });
+        return;
       }
 
       const recurrenceLabelMap: Record<string, string> = {

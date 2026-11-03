@@ -266,6 +266,7 @@ export default function App() {
 
   // Firebase Cloud Auth & Automatic Real-Time Sync State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
     'local' | 'syncing' | 'synced' | 'error'
@@ -2600,8 +2601,8 @@ export default function App() {
     }
   };
 
-  const handleResetToDemoData = () => {
-    showNotice('Base de dados limpa e reiniciada para uso real.');
+  const handleResetWorkspaceData = () => {
+    showNotice('Dados do workspace pessoal removidos. Convites e lançamentos compartilhados não foram alterados.');
     setAccounts(INITIAL_ACCOUNTS);
     setCards(INITIAL_CREDIT_CARDS);
     setCategories(INITIAL_CATEGORIES);
@@ -2951,24 +2952,41 @@ export default function App() {
           effectiveUserEmail ||
           ''
         ).trim();
-        if (targetEmail && dailyReminders.length > 0) {
-          void dispatchEmailReminder({
-            reminders: dailyReminders,
-            recipientEmail: targetEmail,
-            userName: effectiveUserDisplayName || settings.userName,
-            settings: remSettings,
-            recurrence: remSettings.emailRecurrence || remSettings.recurrence || 'daily',
-            preferredTime: remSettings.emailPreferredTime || remSettings.preferredTime || '08:00',
-            currentDateStr: todayDateStr,
-            currentTimeStr,
-          });
-          setSettings((prev) => ({
-            ...prev,
-            reminders: {
-              ...(prev.reminders || DEFAULT_REMINDER_SETTINGS),
-              lastEmailNotifiedDate: todayDateStr,
-            },
-          }));
+        if (
+          targetEmail && dailyReminders.length > 0 && currentUser &&
+          !currentUser.isAnonymous &&
+          (!scheduledEmailAttemptRef.current ||
+            scheduledEmailAttemptRef.current.date !== todayDateStr ||
+            Date.now() - scheduledEmailAttemptRef.current.at >= 15 * 60 * 1000)
+        ) {
+          scheduledEmailAttemptRef.current = { date: todayDateStr, at: Date.now() };
+          void (async () => {
+            try {
+              const firebaseIdToken = await currentUser.getIdToken();
+              const result = await dispatchEmailReminder({
+                reminders: dailyReminders,
+                recipientEmail: targetEmail,
+                userName: effectiveUserDisplayName || settings.userName,
+                settings: remSettings,
+                recurrence: remSettings.emailRecurrence || remSettings.recurrence || 'daily',
+                preferredTime: remSettings.emailPreferredTime || remSettings.preferredTime || '08:00',
+                currentDateStr: todayDateStr,
+                currentTimeStr,
+                firebaseIdToken,
+              });
+              if (result.ok) {
+                setSettings((prev) => ({
+                  ...prev,
+                  reminders: {
+                    ...(prev.reminders || DEFAULT_REMINDER_SETTINGS),
+                    lastEmailNotifiedDate: todayDateStr,
+                  },
+                }));
+              }
+            } catch (error) {
+              console.error('Não foi possível enviar o lembrete agendado:', error);
+            }
+          })();
         }
       }
     };
@@ -2976,7 +2994,7 @@ export default function App() {
     checkDailySchedule();
     const timer = setInterval(checkDailySchedule, 60000);
     return () => clearInterval(timer);
-  }, [settings.reminders, todayDateStr, dailyReminders]);
+  }, [settings.reminders, todayDateStr, dailyReminders, currentUser, effectiveUserEmail, effectiveUserDisplayName, settings.userName]);
 
   const handleMarkTransactionPaid = (txId: string) => {
     const target = transactions.find((t) => t.id === txId);
@@ -3629,6 +3647,7 @@ export default function App() {
 
               {activeTab === 'investments' && (
                 <InvestmentsTab
+                  getFirebaseIdToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
                   selectedMonth={selectedMonth}
                   assets={investments}
                   targetMap={investmentTargets}
@@ -3720,6 +3739,7 @@ export default function App() {
 
               {activeTab === 'trips' && (
                 <TripsTab
+                  getFirebaseIdToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
                   trips={trips}
                   transactions={transactions}
                   categories={categories}
@@ -3786,7 +3806,7 @@ export default function App() {
                   onUpdateAccountInitialBalance={handleUpdateAccountInitialBalance}
                   onImportQuickCsvLines={handleImportQuickCsvLines}
                   onOpenReconciliation={handleOpenReconciliation}
-                  onResetToDemoData={handleResetToDemoData}
+                  onResetWorkspaceData={handleResetWorkspaceData}
                 />
               )}
 
@@ -3909,7 +3929,7 @@ export default function App() {
         onSignOut={handleSignOutGoogle}
         onExportFullBackupJson={handleExportFullBackupJson}
         onImportFullBackupJson={handleImportFullBackupJson}
-        onResetToDemoData={handleResetToDemoData}
+        onResetWorkspaceData={handleResetWorkspaceData}
         />}
 
         {/* Daily Reminders & Scheduled Notifications Modal */}
@@ -3920,6 +3940,7 @@ export default function App() {
         settings={settings.reminders || DEFAULT_REMINDER_SETTINGS}
         userEmail={effectiveUserEmail}
         userName={effectiveUserDisplayName || settings.userName}
+        getFirebaseIdToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
         onUpdateReminderSettings={(partial) =>
           setSettings((prev) => ({
             ...prev,

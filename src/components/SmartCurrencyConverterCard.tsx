@@ -53,6 +53,7 @@ interface SmartCurrencyConverterCardProps {
   currency: CurrencyCode;
   defaultExchangeRate: number;
   remainingForeignBalance?: number;
+  getFirebaseIdToken: () => Promise<string>;
   privacyMode?: boolean;
   allowCurrencyChange?: boolean;
   onUseConvertedValue?: (valBrl: number, valForeign: number) => void;
@@ -66,6 +67,7 @@ export const SmartCurrencyConverterCard: React.FC<
   currency,
   defaultExchangeRate,
   remainingForeignBalance = 0,
+  getFirebaseIdToken,
   privacyMode = false,
   allowCurrencyChange = false,
   onUseConvertedValue,
@@ -116,9 +118,13 @@ export const SmartCurrencyConverterCard: React.FC<
     setIsFetchingLiveRate(true);
     setLiveRateError(null);
     try {
+      const firebaseIdToken = await getFirebaseIdToken();
       const response = await fetch('/api/fx/live-rate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${firebaseIdToken}`,
+        },
         body: JSON.stringify({ currency: targetCurr }),
       });
       const data = await response.json();

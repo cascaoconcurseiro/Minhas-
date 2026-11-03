@@ -48,6 +48,7 @@ import {
 } from '../utils/investmentRules';
 
 interface InvestmentsTabProps {
+  getFirebaseIdToken: () => Promise<string>;
   selectedMonth: string;
   assets: InvestmentAsset[];
   targetMap?: InvestmentTargetMap;
@@ -74,6 +75,7 @@ interface InvestmentsTabProps {
 }
 
 export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
+  getFirebaseIdToken,
   selectedMonth,
   assets,
   targetMap = DEFAULT_INVESTMENT_TARGETS,
@@ -164,7 +166,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
         updatedCount,
         quotes,
         sources,
-      } = await syncAssetsWithGoogleFinance(assets, targetAssets);
+      } = await syncAssetsWithGoogleFinance(
+        assets,
+        targetAssets,
+        fetch,
+        await getFirebaseIdToken()
+      );
 
       if (updatedCount > 0) {
         if (onBatchUpdateAssets) {
@@ -226,7 +233,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     setIsLookingUpTicker(true);
     setFormError('');
     try {
-      const { quotes } = await fetchGoogleFinanceQuotes([cleanTicker]);
+      const { quotes } = await fetchGoogleFinanceQuotes(
+        [cleanTicker],
+        fetch,
+        await getFirebaseIdToken()
+      );
       const found = quotes[0];
       if (!found) {
         throw new Error(`Ticker ${cleanTicker} não encontrado no Google Finance.`);
@@ -271,7 +282,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     try {
       const { quotes } = await fetchGoogleFinanceQuotes([
         activeOperation.asset.ticker,
-      ]);
+      ], fetch, await getFirebaseIdToken());
       const found = quotes[0];
       if (found && found.priceBrl > 0) {
         setOpPriceStr(found.priceBrl.toFixed(2).replace('.', ','));

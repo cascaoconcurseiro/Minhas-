@@ -192,29 +192,35 @@ test('formatGoogleFinanceSymbol, parseGoogleFinanceHtmlQuote, applyGoogleFinance
     },
   ];
 
-  const mockFetcher = (async () => ({
-    ok: true,
-    json: async () => ({
-      quotes: [
-        { ticker: 'HGLG11', priceBrl: 164.25, changePercent: 0.42 },
-        { ticker: 'PETR4', priceBrl: 39.1, changePercent: 1.85 },
-      ],
-      fetchedAt: '2026-10-30T12:00:00.000Z',
-      sources: [
-        {
-          uri: 'https://www.google.com/finance/quote/PETR4:BVMF',
-          title: 'Google Finance — PETR4',
-        },
-      ],
-    }),
-  })) as unknown as typeof fetch;
+  let capturedAuthHeader = '';
+  const mockFetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedAuthHeader = new Headers(init?.headers).get('Authorization') || '';
+    return {
+      ok: true,
+      json: async () => ({
+        quotes: [
+          { ticker: 'HGLG11', priceBrl: 164.25, changePercent: 0.42 },
+          { ticker: 'PETR4', priceBrl: 39.1, changePercent: 1.85 },
+        ],
+        fetchedAt: '2026-10-30T12:00:00.000Z',
+        sources: [
+          {
+            uri: 'https://www.google.com/finance/quote/PETR4:BVMF',
+            title: 'Google Finance — PETR4',
+          },
+        ],
+      }),
+    };
+  }) as typeof fetch;
 
   const syncResult = await syncAssetsWithGoogleFinance(
     portfolio,
     undefined,
-    mockFetcher
+    mockFetcher,
+    'test-firebase-id-token'
   );
 
+  assert.equal(capturedAuthHeader, 'Bearer test-firebase-id-token');
   assert.equal(syncResult.updatedCount, 2);
   // Fixed income asset currentPrice remains unchanged (15000)
   assert.equal(syncResult.updatedAssets[0].currentPrice, 15000);

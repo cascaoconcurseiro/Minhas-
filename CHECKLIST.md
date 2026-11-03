@@ -88,3 +88,9 @@
 - [ ] Ensaiar restore integral em branch Neon isolada e validar indisponibilidade/recuperação com banco controlado.
 - [ ] Validar fluxos visuais e responsivos completos no navegador; ferramenta BrowserOS Neo não está disponível nesta sessão.
 - [x] Publicar a correção de health-check e UI em `main`; confirmar o novo payload `services.neon` na URL de produção.
+- [x] Corrigir a exclusão do workspace pessoal para explicar que convites e lançamentos compartilhados em tabelas Neon separadas são preservados; renomear callback sem referência a dados demo.
+- [x] Exigir Firebase ID token nas rotas de lembrete SMTP, câmbio ao vivo e sincronização de cotações; encaminhar token pelos fluxos da interface.
+- [x] Retornar `502` se Nodemailer falhar, em vez de anunciar um e-mail enviado; atualizar a data de envio agendado somente após sucesso e limitar retentativas automáticas a 15 minutos.
+- [x] Testar localmente as três rotas externas sem token: todas responderam 401; testes utilitários confirmam cabeçalhos Bearer em lembretes e cotações.
+- [x] Revalidar 83 testes, lint, build e `git diff --check` depois das mudanças acima.
+- [ ] Publicar as novas proteções de API/SMTP e cópia da limpeza pessoal; confirmar 401 sem token nas rotas na Vercel e smoke autenticado com credencial de teste.

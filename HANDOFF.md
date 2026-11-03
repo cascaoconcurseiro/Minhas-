@@ -1,27 +1,32 @@
 # Handoff — Minhas Economias
 
-## Última sessão — 2026-11-03
-A meta de funcionalidade ponta a ponta continua ativa. O código de correção foi publicado em `main` no commit `90aeccb` (`fix: report health and data status accurately`). CI run `41688048038` e implantação Vercel concluíram com sucesso.
+## Estado atual — 2026-11-03
+Meta ativa: concluir auditoria e validação ponta a ponta com Neon operacional e Firebase Auth. Produção está no commit `90aeccb`; novas correções desta etapa ainda estão locais e sem publicação.
 
-- Corrigi `/api/health` para consultar `public.finance_workspaces`, não usar cache e responder `503` se Neon estiver indisponível. Teste local com URL inválida em `127.0.0.1:1` retornou `503` e `services.neon=error`; após deploy, produção retornou `status: ok` e `services.neon: ok`.
-- Removi login rápido com senha fixa e e-mail/nome pessoais pré-preenchidos; ajustei tamanho mínimo de senha para 6. Corrigi os rótulos para distinguir Firebase Auth, disponibilidade Neon, estado da sincronização, auditoria local e recursos documentados.
-- A remoção de dados demo agora depende de marcadores/IDs explícitos. Registros com nomes e descrições comuns ficam preservados; IDs curtos válidos não são descartados. “Zerar base” exige confirmação explícita em duas etapas.
-- Corrigi mês padrão para calendário local e datas padrão de relatórios; atualizei `security_spec.md` e exemplos de documentação.
-- `bun test`: 83 passaram; `bun run lint`, `bun run build` e `git diff --check` passaram. Build ainda avisa que o chunk inicial ultrapassa 500 kB.
-- Vercel serve o bundle atualizado (`index-DWb8uGWp.js`); os chunks de Conta/Nuvem e Auditoria estão presentes, não contêm o login rápido nem a alegação de produção pronta; o texto “Guia Rápido de Ativação” não aparece no bundle.
-- Smoke não autenticado na produção: `/api/workspace`, `/api/workspace/migrate`, `/api/family/invitations` e `/api/family/shared` retornam 401.
-- Workflow Neon foi executado manualmente em 3/nov (run `41688417355`, commit `90aeccb`) e terminou em sucesso. Isso registra a consulta de hoje, mas não comprova a execução automática. O histórico até então não tinha evento `schedule` do dia.
-- Não houve alteração direta nos dados Neon de produção durante os ensaios locais.
+## Correções locais desta etapa
+- A ação destrutiva agora se chama `handleResetWorkspaceData`/`onResetWorkspaceData` e informa que apaga os dados pessoais do workspace, mas preserva convites e transações familiares que ficam nas tabelas Neon separadas.
+- Exigi Firebase ID token para `/api/reminders/send-email`, `/api/fx/live-rate` e `/api/investments/sync-quotes`. Os fluxos de lembretes, câmbio e cotações encaminham o token obtido do Firebase Auth.
+- SMTP agora retorna `502` se Nodemailer não entregar; não finge envio bem-sucedido. O envio diário só grava `lastEmailNotifiedDate` depois de resposta positiva e retenta após 15 minutos se falhar.
+- Atualizei a especificação de segurança, a documentação da API e o painel interno sobre autenticação e falha SMTP.
+- Verificação local: `bun test` 83 passou, `bun run lint`, `bun run build` e `git diff --check` passaram. O build ainda tem aviso de chunk inicial acima de 500 kB.
+- Smoke local, sem credenciais: `/api/fx/live-rate`, `/api/investments/sync-quotes` e `/api/reminders/send-email` responderam 401 sem Bearer token. Antes de fechar o envio SMTP com auth, um teste controlado em `127.0.0.1:1` confirmou que falha SMTP retorna 502; não houve e-mail real.
+- Ainda não criei commit nem fiz push para essas alterações locais.
 
-## Próximas etapas
-1. No próximo horário `schedule`, confirmar que `.github/workflows/neon-daily-activity.yml` realmente disparou sozinho. A execução manual atual não prova recorrência.
-2. Habilitar/conectar o plugin Neon disponível para criar uma branch de teste isolada; validar concorrência, indisponibilidade e recuperação e restore integral usando dados sintéticos. Não executar restore sobre produção.
-3. Executar validação visual desktop/mobile e fluxos de UI em navegador autorizado. O usuário já dispensou o fluxo familiar de duas contas.
-4. Completar auditoria requisito a requisito de rotas, backup/importação, autenticação, erros e módulos; adicionar testes de comportamento onde a suíte atual não cobre o fluxo integrado.
+## Evidência de produção anterior
+- Commit `90aeccb` foi publicado em `main`; CI `41688048038` e Vercel concluíram com sucesso.
+- `/api/health` em produção retorna `services.neon: ok`, e `/api/workspace`, `/api/workspace/migrate`, `/api/family/invitations` e `/api/family/shared` respondem 401 sem token.
+- Workflow Neon tem execução manual bem-sucedida em 3/nov (`41688417355`). A execução automática `schedule` ainda não apareceu no histórico; a rotina de hoje foi acionada manualmente.
+
+## Próximos passos concretos
+1. Revisar/commitar e publicar as alterações locais; aguardar CI/Vercel e verificar que as novas rotas de serviço retornam 401 sem token na produção.
+2. Fazer smoke com sessão Firebase autorizada para conferir cotação, envio SMTP e persistência sem enviar e-mail real/sem credencial de teste. O comportamento de envio SMTP real precisa de uma conta de teste controlada.
+3. No próximo cron, consultar Actions e obter evidência de evento automático `schedule`.
+4. Quando o plugin Neon estiver conectado, criar branch isolada e validar concorrência, falha/recuperação e restore integral com dados sintéticos; nunca restaurar produção.
+5. Fazer validação visual desktop/mobile no navegador autorizado. O usuário dispensou fluxo familiar ponta a ponta com uma segunda conta.
 
 ## Pendências e limites
-- Falta evidência de execução agendada automática diária; workflow existe e uma execução manual de 3/nov passou.
-- Restore integral, concorrência real e recuperação após falha real do Neon continuam sem validação. O conector Neon ainda não está conectado.
-- Não houve teste visual de navegador nesta sessão.
-- O fluxo familiar ponta a ponta com segunda conta foi dispensado pelo usuário.
-- Build mantém aviso de chunk inicial acima de 500 kB.
+- O conector Neon ainda não está conectado; não é possível criar branch de teste ou executar restore/concorrência real.
+- O cron automático ainda não tem run observado; hoje foi feita execução manual.
+- Não houve teste visual completo no navegador nem aceitação autenticada em Vercel das alterações locais mais recentes.
+- Compartilhamento familiar com segunda conta foi dispensado pelo usuário.
+- O bundle principal segue acima de 500 kB no build local.

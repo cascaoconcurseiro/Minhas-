@@ -49,7 +49,7 @@ interface ReportsAndDataTabProps {
   onUpdateAccountInitialBalance?: (accountId: string, newInitial: number) => void;
   onImportQuickCsvLines: (linesText: string, targetAccountId: string) => number;
   onOpenReconciliation?: () => void;
-  onResetToDemoData: () => void;
+  onResetWorkspaceData: () => void;
 }
 
 type PeriodPreset = 'monthly' | 'quarterly' | 'semiannual' | 'annual' | 'custom';
@@ -137,7 +137,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   userEmail,
   onImportQuickCsvLines,
   onOpenReconciliation,
-  onResetToDemoData,
+  onResetWorkspaceData,
 }) => {
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('semiannual');
   const [customStartMonth, setCustomStartMonth] = useState(() =>
@@ -1206,22 +1206,22 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
-                  Zerar base
+                  Limpar dados pessoais
                 </button>
               ) : (
                 <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2">
                   <span className="text-xs font-medium text-rose-800">
-                    Isso apaga os dados financeiros deste workspace. Exporte um backup antes.
+                    Apaga contas, cartões, lançamentos, metas, investimentos e viagens do workspace pessoal. Convites e lançamentos compartilhados não são apagados. Exporte um backup antes.
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      onResetToDemoData();
+                      onResetWorkspaceData();
                       setConfirmReset(false);
                     }}
                     className="rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700"
                   >
-                    Confirmar limpeza
+                    Confirmar limpeza pessoal
                   </button>
                   <button
                     type="button"

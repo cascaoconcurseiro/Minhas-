@@ -16,8 +16,10 @@
 
 ## API e dados financeiros
 
-- `GET /api/workspace`, criação, importação única e atualização exigem Firebase ID token válido.
+- Rotas de workspace, compartilhamento familiar, lembretes por e-mail, câmbio ao vivo e sincronização de cotações exigem Firebase ID token válido.
+- `/api/health` permanece público e retorna apenas estado agregado, sem identificadores nem erros/credenciais do banco.
 - A criação inicial e a importação legada usam `ON CONFLICT DO NOTHING`; salvamentos usam revisão otimista e retornam `409` se outra gravação venceu.
 - Convites e lançamentos compartilhados residem em tabelas Neon separadas, com RLS por participante.
 - O estado de saúde da API consulta a conexão Neon e a tabela operacional; `503` indica que persistência não está disponível.
+- O endpoint SMTP só informa sucesso quando Nodemailer confirma o envio; falha do provedor retorna `502`.
 - Credenciais SMTP e outras chaves de serviço permanecem em configuração de servidor e não devem ser inseridas no frontend, logs ou repositório.

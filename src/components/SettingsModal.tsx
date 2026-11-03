@@ -48,7 +48,7 @@ interface SettingsModalProps {
   onSignOut?: () => Promise<void>;
   onExportFullBackupJson: () => void;
   onImportFullBackupJson: (jsonText: string) => boolean;
-  onResetToDemoData: () => void;
+  onResetWorkspaceData: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -69,7 +69,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSignOut,
   onExportFullBackupJson,
   onImportFullBackupJson,
-  onResetToDemoData,
+  onResetWorkspaceData,
 }) => {
   const [activeTab, setActiveTab] = useState<
     'appearance' | 'categories' | 'rules' | 'reminders' | 'profile'
@@ -1614,22 +1614,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors ml-auto"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
-                        <span>Zerar Base de Dados (Limpar Tudo)</span>
+                        <span>Apagar dados do workspace pessoal</span>
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 ml-auto">
                         <span className="text-[11px] font-semibold text-rose-700">
-                          Confirmar limpeza?
+                          Apaga dados pessoais. Convites e lançamentos compartilhados ficam preservados. Confirmar?
                         </span>
                         <button
                           type="button"
                           onClick={() => {
-                            onResetToDemoData();
+                            onResetWorkspaceData();
                             setConfirmReset(false);
                           }}
                           className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700"
                         >
-                          Sim, zerar base
+                          Sim, apagar dados pessoais
                         </button>
                         <button
                           type="button"

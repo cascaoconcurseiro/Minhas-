@@ -484,11 +484,13 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
   test('dispatchEmailReminder respects persisted settings (recurrence, time, enabled state, and category filters)', async () => {
     const originalFetch = globalThis.fetch;
     const capturedPayloads: any[] = [];
+    const capturedAuthorizationHeaders: string[] = [];
 
     try {
       globalThis.fetch = (async (_url: any, init: any) => {
         const parsedBody = JSON.parse(init.body);
         capturedPayloads.push(parsedBody);
+        capturedAuthorizationHeaders.push(new Headers(init.headers).get('Authorization') || '');
         return {
           ok: true,
           json: async () => ({
@@ -581,6 +583,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
         },
         currentDateStr: '2026-11-01',
         currentTimeStr: '08:30',
+        firebaseIdToken: 'test-firebase-id-token',
       });
 
       assert.strictEqual(dispatched.ok, true);
@@ -590,6 +593,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
       assert.strictEqual(dispatched.smtpPort, 587);
       assert.strictEqual(dispatched.smtpUser, 'wesley.diaslima@gmail.com');
       assert.strictEqual(capturedPayloads.length, 1);
+      assert.strictEqual(capturedAuthorizationHeaders[0], 'Bearer test-firebase-id-token');
       assert.strictEqual(capturedPayloads[0].to, 'wesley.diaslima@gmail.com');
       assert.strictEqual(capturedPayloads[0].recurrence, 'monthly');
       assert.strictEqual(capturedPayloads[0].preferredTime, '08:00');
@@ -601,8 +605,43 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
         pass: 'app-password-16chars',
         secure: false,
       });
+      await assert.rejects(
+        () => dispatchEmailReminder({
+          reminders: sampleReminders,
+          recipientEmail: 'cliente@example.com',
+          settings: {
+            ...DEFAULT_REMINDER_SETTINGS,
+            smtpHost: 'smtp.example.com',
+            smtpUser: 'sender@example.com',
+            smtpPass: 'example-password',
+          },
+          isTest: true,
+        }),
+        /Entre na sua conta/
+      );
+      assert.strictEqual(capturedPayloads.length, 1);
       assert.strictEqual(capturedPayloads[0].summary.totalCount, 1);
       assert.strictEqual(capturedPayloads[0].summary.totalPendingAmount, 950);
+
+      globalThis.fetch = (async () => ({
+        ok: false,
+        json: async () => ({ error: 'Servidor SMTP indisponível.' }),
+      })) as unknown as typeof fetch;
+      await assert.rejects(
+        () => dispatchEmailReminder({
+          reminders: sampleReminders,
+          recipientEmail: 'cliente@example.com',
+          settings: {
+            ...DEFAULT_REMINDER_SETTINGS,
+            smtpHost: 'smtp.example.com',
+            smtpUser: 'sender@example.com',
+            smtpPass: 'example-password',
+          },
+          firebaseIdToken: 'test-firebase-id-token',
+          isTest: true,
+        }),
+        /Servidor SMTP indisponível/
+      );
 
       // 4) Rejects dispatch if custom SMTP credentials (host, port, user, pass) are missing
       await assert.rejects(

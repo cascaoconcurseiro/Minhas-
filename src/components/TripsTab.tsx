@@ -62,6 +62,7 @@ import { TripPdfReportModal } from './TripPdfReportModal';
 import { generateAndDownloadTripPdf } from '../utils/tripPdfGenerator';
 
 interface TripsTabProps {
+  getFirebaseIdToken: () => Promise<string>;
   trips: Trip[];
   transactions: Transaction[];
   categories: Category[];
@@ -116,6 +117,7 @@ const PARTICIPANT_COLORS = [
 ];
 
 export const TripsTab: React.FC<TripsTabProps> = ({
+  getFirebaseIdToken,
   trips,
   transactions,
   categories,
@@ -1296,6 +1298,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         <div className="animate-fade-in-up" data-testid="trip-inside-quick-converter">
           <SmartCurrencyConverterCard
             exchangeLots={activeTrip.exchangeLots}
+            getFirebaseIdToken={getFirebaseIdToken}
             currency={activeTrip.currency}
             defaultExchangeRate={activeTrip.defaultExchangeRate}
             remainingForeignBalance={summary.remainingForeignWalletBalance}
@@ -2218,6 +2221,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
           {/* Smart Currency Converter Utility in FX Wallet */}
           <SmartCurrencyConverterCard
             exchangeLots={activeTrip.exchangeLots}
+            getFirebaseIdToken={getFirebaseIdToken}
             currency={activeTrip.currency}
             defaultExchangeRate={activeTrip.defaultExchangeRate}
             remainingForeignBalance={summary.remainingForeignWalletBalance}

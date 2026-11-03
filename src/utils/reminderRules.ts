@@ -645,6 +645,7 @@ export async function dispatchEmailReminder(params: {
   currentDateStr?: string;
   currentTimeStr?: string;
   isTest?: boolean;
+  firebaseIdToken?: string;
 }): Promise<DispatchEmailReminderResponse> {
   const persisted = params.settings;
   const effectiveRecurrence: ReminderRecurrence =
@@ -721,6 +722,10 @@ export async function dispatchEmailReminder(params: {
       'Configure suas credenciais SMTP (Host, Porta, Usuário e Senha) nas configurações de e-mail dos lembretes.'
     );
   }
+  const firebaseIdToken = params.firebaseIdToken?.trim();
+  if (!firebaseIdToken) {
+    throw new Error('Entre na sua conta para enviar lembretes por e-mail.');
+  }
 
   const filteredReminders = filterRemindersByPersistedSettings(
     params.reminders,
@@ -740,7 +745,10 @@ export async function dispatchEmailReminder(params: {
 
   const response = await fetch('/api/reminders/send-email', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${firebaseIdToken}`,
+    },
     body: JSON.stringify({
       to: digest.to,
       subject: params.isTest ? `[TESTE] ${digest.subject}` : digest.subject,

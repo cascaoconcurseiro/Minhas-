@@ -86,7 +86,7 @@ O workspace e o compartilhamento familiar são persistidos no Neon. Firebase Aut
 - \`GET /api/health\`: Diagnóstico em tempo real do servidor e serviços.
 - \`POST /api/fx/live-rate\`: Cotação comercial ao vivo via Gemini Google Search Grounding.
 - \`POST /api/investments/sync-quotes\`: Cotações e variação diária do Google Finance / B3.
-- \`POST /api/reminders/send-email\`: Disparo de resumos financeiros via credenciais SMTP do usuário.
+- \`POST /api/reminders/send-email\`: Disparo autenticado de resumos via SMTP; retorna erro se a entrega falhar.
 
 ## 5. Sincronização com GitHub
 \`\`\`bash
