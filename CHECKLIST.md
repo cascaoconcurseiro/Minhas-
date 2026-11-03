@@ -107,13 +107,14 @@
 - [x] Serializar sincronização de despesas e revogação familiar bloqueando a linha do convite aceito durante a escrita; ensaio concorrente real continua pendente em branch Neon isolada.
 - [x] Publicar a serialização entre sincronizar e revogar em `6789504`; CI `41692724273` e Vercel `success`. Health 200/Neon `ok` e endpoints familiares 401 sem token.
 - [ ] Ensaiar a corrida entre sincronizar e revogar com duas sessões em branch Neon isolada.
-- [ ] Confirmar evento automático schedule do workflow diário; em 3/nov o histórico ainda só mostrou execuções workflow_dispatch.
+- [x] Remover o agendamento do GitHub Actions (histórico só mostrava execuções manuais) e transferir a checagem diária para Vercel Cron; a primeira execução automática Vercel permanece pendente.
 - [x] Mover a agenda diária para Cron da Vercel: `GET /api/health` às 12:15 UTC consulta `finance_workspaces`; remover o cron duplicado do GitHub e manter `workflow_dispatch` manual.
 - [x] Publicar em `5a701df`; CI `41693460673` e Vercel `success`. `vercel inspect` mostra Cron `/api/health` com schedule `15 12 * * *`; health de produção 200 com Neon `ok`.
 - [x] Conectar o Neon MCP e criar a branch isolada `qa-synthetic-2026-11-03` (`br-round-surf-b6rbhdmk`) a partir da produção; comparar schema sem diferenças.
 - [x] Criar compute temporário de QA de 0,25 CU, testar duas atualizações SQL concorrentes em tabela sintética e confirmar valor final `2`; suspender o compute após o teste. Nenhuma tabela financeira foi consultada ou alterada.
 - [x] Corrigir proteção SMTP contra SSRF: permitir somente hostname DNS público e portas `25/465/587/2525`, rejeitar DNS misto/privado, fixar IP validado, exigir TLS e aplicar timeout de DNS; documentar que credenciais fornecidas pelo usuário podem integrar o snapshot Neon.
 - [x] Revalidar `bun test` (93 testes), `bun run lint` e `bun run build`; todos passaram. O build ainda alerta sobre o bundle principal acima de 500 kB.
+- [x] Publicar a proteção SMTP em `5f8f6d2`; CI `41694953882` passou. A implantação Vercel de produção foi iniciada e ainda está em build nesta atualização.
 - [ ] Validar revogação e sincronização familiar concorrentes usando a branch isolada; o incremento SQL sintético não cobre essa lógica de API.
 - [ ] Validar SMTP autenticado com servidor de teste, sem entrega real de e-mail.
 - [ ] Observar a primeira execução automática Vercel após a implantação; Hobby executa uma vez por dia com precisão horária.

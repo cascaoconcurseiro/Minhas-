@@ -1,7 +1,7 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria integral com Neon como banco operacional e Firebase Auth. `main`/produção ainda apontavam para `2b43d87` no início desta etapa; há uma correção SMTP local ainda não publicada.
+Meta ativa: concluir auditoria integral com Neon como banco operacional e Firebase Auth. `main` está no commit `5f8f6d2`; CI passou e a implantação Vercel de produção foi iniciada.
 
 ## Trabalho concluído nesta etapa
 - Neon MCP conectado; branch isolada `qa-synthetic-2026-11-03` (`br-round-surf-b6rbhdmk`) criada da produção e schema comparado sem diferenças.
@@ -13,7 +13,7 @@ Meta ativa: concluir auditoria integral com Neon como banco operacional e Fireba
 
 ## Próximo passo concreto
 **Arquivo:** `backend/smtpSecurity.ts`, `backend/app.ts`, `CHECKLIST.md`
-**Ação:** revisar diff, validar smoke SMTP local/rota e commitar/publicar a proteção SMTP; depois usar a branch Neon para exercitar a concorrência real entre `/api/family/shared` e revogação de convite.
+**Ação:** confirmar Vercel `READY` e testar o health/API publicada; depois usar a branch Neon para exercitar a concorrência real entre `/api/family/shared` e revogação de convite.
 
 ## Bloqueios e pendências
 - BrowserOS ainda não foi observado aberto nesta sessão; testes autenticados e inspeção desktop/mobile aguardam essa sessão. A validação com segunda conta foi dispensada pelo usuário.
