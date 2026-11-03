@@ -32,7 +32,8 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - Corrida de requests autenticadas contra Neon, recuperação real após indisponibilidade e importação Firestore legado autenticada seguem sem aceitação ponta a ponta.
 - A auditoria completa não está concluída; manter o objetivo ativo.
 - A branch QA `br-rough-smoke-b6fhm3lh` foi removida e a listagem confirmou apenas `production`.
+- Corrigi a semântica de restore para backups antigos: campos opcionais ausentes agora usam defaults, em vez de manter silenciosamente metas, membros ou preferências do workspace que está sendo substituído. Os 2 novos testes específicos passaram; suíte completa agora tem 102 testes, lint e build passaram.
 
 ## Próximo passo concreto
 
-Executar a primeira verificação do cron depois de `2026-11-04T12:15:00Z` e manter pendente o teste de falha/retry autenticado no navegador, além da restauração UI→API→Neon e demais itens abertos em `CHECKLIST.md`. A interface de automação disponível não expõe bloqueio de rede para a aba autenticada; a validação local de regressão passou.
+Publicar e validar a correção de restore (`src/utils/fullBackup.ts`, `src/App.tsx`); depois preparar novamente branch Neon isolada e testar importação UI→API→Neon sem tocar na produção. A primeira verificação do cron após este deploy será depois de `2026-11-04T12:15:00Z`. Permanecem abertos falha/retry no navegador, dump/restore independente, segurança de roles, revisão visual pixel-level e os itens de `CHECKLIST.md`.

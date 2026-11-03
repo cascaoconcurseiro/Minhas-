@@ -122,7 +122,7 @@ import {
   reverseInstallmentAnticipation,
 } from './utils/uxEnhancementRules';
 import { compactTransactionListForStorage } from './utils/ofxParser';
-import { parseFullFinanceBackup } from './utils/fullBackup';
+import { parseFullFinanceBackup, resolveFullBackupOptionalState } from './utils/fullBackup';
 import {
   calculateDailyReminders,
   DEFAULT_REMINDER_SETTINGS,
@@ -2575,6 +2575,11 @@ export default function App() {
     try {
       const parsed = parseFullFinanceBackup(jsonText);
       if (!parsed) return false;
+      const optionalState = resolveFullBackupOptionalState(parsed, {
+        familyMembers: INITIAL_FAMILY_MEMBERS,
+        investmentTargets: DEFAULT_INVESTMENT_TARGETS,
+        settings: DEFAULT_SETTINGS,
+      });
 
       const repaired = sanitizeAndRepairFinancialState({
         accounts: parsed.accounts,
@@ -2590,22 +2595,11 @@ export default function App() {
       setCategories(parsed.categories as Category[]);
       setTransactions(repaired.transactions);
       setGoals(repaired.goals);
-      if (Array.isArray(parsed.familyMembers)) {
-        setFamilyMembers(
-          stripLegacyMockItems(parsed.familyMembers)
-        );
-      }
+      setFamilyMembers(stripLegacyMockItems(optionalState.familyMembers));
       setInvestments(repaired.investments);
       setTrips(repaired.trips);
-      if (parsed.investmentTargets && typeof parsed.investmentTargets === 'object') {
-        setInvestmentTargets((prev) => ({
-          ...prev,
-          ...parsed.investmentTargets,
-        }));
-      }
-      if (parsed.settings && typeof parsed.settings === 'object') {
-        setSettings((prev) => ({ ...prev, ...parsed.settings }));
-      }
+      setInvestmentTargets(optionalState.investmentTargets);
+      setSettings(optionalState.settings);
       showNotice(
         'Backup carregado nesta sessão. Confira o status da nuvem para confirmar o salvamento no Neon.'
       );

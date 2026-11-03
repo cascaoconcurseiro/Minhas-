@@ -212,4 +212,11 @@
 - [x] Inspecionar DOM/layout renderizado em viewport desktop 1920×921 e móvel 390×844; dashboard e formulário não apresentaram overflow horizontal; no modal, scroller interno de 504 px percorreu 1.293 px até o rodapé, e overlay `z-50` permanece acima da navegação móvel `z-40`.
 - [ ] Capturar e revisar imagem pixel-level do desktop/mobile; captura via CDP/BrowserOS expirou, portanto medições DOM não encerram a revisão visual.
 
+## Sessão 2026-11-03 — semântica de restauração de backup
+- [x] Identificar que restore de backup antigo sem `familyMembers`, `settings` ou `investmentTargets` mantinha valores do workspace de destino, apesar da confirmação dizer que a restauração substitui o workspace.
+- [x] Fazer restore substituir esses campos com defaults seguros; preencher metas de investimento ausentes com o mapa padrão, preservando somente os valores presentes no próprio arquivo.
+- [x] Adicionar testes para backups antigos sem campos opcionais e versões atuais com valores presentes/metas parciais.
+- [x] Validar `bun test` completo: 102 testes passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build mantém aviso de chunk inicial >500 kB.
+- [ ] Publicar e verificar deploy; validar importação/releitura completa UI→API→Neon somente em ambiente isolado.
+
 

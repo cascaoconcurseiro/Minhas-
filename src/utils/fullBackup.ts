@@ -11,6 +11,12 @@ import type {
   Trip,
 } from '../types/finance';
 
+export interface FullBackupDefaults {
+  familyMembers: FamilyMember[];
+  investmentTargets: InvestmentTargetMap;
+  settings: AppSettings;
+}
+
 export interface FullFinanceBackup {
   version: number;
   exportedAt?: string;
@@ -110,4 +116,21 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
   } catch {
     return null;
   }
+}
+
+export function resolveFullBackupOptionalState(
+  backup: FullFinanceBackup,
+  defaults: FullBackupDefaults
+): Required<Pick<FullFinanceBackup, 'familyMembers' | 'investmentTargets' | 'settings'>> {
+  return {
+    familyMembers: backup.familyMembers ?? [],
+    investmentTargets: {
+      ...defaults.investmentTargets,
+      ...(backup.investmentTargets ?? {}),
+    },
+    settings: {
+      ...defaults.settings,
+      ...(backup.settings ?? {}),
+    },
+  };
 }

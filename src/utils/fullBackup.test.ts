@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseFullFinanceBackup } from './fullBackup';
+import { parseFullFinanceBackup, resolveFullBackupOptionalState } from './fullBackup';
+import type { AppSettings, FamilyMember, InvestmentTargetMap } from '../types/finance';
 
 function validBackup() {
   return {
@@ -87,4 +88,76 @@ test('rejects non-object entries in the collections sanitized by the app', () =>
     transactions: [null],
   };
   assert.equal(parseFullFinanceBackup(JSON.stringify(invalidTransaction)), null);
+});
+
+test('restoring an older backup replaces optional workspace fields with defaults instead of keeping destination data', () => {
+  const backup = parseFullFinanceBackup(JSON.stringify({
+    ...validBackup(),
+    version: 3,
+    familyMembers: undefined,
+    investmentTargets: undefined,
+    settings: undefined,
+  }));
+  assert.ok(backup);
+
+  const result = resolveFullBackupOptionalState(backup, {
+    familyMembers: [],
+    investmentTargets: {
+      renda_fixa_pos: 20,
+      renda_fixa_ipca: 20,
+      fiis: 20,
+      acoes_br: 20,
+      exterior_etf: 20,
+    } as InvestmentTargetMap,
+    settings: {
+      theme: 'light',
+      density: 'comfortable',
+      privacyMode: false,
+      showOverviewAlerts: true,
+      alertsExpandedByDefault: true,
+      budgetWarningPercent: 80,
+      userName: 'Você',
+      userPixKey: '',
+    } as AppSettings,
+  });
+
+  assert.deepEqual(result.familyMembers, []);
+  assert.equal(result.investmentTargets.renda_fixa_pos, 20);
+  assert.equal(result.settings.userName, 'Você');
+});
+
+test('restoring a current backup uses its optional values and fills missing investment targets', () => {
+  const backup = parseFullFinanceBackup(JSON.stringify({
+    ...validBackup(),
+    settings: { theme: 'dark', userName: 'Pessoa teste' },
+    investmentTargets: { fiis: 35 },
+  }));
+  assert.ok(backup);
+
+  const defaults = {
+    familyMembers: [] as FamilyMember[],
+    investmentTargets: {
+      renda_fixa_pos: 20,
+      renda_fixa_ipca: 20,
+      fiis: 20,
+      acoes_br: 20,
+      exterior_etf: 20,
+    } as InvestmentTargetMap,
+    settings: {
+      theme: 'light',
+      density: 'comfortable',
+      privacyMode: false,
+      showOverviewAlerts: true,
+      alertsExpandedByDefault: true,
+      budgetWarningPercent: 80,
+      userName: 'Você',
+      userPixKey: '',
+    } as AppSettings,
+  };
+  const result = resolveFullBackupOptionalState(backup, defaults);
+
+  assert.equal(result.settings.theme, 'dark');
+  assert.equal(result.settings.userName, 'Pessoa teste');
+  assert.equal(result.investmentTargets.fiis, 35);
+  assert.equal(result.investmentTargets.renda_fixa_pos, 20);
 });
