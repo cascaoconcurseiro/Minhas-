@@ -15,15 +15,19 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - Acrescentei no harness HTTP local testes de escrita com revisão esperada e falha do pool: primeira gravação revision 2→3, gravação obsoleta recebe 409 sem sobrescrever, e pane simulada retorna 503 sem avançar revision. São verificações da API com pool mock, ainda sem Neon real.
 - A suíte agora tem 98 testes passando; lint e build também passaram, com o aviso conhecido de bundle >500 kB.
 - Revisei o workflow GitHub `neon-daily-activity.yml`: ele só tem `workflow_dispatch` e executou manualmente com `SELECT 1` no run `41688417355`. A agenda diária real é o Cron Vercel `/api/health` às `15 12 * * *` UTC (09:15 São Paulo); aguardar e verificar o disparo automático em 4/nov.
+- Diagnostiquei a falha do carregamento inicial: o timeout visual de 240 ms liberava a área financeira embora o Neon ainda não tivesse carregado; o efeito de cache gravava os arrays iniciais vazios e não existia retry visível. Implementei bloqueio acessível até carga bem-sucedida, botão “Tentar novamente”, retry ao evento `online` e guarda que não sobrescreve cache local antes da carga remota.
+- Testes de regressão conferem o estado bloqueante/retry e a proteção do cache. Suíte completa agora tem 100 testes passando; lint/build passam. Ainda falta validação comportamental de navegador após deploy.
+- Com autorização do usuário, criei branch QA Neon `br-rough-smoke-b6fhm3lh`. Ela copia produção; li apenas contagens agregadas e acrescentei um workspace sintético isolado.
+- Via SQL no Neon com o papel `minhas_app`, gravei payload sintético com transação de QA e confirmei leitura de volta. Escrita condicional avançou revisão 1→2; tentativa sequencial obsoleta retornou zero linhas. Duas instruções SQL paralelas com expectedRevision 2 deram exatamente um update revision 3 e um retorno vazio. Isso prova comportamento SQL real do Neon, mas não concorrência autenticada pela API.
 - Estado Git observado no início: branch `main`, sem alterações locais; commits mais recentes incluem a correção do cartão e documentação da auditoria CRUD.
 
 ## Próximo passo concreto
 
-**Arquivo:** `src/App.tsx`, função `handleImportFullBackupJson`, e fluxo de upload em `src/components/SettingsModal.tsx`.
+**Arquivo:** `src/App.tsx`, estado `workspaceLoadState` e efeito de carga inicial.
 
-**Ação:** validar restauração UI→estado→API→Neon em ambiente isolado: obter autorização da ferramenta para criar branch QA ou configurar clone local apontado a banco de teste; importar fixture sintética, recarregar e comparar os dados persistidos; remover o ambiente de QA após a validação conforme autorização disponível. Não importar fixture no workspace do usuário em produção.
+**Ação:** publicar a correção de indisponibilidade, simular bloqueio de `/api/workspace` na aba de teste, confirmar diálogo bloqueante e retry; liberar API e confirmar workspace carregado. Depois excluir `br-rough-smoke-b6fhm3lh` e validar lista de branches. A integração de restauração browser→API→Neon contra a branch ainda precisa de sessão autenticada isolada.
 
-Em paralelo, obter resposta à confirmação pendente para criar/remover branch Neon QA; depois importar fixture sintética na branch e validar relitura pelo app. A primeira execução automática do Cron é após `2026-11-04T12:15:00Z`.
+Branch QA foi autorizada e a fixture SQL já foi testada. A primeira execução automática do Cron é após `2026-11-04T12:15:00Z`.
 
 ## Pendências e limites
 
@@ -35,3 +39,4 @@ Em paralelo, obter resposta à confirmação pendente para criar/remover branch 
 - Roles `minhas_app`/`minhas_daily` ainda têm `BYPASSRLS` e membership privilegiado; credencial atual não consegue alterar os privilégios.
 - Corrida de requests autenticadas contra Neon, recuperação real após indisponibilidade e importação Firestore legado autenticada seguem sem aceitação ponta a ponta.
 - A auditoria completa não está concluída; manter o objetivo ativo.
+- A branch QA `br-rough-smoke-b6fhm3lh` deve ser removida após os testes browser/deploy desta rodada.

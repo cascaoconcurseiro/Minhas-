@@ -268,6 +268,8 @@ export default function App() {
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
     'local' | 'syncing' | 'synced' | 'error'
   >('syncing');
+  const [workspaceLoadState, setWorkspaceLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [workspaceLoadAttempt, setWorkspaceLoadAttempt] = useState(0);
   const [workspaceConflict, setWorkspaceConflict] = useState<WorkspaceConflictState | null>(null);
   const [isWorkspaceConflictOpen, setIsWorkspaceConflictOpen] = useState(false);
   const [isResolvingWorkspaceConflict, setIsResolvingWorkspaceConflict] = useState(false);
@@ -709,6 +711,7 @@ export default function App() {
 
     hasLoadedRemoteOnceRef.current = false;
     isApplyingRemoteSnapshotRef.current = true;
+    setWorkspaceLoadState('loading');
 
     const docId = autoVaultId;
 
@@ -868,6 +871,7 @@ export default function App() {
         setSettings(parseWorkspaceObject(data.settingsJson, DEFAULT_SETTINGS, 'settingsJson'));
         hasLoadedRemoteOnceRef.current = true;
         isApplyingRemoteSnapshotRef.current = false;
+        setWorkspaceLoadState('ready');
         setCloudSyncStatus('synced');
         setLastSyncedAt(
           typeof data.updatedAt === 'string'
@@ -878,6 +882,7 @@ export default function App() {
       .catch((error) => {
         if (!active) return;
         isApplyingRemoteSnapshotRef.current = false;
+        setWorkspaceLoadState('error');
         setCloudSyncStatus('error');
         console.error(
           'Falha ao carregar o workspace principal do Neon.',
@@ -892,7 +897,14 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId]);
+  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId, workspaceLoadAttempt]);
+
+  useEffect(() => {
+    if (workspaceLoadState !== 'error') return;
+    const retryWhenOnline = () => setWorkspaceLoadAttempt((attempt) => attempt + 1);
+    window.addEventListener('online', retryWhenOnline);
+    return () => window.removeEventListener('online', retryWhenOnline);
+  }, [workspaceLoadState]);
 
   // Poll Neon for family invitations and incoming shared expenses while the app is open.
   useEffect(() => {
@@ -995,24 +1007,26 @@ export default function App() {
   // Save a local cache and persist the authenticated workspace in Neon.
   useEffect(() => {
     if (!effectiveUserEmail) return;
-    try {
-      localStorage.setItem(
-        scopedStorageKey,
-        JSON.stringify({
-          accounts,
-          cards,
-          categories,
-          transactions,
-          goals,
-          familyMembers,
-          investments,
-          investmentTargets,
-          trips,
-          settings,
-        })
-      );
-    } catch {
-      // Ignore quota errors
+    if (hasLoadedRemoteOnceRef.current) {
+      try {
+        localStorage.setItem(
+          scopedStorageKey,
+          JSON.stringify({
+            accounts,
+            cards,
+            categories,
+            transactions,
+            goals,
+            familyMembers,
+            investments,
+            investmentTargets,
+            trips,
+            settings,
+          })
+        );
+      } catch {
+        // Ignore quota errors
+      }
     }
 
     if (
@@ -3032,6 +3046,47 @@ export default function App() {
         settings.density === 'compact' ? 'density-compact' : ''
       }`}
     >
+      {isAuthReady && isUserAuthenticated && effectiveUserEmail && workspaceLoadState !== 'ready' && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="workspace-load-title"
+          aria-describedby="workspace-load-description"
+          className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/70 p-4"
+        >
+          <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            {workspaceLoadState === 'loading' ? (
+              <div role="status" aria-live="polite" className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-4 border-emerald-600 border-r-transparent" />
+            ) : (
+              <div aria-hidden="true" className="mx-auto mb-4 grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-xl font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">!</div>
+            )}
+            <h1 id="workspace-load-title" className="text-lg font-bold text-slate-900 dark:text-white">
+              {workspaceLoadState === 'loading' ? 'Carregando seus dados' : 'Não foi possível carregar seus dados'}
+            </h1>
+            <p id="workspace-load-description" className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {workspaceLoadState === 'loading'
+                ? 'Conectando ao Neon para abrir seu workspace.'
+                : 'Não vamos abrir um workspace vazio nem gravar dados antes de carregar o Neon. Verifique a conexão e tente novamente.'}
+            </p>
+            {workspaceLoadState === 'error' && (
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setWorkspaceLoadAttempt((attempt) => attempt + 1)}
+                className="mt-5 min-h-11 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+              >
+                Tentar novamente
+              </button>
+            )}
+          </section>
+        </div>
+      )}
+      <div
+        className="contents"
+        inert={Boolean(
+          isAuthReady && isUserAuthenticated && effectiveUserEmail && workspaceLoadState !== 'ready'
+        )}
+      >
       {currentUser && !currentUser.isAnonymous && currentUser.email && !currentUser.emailVerified && (
         <div role="status" aria-live="polite" className="fixed left-1/2 top-16 z-[60] w-[min(94vw,44rem)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -4027,6 +4082,7 @@ export default function App() {
         />
         )}
       </Suspense>
+      </div>
     </div>
   );
 }

@@ -195,6 +195,18 @@
 - [x] Conferir o arquivo `.github/workflows/neon-daily-activity.yml` e o histórico GitHub: workflow manual (`workflow_dispatch`) com `SELECT 1`; separar sua execução `41688417355` do Cron diário Vercel, que permanece agendado mas ainda não disparou automaticamente.
 - [x] Acrescentar testes HTTP locais de workspace: revisão 2 salva uma vez e avança para 3; segunda gravação concorrente com revisão 2 recebe `409` e não altera a revisão; erro simulado no banco retorna `503` sem avançar revisão.
 - [x] Reexecutar suíte completa (`bun test`: 98 testes), lint e build após ampliar os testes; passou. Os mocks não representam uma corrida concorrente ou pane reais no Neon.
+
+## Sessão 2026-11-03 — pane no carregamento inicial e branch QA Neon
+- [x] Identificar que uma falha inicial do Neon deixava a UI financeira disponível após 240 ms, sem carregar cache local, e a gravação inicial podia substituir esse cache por estado vazio.
+- [x] Bloquear a área do app até o workspace Neon carregar, mostrar erro com botão de nova tentativa e repetir a carga automaticamente quando o navegador voltar a ficar online.
+- [x] Proteger o cache local para que somente seja sobrescrito depois da primeira carga bem-sucedida do Neon.
+- [x] Acrescentar regressões locais para tela bloqueante, ação de retry, evento `online` e proteção do cache; suíte completa `bun test` passou com 100 testes, lint e build passaram.
+- [x] Com autorização do usuário, criar branch QA Neon `br-rough-smoke-b6fhm3lh` a partir de `production`; manter os testes apenas nessa branch.
+- [x] Na branch QA, inserir workspace sintético com papel `minhas_app`, gravar transação sintética como restore de payload, avançar revisão de 1 para 2, confirmar gravação obsoleta com revisão 1 sem update e ler payload de volta.
+- [x] Disparar duas atualizações Neon reais em paralelo com expectedRevision 2; exatamente uma avançou para revisão 3 e a outra retornou zero linhas, sem sobrescrever o payload restaurado.
+- [ ] Simular perda da API no navegador após publicar a correção; confirmar erro bloqueante, tentativa de retry e reabertura do workspace depois de restabelecer a rede.
+- [ ] Excluir a branch QA Neon depois de concluir os testes e confirmar que só `production` permanece.
+- [ ] Validar restore UI→API→Neon ponta a ponta; o ensaio atual cobre frontend por regressão local e contrato/revisão do DB por Neon SQL, mas não a integração autenticada browser/API contra a branch.
 - [x] Inspecionar DOM/layout renderizado em viewport desktop 1920×921 e móvel 390×844; dashboard e formulário não apresentaram overflow horizontal; no modal, scroller interno de 504 px percorreu 1.293 px até o rodapé, e overlay `z-50` permanece acima da navegação móvel `z-40`.
 - [ ] Capturar e revisar imagem pixel-level do desktop/mobile; captura via CDP/BrowserOS expirou, portanto medições DOM não encerram a revisão visual.
 
