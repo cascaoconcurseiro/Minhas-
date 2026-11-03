@@ -138,6 +138,18 @@
 - [x] Revalidar suíte completa (94 testes), lint, build e `git diff --check`; todos passaram. Build ainda mostra aviso de chunk principal acima de 500 kB.
 - [x] Publicar em `af97e14`; CI GitHub `success`, Vercel `READY` (`dpl_EsqemzuHuCMko1vvCRmXMtYxC5ZH`); alias de produção entrega a faixa nova e health 200 com Neon `ok`.
 
+## Sessão 2026-11-03 — isolamento de API e agenda Vercel
+- [x] Confirmar roles da produção por API Neon e catálogo SQL: `minhas_app` e `minhas_daily` continuam com `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, `REPLICATION` e membership em `neon_superuser`; conexão atual não tem grant/admin para corrigir.
+- [x] Auditar persistência: Firestore só é lido no fluxo pontual de importação quando Neon responde workspace ausente; gravações operacionais permanecem no Neon. Queries de workspace e compartilhamento usam UID/email autenticados explicitamente.
+- [x] Adicionar teste HTTP para isolamento de workspace entre dois UIDs simulados; dono recebe seu estado e outro UID recebe 404, com UID do chamador ligado aos parâmetros SQL.
+- [x] Revalidar suíte completa (95 testes), lint, build e `git diff --check`; passou. Build segue com alerta de chunk principal >500 kB.
+- [x] Confirmar no Vercel `crons list` o job de produção `/api/health` em `15 12 * * *` UTC. A execução programada de 4/nov 12:15 UTC ainda está no futuro.
+- [x] Smoke de produção sem token: workspace, migração, rotas familiares, câmbio, investimentos e lembretes retornam 401; bundle publicado não contém Guia Rápido nem `tx-demo`; health responde 200/Neon `ok`.
+- [ ] Corrigir privilégios das roles Neon com acesso que possa administrar role membership/attributes; não tentar upgrade de plano nem girar credenciais sem avaliar custo e impacto.
+- [ ] Fazer backup/dump portátil e restore independente; o Neon Free atual não permite agenda de snapshots automáticos e PITR está em 6h. O snapshot manual de QA existente expira 4/nov 22:00 UTC.
+- [ ] Confirmar a primeira execução automática do cron depois de 4/nov 12:15 UTC.
+- [ ] Executar inspeção responsiva/autenticada no BrowserOS; nenhuma ferramenta BrowserOS está disponível nesta sessão.
+
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
 - [x] Confirmar com o usuário que todas as contas eram demonstrações; portanto, zero contas/lançamentos é o estado esperado e não se deve restaurar conta Nubank nem saldo.

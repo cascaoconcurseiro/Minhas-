@@ -1,7 +1,7 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção de segurança `af97e14` publicada; CI GitHub e deploy Vercel passaram, health público 200 com Neon `ok` e bundle confirma a faixa de verificação.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção de segurança `af97e14` publicada; testes adicionais locais de isolamento HTTP foram preparados nesta continuação. Produção continua pronta, health 200 com Neon `ok`, rotas privadas 401 sem token e Vercel tem cron diário configurado.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
@@ -14,9 +14,15 @@ Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco opera
 - Não há necessidade de recuperação: o usuário confirmou que todas as contas eram de demonstração.
 - Investigação de segurança confirmou risco no convite por e-mail: Firebase permite token válido de conta ainda sem e-mail verificado, que poderia reivindicar um convite dirigido àquele endereço. A API agora exige `email_verified=true` para todas as rotas familiares; o teste HTTP cobre 403 sem consulta ao Neon e sucesso com identidade verificada.
 - A interface mostra faixa para conta não verificada, permite reenviar a confirmação e atualizar o estado; o cadastro informa que compartilhar requer confirmação. Suíte completa (94), lint, build e diff check passaram localmente. Commit `af97e14` publicado em `main`; CI GitHub `success`, Vercel deploy `READY` e smoke no alias: homepage 200, health 200/Neon `ok`, JS servido contém a faixa e botões de verificação.
+- Nesta continuação confirmei novamente roles de produção no Neon; as roles `minhas_app`/`minhas_daily` seguem com `BYPASSRLS` e membership `neon_superuser`, e o usuário de conexão não tem direito para alterar/revogar. O acesso administrativo de roles ainda é necessário.
+- Auditei o uso do Firebase: além de Auth, Firestore só aparece em `legacyFirestoreMigration` e é consultado no importador legado quando o workspace Neon está ausente; as gravações do app passam pela API Neon.
+- Adicionei teste HTTP que simula dois UIDs: o proprietário recebe o próprio workspace e o segundo UID recebe 404; a query é explicitamente filtrada pelo UID autenticado. Agora 95 testes, lint, build e `git diff --check` passam; bundle principal continua acima de 500 kB.
+- Re-vinculei a CLI Vercel ao projeto (metadado local `.vercel/`, ignorado pelo Git) e confirmei por `vercel crons list` o job real `/api/health` `15 12 * * *`. A primeira execução agendada ainda não ocorreu; hoje é 3/nov UTC e o próximo disparo será 4/nov às 12:15 UTC.
+- Smoke público: sete rotas privadas de workspace/migração/família/serviços retornaram 401 sem token. O asset publicado não contém `Guia Rápido` nem `tx-demo`; health 200 com `services.neon=ok`.
+- Pesquisa da documentação Neon atual confirmou que agendas automáticas de snapshots exigem plano pago; Neon Free continua em PITR de 6h e limite de snapshot manual, então não alterei o plano nem configurei custo. O snapshot de QA anterior expira 4/nov às 22:00 UTC.
 
 ## Próximo passo concreto
-Próxima ação: resolver via Neon Console/API administrativa o excesso de privilégios de `minhas_app` e `minhas_daily`; em 4/nov, verificar a execução automática do Vercel Cron em `15 12 * * *` UTC.
+Próxima ação: substituir a role de runtime por credencial de menor privilégio administrável, depois validar smoke e acesso RLS. Enquanto isso, em 4/nov às 12:15 UTC verificar a primeira execução cron; seguem pendentes backup/restore independente e navegador BrowserOS.
 
 ## Pendências e limites
 - O usuário confirmou que todas as contas existentes eram demos; nenhuma conta precisa ser recuperada.

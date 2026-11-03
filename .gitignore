@@ -12,3 +12,4 @@ coverage/
 verify-*.png
 modal-*.png
 relatorio-*.pdf
+.vercel

@@ -21,6 +21,7 @@ let invitation = {
 };
 const shared = new Map<string, unknown>();
 const sqlLog: string[] = [];
+const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
 
 function restoreEnv(name: keyof typeof oldEnv) {
   const value = oldEnv[name];
@@ -36,8 +37,10 @@ before(async () => {
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     if (String(input).includes('identitytoolkit.googleapis.com')) {
       const authRequest = JSON.parse(String(init?.body || '{}')) as { idToken?: string };
+      const otherUser = authRequest.idToken === 'other-user-test-token';
       return new Response(JSON.stringify({ users: [{
-        localId: 'owner-uid', email: 'owner@example.com',
+        localId: otherUser ? 'other-uid' : 'owner-uid',
+        email: otherUser ? 'other@example.com' : 'owner@example.com',
         emailVerified: authRequest.idToken !== 'unverified-test-token',
       }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -49,6 +52,12 @@ before(async () => {
       query: async (sql: string, params: unknown[] = []) => {
         const normalized = sql.replace(/\s+/g, ' ').trim();
         sqlLog.push(normalized);
+        if (normalized.startsWith('SELECT payload, revision, updated_at')) {
+          workspaceQueries.push({ sql: normalized, params });
+          return params[1] === 'owner-uid'
+            ? { rows: [{ payload: { accountsJson: '[]' }, revision: 2, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
+            : { rows: [], rowCount: 0 };
+        }
         if (normalized.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) {
           return { rows: invitation.status === 'accepted' ? [{ ...invitation }] : [], rowCount: 1 };
         }
@@ -126,4 +135,24 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
   assert.deepEqual(await revoked.json(), { ok: true });
   assert.equal(shared.size, 0);
   assert.equal(invitation.status, 'revoked');
+});
+
+test('API de workspace mantém leituras isoladas pelo UID autenticado', async () => {
+  const ownerResponse = await originalFetch(`${baseUrl}/api/workspace`, {
+    headers: { Authorization: 'Bearer local-test-token' },
+  });
+  assert.equal(ownerResponse.status, 200);
+  const ownerWorkspace = await ownerResponse.json() as { revision: number; payload: { accountsJson: string } };
+  assert.equal(ownerWorkspace.revision, 2);
+  assert.equal(ownerWorkspace.payload.accountsJson, '[]');
+
+  const otherResponse = await originalFetch(`${baseUrl}/api/workspace`, {
+    headers: { Authorization: 'Bearer other-user-test-token' },
+  });
+  assert.equal(otherResponse.status, 404);
+
+  const otherQuery = workspaceQueries.at(-1);
+  assert.ok(otherQuery);
+  assert.match(otherQuery.sql, /WHERE vault_id = \$1 AND owner_firebase_uid = \$2/);
+  assert.equal(otherQuery.params[1], 'other-uid');
 });
