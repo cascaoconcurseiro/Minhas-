@@ -797,17 +797,28 @@ async function startServer() {
     }
   });
 
-  // Real-Time Production Health & Readiness Endpoint
-  app.get('/api/health', (_req, res) => {
+  // Readiness checks the database connection and required workspace table.
+  app.get('/api/health', async (_req, res) => {
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
-    res.json({
-      status: 'ok',
+    let neonStatus: 'ok' | 'error' = 'error';
+    try {
+      await getNeonPool().query('SELECT 1 FROM public.finance_workspaces LIMIT 0');
+      neonStatus = 'ok';
+    } catch {
+      // Do not expose connection strings or database errors from a public health route.
+    }
+
+    const ready = neonStatus === 'ok';
+    res.set('Cache-Control', 'no-store');
+    res.status(ready ? 200 : 503).json({
+      status: ready ? 'ok' : 'degraded',
       environment: process.env.NODE_ENV || 'development',
       geminiConfigured: hasGeminiKey,
       services: {
         liveFxSearch: hasGeminiKey,
         googleFinanceSync: true,
         neonConfigured: Boolean(process.env.DATABASE_URL),
+        neon: neonStatus,
       },
       checkedAt: new Date().toISOString(),
     });

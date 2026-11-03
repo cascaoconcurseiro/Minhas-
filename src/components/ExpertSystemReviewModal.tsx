@@ -26,6 +26,7 @@ import {
   Trip,
 } from '../types/finance';
 import { runFinancialIntegrityAudit } from '../utils/travelRules';
+import { summarizeBackendHealth } from '../utils/backendHealth';
 
 interface ExpertSystemReviewModalProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
   investments = [],
   goals = [],
   trips = [],
-  cloudSyncStatus = 'synced',
+  cloudSyncStatus = 'local',
   lastSyncedAt = null,
   onRunDiagnosticAndRepair,
 }) => {
@@ -81,33 +82,37 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
 
   const [apiHealth, setApiHealth] = useState<{
     status: 'checking' | 'ok' | 'error';
+    neonStatus: 'checking' | 'ok' | 'error';
     geminiConfigured: boolean;
     checkedAt: string | null;
   }>({
     status: 'checking',
+    neonStatus: 'checking',
     geminiConfigured: false,
     checkedAt: null,
   });
   const [scanResultMessage, setScanResultMessage] = useState<string | null>(null);
+  const [scanResultTone, setScanResultTone] = useState<'success' | 'warning'>('success');
 
-  const checkBackendHealth = async () => {
-    setApiHealth((prev) => ({ ...prev, status: 'checking' }));
+  const checkBackendHealth = async (): Promise<boolean> => {
+    setApiHealth((prev) => ({ ...prev, status: 'checking', neonStatus: 'checking' }));
     try {
-      const res = await fetch('/api/health');
-      if (!res.ok) throw new Error('Falha HTTP');
-      const data = await res.json();
+      const res = await fetch('/api/health', { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      const summary = summarizeBackendHealth(res.ok, data);
       setApiHealth({
-        status: data.status === 'ok' ? 'ok' : 'error',
-        geminiConfigured: Boolean(data.geminiConfigured),
+        ...summary,
         checkedAt: new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
         }),
       });
+      return summary.status === 'ok';
     } catch {
       setApiHealth({
         status: 'error',
+        neonStatus: 'error',
         geminiConfigured: false,
         checkedAt: new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
@@ -115,6 +120,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
           second: '2-digit',
         }),
       });
+      return false;
     }
   };
 
@@ -148,21 +154,31 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
 
   const handleRunVerifierNow = async () => {
     setScanResultMessage(null);
-    await checkBackendHealth();
-    if (onRunDiagnosticAndRepair) {
-      const res = onRunDiagnosticAndRepair();
-      if (res.repairedCount > 0) {
-        setScanResultMessage(
-          `Auto-reparo executado: ${res.repairedCount} inconsistência(s) corrigida(s) (${res.repairedLog.join(' ')})`
-        );
-      } else {
-        setScanResultMessage(
-          `Verificação completa concluída às ${new Date().toLocaleTimeString('pt-BR')}: 0 problemas encontrados. Base 100% real, sem dados mock e pronta para produção.`
-        );
-      }
-    } else {
+    const backendHealthy = await checkBackendHealth();
+    if (!onRunDiagnosticAndRepair) {
+      setScanResultTone('warning');
+      setScanResultMessage('A auditoria local não foi executada porque o diagnóstico não está disponível nesta tela.');
+      return;
+    }
+    const result = onRunDiagnosticAndRepair();
+    const localResult = result.repairedCount > 0
+      ? `${result.repairedCount} inconsistência(s) local(is) corrigida(s): ${result.repairedLog.join(' ')}`
+      : 'Nenhuma inconsistência encontrada nos dados locais.';
+
+    if (!backendHealthy || cloudSyncStatus === 'error') {
+      setScanResultTone('warning');
       setScanResultMessage(
-        'Verificação concluída: 0 problemas encontrados. Sistema pronto para produção.'
+        `Auditoria local concluída. ${localResult} A API/Neon não confirmou disponibilidade; os dados locais foram preservados e a sincronização não está confirmada.`
+      );
+    } else if (result.repairedCount > 0 || cloudSyncStatus !== 'synced') {
+      setScanResultTone('warning');
+      setScanResultMessage(
+        `Auditoria local concluída. ${localResult} Aguarde o indicador de sincronização confirmar a gravação no Neon.`
+      );
+    } else {
+      setScanResultTone('success');
+      setScanResultMessage(
+        `Auditoria local concluída às ${new Date().toLocaleTimeString('pt-BR')}: nenhum problema encontrado. API, conexão Neon e último status de sincronização confirmados.`
       );
     }
   };
@@ -186,7 +202,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Verificador em Tempo Real & Saúde de Produção
+              Auditoria Local & Estado dos Serviços
             </div>
             <h2
               id="expert-review-modal-title"
@@ -219,7 +235,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
               }`}
             >
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              1. Verificador em Tempo Real ({auditReport.passedChecks}/{auditReport.totalChecks} OK)
+              1. Auditoria de Dados Locais ({auditReport.passedChecks}/{auditReport.totalChecks} OK)
             </button>
             <button
               type="button"
@@ -245,7 +261,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
               }`}
             >
               <Layers className="h-3.5 w-3.5" />
-              3. Módulos de Produção
+              3. Módulos do Aplicativo
             </button>
           </div>
 
@@ -277,23 +293,23 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
           {activeSection === 'live_verifier' && (
             <div className="space-y-4">
               {/* Top Action & Status Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border p-4 ${auditReport.isAllHealthy ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-2 py-0.5 text-[11px] font-bold text-white">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-bold text-white ${auditReport.isAllHealthy ? 'bg-emerald-600' : 'bg-amber-700'}`}>
+                      {auditReport.isAllHealthy ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                       {auditReport.isAllHealthy
-                        ? 'Sistema 100% Íntegro para Produção'
+                        ? 'Dados locais sem pendências'
                         : `${auditReport.totalIssuesFound} Pendência(s) Detectada(s)`}
                     </span>
                     {apiHealth.checkedAt && (
-                      <span className="text-[11px] font-mono text-emerald-800">
-                        Verificado às {apiHealth.checkedAt}
+                      <span className="text-[11px] font-mono text-slate-700">
+                        Checagem API/Neon às {apiHealth.checkedAt}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-emerald-900 mt-1">
-                    O motor contábil audita automaticamente lançamentos, faturas, contas internacionais, rateios de viagem, ativos e garante zero dados mock.
+                  <p className="text-xs text-slate-800 mt-1">
+                    A auditoria examina os dados carregados nesta sessão. A conexão do banco e a sincronização aparecem em estados separados.
                   </p>
                 </div>
 
@@ -310,9 +326,9 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
 
               {scanResultMessage && (
                 <div
-                  role="status"
+                  role={scanResultTone === 'warning' ? 'alert' : 'status'}
                   data-testid="modal-verifier-result"
-                  className="rounded-xl border border-emerald-300 bg-emerald-100/70 px-4 py-2.5 text-xs font-bold text-emerald-950 flex items-center gap-2"
+                  className={`rounded-xl border px-4 py-2.5 text-xs font-bold flex items-center gap-2 ${scanResultTone === 'warning' ? 'border-amber-300 bg-amber-100/70 text-amber-950' : 'border-emerald-300 bg-emerald-100/70 text-emerald-950'}`}
                 >
                   <Sparkles className="h-4 w-4 text-emerald-700 shrink-0" />
                   <span>{scanResultMessage}</span>
@@ -330,14 +346,18 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                       </span>
                       <span className="font-bold text-slate-900">
                         {apiHealth.status === 'ok'
-                          ? 'Online (/api/health OK)'
+                          ? 'API e Neon respondendo'
                           : apiHealth.status === 'checking'
                           ? 'Verificando...'
-                          : 'Ativo'}
+                          : 'API/Neon indisponível'}
                       </span>
                     </div>
                   </div>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  {apiHealth.status === 'ok' ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-slate-200 p-3.5 flex items-center justify-between bg-slate-50/70">
@@ -348,13 +368,21 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                         Google Finance & Câmbio
                       </span>
                       <span className="font-bold text-slate-900">
-                        {apiHealth.geminiConfigured
-                          ? 'Cotações em Tempo Real Ativas'
-                          : 'Sincronizador Pronto'}
+                      {apiHealth.status === 'checking'
+                          ? 'Verificando...'
+                          : apiHealth.geminiConfigured
+                          ? 'Gemini configurado'
+                          : 'Cotações Gemini indisponíveis'}
                       </span>
                     </div>
                   </div>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  {apiHealth.status === 'checking' ? (
+                    <RefreshCw className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
+                  ) : apiHealth.geminiConfigured ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-slate-200 p-3.5 flex items-center justify-between bg-slate-50/70">
@@ -365,15 +393,27 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                         Neon PostgreSQL
                       </span>
                       <span className="font-bold text-slate-900">
-                        {cloudSyncStatus === 'synced'
+                        {apiHealth.neonStatus === 'checking'
+                          ? 'Verificando Neon...'
+                          : apiHealth.neonStatus === 'error'
+                          ? 'Neon indisponível'
+                          : cloudSyncStatus === 'synced'
                           ? 'Sincronizado em Nuvem'
                           : cloudSyncStatus === 'syncing'
                           ? 'Sincronizando...'
-                          : 'Cofre Ativo'}
+                          : cloudSyncStatus === 'error'
+                          ? 'Falha na sincronização'
+                          : 'Aguardando sincronização'}
                       </span>
                     </div>
                   </div>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  {apiHealth.neonStatus === 'checking' ? (
+                    <RefreshCw className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
+                  ) : apiHealth.neonStatus === 'ok' ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+                  )}
                 </div>
               </div>
 
@@ -483,7 +523,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                   {
                     title: 'Visão Geral & Fluxo Mensal',
                     tab: 'overview' as const,
-                    status: 'Pronto p/ Produção',
+                    status: 'Requer validação',
                     desc: 'Saldos reais vs projetados, contas a pagar/receber com reversão rápida, termômetro de orçamento e Modo Foco.',
                   },
                   {
@@ -501,7 +541,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                   {
                     title: 'Investimentos + Google Finance Sync',
                     tab: 'investments' as const,
-                    status: 'Cotações B3 em Tempo Real',
+                    status: 'Cotações externas',
                     desc: 'Sincronização automática de Ações, FIIs e ETFs com o Google Finance, cálculo de dividendos e rebalanceamento.',
                   },
                   {
@@ -524,8 +564,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                     <div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-slate-900">{item.title}</span>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                          <CheckCircle2 className="h-3 w-3" />
+                        <span className="inline-flex items-center rounded-md bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
                           {item.status}
                         </span>
                       </div>
@@ -551,7 +590,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-5 sm:px-6 py-3.5 shrink-0">
           <span className="text-xs text-slate-500">
-            Status: <strong>{auditReport.passedChecks}/{auditReport.totalChecks} verificações aprovadas</strong> • Base 100% livre de dados mock
+            Auditoria local: <strong>{auditReport.passedChecks}/{auditReport.totalChecks} verificações aprovadas</strong> • Neon verificado separadamente
           </span>
           <button
             type="button"

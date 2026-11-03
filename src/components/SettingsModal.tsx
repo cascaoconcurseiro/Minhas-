@@ -1526,10 +1526,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
                         <span className="block text-xs font-bold text-slate-800">
-                          Sessão Conectada: {userEmail || 'Conta Sincronizada'}
+                          Sessão Conectada: {userEmail || 'Conta autenticada'}
                         </span>
                         <span className="block text-[11px] text-slate-500">
-                          Sincronização automática em segundo plano ativa
+                          Sessão autenticada. Consulte Conta e Nuvem para ver o estado do Neon.
                         </span>
                       </div>
                       <button
@@ -1650,7 +1650,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Footer */}
         <div className="shrink-0 flex items-center justify-between border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-6 py-3.5 pb-[max(env(safe-area-inset-bottom),0.875rem)]">
           <span className="text-[11px] text-slate-500">
-            Todas as alterações são salvas automaticamente na nuvem e neste dispositivo
+            As alterações são salvas neste dispositivo; o status indica quando o Neon confirmar a sincronização.
           </span>
           <button
             type="button"

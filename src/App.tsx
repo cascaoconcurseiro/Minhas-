@@ -134,7 +134,7 @@ import {
   summarizeReminders,
 } from './utils/reminderRules';
 import {
-  isLegacyMockRecord,
+  stripLegacyMockRecords,
   sanitizeAndRepairFinancialState,
 } from './utils/travelRules';
 
@@ -168,20 +168,7 @@ interface UndoHistoryEntry {
 const STORAGE_KEY = 'minhas_economias_br_state_v6';
 
 function stripLegacyMockItems<T extends { id: string }>(items: T[]): T[] {
-  return items.filter((item) => {
-    if (!item || typeof item.id !== 'string') {
-      return false;
-    }
-    const isCrossAccountSyncId =
-      item.id.startsWith('fam-inv-') || item.id.startsWith('tx-mirror-');
-    if (!isCrossAccountSyncId && !/\d{10,}/.test(item.id)) {
-      return false;
-    }
-    if (isLegacyMockRecord(item)) {
-      return false;
-    }
-    return true;
-  });
+  return stripLegacyMockRecords(items);
 }
 
 function stripLegacyMockItemsFromWorkspace(
@@ -2648,11 +2635,11 @@ export default function App() {
       setInvestments(result.investments);
       setTrips(result.trips);
       showNotice(
-        `Verificador do sistema: ${result.repairedCount} inconsistência(s) corrigida(s) automaticamente.`
+        `Auditoria local: ${result.repairedCount} inconsistência(s) corrigida(s). Confira o indicador de sincronização para confirmar o Neon.`
       );
     } else {
       showNotice(
-        'Verificador do sistema: 0 problemas encontrados. Base 100% íntegra e pronta para produção.',
+        'Auditoria local: nenhuma inconsistência encontrada nos dados carregados nesta sessão.',
         undefined,
         true
       );
@@ -2740,7 +2727,7 @@ export default function App() {
       case 'cloud':
         return {
           title: 'Conta, Login & Nuvem',
-          subtitle: 'Sincronização automática Firebase e Auditoria SSOT de Regras Financeiras',
+          subtitle: 'Firebase Auth, sincronização Neon e auditoria dos dados carregados',
         };
     }
   }, [activeTab]);
@@ -3248,8 +3235,8 @@ export default function App() {
                   type="button"
                   data-testid="header-system-verifier-btn"
                   onClick={() => setIsExpertReviewOpen(true)}
-                  aria-label="Abrir verificador de saúde do sistema em tempo real"
-                  title="Verificador em Tempo Real & Saúde de Produção"
+                  aria-label="Abrir auditoria local e estado dos serviços"
+                  title="Auditoria de dados locais e estado dos serviços"
                   className="rounded-md p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
                 >
                   <ShieldCheck className="h-4 w-4" />
@@ -3584,7 +3571,7 @@ export default function App() {
                     settings.userName !== 'Você' &&
                     settings.userName !== 'Minha Conta'
                       ? settings.userName
-                      : effectiveUserDisplayName || 'Wesley'
+                      : effectiveUserDisplayName || undefined
                   }
                   monthlySummary={monthlySummary}
                   accounts={accounts}

@@ -28,6 +28,7 @@ import {
   Trip,
 } from '../types/finance';
 import { runFinancialIntegrityAudit } from '../utils/travelRules';
+import { summarizeBackendHealth } from '../utils/backendHealth';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
 
 interface AuthAndCloudTabProps {
@@ -80,12 +81,8 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   onRunDiagnosticAndRepair,
 }) => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [nameInput, setNameInput] = useState(
-    userDisplayName || settings.userName || 'Wesley'
-  );
-  const [emailInput, setEmailInput] = useState(
-    userEmail || 'wesley.diaslima@gmail.com'
-  );
+  const [nameInput, setNameInput] = useState(userDisplayName || settings.userName || '');
+  const [emailInput, setEmailInput] = useState(userEmail || '');
   const [passwordInput, setPasswordInput] = useState('');
   const [pixInput, setPixInput] = useState(settings.userPixKey || '');
   const [authFeedback, setAuthFeedback] = useState<{
@@ -97,33 +94,49 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   // Real-time backend API health state
   const [apiHealth, setApiHealth] = useState<{
     status: 'checking' | 'ok' | 'error';
+    neonStatus: 'checking' | 'ok' | 'error';
     geminiConfigured: boolean;
     checkedAt: string | null;
   }>({
     status: 'checking',
+    neonStatus: 'checking',
     geminiConfigured: false,
     checkedAt: null,
   });
   const [repairFeedback, setRepairFeedback] = useState<string | null>(null);
+  const cloudStatusTone = apiHealth.neonStatus === 'checking'
+    ? 'checking'
+    : apiHealth.neonStatus === 'error' || cloudSyncStatus === 'error'
+    ? 'error'
+    : cloudSyncStatus;
 
-  const checkBackendHealth = async () => {
-    setApiHealth((prev) => ({ ...prev, status: 'checking' }));
+  useEffect(() => {
+    setEmailInput(userEmail || '');
+  }, [userEmail]);
+
+  useEffect(() => {
+    setNameInput(userDisplayName || settings.userName || '');
+  }, [userDisplayName, settings.userName]);
+
+  const checkBackendHealth = async (): Promise<boolean> => {
+    setApiHealth((prev) => ({ ...prev, status: 'checking', neonStatus: 'checking' }));
     try {
-      const res = await fetch('/api/health');
-      if (!res.ok) throw new Error('Falha HTTP');
-      const data = await res.json();
+      const res = await fetch('/api/health', { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      const summary = summarizeBackendHealth(res.ok, data);
       setApiHealth({
-        status: data.status === 'ok' ? 'ok' : 'error',
-        geminiConfigured: Boolean(data.geminiConfigured),
+        ...summary,
         checkedAt: new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
         }),
       });
+      return summary.status === 'ok';
     } catch {
       setApiHealth({
         status: 'error',
+        neonStatus: 'error',
         geminiConfigured: false,
         checkedAt: new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
@@ -131,6 +144,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
           second: '2-digit',
         }),
       });
+      return false;
     }
   };
 
@@ -158,33 +172,32 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
 
   const handleRunFullScanAndRepair = async () => {
     setRepairFeedback(null);
-    await checkBackendHealth();
+    const backendHealthy = await checkBackendHealth();
+    let repairedCount = 0;
+    let repairedLog: string[] = [];
     if (onRunDiagnosticAndRepair) {
       const result = onRunDiagnosticAndRepair();
-      if (result.repairedCount > 0) {
-        setRepairFeedback(
-          `Varredura concluída: ${result.repairedCount} inconsistência(s) corrigida(s) automaticamente (${result.repairedLog.join(' ')})`
-        );
-      } else {
-        setRepairFeedback(
-          'Varredura completa executada agora: 0 problemas encontrados. Base 100% íntegra, sincronizada e pronta para produção.'
-        );
-      }
-    } else {
-      setRepairFeedback(
-        'Varredura concluída: 0 problemas encontrados. Base 100% íntegra.'
-      );
+      repairedCount = result.repairedCount;
+      repairedLog = result.repairedLog;
     }
     await onForceCloudSync();
+    const localResult = repairedCount > 0
+      ? `${repairedCount} inconsistência(s) local(is) corrigida(s): ${repairedLog.join(' ')}`
+      : 'Nenhuma inconsistência local encontrada.';
+    setRepairFeedback(
+      backendHealthy
+        ? `Auditoria local concluída. ${localResult} A API e o Neon responderam; confira abaixo o estado da última sincronização do workspace.`
+        : `Auditoria local concluída. ${localResult} O Neon não confirmou disponibilidade; os dados locais foram preservados e a sincronização pode estar pendente.`
+    );
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
-    if (!emailInput.trim() || passwordInput.length < 4) {
+    if (!emailInput.trim() || passwordInput.length < 6) {
       setAuthFeedback({
         type: 'error',
-        message: 'Informe um e-mail válido e uma senha com pelo menos 4 caracteres.',
+        message: 'Informe um e-mail válido e uma senha com pelo menos 6 caracteres.',
       });
       return;
     }
@@ -217,22 +230,6 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
     }
   };
 
-  const handleQuickLogin = async () => {
-    setAuthFeedback(null);
-    setIsSubmitting(true);
-    try {
-      const targetEmail =
-        emailInput.trim() || userEmail || 'wesley.diaslima@gmail.com';
-      await onSignInEmail(targetEmail, '123456');
-      setAuthFeedback({
-        type: 'success',
-        message: `Sessão autenticada como ${targetEmail} com sincronização automática ativa!`,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleLogoutClick = async () => {
     await onSignOut();
     setAuthFeedback({
@@ -250,7 +247,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
     });
     setAuthFeedback({
       type: 'success',
-      message: 'Perfil e chave PIX atualizados e sincronizados na nuvem!',
+      message: 'Perfil salvo nesta sessão. Confira o indicador do Neon para confirmar a sincronização.',
     });
   };
 
@@ -261,14 +258,16 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${cloudSyncStatus === 'error' ? 'bg-rose-500/20 border-rose-400/30 text-rose-200' : 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300'}`}>
-                <span className={`h-2 w-2 rounded-full animate-pulse ${cloudSyncStatus === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`} />
-                {cloudSyncStatus === 'synced'
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${cloudStatusTone === 'error' ? 'bg-rose-500/20 border-rose-400/30 text-rose-200' : cloudStatusTone === 'synced' ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' : 'bg-amber-500/20 border-amber-400/30 text-amber-200'}`}>
+                <span className={`h-2 w-2 rounded-full ${cloudStatusTone === 'syncing' || cloudStatusTone === 'checking' ? 'animate-pulse' : ''} ${cloudStatusTone === 'error' ? 'bg-rose-400' : cloudStatusTone === 'synced' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                {cloudStatusTone === 'checking'
+                  ? 'Verificando Neon...'
+                  : cloudStatusTone === 'synced'
                   ? 'Dados sincronizados com Neon'
-                  : cloudSyncStatus === 'syncing'
+                  : cloudStatusTone === 'syncing'
                   ? 'Sincronizando em Tempo Real...'
-                  : cloudSyncStatus === 'error'
-                  ? 'Falha na nuvem — dados locais preservados'
+                  : cloudStatusTone === 'error'
+                  ? 'Neon ou sincronização indisponível'
                   : 'Cofre local — aguardando sincronização'}
               </span>
               <span
@@ -289,7 +288,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
             </div>
 
             <h2 className="text-lg sm:text-xl font-extrabold font-display tracking-tight">
-              Central de Conta, Nuvem & Verificador de Produção em Tempo Real
+              Central de Conta, Nuvem & Auditoria Local
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
               Firebase Auth protege o acesso. Contas, lançamentos e demais dados financeiros são persistidos no PostgreSQL do Neon.
@@ -367,7 +366,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         </div>
       )}
 
-      {/* Main Grid: Left = Login / Account / Logout | Right = Real-Time System Health & SSOT Verifier */}
+      {/* Main Grid: Left = Login / Account / Logout | Right = Local Data Audit & Service Health */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Column (5 cols): Login, Registration, Profile & Session Management */}
         <div className="lg:col-span-5 space-y-4">
@@ -395,7 +394,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     {isNamedAccountLoggedIn
-                      ? 'Você está autenticado e sincronizado em tempo real'
+                      ? 'Sessão autenticada. Confira abaixo o estado do Neon e da sincronização.'
                       : 'Faça login com Google ou E-mail e Senha para sincronizar'}
                   </p>
                 </div>
@@ -478,7 +477,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     type="button"
                     data-testid="google-login-btn"
@@ -489,15 +488,6 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                     <span>Entrar com Google</span>
                   </button>
 
-                  <button
-                    type="button"
-                    data-testid="quick-login-btn"
-                    onClick={() => void handleQuickLogin()}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 px-3.5 py-2.5 text-xs font-bold text-emerald-800 dark:text-emerald-200 transition-all"
-                  >
-                    <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Reconectar Sessão</span>
-                  </button>
                 </div>
 
                 <div className="relative flex py-1 items-center">
@@ -581,10 +571,10 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                       <input
                         type="password"
                         required
-                        minLength={4}
+                        minLength={6}
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder="Digite sua senha (mín. 4 caracteres)"
+                        placeholder="Digite sua senha (mín. 6 caracteres)"
                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-9 pr-3 py-2 text-slate-900 dark:text-white"
                       />
                     </div>
@@ -611,7 +601,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
           </div>
         </div>
 
-        {/* Right Column (7 cols): Real-Time Production Health & Financial Integrity Verifier */}
+        {/* Right Column (7 cols): Local Financial Integrity & Service Health */}
         <div className="lg:col-span-7 space-y-4">
           <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -621,10 +611,10 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white font-display">
-                    Verificador do Sistema em Tempo Real & Auditoria SSOT
+                    Auditoria Local e Estado dos Serviços
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Inspeção contínua de integridade contábil, nuvem, APIs e zero dados mock
+                    Integridade dos dados carregados nesta sessão; conexão e sincronização são verificadas separadamente.
                   </p>
                 </div>
               </div>
@@ -662,7 +652,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                         ? 'Online (Pronto)'
                         : apiHealth.status === 'checking'
                         ? 'Verificando...'
-                        : 'Modo Local'}
+                        : 'API indisponível'}
                     </span>
                   </div>
                 </div>
@@ -685,11 +675,21 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                       Google Finance & Câmbio
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {apiHealth.geminiConfigured ? 'Ativo em Tempo Real' : 'Pronto'}
+                      {apiHealth.status === 'checking'
+                        ? 'Verificando...'
+                        : apiHealth.geminiConfigured
+                        ? 'Gemini configurado'
+                        : 'Cotações Gemini indisponíveis'}
                     </span>
                   </div>
                 </div>
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                {apiHealth.status === 'checking' ? (
+                  <RefreshCw className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
+                ) : apiHealth.geminiConfigured ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                )}
               </div>
 
               <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3 flex items-center justify-between">
@@ -700,15 +700,27 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                       Neon PostgreSQL
                     </span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {cloudSyncStatus === 'synced'
+                      {apiHealth.neonStatus === 'checking'
+                        ? 'Verificando Neon...'
+                        : apiHealth.neonStatus === 'error'
+                        ? 'Neon indisponível'
+                        : cloudSyncStatus === 'synced'
                         ? 'Sincronizado'
                         : cloudSyncStatus === 'syncing'
                         ? 'Sincronizando...'
-                        : 'Persistência Local'}
+                        : cloudSyncStatus === 'error'
+                        ? 'Falha na sincronização'
+                        : 'Aguardando sincronização'}
                     </span>
                   </div>
                 </div>
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                {apiHealth.neonStatus === 'checking' ? (
+                  <RefreshCw className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
+                ) : apiHealth.neonStatus === 'ok' ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+                )}
               </div>
             </div>
 

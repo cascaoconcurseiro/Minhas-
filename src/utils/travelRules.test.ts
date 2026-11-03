@@ -11,12 +11,39 @@ import {
   getLatestExchangeRateInfo,
   parseLiveExchangeRateFromText,
   compareLiveRateWithTripVet,
+  isLegacyMockRecord,
+  stripLegacyMockRecords,
   runFinancialIntegrityAudit,
   sanitizeAndRepairFinancialState,
 } from './travelRules';
 import { Trip, Transaction, TripParticipant } from '../types/finance';
 
 describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () => {
+  it('detects explicit mock markers without deleting legitimate matching descriptions or names', () => {
+    const legitimateRecords = [
+      { id: 'acc-1700000000000', name: 'Nubank Principal', institution: 'Nubank', initialBalance: 0, color: '#7c3aed' },
+      { id: 'tx-1700000000001', description: 'Pão de Açúcar supermercado' },
+      { id: 'fam-1700000000002', name: 'Mariana Oliveira', email: 'mariana.oliveira@gmail.com' },
+      { id: 'trip-1700000000003', name: 'Eurotrip Roma 2026' },
+    ];
+    for (const record of legitimateRecords) {
+      assert.equal(isLegacyMockRecord(record), false);
+    }
+
+    assert.equal(isLegacyMockRecord({ id: 'mock-import-1' }), true);
+    assert.equal(isLegacyMockRecord({ id: 'row-1700000000004', isDemo: true }), true);
+    assert.equal(isLegacyMockRecord({ id: 'tx-1700000000005', fitid: 'DEMO-ROW-1' }), true);
+
+    assert.deepEqual(
+      stripLegacyMockRecords([
+        { id: 'tx-real-1', description: 'Conta de luz' },
+        { id: 'mock-test-1', description: 'Lançamento de demonstração' },
+        { id: '', description: 'Registro inválido' },
+      ]),
+      [{ id: 'tx-real-1', description: 'Conta de luz' }]
+    );
+  });
+
   it('calculates converted BRL amount with 3.38% credit card IOF and 1.1% Wise IOF accurately', () => {
     // Cartão de Crédito: US$ 100.00 @ R$ 5.80 + 3.38% IOF
     const cardRes = calculateConvertedBrlAmount(100, 5.8, 3.38);
@@ -465,11 +492,11 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
     assert.equal(cleanAudit.isAllHealthy, true);
     assert.equal(cleanAudit.totalIssuesFound, 0);
 
-    // Ensure automated test artifacts (Wise Conta Global Euro 7464, Eurotrip Roma 2026, Mariana Oliveira) are stripped
+    // Remove explicit demo records while keeping their descriptions/names safe for real records.
     const mockPurge = sanitizeAndRepairFinancialState({
       accounts: [
         {
-          id: 'acc-1774863663413',
+          id: 'mock-wise-sample',
           name: 'Wise Conta Global Euro',
           institution: 'Wise',
           type: 'international',
@@ -486,7 +513,7 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
       investments: [],
       trips: [
         {
-          id: 'trip-1774863574299',
+          id: 'demo-trip-eurotrip',
           name: 'Eurotrip Roma 2026',
           destination: 'Itália',
           startDate: '2026-10-10',

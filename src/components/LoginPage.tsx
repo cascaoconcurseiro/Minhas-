@@ -40,8 +40,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setErrorMsg('Informe um endereço de e-mail válido.');
       return;
     }
-    if (password.length < 4) {
-      setErrorMsg('A senha deve ter pelo menos 4 caracteres.');
+    if (password.length < 6) {
+      setErrorMsg('A senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
@@ -98,7 +98,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Controle absoluto do seu patrimônio e das suas viagens em um só lugar.
           </h1>
           <p className="text-sm text-slate-300 leading-relaxed">
-            Acompanhe contas bancárias, faturas de cartão de crédito, câmbio médio ponderado em viagens internacionais e lembretes diários com sincronização automática na nuvem.
+            Acompanhe contas bancárias, faturas de cartão de crédito, câmbio médio ponderado em viagens internacionais e lembretes diários. Após entrar, confira o estado da sincronização com o Neon.
           </p>
 
           <div className="space-y-3.5 pt-2">
@@ -136,10 +136,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
               <div>
                 <h3 className="text-xs font-bold text-white">
-                  Sincronização Automática em Nuvem
+                  Banco de Dados Neon
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Acesso protegido pelo Firebase Auth; os dados são sincronizados com Neon PostgreSQL.
+                  Firebase Auth protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
                 </p>
               </div>
             </div>
@@ -150,7 +150,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <span>Minhas Economias BR</span>
           <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Criptografia & Cofre Cloud Ativo
+            Acesso protegido por autenticação
           </span>
         </div>
       </div>
@@ -181,7 +181,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {mode === 'login'
                   ? 'Entre para acessar seus lançamentos e sincronizar na nuvem'
-                  : 'Sua nova conta começa 100% limpa e sincronizada na nuvem'}
+                  : 'Sua conta começa sem lançamentos. A sincronização é confirmada após o login e a conexão com o Neon.'}
               </p>
             </div>
 
@@ -313,6 +313,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     data-testid="login-password-input"
                     type="password"
                     required
+                    minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"

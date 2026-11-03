@@ -1,62 +1,31 @@
 # Handoff — Minhas Economias
 
-## Última sessão
-**Data:** 2026-11-02
-**O que foi feito:**
-- Removi a barra “Guia Rápido de Ativação” da visão geral e retirei o ícone `Sparkles` que só era usado nela. `bun run lint`, `bun run build` e `git diff --check` passaram; o aviso pré-existente do chunk principal acima de 500 kB permanece.
-- Publiquei `cb14902` na `main`; CI passou e Vercel ficou Ready. Smoke na URL de produção: página e bundle principal 200, e o texto do guia não aparece mais no bundle.
-- Atualização mais recente: o Neon permanece como única persistência operacional; removi o listener e os espelhos Firestore, e deixei o SDK Firestore num chunk carregado somente se o Neon ainda não tiver o workspace e for preciso importar um snapshot legado próprio. Workspace novo é criado idempotentemente direto no Neon.
-- Adicionei a rota autenticada `/api/workspace/migrate`, que só insere quando a linha ainda não existe e registra hash/contagens. Nenhum fluxo de rotina grava no Firestore.
-- Publiquei no console Firebase as regras do banco nomeado: `get` só para o próprio titular durante importação (ou verificação do próprio ID ainda inexistente), sem `list`, `create`, `update` ou `delete`. A confirmação no console foi “Success”; dados legados não foram apagados.
-- Atualizei descrições e documentação para separar Firebase Auth, Neon e importação inicial Firestore.
-- `bun run lint`, `bun run build` e `git diff --check` passaram após a refatoração. O build mantém aviso do chunk principal acima de 500 kB; a leitura Firestore está em chunk separado carregado sob demanda.
-- Firebase CLI foi instalado via `npx`, mas `login:list` retornou sem sessão; as regras foram publicadas pela conta Google já autenticada no Console Firebase.
-- O commit `969172f` foi enviado para `main`; GitHub Actions run `41528070359` concluiu com sucesso e a Vercel ficou Ready, com alias `minhaseconomias-blue.vercel.app`.
-- Smoke de produção após `969172f`: homepage 200, bundle principal e chunk isolado de migração legada 200; `/api/workspace` GET/POST, `/api/workspace/migrate` e rotas familiares retornam 401 sem token. A migração não foi submetida a uma sessão autenticada nova nesta verificação.
-- Continuidade: o app agora dispara a leitura do workspace no Neon assim que Firebase Auth fica pronto; Firestore é carregado sob demanda para migração legada e espelho/contingência. Foi removido o teste Firestore que rodava na inicialização do módulo.
-- Dividi os modais e a busca global em chunks sob demanda e removi e-mail/nome pessoal pré-preenchidos na tela de login. Build local: entrada 568 kB (168 kB gzip) e Firestore 454 kB (137 kB gzip); o alerta Vite de 500 kB continua ativo, sem aumento artificial do limite.
-- Removi `unsafe-inline` de `script-src`, movendo o guard de compatibilidade do HMR para `public/vite-websocket-guard.js`; o HTML gerado referencia scripts externos, incluindo o registro PWA externo.
-- Importação JSON agora valida versão 1–5, coleções e esquema de categorias antes de aplicar qualquer setter. A mensagem distingue arquivo carregado na sessão de confirmação posterior do Neon.
-- Adicionei `docs/BACKUP_AND_RESTORE.md`: diferencia exportação do workspace, espelho Firestore e backup integral do Neon que também inclui tabelas familiares. Nenhum restore de produção foi executado.
-- Atualizei o blueprint pela decisão de carregar Neon diretamente e o checklist/CI para não manter contagem fixa de testes.
-- Verificações locais executadas após essas mudanças: lint, 78 testes unitários, build e `git diff --check` passaram. Commit de app `d1a545d` publicado em `main`; Vercel `success`. O commit documental `1b05c89` também tem CI GitHub Actions run `41525311897` e check Vercel `success`.
-- Smoke de produção após `d1a545d`: página 200, HTML sem script inline, CSP sem `unsafe-inline` em `script-src`, `/vite-websocket-guard.js` e bundle principal 200, `/api/workspace` 401 sem token. Isso confirma entrega e proteções básicas, não uma sessão autenticada completa.
-- Em 2/nov, consultei o histórico completo do workflow Neon: só há a execução manual `41478873917` (concluída com sucesso); não há ainda evento `schedule`. A alteração de agendamento entrou depois da janela de hoje, então conferir a execução automática após 09:15 de 3/nov (horário de Brasília).
-- Migrei o desenho do compartilhamento familiar para tabelas isoladas no Neon (`finance_family_invitations` e `finance_shared_transactions`). A migration `003_neon_family_sharing.sql` foi aplicada no projeto de produção; verificação agregada mostrou 3 convites (2 aceitos, 1 pendente), 0 espelhos migrados e RLS nas duas tabelas. Os snapshots antigos não foram apagados.
-- Substituí os fluxos que liam/escreviam o workspace Firestore de outra pessoa por endpoints autenticados no backend Neon. O espelho Firestore passa a omitir `tx-mirror-*`; a sincronização familiar usa as tabelas separadas.
-- Preparei regras owner-only para `cloud_vaults` e adicionei `ownerFirebaseUid` aos snapshots. As regras ainda não foram publicadas; enquanto isso, a regra de leitura sem autenticação continua ativa em produção.
-- Corrigi a troca de e-mail do convite para só atualizar a interface depois que a revogação do vínculo anterior confirmar no servidor.
-- O deploy `af99151` está Ready e inclui a função `api/family/[...path]`. Após o primeiro deploy, o prefixo `/api/family` respondia 401 mas rotas aninhadas davam 404; a função mais específica resolveu isso. Agora `/api/family/invitations` e `/api/family/shared` respondem 401 sem token, como `/api/workspace`.
-- Corrigi os dois erros de tipagem reportados pela Vercel ao remover referências ambientais não usadas do Vite e declarar somente o import de CSS usado pelo app. `bun run lint` e `bun run build` passaram; o deploy `1752571` está Ready e não mostra mais erros de build. Permanecem avisos sobre o chunk principal de 2,59 MB e a configuração Vite.
-- Dividi as telas de recursos em chunks sob demanda e troquei `__dirname` no Vite por resolução via `import.meta.url`. `bun run lint` e `bun run build` passam; o chunk de entrada caiu de 2,59 MB (695 kB gzip) para 1,25 MB (350 kB gzip), e o aviso de configuração desapareceu. Continua um aviso porque o chunk inicial ainda passa de 500 kB.
-- O deploy `c876d75` está ativo na URL principal e publica o novo chunk `index-C62ftcdX.js` com 1.248.948 bytes. `/api/family/invitations` e `/api/family/shared` continuam respondendo 401 sem token.
-- Removi a promoção automática Firestore→Neon baseada apenas em `updatedAt`: quando Neon já tem workspace, ele é a autoridade e o Firestore volta a ser espelho. A tela de conta agora mostra falha de sincronização em vermelho em vez de afirmar que a nuvem continua ativa. `bun run lint` e `bun run build` passaram.
-- Corrigi também os erros da escrita inicial/limpeza do espelho: uma falha Firestore agora altera o status para erro mesmo se a leitura do Neon tiver funcionado. `bun run lint` e `bun run build` passaram; o commit `697e05f` está publicado e o status da Vercel concluiu com sucesso.
-- Em uma revisão posterior, eliminei a corrida desse status: a carga inicial agora aguarda a escrita do espelho e conserva o estado de erro até o fim da leitura familiar. `bun run lint` e `bun run build` passaram; o commit `8c46ba6` está Ready na Vercel. A página serve `index-CPcasHdQ.js` e as rotas de workspace/compartilhamento continuam exigindo autenticação (401 sem token).
-- Implementei um fluxo para conflitos `409`: congela novas tentativas, mostra resumo das duas versões, exige baixar um backup JSON de ambas e deixa o usuário escolher entre gravar a versão local no Neon ou recarregar a versão do Neon. O commit `e3fc388` está ativo e serve `index-Dt-MM7ua.js`; página 200 e APIs 401 sem token. A escolha local mantém o diálogo bloqueando novas edições até o espelho Firestore terminar de gravar. Lint e build passaram. Não rodei teste real de concorrência.
-- `bun run lint`, `bun run build` e `git diff --check` passaram após a migração; o build ainda avisa apenas que o chunk inicial está acima de 500 kB.
-- Na auditoria do compartilhamento familiar, encontrei uma exposição crítica pendente: as regras de produção permitem `get` em `cloud_vaults` sem autenticação quando o ID tem formato válido; IDs são derivados do e-mail e documentos contêm o workspace financeiro completo. Preparei em `firestore.rules` a restrição do cofre ao dono e acrescentei `ownerFirebaseUid` aos snapshots do app, mas ainda não publiquei as regras. Os novos fluxos familiares usam tabelas Neon separadas; validação com duas contas ainda falta.
-- Em 2/nov, o usuário dispensou explicitamente a validação ponta a ponta do compartilhamento com uma segunda conta; os fluxos permanecem não testados nessa configuração.
-- Em 2/nov, confirmei o check Vercel `success` para `fadab7d` e HTTP 200 na página de produção. A consulta ao Actions encontrou apenas a execução manual diária, ainda sem execução automática do cron.
-- A rota Segurança do banco Firestore abriu, mas o console exibiu somente conteúdo parcial do editor; não obtive confirmação independente das regras completas publicadas. Mantenho a evidência da auditoria anterior: o risco de leitura pública continua até o deploy owner-only. Não alterei regras nesta sessão.
-- Auditei a gravação do workspace: encontrei caminho que publicava no Firestore mesmo quando o Neon falhava/rejeitava uma revisão. Agora a cópia Firestore só é atualizada depois da confirmação do Neon; falhas mantêm os dados locais e exibem status de sincronização pendente.
-- Corrigi a regra global de CSS que sobrescrevia `max-w-2xl` do formulário de lançamento e o expandia horizontalmente no desktop. A largura agora respeita o limite definido pelo modal e continua responsiva.
-- Auditei o workspace Neon da conta autenticada: 1 conta e 4 lançamentos sem marcadores de mock conhecidos. O usuário confirmou que os quatro lançamentos eram dados de demonstração e autorizou sua exclusão.
-- Excluí os 4 lançamentos pela interface autenticada da aplicação, mantendo a conta Nubank. O extrato de outubro e novembro mostrou zero lançamentos; a interface confirmou `Nuvem sincronizada - Neon + espelho Firestore`.
-- `src/App.tsx` agora filtra registros identificados como mock ao ler snapshots do Firestore ou Neon e sincroniza a limpeza entre ambos. Publicado no commit `77c0cb0`.
-- Atualizei os avisos da interface para explicar que Firebase Auth faz login, Neon é PostgreSQL e Firestore continua como espelho de contingência. Incluí a mesma distinção na tela de conta, login e documentação interna. Publicado no commit `edb2024`.
-- `bun run lint`, `bun run build` e `git diff --check` passaram. O CI do commit `edb2024` concluiu com sucesso (run #9). A Vercel responde 200 e serve o bundle com os novos textos.
-- A aba de navegador que já estava aberta ainda carregava um bundle anterior pelo service worker; atualize a página para ver o texto novo.
+## Estado atual — 2026-11-03
+O objetivo ativo é deixar o sistema funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para autenticação. O usuário pediu testes abrangentes. Ainda não declarar concluído: validações reais de concorrência, restore e execução agendada continuam pendentes.
 
-## Próximo passo
-**Arquivos:** `.github/workflows/neon-daily-activity.yml`
-**Ação:** em 3/nov após 09:15 BRT, consultar o workflow e confirmar um run `schedule`. A remoção do Guia Rápido está publicada. Usuário dispensou a validação familiar com segunda conta. Restore integral de Neon e colisão/indisponibilidade real ainda não foram ensaiados.
+## Trabalho concluído nesta sessão
+- Corrigi `/api/health`: agora executa consulta real ao Neon, desabilita cache e responde `503` com `services.neon: error` quando a conexão falha.
+- Removi do formulário de conta um botão que tentava autenticar com senha fixa `123456`; retirei nome/e-mail do proprietário pré-preenchidos e alinhei validação de senha ao mínimo de 6 caracteres.
+- Removi inferências perigosas na limpeza de mocks. Nomes e descrições comuns (por exemplo, supermercado, bancos, pessoas ou viagens) não bastam para apagar registros. Só marcadores/IDs explicitamente de demonstração são removidos; IDs curtos válidos são aceitos.
+- Protegi “Zerar Base” com confirmação em duas etapas; removi saudação fixa com nome pessoal; corrigi mês padrão local e datas iniciais de relatório.
+- Ajustei tela de auditoria e status da nuvem para não alegar produção/sincronização quando o Neon não foi confirmado. Atualizei `security_spec.md` e exemplos de documentação para refletir Firebase Auth + Neon operacional + Firestore legado de leitura restrita.
+- Teste local controlado com `DATABASE_URL` inválida em `127.0.0.1:1`: `/api/health` respondeu HTTP 503, `status: degraded` e `services.neon: error`, sem acessar o Neon de produção.
+- Smoke HTTP na produção em 3/nov: `/api/health` ainda respondeu com payload antigo `status: ok` e sem `services.neon`; esse 200 não confirma consulta ao banco. A correção local ainda não foi publicada.
+- `bun test`: 83 passaram; `bun run lint`, `bun run build` e `git diff --check` passaram. O build mantém o alerta de chunk inicial acima de 500 kB.
+- Não houve commit, push ou deploy nesta sessão. As alterações permanecem locais e revisáveis.
 
-## Bloqueios e limites
-- A limpeza solicitada foi confirmada pela UI e pelo estado sincronizado; não executei consulta independente SQL pós-recarregamento.
-- Neon contém a operação normal; Firestore é somente origem de importação inicial de snapshot legado próprio e todas as escritas estão bloqueadas.
-- A migration Neon está aplicada e os commits `f457e68` e `af99151` foram publicados. As rotas familiares chegam à autenticação, mas o fluxo real com duas contas ainda não foi validado.
-- `.github/workflows/neon-daily-activity.yml` está ativo com cron `15 12 * * *` (09:15 em São Paulo). A execução manual de 2/nov terminou em sucesso; os logs mostram `SELECT 1` retornando uma linha. O workflow foi criado depois do cron de hoje, então a primeira execução automática ainda está pendente.
-- Regras Firestore owner-only foram publicadas no Console, com leitura pontual do titular e todas as gravações/listagens bloqueadas; a confirmação de implantação veio da mensagem de sucesso do Console.
-- A resolução 409 compara resumos, exige backup JSON das versões e persiste no Neon com revisão otimista. Não foi submetida a uma colisão real entre abas.
-- Não foi executado teste de concorrência ou de falha real de conexão nesta sessão.
+## Próximos passos concretos
+1. Com acesso/conector Neon, criar branch isolada e executar concorrência, falha/recuperação e restauração integral usando dados sintéticos. Documentar evidências no roteiro `docs/BACKUP_AND_RESTORE.md` sem alterar o banco de produção.
+2. Rever `.github/workflows/neon-daily-activity.yml` e reconsultar Actions após próxima janela: às 14:47 BRT de 3/nov só havia execução manual bem-sucedida de 2/nov (`41478873917`); não existe evidência de evento `schedule`.
+3. Fazer validação visual desktop/mobile e fluxos interativos completos quando BrowserOS Neo estiver disponível. O usuário dispensou teste familiar ponta a ponta que exija segunda conta.
+4. Continuar auditoria de rotas/API e regras de segurança com dados e autenticação controlados; depois executar novamente a matriz completa de testes.
+5. Revisar `git diff`, preservar qualquer alteração prévia de documentação, publicar conforme fluxo autorizado e confirmar novo payload health na produção.
+
+## Bloqueios e limites comprovados
+- Conector Neon indisponível nesta sessão: não foi possível criar branch de ensaio, consultar dados por SQL nem fazer restore real. Nenhuma alteração ocorreu no Neon de produção.
+- Nenhum run `schedule` foi encontrado no GitHub Actions até 14:47 BRT de 3/nov. Um `workflow_dispatch` de 2/nov foi concluído com sucesso; isso não prova a execução diária automática.
+- Produção ainda usa o health-check antigo, sem consulta comprovada ao Neon; não apresentar o status HTTP 200 atual como prova de banco saudável.
+- Teste local de indisponibilidade usa banco inválido isolado e confirma a resposta 503; não substitui teste de recuperação com Neon real.
+- Não foi realizada interação visual completa no navegador nesta sessão.
+- O teste ponta a ponta do compartilhamento familiar com uma segunda conta foi dispensado pelo usuário anteriormente.
+- Existem mudanças locais não publicadas. Não informar que a produção/Vercel já contém as correções desta sessão.

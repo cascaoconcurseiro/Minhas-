@@ -1140,41 +1140,24 @@ export interface FinancialIntegrityAuditReport {
   checks: FinancialIntegrityCheckItem[];
 }
 
+const LEGACY_DEMO_IDS = new Set([
+  'acc-itau',
+  'acc-nubank',
+  'card-nubank',
+  'card-itau',
+  'trip-eurotrip',
+]);
+
 function isLegacyMockId(id: string): boolean {
   if (!id || typeof id !== 'string') return true;
-  return /^(mock-|demo-|seed-|acc-itau|acc-nubank|card-nubank|card-itau|trip-eurotrip)/.test(
-    id.trim().toLowerCase()
-  );
+  const normalizedId = id.trim().toLowerCase();
+  return /^(mock|demo|seed)(?:-|$)/.test(normalizedId) || LEGACY_DEMO_IDS.has(normalizedId);
 }
-
-const DEMO_OFX_DESCRIPTIONS = new Set([
-  'ted salario mensal empresa',
-  'ted salário mensal empresa',
-  'pao de acucar supermercado',
-  'pão de açúcar supermercado',
-  'ifood *refeicao almoco',
-  'ifood *refeição almoço',
-  'ifood refeicao almoco',
-  'ifood refeição almoço',
-  'uber *viagem centro',
-  'uber viagem centro',
-  'netflix mensalidade streaming',
-  'salario mensal outubro',
-  'salário mensal outubro',
-  'supermercado pao de acucar',
-  'supermercado pão de açúcar',
-  'ifood restaurante',
-  'posto ipiranga combustivel',
-  'posto ipiranga combustível',
-  'farmacia droga raia',
-  'farmácia droga raia',
-  'jantar trattoria roma',
-  'supermercado teste',
-]);
 
 export function isLegacyMockRecord(item: unknown): boolean {
   if (!item || typeof item !== 'object') return true;
   const rec = item as Record<string, unknown>;
+  if (rec.isMock === true || rec.isDemo === true) return true;
   const id = typeof rec.id === 'string' ? rec.id : '';
   if (isLegacyMockId(id)) return true;
 
@@ -1191,57 +1174,15 @@ export function isLegacyMockRecord(item: unknown): boolean {
     return true;
   }
 
-  const name = typeof rec.name === 'string' ? rec.name.trim() : '';
-  const email = typeof rec.email === 'string' ? rec.email.trim().toLowerCase() : '';
-  const desc = typeof rec.description === 'string' ? rec.description.trim() : '';
-  const memo = typeof rec.notes === 'string' ? rec.notes.trim().toLowerCase() : '';
-
-  // Demo OFX auto-created account artifact
-  if (
-    name === 'Nubank Principal' &&
-    rec.institution === 'Nubank' &&
-    Number(rec.initialBalance) === 0 &&
-    rec.color === '#7c3aed'
-  ) {
-    return true;
-  }
-
-  // Automated test account artifact
-  if (name === 'Wise Conta Global Euro' && Number(rec.initialBalance) === 7464) {
-    return true;
-  }
-
-  // Automated test family member artifact
-  if (
-    email === 'mariana.oliveira@gmail.com' ||
-    email === 'rafael.oliveira@gmail.com' ||
-    name === 'Mariana Oliveira' ||
-    name === 'Rafael Oliveira'
-  ) {
-    return true;
-  }
-
-  // Automated test trip artifact
-  if (name === 'Eurotrip Roma 2026') {
-    return true;
-  }
-
-  // Demo OFX & automated test transaction artifacts
-  if (desc && DEMO_OFX_DESCRIPTIONS.has(desc.toLowerCase())) {
-    return true;
-  }
-
-  if (
-    memo.includes('ted salário mensal empresa') ||
-    memo.includes('pão de açúcar supermercado') ||
-    memo.includes('ifood *refeição almoço') ||
-    memo.includes('uber *viagem centro') ||
-    memo.includes('netflix mensalidade streaming')
-  ) {
-    return true;
-  }
-
   return false;
+}
+
+export function stripLegacyMockRecords<T>(items: T[]): T[] {
+  return items.filter((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    const id = (item as Record<string, unknown>).id;
+    return typeof id === 'string' && id.trim().length > 0 && !isLegacyMockRecord(item);
+  });
 }
 
 
@@ -1377,7 +1318,7 @@ export function runFinancialIntegrityAudit(params: {
   );
   const splitIssuesCount = invalidSplitTxs.length + unisolatedCompanionTxs.length;
 
-  // 7. Ausência de Dados Mock / IDs Fictícios em Produção
+  // 7. Marcadores explícitos de demonstração nos dados carregados
   const mockItemsCount =
     accounts.filter((x) => isLegacyMockRecord(x)).length +
     cards.filter((x) => isLegacyMockRecord(x)).length +
@@ -1471,15 +1412,15 @@ export function runFinancialIntegrityAudit(params: {
     },
     {
       id: 'zero_mock_data',
-      title: 'Base Limpa de Produção (Zero Dados Mock)',
+      title: 'Marcadores explícitos de demonstração',
       description:
-        'Garante que 100% dos registros na memória local e no Neon são dados reais criados pelo usuário.',
+        'Procura IDs e campos marcados explicitamente como demonstração nos registros carregados nesta sessão. Não verifica o banco diretamente.',
       passed: mockItemsCount === 0,
       issueCount: mockItemsCount,
       metricLabel:
         mockItemsCount === 0
-          ? '0 registros mock (100% Real)'
-          : `${mockItemsCount} registro(s) legado(s)`,
+          ? 'Nenhum marcador explícito encontrado'
+          : `${mockItemsCount} registro(s) marcado(s) para revisão`,
     },
   ];
 

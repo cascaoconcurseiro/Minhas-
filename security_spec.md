@@ -1,12 +1,23 @@
-# Firebase Security Specification — Meu Dinheiro (Gestão Financeira)
+# Especificação de Segurança — Minhas Economias
 
-## 1. Access Control Model
-- **Authentication**: Google Sign-In via Firebase Authentication (`signInWithPopup`).
-- **Ownership**: Each authenticated user has a single private financial workspace document stored at `/workspaces/{userId}` where `{userId} == request.auth.uid`.
-- **Default Deny**: All other paths are denied by default (`allow read, write: if false`).
-- **Admin Override**: The application owner (`wesley.diaslima@gmail.com` with `email_verified == true`) or the document owner (`request.auth.uid == userId`) can read and write their own workspace.
+## Identidade e banco operacional
 
-## 2. Schema Validation & Bounds
-- Required fields on create/update: `uid`, `updatedAt`, `accountsJson`, `cardsJson`, `categoriesJson`, `transactionsJson`, `goalsJson`, `investmentsJson`.
-- Immutability: `uid` must match `userId` and cannot be modified on update.
-- Field size bounds: JSON payload strings are bounded (max 900,000 characters total document limit < 1MB) to prevent oversized document abuse.
+- Firebase Authentication autentica o usuário e emite o ID token usado pela API.
+- PostgreSQL no Neon é a fonte de verdade operacional para workspaces e dados familiares.
+- O navegador nunca recebe `DATABASE_URL`; as rotas verificam o token Firebase antes de consultar o Neon.
+- Cada transação no PostgreSQL define `app.firebase_uid` e `app.firebase_email`; as políticas RLS limitam leitura e escrita ao titular ou participante permitido.
+
+## Firestore legado
+
+- Firestore não recebe gravações do app e não contém a persistência operacional atual.
+- Em `cloud_vaults`, `get` só é permitido para o snapshot legado do próprio usuário, com identidade verificada; `list`, `create`, `update` e `delete` são negados.
+- Não existe exceção administrativa por e-mail nas regras publicadas.
+- A regra global nega escrita em todas as outras coleções.
+
+## API e dados financeiros
+
+- `GET /api/workspace`, criação, importação única e atualização exigem Firebase ID token válido.
+- A criação inicial e a importação legada usam `ON CONFLICT DO NOTHING`; salvamentos usam revisão otimista e retornam `409` se outra gravação venceu.
+- Convites e lançamentos compartilhados residem em tabelas Neon separadas, com RLS por participante.
+- O estado de saúde da API consulta a conexão Neon e a tabela operacional; `503` indica que persistência não está disponível.
+- Credenciais SMTP e outras chaves de serviço permanecem em configuração de servidor e não devem ser inseridas no frontend, logs ou repositório.

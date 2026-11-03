@@ -66,3 +66,21 @@
 - [ ] Confirmar execução automática diária do GitHub Actions; execução manual já foi validada.
 - [ ] Validar recuperação após indisponibilidade real do Neon.
 - [ ] Ensaiar restauração integral do Neon em ambiente isolado.
+- [x] Revalidar em 2/nov: `bun test` (78 testes), `bun run lint` e `bun run build` passaram; isso não substitui os ensaios reais pendentes no Neon.
+
+## Sessão 2026-11-03 — auditoria e correções locais
+- [x] Corrigir `/api/health` para executar consulta real no Neon, responder `503` sem banco e não afirmar prontidão sem conexão.
+- [x] Remover login rápido com senha fixa e retirar nome/e-mail pessoal pré-preenchidos; alinhar validação de senha a 6 caracteres.
+- [x] Restringir remoção de dados de demonstração a marcadores/IDs explícitos para preservar registros legítimos com nomes ou descrições coincidentes.
+- [x] Manter registros com IDs curtos válidos e testar a remoção somente de IDs de demonstração explícitos.
+- [x] Exigir confirmação de duas etapas antes de zerar a base pela tela de relatórios.
+- [x] Corrigir saudação pessoal fixa, datas padrão de relatório e virada do mês local.
+- [x] Atualizar documentos de segurança/API e indicadores para separar Firebase Auth, estado real do Neon e auditoria local.
+- [x] Validar falha isolada do Neon: endpoint local respondeu HTTP 503 e `services.neon=error` com conexão deliberadamente inválida em localhost.
+- [x] Consultar produção: `/api/health` respondeu 200, mas o bundle/API publicada ainda usa resposta antiga sem campo `services.neon`; portanto esse 200 não prova conectividade atual com o Neon.
+- [x] Revalidar `bun test` (83 testes), `bun run lint`, `bun run build` e `git diff --check`; o build ainda alerta para o chunk principal acima de 500 kB.
+- [ ] Confirmar execução automática diária: consulta em 3/nov às 14:47 BRT encontrou somente o run manual de 2/nov; não há evento `schedule` comprovado.
+- [ ] Validar concorrência real entre abas/workspaces com dados sintéticos isolados.
+- [ ] Ensaiar restore integral em branch Neon isolada e validar indisponibilidade/recuperação com banco controlado.
+- [ ] Validar fluxos visuais e responsivos completos no navegador; ferramenta BrowserOS Neo não está disponível nesta sessão.
+- [ ] Publicar a correção de health-check e UI em `main`; confirmar o novo payload `services.neon` na URL de produção.

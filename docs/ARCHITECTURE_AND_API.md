@@ -151,7 +151,7 @@ Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos
 - **Payload de Requisição**:
 ```json
 {
-  "to": "wesley.diaslima@gmail.com",
+  "to": "usuario@exemplo.com",
   "subject": "[Minhas Economias BR] Resumo de Vencimentos",
   "textBody": "Resumo em texto puro...",
   "htmlBody": "<div>Resumo HTML...</div>",
@@ -160,7 +160,7 @@ Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos
   "smtp": {
     "host": "smtp.gmail.com",
     "port": 587,
-    "user": "wesley.diaslima@gmail.com",
+    "user": "usuario@exemplo.com",
     "pass": "app_password_16_chars",
     "secure": false
   }

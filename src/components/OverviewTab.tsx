@@ -107,7 +107,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     return 'Boa noite';
   })();
 
-  const firstName = (userName || 'Wesley').trim().split(/\s+/)[0] || 'Wesley';
+  const firstName = userName?.trim().split(/\s+/)[0] || '';
 
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
@@ -178,7 +178,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 pt-0.5"
       >
         <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight font-display">
-          {greetingPrefix}, {firstName}! 👋
+          {greetingPrefix}{firstName ? `, ${firstName}` : ''}! 👋
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {pendingBills.length > 0

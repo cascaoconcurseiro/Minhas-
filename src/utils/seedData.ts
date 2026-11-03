@@ -9,7 +9,8 @@ import {
   Trip,
 } from '../types/finance';
 
-export const DEFAULT_MONTH = new Date().toISOString().slice(0, 7);
+const localNow = new Date();
+export const DEFAULT_MONTH = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}`;
 
 export const INITIAL_FAMILY_MEMBERS: FamilyMember[] = [];
 

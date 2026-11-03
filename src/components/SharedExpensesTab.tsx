@@ -956,7 +956,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                       </h4>
                     </div>
                     <span className="rounded-lg bg-white dark:bg-slate-900 px-3 py-1 text-xs font-bold text-sky-900 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
-                      Sincronizado em Tempo Real (R$)
+                      Prévia calculada para a conta convidada (R$)
                     </span>
                   </div>
 
@@ -1327,7 +1327,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                   <input
                     type="email"
                     data-testid="family-member-email-input"
-                    placeholder="ex: mariana.oliveira@gmail.com"
+                    placeholder="colega@exemplo.com"
                     value={memberEmail}
                     onChange={(e) => setMemberEmail(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-900 focus:border-emerald-600 focus:outline-none"
