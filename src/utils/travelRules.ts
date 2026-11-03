@@ -1140,18 +1140,10 @@ export interface FinancialIntegrityAuditReport {
   checks: FinancialIntegrityCheckItem[];
 }
 
-const LEGACY_DEMO_IDS = new Set([
-  'acc-itau',
-  'acc-nubank',
-  'card-nubank',
-  'card-itau',
-  'trip-eurotrip',
-]);
-
 function isLegacyMockId(id: string): boolean {
   if (!id || typeof id !== 'string') return true;
   const normalizedId = id.trim().toLowerCase();
-  return /^(mock|demo|seed)(?:-|$)/.test(normalizedId) || LEGACY_DEMO_IDS.has(normalizedId);
+  return /^(mock|demo|seed)(?:-|$)/.test(normalizedId);
 }
 
 export function isLegacyMockRecord(item: unknown): boolean {
@@ -1162,15 +1154,7 @@ export function isLegacyMockRecord(item: unknown): boolean {
   if (isLegacyMockId(id)) return true;
 
   const fitid = typeof rec.fitid === 'string' ? rec.fitid.trim().toUpperCase() : '';
-  if (
-    fitid.startsWith('NUBANK-SAL-') ||
-    fitid.startsWith('NUBANK-MKT-') ||
-    fitid.startsWith('NUBANK-IFOOD-') ||
-    fitid.startsWith('NUBANK-UBER-') ||
-    fitid.startsWith('NUBANK-NETFLIX-') ||
-    fitid.startsWith('MOCK-') ||
-    fitid.startsWith('DEMO-')
-  ) {
+  if (fitid.startsWith('MOCK-') || fitid.startsWith('DEMO-')) {
     return true;
   }
 

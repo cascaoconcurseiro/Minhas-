@@ -22,6 +22,12 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
   it('detects explicit mock markers without deleting legitimate matching descriptions or names', () => {
     const legitimateRecords = [
       { id: 'acc-1700000000000', name: 'Nubank Principal', institution: 'Nubank', initialBalance: 0, color: '#7c3aed' },
+      { id: 'acc-nubank', name: 'Nubank', institution: 'Nubank', initialBalance: 123.45 },
+      { id: 'acc-itau', name: 'Itaú', institution: 'Itaú', initialBalance: 0 },
+      { id: 'card-nubank', name: 'Nubank', institution: 'Nubank' },
+      { id: 'card-itau', name: 'Itaú', institution: 'Itaú' },
+      { id: 'trip-eurotrip', name: 'Eurotrip Roma 2026' },
+      { id: 'tx-1700000000006', description: 'Salário', fitid: 'NUBANK-SAL-2026-11' },
       { id: 'tx-1700000000001', description: 'Pão de Açúcar supermercado' },
       { id: 'fam-1700000000002', name: 'Mariana Oliveira', email: 'mariana.oliveira@gmail.com' },
       { id: 'trip-1700000000003', name: 'Eurotrip Roma 2026' },

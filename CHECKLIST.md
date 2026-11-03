@@ -17,7 +17,7 @@
 - [x] Executar manualmente o workflow diário e confirmar `SELECT 1` com sucesso.
 - [x] Confirmar workflow ativo com agendamento diário às 09:15 (America/Sao_Paulo); a primeira execução automática está pendente porque o workflow entrou na branch após o cron de hoje.
 - [x] Auditar o workspace Neon em produção; nenhum registro correspondeu aos marcadores de mock existentes.
-- [x] Publicar a limpeza de registros mock reconhecidos ao carregar snapshots remotos.
+- [x] Publicar limpeza automática apenas para marcadores explícitos de mock (`isMock`/`isDemo` e IDs `mock-`/`demo-`/`seed-`); IDs genéricos de banco, cartão e viagem devem ser preservados.
 - [x] Deixar explícita na interface a diferença entre Firebase Auth, banco Neon e espelho Firestore.
 - [x] Com autorização explícita do usuário, excluir os 4 lançamentos identificados como demonstração; preservar a conta.
 - [x] Definir Neon como única persistência operacional do workspace; manter Firestore somente para importação inicial de snapshots legados.
@@ -131,5 +131,12 @@
 - [x] Com autorização explícita do usuário, excluir as duas branches QA; confirmar que só `production` permanece e que health de produção segue 200/Neon `ok`.
 - [x] Adicionar teste HTTP local para `/api/family/shared` e revogação: 401 sem token; identidade Firebase controlada alcança a rota, grava espelho e a revogação remove o espelho via pool Neon simulado. O teste comprova integração HTTP/middleware/SQL esperado, não concorrência do banco real.
 - [x] Incluir o teste HTTP familiar no CI e executar localmente os testes da aplicação/backend, `bun run lint` e `bun run build`; tudo passou. Build ainda alerta para chunk principal acima de 500 kB.
+
+## Sessão 2026-11-03 — integridade do workspace
+- [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
+- [x] Identificar risco no sanitizador: IDs genéricos `acc-nubank`, `acc-itau`, `card-*`, `trip-eurotrip` e FITIDs Nubank eram classificados automaticamente como mock, embora possam ser registros reais; remover esses falsos positivos e adicionar regressões.
+- [x] Revalidar testes utilitários/backend, `bun run lint` e `bun run build` após a correção do sanitizador; todos passaram, com aviso de chunk principal >500 kB.
+- [ ] Recuperar e conferir a conta Nubank que o registro de 2/nov diz ter sido preservada. A contagem atual contradiz a confirmação da UI; não recriar saldo/conta manualmente. A cópia legada no Firestore só é acessível com sessão Firebase autenticada e a ferramenta BrowserOS Neo ainda não está disponível.
+- [ ] Auditar com o titular se houve cópia local/JSON exportado e confirmar os campos corretos antes de restaurar qualquer valor financeiro.
 
 
