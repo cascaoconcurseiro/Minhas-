@@ -1,13 +1,17 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. O cadastro do primeiro cartão de crédito foi corrigido localmente e aguarda publicação/verificação em produção. A reprodução no navegador mostrava falha de renderização ao criar o primeiro cartão; Neon não tinha gravado cartão de teste. Correção `af97e14` e teste HTTP de isolamento `025b18b` publicados anteriormente; antes desta mudança, CI estava `success`, Vercel `READY`, health público 200 com Neon `ok`, rotas privadas 401 sem token e cron diário configurado.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. O cadastro do primeiro cartão foi corrigido e validado em produção. Commit `37581c0` está na `main`; GitHub CI `41737033530` `success`, Vercel `dpl_HpibZX4zWSTkGBtrN2k665nqe7EC` `READY`, health público 200/Neon `ok`. O cadastro sintético foi gravado e excluído; Neon voltou a zero cartões teste. Correção `af97e14` e teste HTTP de isolamento `025b18b` publicados anteriormente.
 
 ## Trabalho desta sessão — cadastro de cartão
 - Reproduzi no BrowserOS autenticado que submeter o formulário do primeiro cartão desmontava a árvore DOM do app; a verificação SQL confirmou que `cardsJson` continuava vazio e nenhum cartão sintético permaneceu no Neon.
 - A causa raiz era a ordem inválida de hooks em `CreditCardsTab`: o estado vazio retornava antes de um `useMemo`; adicionar o primeiro cartão fazia a próxima renderização executar um hook adicional e o React quebrava.
 - Mudei `globalCardsTotals` para antes do retorno antecipado e adicionei teste de regressão garantindo que hooks não sejam definidos após essa guarda.
-- A regressão e a suíte completa (96 testes), lint e build locais passaram. A validação autenticada após deploy ainda precisa ser executada.
+- Em produção, reload da aba autenticada carregou o build novo; o cartão teste foi exibido, persistido no Neon (revisão 125), excluído pelo fluxo da interface e confirmado ausente via consulta SQL (`remaining_synthetic_cards=0`). A sincronização final mostrou sucesso.
+- Smoke autenticado percorreu oito módulos e alternou os quatro modos do formulário de lançamentos sem salvar dados. Console pós-correção sem erros.
+- Também criei/excluí conta de teste com saldo zero, despesa pendente de R$ 1, meta, viagem sem gasto e ativo de renda fixa sem cotação externa; alterei um orçamento para R$ 100 e restaurei a R$ 0. Consulta agregada Neon retornou zero para todos os seis tipos sintéticos.
+- Abri notificações (0 pendências), auditoria local (7/7), configurações e aba de backup sem envio externo ou alteração persistente. O healthcheck da interface mostrou API/Neon respondendo; cotação Gemini está indisponível/não configurada.
+- A regressão e a suíte completa (96 testes), lint, build e CI passaram. O build mantém o aviso conhecido de chunk principal acima de 500 kB.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
@@ -33,7 +37,7 @@ Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco opera
 - A inspeção estatística do código do modal mostra `max-w-2xl`, `max-h-[90vh]`, rolagem interna e breakpoints `sm:`; sem viewport mobile renderizado não marco layout como validado.
 
 ## Próximo passo concreto
-Próxima ação: executar `bun test`, publicar a correção em `main`, verificar CI/Vercel e reproduzir o cadastro do cartão no BrowserOS; confirmar o registro no Neon e removê-lo ao fim. Em seguida, encerrar a revisão no `CHECKLIST.md`. Também permanecem pendentes as limitações de roles RLS, backup/restore independente, inspeção visual/mobile e a primeira execução automática do cron em 4/nov às 12:15 UTC.
+Próxima ação: testar a restauração de backup com fixture sintético isolado e percorrer os fluxos de câmbio/rateio sem depender de cotações Gemini. Depois, tratar o bloqueio de role Neon com acesso administrativo, concluir dump/restore independente e revisão visual mobile, e verificar a primeira execução automática do cron após `2026-11-04T12:15:00Z`. Envio SMTP precisa de servidor de teste; compartilhamento real continua sem segunda conta conforme autorização anterior.
 
 ## Pendências e limites
 - O usuário confirmou que todas as contas existentes eram demos; nenhuma conta precisa ser recuperada.

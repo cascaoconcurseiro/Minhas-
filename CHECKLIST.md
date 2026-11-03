@@ -165,7 +165,16 @@
 - [x] Adicionar regressão verificando que nenhum hook React é declarado abaixo do retorno antecipado de workspace sem cartão.
 - [x] Validar o teste de regressão, `bun run lint` e `bun run build`; sem erros. O aviso do bundle acima de 500 kB segue existente.
 - [x] Executar suíte completa (`bun test`: 96 testes), `bun run lint` e `bun run build`; todos passaram localmente.
-- [ ] Publicar em `main`/Vercel, criar cartão sintético de ponta a ponta no navegador, confirmar gravação Neon e apagá-lo ao final.
+- [x] Publicar correção no commit `37581c0`; GitHub CI `41737033530` concluiu `success` e Vercel `dpl_HpibZX4zWSTkGBtrN2k665nqe7EC` ficou `READY`, com alias de produção.
+- [x] Repetir cadastro com sessão autenticada após recarregar o app atualizado: cartão teste apareceu na interface, sincronizou para Neon (revisão `125`) e foi removido pelo próprio fluxo de exclusão.
+- [x] Confirmar na produção UI vazia, status `Nuvem sincronizada` e zero cartões de teste no Neon após a exclusão; console do navegador sem erros.
+- [x] Fazer smoke autenticado dos módulos Lançamentos, Contas, Orçamentos, Viagens, Compartilhado, Investimentos, Metas e Relatórios; todos carregaram. Alternar Despesa, Cartão, Receita e Transferência no formulário sem criar lançamento.
+- [x] Criar e excluir conta sintética com saldo zero e despesa pendente de R$ 1; o extrato mostrou pendência, a exclusão zerou o previsto e o Neon confirmou ambos ausentes.
+- [x] Editar o teto de orçamento temporariamente para R$ 100 e restaurá-lo para R$ 0; criar/excluir meta sintética, viagem sem despesas e ativo de renda fixa sem cotação externa.
+- [x] Abrir a central de lembretes, auditoria local (`7/7`), configurações e seção de backup sem alterar preferências nem enviar notificações; auditoria informou API/Neon respondendo e Google Finance disponível, Gemini não configurado.
+- [x] Consulta agregada após limpeza confirmou zero resíduos de teste em contas, cartões, lançamentos, metas, investimentos e viagens; console sem erros e nuvem sincronizada.
+- [ ] Concluir os fluxos ainda não aceitos no navegador: convite/aceite familiar com segunda conta (dispensado anteriormente), e-mail SMTP de teste, cotações externas, restauração de arquivo e operações completas de FX/rateio. SMTP/Gemini não estão configurados; compartilhar o estado real sem segunda conta permanece indisponível para este teste.
+- [ ] Fazer inspeção visual mobile e confirmar cron automático na janela de 4/nov 12:15 UTC; screenshot segue bloqueado no BrowserOS e a primeira janela cron ainda é futura.
 
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
