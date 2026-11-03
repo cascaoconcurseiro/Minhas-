@@ -185,4 +185,12 @@
 - [ ] Restringir privilégios de `minhas_app` e `minhas_daily`: a consulta encontrou membership em `neon_superuser` e `CREATEROLE`, `CREATEDB`, `BYPASSRLS`, `REPLICATION`; `neon_run_sql` negou tanto `REVOKE neon_superuser FROM minhas_app` quanto `ALTER ROLE ...`. Nenhuma alteração foi aplicada; requer ferramenta/credencial com administração de roles.
 - [x] Verificar nas quatro tabelas operacionais que RLS está habilitado/forçado e há policy baseada em `app.firebase_uid`; registrar que as roles com `BYPASSRLS` ainda podem contornar essa proteção.
 
+## Sessão 2026-11-03 — regressão geral e backup/câmbio
+- [x] Reexecutar `bun test`: 96 testes passaram em 18 arquivos; inclui parser de backup, regras de viagem/câmbio, conversão, VET, rateio e integridade financeira.
+- [x] Reexecutar `bun run lint` e `bun run build`; ambos passaram. O build ainda avisa que o chunk principal excede 500 kB.
+- [x] Confirmar deploy de produção `dpl_2pj8gvrFdpf2VHnxCnKepTqSCieu` como `Ready`, alias `minhaseconomias-blue.vercel.app`, e endpoint `/api/health` 200 com Neon `ok`.
+- [ ] Validar a restauração completa com arquivo sintético pela interface e confirmar persistência/releitura no Neon; os testes existentes validam o parser/regras, não o fluxo UI→estado→API→Neon.
+- [ ] Validar visualmente desktop e mobile; captura BrowserOS permanece sem permissão e não houve leitura de pixels/viewport móvel nesta rodada.
+- [ ] Confirmar execução cron automática (não manual) após `2026-11-04T12:15:00Z`.
+
 
