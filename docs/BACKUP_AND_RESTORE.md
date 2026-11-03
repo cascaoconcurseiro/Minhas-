@@ -16,7 +16,7 @@
 
 ## Backup integral e recuperação do Neon
 
-Para cobrir também `finance_family_invitations` e `finance_shared_transactions`, use backup/PITR do projeto Neon ou um dump PostgreSQL autenticado com credencial administrativa segura, armazenado fora do repositório. Não coloque `DATABASE_URL` em arquivos versionados, logs ou no frontend. Antes de uma restauração real:
+O projeto Neon atual está no plano Free e a configuração mostra histórico/PITR de seis horas. Essa janela ajuda a recuperar erros recentes, mas não é uma cópia independente de longo prazo. O projeto não tem agenda automática de snapshots; a API Neon informa que a agenda automática requer plano pago. Para retenção maior, use um dump PostgreSQL autenticado com credencial administrativa segura, armazenado fora do repositório, ou avalie um plano com maior retenção. Não coloque `DATABASE_URL` em arquivos versionados, logs ou no frontend. Antes de uma restauração real:
 
 1. Confirme o projeto, branch, banco e ponto de recuperação de destino.
 2. Faça um snapshot/dump do estado atual para permitir retorno.
@@ -24,4 +24,4 @@ Para cobrir também `finance_family_invitations` e `finance_shared_transactions`
 4. Só então aplique o procedimento de recuperação no ambiente principal, com o app sem gravar durante a janela de restauração.
 5. Reabra o app e valide com o titular: dados do workspace, autenticação, convites e lançamentos compartilhados.
 
-Este repositório não automatiza nem testa uma restauração de produção. O app não depende do Firestore para persistência; antes de uma restauração real, faça um backup integral Neon e ensaie a recuperação em branch isolada. O fluxo JSON restaura apenas o workspace pessoal.
+Foi feito um ensaio isolado: criou-se snapshot manual da branch raiz e restaurou-se em uma nova branch `qa-restore-branch-2026-11-03`; a branch restaurada ficou pronta, seu schema foi comparado sem diferenças com a origem e as quatro tabelas operacionais foram listadas. A branch de produção continuou primária/padrão, sem substituição. Esse ensaio valida o caminho de snapshot/restore e estrutura, mas não é um exercício de dump/restore independente nem de retorno após corrupção de dados. O app não depende do Firestore para persistência; o fluxo JSON restaura apenas o workspace pessoal.

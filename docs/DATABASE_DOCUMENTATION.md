@@ -36,6 +36,6 @@ As migrations em `db/migrations/` são a referência do schema:
 
 ## Operação e backup
 
-O workflow `.github/workflows/neon-daily-activity.yml` executa `SELECT 1` diariamente para registrar atividade. Isso acorda o compute durante a consulta; não garante que ele fique ligado continuamente.
+O Cron da Vercel chama `GET /api/health` diariamente às 12:15 UTC. A rota consulta `finance_workspaces` e retorna 200/503 conforme o Neon responde; isso acorda o compute durante a consulta, mas não o mantém ligado continuamente. O workflow `.github/workflows/neon-daily-activity.yml` é apenas manual (`workflow_dispatch`).
 
-Exportação JSON do app cobre apenas o workspace pessoal. Backup integral do Neon também precisa cobrir `finance_family_invitations` e `finance_shared_transactions`; siga `docs/BACKUP_AND_RESTORE.md`. A restauração de produção ainda precisa de um ensaio controlado.
+O projeto está no plano Neon Free; a configuração atual informa janela de histórico de 21.600 segundos (6 horas), suficiente para recuperação pontual recente. No início da auditoria não havia snapshots nem agenda de backup configurados. A agenda automática de snapshots do Neon exige plano pago; por isso, o PITR disponível no plano atual não equivale a backup independente de longo prazo. Nesta sessão, um snapshot da branch raiz foi restaurado em uma nova branch de QA, sem substituir a produção; o schema restaurado coincide com a origem e as quatro tabelas operacionais estão presentes. A exportação JSON do app cobre apenas o workspace pessoal. Veja `docs/BACKUP_AND_RESTORE.md` para cobertura das tabelas familiares.

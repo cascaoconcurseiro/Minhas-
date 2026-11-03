@@ -165,6 +165,6 @@ bun run build
 
 ## Publicação e sincronização
 
-O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` nas variáveis de ambiente de produção da Vercel. O workflow diário do Neon usa o segredo de repositório `NEON_DATABASE_URL`.
+O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` nas variáveis de ambiente de produção da Vercel. O workflow GitHub manual usa o segredo `NEON_DATABASE_URL`; a checagem diária é feita pelo Cron Vercel.
 
-O Neon usa autosuspend no plano gratuito. A rotina diária executa `SELECT 1` e acorda o compute durante a consulta, mas não mantém o compute ligado continuamente.
+O Neon usa autosuspend no plano gratuito. O Cron diário da Vercel chama `/api/health`, que consulta a tabela `finance_workspaces` e acorda o compute durante a consulta; isso não mantém o compute ligado continuamente. O projeto tem janela de recuperação pontual de 6 horas; não há agenda de snapshots configurada.

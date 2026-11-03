@@ -85,7 +85,8 @@
 - [x] Revalidar `bun test` (83 testes), `bun run lint`, `bun run build` e `git diff --check`; o build ainda alerta para o chunk principal acima de 500 kB.
 - [ ] Confirmar execução automática diária: consulta em 3/nov às 14:47 BRT encontrou somente o run manual de 2/nov; não há evento `schedule` comprovado.
 - [ ] Validar concorrência real entre abas/workspaces com dados sintéticos isolados.
-- [ ] Ensaiar restore integral em branch Neon isolada e validar indisponibilidade/recuperação com banco controlado.
+- [x] Ensaiar snapshot Neon da branch raiz restaurado em nova branch isolada; schema e quatro tabelas operacionais conferidos, produção preservada. O snapshot temporário expira em 4/nov.
+- [ ] Ensaiar dump/restore independente e validar indisponibilidade/recuperação real do Neon.
 - [ ] Validar fluxos visuais e responsivos completos no navegador; ferramenta BrowserOS Neo não está disponível nesta sessão.
 - [x] Publicar a correção de health-check e UI em `main`; confirmar o novo payload `services.neon` na URL de produção.
 - [x] Corrigir a exclusão do workspace pessoal para explicar que convites e lançamentos compartilhados em tabelas Neon separadas são preservados; renomear callback sem referência a dados demo.
@@ -118,5 +119,14 @@
 - [ ] Validar revogação e sincronização familiar concorrentes usando a branch isolada; o incremento SQL sintético não cobre essa lógica de API.
 - [ ] Validar SMTP autenticado com servidor de teste, sem entrega real de e-mail.
 - [ ] Observar a primeira execução automática Vercel após a implantação; Hobby executa uma vez por dia com precisão horária.
+
+## Sessão 2026-11-03 — restore e revisão de retenção
+- [x] Consultar o projeto Neon atual: plano `free_v3`, branch production primária, `history_retention_seconds=21600` (6h), sem agenda de snapshots e sem snapshots existentes antes do ensaio.
+- [x] Criar snapshot manual somente da branch raiz e restaurá-lo como `qa-restore-branch-2026-11-03` (`br-bold-fog-b6cn368o`), sem promoção; confirmar restore concluído, schema sem diferenças e presença das tabelas operacionais; compute suspenso após leitura.
+- [x] Configurar expiração do snapshot temporário para `2026-11-04T22:00:00Z`; a branch restaurada continua preservada para revisão.
+- [x] Testar duas ordens concorrentes na tabela sintética `codex_qa_20261103.family_race_fixture`: sync primeiro seguido de revogação termina sem espelho; revogação primeiro impede criação do espelho.
+- [x] Corrigir `DATABASE_DOCUMENTATION.md`, `NEON_MIGRATION.md` e `README.md`: atividade diária ocorre no Vercel Cron; GitHub Actions é manual; janela de seis horas não é backup independente de longo prazo.
+- [ ] Validar a corrida pelo endpoint real `/api/family/shared` com identidade Firebase controlada; o teste SQL não verifica middleware/API.
+- [ ] Revisar/excluir as branches de QA, que são cópias isoladas da produção; limpeza exige autorização explícita porque apaga dados das branches.
 
 
