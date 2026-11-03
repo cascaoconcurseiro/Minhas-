@@ -134,10 +134,11 @@
 
 ## Sessão 2026-11-03 — integridade do workspace
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
+- [x] Confirmar com o usuário que todas as contas eram demonstrações; portanto, zero contas/lançamentos é o estado esperado e não se deve restaurar conta Nubank nem saldo.
 - [x] Identificar risco no sanitizador: IDs genéricos `acc-nubank`, `acc-itau`, `card-*`, `trip-eurotrip` e FITIDs Nubank eram classificados automaticamente como mock, embora possam ser registros reais; remover esses falsos positivos e adicionar regressões.
 - [x] Revalidar testes utilitários/backend, `bun run lint` e `bun run build` após a correção do sanitizador; todos passaram, com aviso de chunk principal >500 kB.
 - [x] Publicar a correção do sanitizador em `21df8f7`; CI Vercel `success`, deploy `dpl_HRHcWTH9BucsNwezxR2ZH4RNE8jz` `READY`, health 200/Neon `ok`; bundle servido não contém os filtros `acc-nubank`/`NUBANK-SAL-`.
-- [ ] Recuperar e conferir a conta Nubank que o registro de 2/nov diz ter sido preservada. A contagem atual contradiz a confirmação da UI; não recriar saldo/conta manualmente. A cópia legada no Firestore só é acessível com sessão Firebase autenticada e a ferramenta BrowserOS Neo ainda não está disponível.
-- [ ] Auditar com o titular se houve cópia local/JSON exportado e confirmar os campos corretos antes de restaurar qualquer valor financeiro.
+- [ ] Restringir privilégios de `minhas_app` e `minhas_daily`: a consulta encontrou membership em `neon_superuser` e `CREATEROLE`, `CREATEDB`, `BYPASSRLS`, `REPLICATION`; `neon_run_sql` negou tanto `REVOKE neon_superuser FROM minhas_app` quanto `ALTER ROLE ...`. Nenhuma alteração foi aplicada; requer ferramenta/credencial com administração de roles.
+- [x] Verificar nas quatro tabelas operacionais que RLS está habilitado/forçado e há policy baseada em `app.firebase_uid`; registrar que as roles com `BYPASSRLS` ainda podem contornar essa proteção.
 
 
