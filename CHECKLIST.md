@@ -102,6 +102,7 @@
 
 - [x] Corrigir parsing do snapshot Neon: JSON inválido, coleção/objeto no formato errado ou item sem id não é convertido em estado vazio; a tela mantém erro de sync e informa que os dados remotos foram preservados.
 - [x] Testar parser do snapshot: bun test (87), bun run lint, bun run build e git diff --check passaram.
+- [x] Publicar em `main` no commit `f66e89a`; CI `41691329025` e Vercel `success`. Smoke: homepage 200; bundle `index-DqXs8zaw.js` contém a mensagem de preservação; health 200/Neon `ok`; três rotas de serviço 401 sem token.
 - [ ] Confirmar evento automático schedule do workflow diário; em 3/nov o histórico ainda só mostrou execuções workflow_dispatch.
 
 
