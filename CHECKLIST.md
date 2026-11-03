@@ -63,9 +63,9 @@
 - [x] Publicar `d1a545d` em `main`; check Vercel `success` e smoke de produção: HTML/CSP/guard/bundle 200 e API protegida 401 sem token.
 - [x] Confirmar CI run `41525311897` concluído com sucesso e check Vercel `success` para `1b05c89`.
 - [x] Reconsultar histórico do workflow Neon em 2/nov: execução manual bem-sucedida existe; execução automática `schedule` ainda não existe, pois a primeira janela agendada depois da publicação é 3/nov às 09:15 BRT.
-- [ ] Confirmar execução automática diária do GitHub Actions; execução manual já foi validada.
+- [x] Confirmar que o GitHub Actions não tem mais cron diário; atividade foi migrada para Vercel Cron, cuja primeira execução automática ainda aguarda a janela de 4/nov.
 - [ ] Validar recuperação após indisponibilidade real do Neon.
-- [ ] Ensaiar restauração integral do Neon em ambiente isolado.
+- [x] Ensaiar restore de snapshot da raiz em branch Neon isolada, sem promoção; dump/restore independente permanece pendente.
 - [x] Revalidar em 2/nov: `bun test` (78 testes), `bun run lint` e `bun run build` passaram; isso não substitui os ensaios reais pendentes no Neon.
 
 ## Sessão 2026-11-03 — auditoria e correções locais
@@ -83,7 +83,7 @@
 - [x] Confirmar `/api/workspace`, `/api/workspace/migrate`, `/api/family/invitations` e `/api/family/shared` retornam 401 sem token.
 - [x] Executar a checagem Neon manualmente hoje: GitHub Actions run `41688417355` concluiu com sucesso no commit `90aeccb`.
 - [x] Revalidar `bun test` (83 testes), `bun run lint`, `bun run build` e `git diff --check`; o build ainda alerta para o chunk principal acima de 500 kB.
-- [ ] Confirmar execução automática diária: consulta em 3/nov às 14:47 BRT encontrou somente o run manual de 2/nov; não há evento `schedule` comprovado.
+- [x] Confirmar em 3/nov que o workflow GitHub não tinha evento `schedule`; foi substituído pelo Vercel Cron. Execução automática Vercel ainda pendente.
 - [ ] Validar concorrência real entre abas/workspaces com dados sintéticos isolados.
 - [x] Ensaiar snapshot Neon da branch raiz restaurado em nova branch isolada; schema e quatro tabelas operacionais conferidos, produção preservada. O snapshot temporário expira em 4/nov.
 - [ ] Ensaiar dump/restore independente e validar indisponibilidade/recuperação real do Neon.
@@ -107,7 +107,7 @@
 - [x] Validar integridade de cota compartilhada: rejeitar valor negativo, não finito, acima do total ou fora do limite seguro em centavos antes de gravar; adicionar testes de borda para 0, centavos, NaN e overflow.
 - [x] Serializar sincronização de despesas e revogação familiar bloqueando a linha do convite aceito durante a escrita; ensaio concorrente real continua pendente em branch Neon isolada.
 - [x] Publicar a serialização entre sincronizar e revogar em `6789504`; CI `41692724273` e Vercel `success`. Health 200/Neon `ok` e endpoints familiares 401 sem token.
-- [ ] Ensaiar a corrida entre sincronizar e revogar com duas sessões em branch Neon isolada.
+- [x] Ensaiar no Neon isolado as duas ordens SQL sintéticas de sincronização/revogação; final sem espelho. A corrida pela API real com duas sessões autenticadas continua pendente.
 - [x] Remover o agendamento do GitHub Actions (histórico só mostrava execuções manuais) e transferir a checagem diária para Vercel Cron; a primeira execução automática Vercel permanece pendente.
 - [x] Mover a agenda diária para Cron da Vercel: `GET /api/health` às 12:15 UTC consulta `finance_workspaces`; remover o cron duplicado do GitHub e manter `workflow_dispatch` manual.
 - [x] Publicar em `5a701df`; CI `41693460673` e Vercel `success`. `vercel inspect` mostra Cron `/api/health` com schedule `15 12 * * *`; health de produção 200 com Neon `ok`.
@@ -116,7 +116,7 @@
 - [x] Corrigir proteção SMTP contra SSRF: permitir somente hostname DNS público e portas `25/465/587/2525`, rejeitar DNS misto/privado, fixar IP validado, exigir TLS e aplicar timeout de DNS; documentar que credenciais fornecidas pelo usuário podem integrar o snapshot Neon.
 - [x] Revalidar `bun test` (93 testes), `bun run lint` e `bun run build`; todos passaram. O build ainda alerta sobre o bundle principal acima de 500 kB.
 - [x] Publicar a proteção SMTP em `5f8f6d2`; CI `41694953882` passou e Vercel ficou `READY`. Smoke pós-deploy: health 200 com Neon `ok`; `/api/reminders/send-email` sem token retornou 401.
-- [ ] Validar a revogação e a sincronização pelo endpoint real `/api/family/shared`; os testes atuais exercitam locks/estado SQL em fixture sintética, sem middleware Firebase.
+- [x] Validar localmente por HTTP as rotas de sincronização `/api/family/shared` e revogação com identidade Firebase simulada e pool Neon simulado. A concorrência da API contra Neon real continua pendente.
 - [ ] Validar SMTP autenticado com servidor de teste, sem entrega real de e-mail.
 - [ ] Observar a primeira execução automática Vercel após a implantação; Hobby executa uma vez por dia com precisão horária.
 
@@ -136,6 +136,7 @@
 - [x] Consultar somente contagens agregadas da branch Neon production: 3 workspaces, 0 contas e 0 lançamentos no total. A leitura não trouxe valores, nomes ou emails.
 - [x] Identificar risco no sanitizador: IDs genéricos `acc-nubank`, `acc-itau`, `card-*`, `trip-eurotrip` e FITIDs Nubank eram classificados automaticamente como mock, embora possam ser registros reais; remover esses falsos positivos e adicionar regressões.
 - [x] Revalidar testes utilitários/backend, `bun run lint` e `bun run build` após a correção do sanitizador; todos passaram, com aviso de chunk principal >500 kB.
+- [x] Publicar a correção do sanitizador em `21df8f7`; CI Vercel `success`, deploy `dpl_HRHcWTH9BucsNwezxR2ZH4RNE8jz` `READY`, health 200/Neon `ok`; bundle servido não contém os filtros `acc-nubank`/`NUBANK-SAL-`.
 - [ ] Recuperar e conferir a conta Nubank que o registro de 2/nov diz ter sido preservada. A contagem atual contradiz a confirmação da UI; não recriar saldo/conta manualmente. A cópia legada no Firestore só é acessível com sessão Firebase autenticada e a ferramenta BrowserOS Neo ainda não está disponível.
 - [ ] Auditar com o titular se houve cópia local/JSON exportado e confirmar os campos corretos antes de restaurar qualquer valor financeiro.
 

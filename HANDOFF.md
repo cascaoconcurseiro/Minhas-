@@ -1,17 +1,18 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Última publicação conhecida: `1a9c726` em `main`; CI/deploy passaram e o health da Vercel confirmou Neon `ok`. A correção do sanitizador passou nos testes locais e aguarda publicação.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Última publicação: `21df8f7` em `main`; check Vercel `success`, deploy `dpl_HRHcWTH9BucsNwezxR2ZH4RNE8jz` `READY`, health 200/Neon `ok`.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
 - Consulta agregada somente de contagens à produção retornou 3 workspaces, 0 contas e 0 lançamentos no total. Nenhum valor, nome ou email foi lido. Isso contradiz o registro anterior de que os quatro lançamentos foram removidos e a conta Nubank preservada.
-- A origem específica ainda não está provada, mas o código classifica IDs genéricos `acc-nubank`, `acc-itau`, cartões com IDs genéricos, `trip-eurotrip` e certos FITIDs `NUBANK-*` como mock. Esse critério pode apagar dados reais; vou restringir o filtro a marcadores explícitos.
+- A origem específica da ausência da conta ainda não está provada. O filtro antigo classificava IDs genéricos `acc-nubank`, `acc-itau`, cartões com IDs genéricos, `trip-eurotrip` e FITIDs `NUBANK-*` como mock; a correção que remove esses falsos positivos já foi publicada.
 - Corrigi o filtro para só remover sinalizadores explícitos (`isMock`, `isDemo`, IDs mock/demo/seed e FITID MOCK/DEMO); testes regressivos cobrem os IDs de conta/cartão/viagem e FITID genéricos. Testes, lint e build passaram localmente.
+- CI passou, Vercel está `READY`; smoke no alias confirmou `status: ok`, `services.neon: ok`; o bundle servido já não inclui os filtros `acc-nubank` ou `NUBANK-SAL-`.
 - A busca local não encontrou backup JSON/CSV/OFX do usuário no repositório. Não recriar valores financeiros manualmente. Recuperação depende de localizar uma cópia legada Firestore autenticada, exportação do usuário ou outra cópia verificável.
 
 ## Próximo passo concreto
-Publicar a correção do sanitizador em `main` e validar CI/deploy/health. Para recuperar a conta, usar a sessão BrowserOS autenticada para verificar se há snapshot legado disponível, ou pedir ao titular um JSON/backup. Não substituir o estado Neon até validar a origem e os campos.
+Para recuperar a conta, usar a sessão BrowserOS autenticada para verificar se há snapshot legado disponível, ou pedir ao titular um JSON/backup. Não substituir o estado Neon até validar a origem e os campos. Em 4/nov, verificar a execução automática do Vercel Cron em `15 12 * * *` UTC.
 
 ## Pendências e limites
 - A conta Nubank antes registrada como preservada não está presente nas contagens agregadas atuais do Neon. Essa divergência é prioritária; o registro anterior por UI não basta para confirmar persistência.
