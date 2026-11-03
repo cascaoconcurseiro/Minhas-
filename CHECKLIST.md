@@ -114,7 +114,7 @@
 - [x] Criar compute temporário de QA de 0,25 CU, testar duas atualizações SQL concorrentes em tabela sintética e confirmar valor final `2`; suspender o compute após o teste. Nenhuma tabela financeira foi consultada ou alterada.
 - [x] Corrigir proteção SMTP contra SSRF: permitir somente hostname DNS público e portas `25/465/587/2525`, rejeitar DNS misto/privado, fixar IP validado, exigir TLS e aplicar timeout de DNS; documentar que credenciais fornecidas pelo usuário podem integrar o snapshot Neon.
 - [x] Revalidar `bun test` (93 testes), `bun run lint` e `bun run build`; todos passaram. O build ainda alerta sobre o bundle principal acima de 500 kB.
-- [x] Publicar a proteção SMTP em `5f8f6d2`; CI `41694953882` passou. A implantação Vercel de produção foi iniciada e ainda está em build nesta atualização.
+- [x] Publicar a proteção SMTP em `5f8f6d2`; CI `41694953882` passou e Vercel ficou `READY`. Smoke pós-deploy: health 200 com Neon `ok`; `/api/reminders/send-email` sem token retornou 401.
 - [ ] Validar revogação e sincronização familiar concorrentes usando a branch isolada; o incremento SQL sintético não cobre essa lógica de API.
 - [ ] Validar SMTP autenticado com servidor de teste, sem entrega real de e-mail.
 - [ ] Observar a primeira execução automática Vercel após a implantação; Hobby executa uma vez por dia com precisão horária.
