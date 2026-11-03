@@ -1,26 +1,26 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria integral com Neon operacional e Firebase Auth. Código atualmente publicado: `f66e89a`; correção adicional de integridade financeira em preparação local.
+Meta ativa: concluir auditoria integral com Neon operacional e Firebase Auth. `main` e produção estão no commit `d952a04`; alteração de serialização de revogação ainda está local.
 
 ## Trabalho concluído nesta etapa
-- Corrigi e publiquei a validação estrita de snapshots Neon para evitar substituir dados corrompidos por listas vazias; produção contém a mensagem de preservação.
-- Auditei a gravação de despesas compartilhadas e corrigi aceitação de `sharedAmount` negativo, não finito ou maior que o total. O endpoint agora rejeita o lote com HTTP 400 antes da operação no banco; valores devem caber em centavos seguros.
-- Adicionei testes de unidade para 0, 0,01, limites, negativos, NaN, Infinity, shares acima do total e valores fora do intervalo seguro.
-- Verificações locais após esta alteração: `bun test` 89/89, lint, build e `git diff --check` passaram. Build ainda mostra warning do chunk inicial >500 kB.
-- Ainda não publiquei a validação de `sharedAmount`; CI/Vercel e smoke de produção pendentes.
-- O workflow diário está ativo, mas a consulta ao histórico de 3/nov só mostrou execuções manuais, sem `schedule` automático.
+- Corrigi snapshots Neon malformados antes que pudessem virar listas vazias e ser salvos por cima. Deploy `f66e89a` foi confirmado em produção, com bundle novo, homepage 200, health 200/Neon `ok` e rotas protegidas 401 sem token.
+- Corrigi `/api/family/shared` para rejeitar cotas negativas, não finitas, maiores que o total ou sem centavos seguros antes de gravar. Testes cobrem 0, 0,01, negativos, NaN, Infinity, valor acima do total e overflow.
+- Commit `d952a04` foi publicado; CI `41692272339` passou e Vercel ficou `success`. Health Neon `ok`; rotas familiares `/api/family/invitations` e `/api/family/shared` seguem 401 sem token.
+- Nova auditoria de concorrência encontrou corrida entre gravação de despesa e revogação familiar. Localmente, adicionei `SELECT ... FOR UPDATE` na leitura do convite aceito para serializar a escrita com a revogação e a exclusão dos dados compartilhados.
+- Depois da correção local: testes, lint, build e diff-check passaram (89 testes). O teste concorrente real ainda depende de branch Neon isolada.
 
 ## Próximos passos concretos
-1. Publicar a validação da API de despesas compartilhadas; verificar CI/Vercel e confirmar que endpoints existentes continuam 401 sem token.
-2. Confirmar o próximo evento automático `schedule` e investigar se continuar ausente.
-3. Fazer smoke autenticado com sessão Firebase de teste, inclusive compartilhamento apenas se uma segunda conta for autorizada; usar SMTP de teste.
-4. Conectar Neon e fazer branch isolada para concorrência, indisponibilidade/recuperação e restore integral com dados sintéticos.
-5. Validar visualmente desktop e mobile com navegador autorizado disponível.
+1. Publicar a trava de concorrência da sincronização familiar; aguardar CI/Vercel e confirmar deploy.
+2. Com Neon conectado, executar a corrida de revogação e sincronização com duas sessões e confirmar que não sobram dados após revogar.
+3. Confirmar execução `schedule` automática do workflow diário no próximo ciclo e investigar ausência se persistir.
+4. Fazer smoke autenticado com sessão Firebase de teste; testar e-mail apenas em SMTP controlado.
+5. Validar branch isolada, restore integral e recuperação de indisponibilidade no Neon.
+6. Validar interface desktop/mobile com navegador autorizado disponível.
 
 ## Pendências e limites
-- Sem sessão Firebase de teste; o usuário dispensou validação familiar ponta a ponta com segunda conta.
-- Neon connector não conectado; restore, concorrência e falha/recuperação reais ainda não ensaiados.
+- Sem sessão Firebase de teste; usuário dispensou teste familiar ponta a ponta com segunda conta.
+- Neon connector não conectado; branch, concorrência, restore e falha/recuperação reais pendentes.
 - BrowserOS Neo indisponível; validação visual completa pendente.
-- Câmbio ao vivo via Gemini está desativado em produção (`geminiConfigured: false`).
-- Não há execução automática diária comprovada; execução manual não prova recorrência.
+- Gemini não configurado em produção; busca ao vivo de câmbio segue desativada.
+- Execução automática `schedule` não observada até 3/nov.

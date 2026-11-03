@@ -680,6 +680,7 @@ async function startServer() {
 
     try {
       const result = await withWorkspaceRls(user, async (client) => {
+        // Serialize with revocation, which locks this invitation before deleting shared rows.
         const linkResult = await client.query(
           `SELECT owner_firebase_uid, owner_email, invited_email,
                   invited_firebase_uid, owner_member_id, status
@@ -687,7 +688,8 @@ async function startServer() {
             WHERE status = 'accepted'
               AND ((owner_firebase_uid = $1 AND lower(invited_email) = lower($2))
                 OR (invited_firebase_uid = $1 AND lower(owner_email) = lower($2)))
-            LIMIT 1`,
+            LIMIT 1
+            FOR UPDATE`,
           [user.uid, partnerEmail]
         );
         const link = linkResult.rows[0];

@@ -104,6 +104,8 @@
 - [x] Testar parser do snapshot: bun test (87), bun run lint, bun run build e git diff --check passaram.
 - [x] Publicar em `main` no commit `f66e89a`; CI `41691329025` e Vercel `success`. Smoke: homepage 200; bundle `index-DqXs8zaw.js` contém a mensagem de preservação; health 200/Neon `ok`; três rotas de serviço 401 sem token.
 - [x] Validar integridade de cota compartilhada: rejeitar valor negativo, não finito, acima do total ou fora do limite seguro em centavos antes de gravar; adicionar testes de borda para 0, centavos, NaN e overflow.
+- [x] Serializar sincronização de despesas e revogação familiar bloqueando a linha do convite aceito durante a escrita; ensaio concorrente real continua pendente em branch Neon isolada.
+- [ ] Publicar e validar em produção a serialização entre sincronizar e revogar despesas familiares; testar a corrida com duas sessões em Neon isolado.
 - [ ] Confirmar evento automático schedule do workflow diário; em 3/nov o histórico ainda só mostrou execuções workflow_dispatch.
 
 
