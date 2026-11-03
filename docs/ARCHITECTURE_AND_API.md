@@ -146,7 +146,7 @@ Sincroniza em lote (até 20 tickers por requisição) os preços atuais de merca
 ---
 
 ### 2.5. `POST /api/reminders/send-email`
-Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas por e-mail utilizando as credenciais SMTP configuradas pelo usuário (`nodemailer`). Exige `Authorization: Bearer <Firebase ID token>` e responde `502` se o servidor SMTP recusar a entrega.
+Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige `Authorization: Bearer <Firebase ID token>`, restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. As credenciais podem estar incluídas nas configurações persistidas no Neon. Responde `502` se o servidor SMTP recusar a entrega.
 
 - **Payload de Requisição**:
 ```json

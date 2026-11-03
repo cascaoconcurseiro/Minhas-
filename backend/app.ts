@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
 import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
+import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
 import {
   formatGoogleFinanceSymbol,
@@ -1074,10 +1075,6 @@ async function startServer() {
       const smtpPort = Number(smtpObj.port ?? req.body?.smtpPort ?? 587);
       const smtpUser = String(smtpObj.user || req.body?.smtpUser || '').trim();
       const smtpPass = String(smtpObj.pass || req.body?.smtpPass || '').trim();
-      const smtpSecure =
-        smtpObj.secure !== undefined
-          ? Boolean(smtpObj.secure)
-          : smtpPort === 465;
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!rawTo || !emailRegex.test(rawTo)) {
@@ -1090,8 +1087,6 @@ async function startServer() {
       if (
         !smtpHost ||
         !Number.isFinite(smtpPort) ||
-        smtpPort <= 0 ||
-        smtpPort > 65535 ||
         !smtpUser ||
         !smtpPass
       ) {
@@ -1102,13 +1097,23 @@ async function startServer() {
         return;
       }
 
+      const smtpTarget = await resolvePublicSmtpTarget(smtpHost, smtpPort);
+      if (!smtpTarget) {
+        res.status(400).json({
+          error: 'Use um servidor SMTP público em uma porta compatível (25, 465, 587 ou 2525).',
+        });
+        return;
+      }
+
       const sentAt = new Date().toISOString();
       const deliveryMode = 'custom_smtp' as const;
 
       const transporter = nodemailer.createTransport({
-        host: smtpHost,
+        host: smtpTarget.address,
         port: smtpPort,
-        secure: smtpSecure,
+        secure: smtpPort === 465,
+        requireTLS: smtpPort !== 465,
+        tls: { servername: smtpTarget.servername },
         auth: {
           user: smtpUser,
           pass: smtpPass,
@@ -1131,10 +1136,7 @@ async function startServer() {
           html: htmlBody || undefined,
         });
       } catch (smtpErr) {
-        console.warn(
-          `Falha ao entregar lembrete via SMTP (${smtpHost}:${smtpPort}):`,
-          smtpErr instanceof Error ? smtpErr.message : 'erro desconhecido'
-        );
+        console.warn('Falha ao entregar lembrete via SMTP:', smtpErr instanceof Error ? smtpErr.message : 'erro desconhecido');
         res.status(502).json({
           error: 'O servidor SMTP não aceitou o envio. Confira host, porta e credenciais.',
         });
