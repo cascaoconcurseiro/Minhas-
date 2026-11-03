@@ -143,8 +143,9 @@
 - [x] Auditar persistência: Firestore só é lido no fluxo pontual de importação quando Neon responde workspace ausente; gravações operacionais permanecem no Neon. Queries de workspace e compartilhamento usam UID/email autenticados explicitamente.
 - [x] Adicionar teste HTTP para isolamento de workspace entre dois UIDs simulados; dono recebe seu estado e outro UID recebe 404, com UID do chamador ligado aos parâmetros SQL.
 - [x] Revalidar suíte completa (95 testes), lint, build e `git diff --check`; passou. Build segue com alerta de chunk principal >500 kB.
-- [x] Confirmar no Vercel `crons list` o job de produção `/api/health` em `15 12 * * *` UTC. A execução programada de 4/nov 12:15 UTC ainda está no futuro.
+- [x] Confirmar no Vercel `crons list` o job de produção `/api/health` em `15 12 * * *` UTC e dispará-lo manualmente em `2026-11-03T22:53:50Z`; a invocação foi aceita. A execução programada de 4/nov 12:15 UTC ainda está no futuro.
 - [x] Smoke de produção sem token: workspace, migração, rotas familiares, câmbio, investimentos e lembretes retornam 401; bundle publicado não contém Guia Rápido nem `tx-demo`; health responde 200/Neon `ok`.
+- [x] Publicar teste/documentação em `025b18b`; GitHub CI `success`, Vercel `dpl_FzMQzZLf3RkVes1PjScumzt2JpAx` `READY`, homepage/health e bundle de produção verificados depois da publicação.
 - [ ] Corrigir privilégios das roles Neon com acesso que possa administrar role membership/attributes; não tentar upgrade de plano nem girar credenciais sem avaliar custo e impacto.
 - [ ] Fazer backup/dump portátil e restore independente; o Neon Free atual não permite agenda de snapshots automáticos e PITR está em 6h. O snapshot manual de QA existente expira 4/nov 22:00 UTC.
 - [ ] Confirmar a primeira execução automática do cron depois de 4/nov 12:15 UTC.

@@ -1,7 +1,7 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção de segurança `af97e14` publicada; testes adicionais locais de isolamento HTTP foram preparados nesta continuação. Produção continua pronta, health 200 com Neon `ok`, rotas privadas 401 sem token e Vercel tem cron diário configurado.
+Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco operacional e Firebase Auth. Correção `af97e14` e teste HTTP de isolamento `025b18b` publicados; CI do último commit `success`, Vercel `READY`, health público 200 com Neon `ok`, rotas privadas 401 sem token e cron diário configurado.
 
 ## Trabalho desta sessão
 - Revalidei a produção: Vercel `READY`, alias `minhaseconomias-blue.vercel.app`, health 200/Neon `ok`; a branch `production` é a única branch Neon e o snapshot temporário ainda expira em `2026-11-04T22:00:00Z`.
@@ -19,6 +19,8 @@ Meta ativa: concluir auditoria funcional ponta a ponta com Neon como banco opera
 - Adicionei teste HTTP que simula dois UIDs: o proprietário recebe o próprio workspace e o segundo UID recebe 404; a query é explicitamente filtrada pelo UID autenticado. Agora 95 testes, lint, build e `git diff --check` passam; bundle principal continua acima de 500 kB.
 - Re-vinculei a CLI Vercel ao projeto (metadado local `.vercel/`, ignorado pelo Git) e confirmei por `vercel crons list` o job real `/api/health` `15 12 * * *`. A primeira execução agendada ainda não ocorreu; hoje é 3/nov UTC e o próximo disparo será 4/nov às 12:15 UTC.
 - Smoke público: sete rotas privadas de workspace/migração/família/serviços retornaram 401 sem token. O asset publicado não contém `Guia Rápido` nem `tx-demo`; health 200 com `services.neon=ok`.
+- Commit `025b18b` está na `main`; GitHub check `Vercel` `success`, deploy `dpl_FzMQzZLf3RkVes1PjScumzt2JpAx` `READY`. Depois do deploy, homepage 200, bundle manteve a faixa de verificação e não contém Guia Rápido ou marcador `tx-demo`; health segue `ok` no Neon.
+- `vercel crons list` mostrou `/api/health` `15 12 * * *`; `vercel crons run /api/health` foi aceito em `2026-11-03T22:53:50.160Z`. Isso confirma que a invocação manual funciona; o disparo automático de `2026-11-04T12:15:00Z` ainda não ocorreu.
 - Pesquisa da documentação Neon atual confirmou que agendas automáticas de snapshots exigem plano pago; Neon Free continua em PITR de 6h e limite de snapshot manual, então não alterei o plano nem configurei custo. O snapshot de QA anterior expira 4/nov às 22:00 UTC.
 
 ## Próximo passo concreto
