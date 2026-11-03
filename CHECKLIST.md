@@ -108,5 +108,7 @@
 - [x] Publicar a serialização entre sincronizar e revogar em `6789504`; CI `41692724273` e Vercel `success`. Health 200/Neon `ok` e endpoints familiares 401 sem token.
 - [ ] Ensaiar a corrida entre sincronizar e revogar com duas sessões em branch Neon isolada.
 - [ ] Confirmar evento automático schedule do workflow diário; em 3/nov o histórico ainda só mostrou execuções workflow_dispatch.
+- [x] Mover a agenda diária para Cron da Vercel: `GET /api/health` às 12:15 UTC consulta `finance_workspaces`; remover o cron duplicado do GitHub e manter `workflow_dispatch` manual.
+- [ ] Confirmar no dashboard/logs Vercel que o Cron foi registrado e observar sua primeira execução automática; Hobby permite janela de até 59 min após a hora agendada.
 
 

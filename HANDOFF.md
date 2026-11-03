@@ -1,26 +1,27 @@
 # Handoff — Minhas Economias
 
 ## Estado atual — 2026-11-03
-Meta ativa: concluir auditoria integral com Neon operacional e Firebase Auth. `main` e produção Vercel estão no commit `6789504`.
+Meta ativa: concluir auditoria integral com Neon operacional e Firebase Auth. Código em produção: `6789504`; configuração de Cron Vercel recém-alterada ainda não publicada.
 
 ## Trabalho concluído nesta etapa
-- Evitei perda silenciosa de dados quando o snapshot Neon está corrompido; deploy `f66e89a` confirmado com bundle atualizado e aviso de preservação.
-- `/api/family/shared` rejeita valor compartilhado negativo, não finito, acima do total ou sem centavos seguros antes de gravar. Testes de borda estão em `backend/sharedTransactionValidation.test.ts`.
-- Para impedir que despesas sejam criadas após a revogação, a sincronização agora bloqueia a linha do convite aceito (`SELECT ... FOR UPDATE`) enquanto grava. A revogação atualiza a mesma linha e limpa compartilhamentos na mesma transação.
-- Commit `6789504` publicado. CI `41692724273` passou; Vercel `success`. Smoke: health 200 com Neon `ok`; `/api/family/invitations` e `/api/family/shared` 401 sem token.
-- Verificações locais antes de publicar: `bun test` 89/89, lint, build e `git diff --check` passaram. O teste concorrente real ainda não foi possível sem branch Neon isolada.
-- O histórico do workflow diário consultado em 3/nov ainda não mostrava evento automático `schedule`.
+- Migrei a rotina diária para Vercel Cron no plano Hobby: `GET /api/health` às 12:15 UTC, que consulta `finance_workspaces` e retorna 200/503 conforme a conexão Neon. Removi o schedule duplicado do GitHub, mantendo `workflow_dispatch` manual.
+- A documentação informa que, no Hobby, a execução tem janela de até 59 minutos depois da hora. Falta publicar, conferir o Cron registrado na Vercel e observar a primeira execução agendada.
+- A rotina usa health-check público já existente, sem escrita de dados nem novo segredo; a resposta expõe apenas estado agregado.
+
+## Validações já confirmadas
+- Commit `6789504` implantado na Vercel, CI `41692724273` passou; health 200/Neon `ok`; endpoints familiares 401 sem token.
+- Proteção de snapshot Neon malformado publicada (`f66e89a`), e API de despesas compartilhadas valida cotas seguras (`d952a04`).
+- A sincronização de despesas bloqueia o convite aceito com `FOR UPDATE` para serializar com revogação (`6789504`), mas falta exercitar corrida real no Neon.
 
 ## Próximos passos concretos
-1. Conectar Neon e executar sincronização/revogação concorrentes em branch isolada, confirmar que revogar deixa zero linhas compartilhadas e nenhum acesso residual.
-2. Confirmar evento `schedule` automático no próximo ciclo; investigar se não ocorrer.
-3. Fazer smoke autenticado com sessão Firebase de teste; usar SMTP de teste para e-mails.
-4. Ensaiar backup/restore integral e indisponibilidade/recuperação no Neon.
-5. Validar interface desktop/mobile no navegador autorizado.
+1. Rodar testes, publicar a configuração Vercel Cron e confirmar que o deploy de produção registra `/api/health` no agendamento.
+2. Inspecionar logs da Vercel no próximo ciclo e confirmar execução automática com Neon saudável.
+3. Com conector Neon conectado, testar revogação/sync concorrentes, indisponibilidade/recuperação e restore integral em branch isolada.
+4. Fazer smoke autenticado com Firebase de teste (sem segunda conta para o compartilhamento, conforme dispensado) e SMTP de teste.
+5. Validar desktop/mobile no navegador autorizado.
 
 ## Pendências e limites
-- Sem sessão Firebase de teste; usuário dispensou E2E familiar com segunda conta.
 - Neon connector não conectado; ensaios reais de concorrência, restore e recuperação pendentes.
 - BrowserOS Neo indisponível; validação visual completa pendente.
-- Busca de câmbio ao vivo via Gemini desativada em produção (`geminiConfigured: false`).
-- Não há execução automática diária comprovada; execução manual não prova recorrência.
+- Câmbio ao vivo via Gemini desativado em produção (`geminiConfigured: false`).
+- Cron novo ainda não publicado nem executado automaticamente; o workflow GitHub anterior só teve execuções manuais observadas.

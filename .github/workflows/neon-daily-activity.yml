@@ -1,8 +1,6 @@
-name: Neon — atividade diária
+name: Neon — verificação manual
 
 on:
-  schedule:
-    - cron: '15 12 * * *' # 09:15 America/Sao_Paulo
   workflow_dispatch:
 
 permissions: {}
