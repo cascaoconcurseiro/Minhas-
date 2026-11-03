@@ -4,6 +4,8 @@
 
 O PostgreSQL no Neon é o único banco de dados operacional do aplicativo. O frontend acessa o banco exclusivamente pela API Express na Vercel. Firebase Authentication autentica o usuário e fornece o ID token; Firebase/Firestore não participa de leituras, gravações, sincronização ou contingência normais.
 
+Os campos persistidos do workspace são validados antes de aplicar o snapshot à interface. JSON inválido, coleção que não seja array, item sem `id` ou objeto corrompido deixa a sincronização em erro e informa que os dados remotos foram preservados; o app não substitui esses campos por listas vazias e não os grava de volta automaticamente.
+
 O app não usa Firestore para operação normal: não mantém listener, espelho, contingência nem gravação. Se o workspace ainda não existir no Neon, o app consulta uma vez o snapshot legado do próprio titular e importa-o sem substituir dados existentes. Documentos antigos não são apagados por esta mudança.
 
 ## Modelo Neon

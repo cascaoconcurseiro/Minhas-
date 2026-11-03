@@ -84,6 +84,7 @@ import {
   applyAssetOperation,
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
+import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
 const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
 const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
 const InvestmentsTab = lazy(() => import('./components/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
@@ -188,15 +189,8 @@ function stripLegacyMockItemsFromWorkspace(
 
   for (const field of fields) {
     const raw = payload[field];
-    if (typeof raw !== 'string' && !Array.isArray(raw)) continue;
-
-    let items: unknown;
-    try {
-      items = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    } catch {
-      continue;
-    }
-    if (!Array.isArray(items)) continue;
+    if (raw === undefined || raw === null) continue;
+    const items = parseWorkspaceArray<Record<string, unknown>>(raw, [], field);
 
     const cleanItems = stripLegacyMockItems(items as Array<{ id: string }>);
     if (cleanItems.length === items.length) continue;
@@ -717,34 +711,6 @@ export default function App() {
 
     setCloudSyncStatus('syncing');
 
-    const safeParseArray = <T,>(raw: unknown, fallback: T[]): T[] => {
-      if (typeof raw === 'string') {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed;
-        } catch {
-          return fallback;
-        }
-      } else if (Array.isArray(raw)) {
-        return raw as T[];
-      }
-      return fallback;
-    };
-
-    const safeParseObj = <T extends object>(raw: unknown, fallback: T): T => {
-      if (typeof raw === 'string') {
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') return { ...fallback, ...parsed };
-        } catch {
-          return fallback;
-        }
-      } else if (raw && typeof raw === 'object') {
-        return { ...fallback, ...(raw as Partial<T>) };
-      }
-      return fallback;
-    };
-
     let active = true;
     const initialNeonLoad = (async () => {
       try {
@@ -798,9 +764,9 @@ export default function App() {
         if (!active) return;
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
-        const rawAccounts = safeParseArray<BankAccount>(data.accountsJson, INITIAL_ACCOUNTS);
-        const rawCards = safeParseArray<CreditCard>(data.cardsJson, INITIAL_CREDIT_CARDS);
-        const parsedCategories = safeParseArray<Category>(data.categoriesJson, INITIAL_CATEGORIES);
+        const rawAccounts = parseWorkspaceArray<BankAccount>(data.accountsJson, INITIAL_ACCOUNTS, 'accountsJson');
+        const rawCards = parseWorkspaceArray<CreditCard>(data.cardsJson, INITIAL_CREDIT_CARDS, 'cardsJson');
+        const parsedCategories = parseWorkspaceArray<Category>(data.categoriesJson, INITIAL_CATEGORIES, 'categoriesJson');
         const nextCategories = parsedCategories.length > 0
           ? [...parsedCategories]
           : [...INITIAL_CATEGORIES];
@@ -813,7 +779,7 @@ export default function App() {
           }
         }
 
-        const rawTransactions = safeParseArray<Transaction>(data.transactionsJson, INITIAL_TRANSACTIONS);
+        const rawTransactions = parseWorkspaceArray<Transaction>(data.transactionsJson, INITIAL_TRANSACTIONS, 'transactionsJson');
         const sharedById = new Map<string, Transaction>();
         for (const sharedPayload of sharedPayloads) {
           const sharedTransaction = sharedPayload as unknown as Transaction;
@@ -825,7 +791,7 @@ export default function App() {
           .filter((transaction) => !transaction.id.startsWith('tx-mirror-'));
 
         const familyMembers = stripLegacyMockItems(
-          safeParseArray<FamilyMember>(data.familyMembersJson, INITIAL_FAMILY_MEMBERS)
+          parseWorkspaceArray<FamilyMember>(data.familyMembersJson, INITIAL_FAMILY_MEMBERS, 'familyMembersJson')
         );
         for (const invitation of familyInvitations) {
           const ownerEmail = invitation.owner_email.trim().toLowerCase();
@@ -891,12 +857,12 @@ export default function App() {
         setCards(stripLegacyMockItems(rawCards));
         setCategories(nextCategories);
         setTransactions([...localTransactions, ...sharedById.values()]);
-        setGoals(stripLegacyMockItems(safeParseArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS)));
+        setGoals(stripLegacyMockItems(parseWorkspaceArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS, 'goalsJson')));
         setFamilyMembers(familyMembers);
-        setInvestments(stripLegacyMockItems(safeParseArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS)));
-        setTrips(stripLegacyMockItems(safeParseArray<Trip>(data.tripsJson, INITIAL_TRIPS)));
-        setInvestmentTargets(safeParseObj(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS));
-        setSettings(safeParseObj(data.settingsJson, DEFAULT_SETTINGS));
+        setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
+        setTrips(stripLegacyMockItems(parseWorkspaceArray<Trip>(data.tripsJson, INITIAL_TRIPS, 'tripsJson')));
+        setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
+        setSettings(parseWorkspaceObject(data.settingsJson, DEFAULT_SETTINGS, 'settingsJson'));
         hasLoadedRemoteOnceRef.current = true;
         isApplyingRemoteSnapshotRef.current = false;
         setCloudSyncStatus('synced');
@@ -913,6 +879,11 @@ export default function App() {
         console.error(
           'Falha ao carregar o workspace principal do Neon.',
           error instanceof Error ? error.message : String(error)
+        );
+        showNotice(
+          'Não foi possível carregar os dados do Neon. Seus dados remotos foram preservados; confira a conexão e o status da nuvem antes de continuar.',
+          undefined,
+          true
         );
       });
     return () => {

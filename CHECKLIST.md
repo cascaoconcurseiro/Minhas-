@@ -96,5 +96,12 @@
 - [x] Publicar as proteções de API/SMTP e cópia da limpeza pessoal em `5b97901`; smoke posterior confirmou que a Vercel inicialmente devolvia 404 nas três rotas novas. Smoke autenticado ainda pendente.
 - [x] Publicar `5b97901`; CI `41689898684` e Vercel `success`, mas o smoke descobriu HTTP 404 de plataforma para rotas aninhadas novas de FX, investimentos e lembretes.
 - [x] Identificar que a Vercel precisa de adaptadores `api/<grupo>/[...path].ts` dedicados; criar os três adaptadores localmente.
-- [x] Publicar adaptadores em `a36f95f`; CI `41690481583` passou. Produção: health 200 com Neon `ok`; POST sem token a `/api/fx/live-rate`, `/api/investments/sync-quotes` e `/api/reminders/send-email` retornou 401 (corrigido o 404).\n- [ ] Validar os três fluxos autenticados com sessão Firebase controlada; testar envio apenas com SMTP de teste.
+- [x] Publicar adaptadores em `a36f95f`; CI `41690481583` passou. Produção: health 200 com Neon `ok`; POST sem token a `/api/fx/live-rate`, `/api/investments/sync-quotes` e `/api/reminders/send-email` retornou 401 (corrigido o 404).
+- [ ] Validar os três fluxos autenticados com sessão Firebase controlada; testar envio apenas com SMTP de teste.
+
+
+- [x] Corrigir parsing do snapshot Neon: JSON inválido, coleção/objeto no formato errado ou item sem id não é convertido em estado vazio; a tela mantém erro de sync e informa que os dados remotos foram preservados.
+- [x] Testar parser do snapshot: bun test (87), bun run lint, bun run build e git diff --check passaram.
+- [ ] Confirmar evento automático schedule do workflow diário; em 3/nov o histórico ainda só mostrou execuções workflow_dispatch.
+
 
