@@ -205,7 +205,9 @@
 - [x] Na branch QA, inserir workspace sintético com papel `minhas_app`, gravar transação sintética como restore de payload, avançar revisão de 1 para 2, confirmar gravação obsoleta com revisão 1 sem update e ler payload de volta.
 - [x] Disparar duas atualizações Neon reais em paralelo com expectedRevision 2; exatamente uma avançou para revisão 3 e a outra retornou zero linhas, sem sobrescrever o payload restaurado.
 - [ ] Simular perda da API no navegador após publicar a correção; confirmar erro bloqueante, tentativa de retry e reabertura do workspace depois de restabelecer a rede.
-- [ ] Excluir a branch QA Neon depois de concluir os testes e confirmar que só `production` permanece.
+- [x] Publicar `583d91a` no `main`; Vercel deployment `dpl_DHiUDhgAvLADaGY652nudZdTFcSu` ficou `Ready` e recebeu o alias de produção.
+- [x] Recarregar o site na sessão autenticada e confirmar workspace vazio carregado normalmente pelo Neon, sem tela de carregamento bloqueada.
+- [x] Excluir a branch QA após os ensaios e listar branches; só `production` permanece.
 - [ ] Validar restore UI→API→Neon ponta a ponta; o ensaio atual cobre frontend por regressão local e contrato/revisão do DB por Neon SQL, mas não a integração autenticada browser/API contra a branch.
 - [x] Inspecionar DOM/layout renderizado em viewport desktop 1920×921 e móvel 390×844; dashboard e formulário não apresentaram overflow horizontal; no modal, scroller interno de 504 px percorreu 1.293 px até o rodapé, e overlay `z-50` permanece acima da navegação móvel `z-40`.
 - [ ] Capturar e revisar imagem pixel-level do desktop/mobile; captura via CDP/BrowserOS expirou, portanto medições DOM não encerram a revisão visual.
