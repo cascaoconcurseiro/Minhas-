@@ -94,3 +94,6 @@
 - [x] Testar localmente as três rotas externas sem token: todas responderam 401; testes utilitários confirmam cabeçalhos Bearer em lembretes e cotações.
 - [x] Revalidar 83 testes, lint, build e `git diff --check` depois das mudanças acima.
 - [ ] Publicar as novas proteções de API/SMTP e cópia da limpeza pessoal; confirmar 401 sem token nas rotas na Vercel e smoke autenticado com credencial de teste.
+- [x] Publicar `5b97901`; CI `41689898684` e Vercel `success`, mas o smoke descobriu HTTP 404 de plataforma para rotas aninhadas novas de FX, investimentos e lembretes.
+- [x] Identificar que a Vercel precisa de adaptadores `api/<grupo>/[...path].ts` dedicados; criar os três adaptadores localmente.
+- [ ] Publicar os adaptadores e confirmar 401 nas três rotas em produção, sem token; em seguida validar com usuário Firebase.
