@@ -246,3 +246,9 @@
 - [x] Revalidar produção: `/api/health` retornou 200/Neon `ok`; Vercel lista `/api/health` em `15 12 * * *`. Às 00:14 UTC a invocação automática de hoje ainda era futura.
 - [ ] Fazer restore UI→API→Neon em ambiente isolado com Firebase Auth real; nesta máquina não há `.env` local nem sessão Brave autenticada controlável.
 - [x] Publicar teste e documentação em `8145fe2`; CI Vercel `success`, deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` `Ready` com alias de produção; health posterior 200/Neon `ok`.
+
+## Sessão 2026-11-04 — smoke da publicação atual
+- [x] Conferir homepage de produção HTTP 200 e bundle servido sem “Guia Rápido de Ativação”, marcador `tx-demo` ou URL/nomes de conexão PostgreSQL/Neon.
+- [x] Repetir smoke sem credenciais: workspace, migração, convites, compartilhamento, FX, cotações e lembretes responderam `401`.
+- [x] Confirmar que o deploy corrente `dpl_HsfSYcqrz4qU3hbUyJDZWetVWFPt` está `Ready`; `/api/health` continuou 200/Neon `ok`.
+- [ ] Validar fluxo autenticado navegador→API→Neon com arquivo sintético em branch isolada; controle BrowserOS não está conectado às ferramentas desta sessão.

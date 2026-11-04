@@ -2,7 +2,7 @@
 
 ## Estado atual — 2026-11-04
 
-Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit `8145fe2` está publicado na branch `main`; Vercel CI `success` e deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; working tree limpo em `8145fe2`.
+Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit `8145fe2` está publicado na branch `main`; Vercel CI `success` e deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; árvore de trabalho limpa após publicar o teste em `8145fe2` e documentação em `627df14`; deploy atual desta documentação: `dpl_HsfSYcqrz4qU3hbUyJDZWetVWFPt`.
 
 ## Trabalho desta rodada
 
@@ -59,3 +59,10 @@ Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026
 
 - Publicação concluída no commit `8145fe2`; o status combinado Vercel/GitHub está `success`, o deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` está `Ready` e atende o alias principal. Health posterior (`00:17Z`) retornou 200/Neon `ok`; agenda diária ainda `15 12 * * *` UTC. A janela automática de 4/nov continua futura.
 - Próximo passo após `12:15Z`: verificar execução agendada nos logs Vercel e health. Antes disso, buscar caminho de autenticação local/sessão navegável para validar restore UI→API→Neon e recovery; manter sem gravação em produção.
+
+## Atualização — smoke de produção em 2026-11-04 00:20 UTC
+
+- No alias principal atual, homepage respondeu 200; o JS servido não contém “Guia Rápido de Ativação”, `tx-demo`, URL `postgres://`/`postgresql://` nem nomes `DATABASE_URL`/`NEON_DATABASE_URL`.
+- Sete rotas de workspace, migração, familiar, FX, investimentos e lembretes retornaram 401 sem token.
+- O deploy corrente na hora da verificação (`dpl_HsfSYcqrz4qU3hbUyJDZWetVWFPt`) estava Ready; `/api/health` retornou 200/Neon ok.
+- Pendência sem mudança: restore autenticado de ponta a ponta, concorrência real de API, indisponibilidade/retry na UI, roles com BYPASSRLS, dump independente, revisão visual pixel-level e execução cron após 12:15 UTC.
