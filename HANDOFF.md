@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 16:03 UTC
+## Estado atual — 2026-11-04 16:09 UTC
 
-Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Workflow atualizado no commit `0931366` e sincronizado com `origin/main`. Deploy do commit documental anterior `dpl_DpQ7b45EUdJ1uLwd6Z6ADtaU7Q3x` está Ready; último health em produção respondeu HTTP 200/Neon `ok` às `16:02:58Z`. CI da revisão atual `41864046383` e as duas runs anteriores permanecem queued.
+Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Commit atual `feda1f6` está sincronizado com `origin/main`. Vercel deployment `dpl_E2NUvo2h4xLkBphCHgDoyX3yTayu` está Ready; às `16:08:58Z`, health de produção retornou HTTP 200 e Neon `ok`; Cron `/api/health` aparece cadastrado em `15 12 * * *` UTC. A run CI `41864165636` está queued sem runner atribuído. O status oficial do GitHub registra degradação de Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
 
 ## Feito nesta sessão
 
@@ -11,7 +11,7 @@ Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persis
 - Excluí a branch QA e confirmei somente `production`. Depois, health da produção continuou HTTP 200/Neon `ok`; nenhum dado de teste foi gravado em produção.
 - Cron Vercel `/api/health` segue cadastrado em `15 12 * * *` UTC. A janela de hoje encerrou sem log automático conclusivo observável. `updated_at` da branch Neon em `13:14:50Z` é compatível com a execução, mas não prova o disparo; logs de query Neon não estão disponíveis em `aws-sa-east-1`. Disparei manualmente às `15:54:53Z`, recebendo HTTP 200, o que valida apenas o endpoint manual.
 - Os três agentes concluíram auditorias: segurança/API confirmou RLS forçada, escopo de verificação de e-mail por rota e resultados E2E compatíveis; responsividade encontrou layouts adaptáveis no código e limites de revisão pixel-level; backup/recovery confirmou cobertura local de parser/regras e a lacuna de restore UI/Neon e dump/restore independente.
-- Encontrei uma lacuna no CI: o workflow não incluía testes backend de segurança SMTP e validação compartilhada. Adicionei script `bun run test` para a suíte integral e alinhei o workflow. No estado atualizado, `bun run test` passou (106 testes/19 arquivos), lint e build também passaram.
+- Encontrei uma lacuna no CI: o workflow não incluía testes backend de segurança SMTP e validação compartilhada. Adicionei script `bun run test` para a suíte integral, limitei permissões do workflow a `contents: read` e alinhei a execução. No estado atualizado, `bun run test` passou (106 testes/19 arquivos), lint e build também passaram localmente. A run remota correspondente ainda não iniciou por degradação do Actions do GitHub.
 
 ## Pendências e limites
 
@@ -19,9 +19,9 @@ Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persis
 - Restore/importação pela interface autenticada com Firebase real até Neon; recuperar após indisponibilidade real; dump/restore independente.
 - Revisão visual pixel-level desktop/mobile. As medidas DOM prévias são favoráveis, mas não substituem captura visual.
 - Cobertura real de duas contas familiares foi dispensada pelo usuário. SMTP/Gemini e integrações externas seguem sem configuração e não foram aceitas por ponta a ponta.
-- A suíte local anterior passou (`bun test`: 106 testes, lint e build); nesta sessão não rodei nova suíte porque o foco foi o E2E real isolado e atualização documental.
+- `bun run build` gerou PWA com 77 itens precache. Permanece aviso de chunk inicial 566 kB (167 kB gzip).
 
 ## Próximo passo concreto
 
-Validar a alteração de menor privilégio do CI, acompanhar a run `41864046383`, confirmar o deploy do commit atual e health. Depois buscar evidência do Cron automático em próxima janela. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
+Reconsultar o incidente do GitHub e a run `41864165636` até o Actions voltar a despachar runner; confirmar que o workflow novo executou a suíte completa. Depois buscar evidência do Cron automático na janela de 5/nov (12:15–13:14:59 UTC). Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
 

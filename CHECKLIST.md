@@ -328,5 +328,6 @@
 - [x] Adicionar script padronizado `bun run test` e atualizar `.github/workflows/ci.yml` para executar a suíte completa de 106 testes.
 - [x] Limitar o token do workflow CI a `contents: read`; checkout e execução dos testes/build não precisam de grants de escrita.
 - [x] Reauditar infraestrutura em produção: CSP sem `unsafe-inline` em script-src, HSTS 2 anos com includeSubDomains/preload, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, API `no-store`, assets imutáveis; env Vercel contém apenas os nomes esperados sem expor valores.
-- [ ] Validar o novo CI com workflow completo após publicação; run `41864046383` e duas runs anteriores permaneciam queued na última consulta.
-- [ ] Revalidar produção após o deploy do commit com CI atualizado.
+- [ ] Validar o novo CI com workflow completo após publicação; run `41864165636` está queued sem runner, e o status oficial do GitHub informou degradação do Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
+- [x] Revalidar produção no commit `feda1f6`: deploy `dpl_E2NUvo2h4xLkBphCHgDoyX3yTayu` Ready, health em `16:08:58Z` HTTP 200/Neon `ok`, Cron continua cadastrado diariamente.
+- [ ] Confirmar execução automática do Cron na próxima janela, 5/nov entre `12:15–13:14:59Z` UTC; execução manual e timestamp de atualização não são evidência conclusiva.
