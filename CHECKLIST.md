@@ -64,8 +64,8 @@
 - [x] Confirmar CI run `41525311897` concluído com sucesso e check Vercel `success` para `1b05c89`.
 - [x] Reconsultar histórico do workflow Neon em 2/nov: execução manual bem-sucedida existe; execução automática `schedule` ainda não existe, pois a primeira janela agendada depois da publicação é 3/nov às 09:15 BRT.
 - [x] Confirmar que o GitHub Actions não tem mais cron diário; atividade foi migrada para Vercel Cron, cuja primeira execução automática ainda aguarda a janela de 4/nov.
-- [ ] Validar recuperação após indisponibilidade real do Neon.
-- [x] Ensaiar restore de snapshot da raiz em branch Neon isolada, sem promoção; dump/restore independente permanece pendente.
+- [x] Validar recuperação da API após indisponibilidade real do Neon em branch QA: endpoint desativado retornou 503 para health/leitura/gravação; após reativar, health e leitura voltaram a 200 com revisão 1 e fixture preservada. Recuperação visual/retry pela UI permanece pendente.
+- [x] Ensaiar restore de snapshot da raiz em branch Neon isolada, sem promoção; dump/restore portátil de fixture sintética também foi validado em sessão posterior. Backup completo de produção permanece pendente.
 - [x] Revalidar em 2/nov: `bun test` (78 testes), `bun run lint` e `bun run build` passaram; isso não substitui os ensaios reais pendentes no Neon.
 
 ## Sessão 2026-11-03 — auditoria e correções locais
@@ -86,7 +86,7 @@
 - [x] Confirmar em 3/nov que o workflow GitHub não tinha evento `schedule`; foi substituído pelo Vercel Cron. Execução automática Vercel ainda pendente.
 - [ ] Validar concorrência real entre abas/workspaces com dados sintéticos isolados.
 - [x] Ensaiar snapshot Neon da branch raiz restaurado em nova branch isolada; schema e quatro tabelas operacionais conferidos, produção preservada. O snapshot temporário expira em 4/nov.
-- [ ] Ensaiar dump/restore independente e validar indisponibilidade/recuperação real do Neon.
+- [x] Ensaiar dump/restore PostgreSQL independente de fixture sintética e API recovery após pane simulada em QA; backup completo de produção e recuperação pela UI permanecem pendentes.
 - [ ] Validar fluxos visuais e responsivos completos no navegador; ferramenta BrowserOS Neo não está disponível nesta sessão.
 - [x] Publicar a correção de health-check e UI em `main`; confirmar o novo payload `services.neon` na URL de produção.
 - [x] Corrigir a exclusão do workspace pessoal para explicar que convites e lançamentos compartilhados em tabelas Neon separadas são preservados; renomear callback sem referência a dados demo.
@@ -271,7 +271,7 @@
 - [x] Confirmar zero lançamentos compartilhados, somente branch `production` e health de produção 200/Neon `ok`.
 - [x] Registrar cobertura HTTP local para roundtrip do backup, criação/importação idempotentes, rejeição de migração inválida sem SQL e conflito de duas gravações concorrentes; `bun test`: 106 passaram em 19 arquivos, `bun run lint` passou.
 - [ ] Confirmar execução automática do Cron depois de `2026-11-04T12:15:00Z`; a hora ainda é futura e checks manuais não contam.
-- [ ] Aceitar restore/importação UI→API→Neon autenticados, recovery após indisponibilidade, backup independente, inspeção visual pixel-level e revisão segura das roles elevadas. BrowserOS não está disponível; compartilhamento entre duas contas foi dispensado; SMTP/Gemini permanecem sem configuração.
+- [ ] Aceitar restore/importação UI→API→Neon autenticados com Firebase real, recuperação pela UI, backup/restore completo e inspeção pixel-level; BrowserOS não está disponível. Revisar identidade do workspace derivada do e-mail (`backend/app.ts:92-103`), que pode colidir após normalização ou mudar quando o usuário troca de e-mail. Compartilhamento entre duas contas foi dispensado; SMTP/Gemini permanecem sem configuração.
 
 ## Continuação — 2026-11-04 00:37 UTC
 - [x] Reexecutar a suíte completa: `bun test` — 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build informa chunk inicial 566 kB, 167 kB gzip.
@@ -319,7 +319,7 @@
 - [x] Remover a branch QA e confirmar que só `production` permanece; health de produção HTTP 200 com Neon `ok` após a limpeza.
 - [x] Disparar manualmente o Cron `/api/health` às `2026-11-04T15:54:53Z`; Vercel registrou HTTP 200. Esta chamada valida o endpoint, não a execução automática.
 - [ ] Confirmar execução automática: após a janela `12:15–13:14:59Z`, logs acessíveis não mostraram uma requisição Cron conclusiva; o `updated_at` da branch produção em `13:14:50Z` é indício, não prova. Logs de query Neon não estão disponíveis na região `aws-sa-east-1`.
-- [ ] Validar restore UI→API→Neon com Firebase real, recuperação após indisponibilidade, dump/restore independente e revisão visual pixel-level; E2E desta sessão usou token sintético e API direta. Agentes concluíram auditorias estáticas de API/segurança, responsividade e backup/recovery; detalhes e limites estão no HANDOFF.
+- [ ] Validar restore UI→API→Neon com Firebase real, recuperação pela UI e revisão visual pixel-level; E2E desta sessão usou token sintético e API direta. Dump/restore de fixture sintética e API recovery de pane estão validados em QA. Agentes concluíram auditorias de API/segurança, responsividade e backup/recovery; detalhes e limites estão no HANDOFF.
 - [x] Publicar esta atualização documental no commit 2419d58; deploy dpl_2eAPNAa3egP5o9XD6XbJonpFXv9c ficou Ready e health de produção em 15:59:38Z retornou 200/Neon ok. CI 41862988415 ainda estava queued na última consulta.
 
 ## Continuação — cobertura CI e suíte completa (2026-11-04)
@@ -339,5 +339,23 @@
 - [x] Gerar arquivo PostgreSQL custom (4036 bytes), verificar TOC restrito ao schema sintético e executar `pg_restore --clean --if-exists` na branch QA.
 - [x] Confirmar após restore duas linhas, soma de valor `42.75` e array JSON reconstituído; nenhum dado de produção foi alterado.
 - [x] Remover a branch e artefatos binários/dump temporários; Neon lista apenas `production`; health de produção HTTP 200/Neon `ok` após o ensaio.
-- [ ] Executar restore de backup completo da aplicação pela UI, autenticado com Firebase real; a validação atual cobre dump/restore independente somente de fixture sintética isolada.
-- [ ] Acompanhar CI remoto da suíte completa: run `41864938058` queued sem runner por incidente Actions do GitHub; repetir smoke do Cron automático na janela de 5/nov `12:15–13:14:59Z` UTC.
+- [ ] Executar restore de backup completo da aplicação pela UI, autenticado com Firebase real; o dump/restore independente validado cobre somente fixture sintética isolada.
+- [ ] Acompanhar conclusão dos checks remotos e repetir smoke do Cron automático na janela de 5/nov `12:15–13:14:59Z` UTC.
+
+## Continuação — recuperação da API após pane Neon (2026-11-04)
+- [x] Em branch Neon QA isolada e com workspace sintético, desativar temporariamente o endpoint de teste; `/api/health`, leitura e gravação da API retornaram 503 e Neon `error`.
+- [x] Reativar o endpoint QA; sem reiniciar a API local, health e leitura retornaram 200/Neon `ok`, revisão permaneceu 1 e o payload-fixture persistiu. Isso comprova recuperação da API→Neon no servidor, não o retry da interface no navegador.
+- [x] Encerrar o processo e excluir a branch QA; Neon lista somente `production`; health de produção às `16:24:45Z` retornou HTTP 200/Neon `ok`.
+- [x] Incorporar auditorias dos três agentes: cobertura de layout responsivo por código e medidas DOM, sem aprovação visual pixel-level; backup sintético restaurado com 2 registros e soma `42.75`, sem validação de restore completo; identificado risco da chave por e-mail, sem evidência de leitura cruzada entre UIDs.
+- [x] Confirmar CI do commit `debb613`: job completo executou suíte Bun, typecheck e build com sucesso nos runs `41864938058` e `41866144940`; o status global dos runs ainda aguardava checks da integração no momento desta atualização.
+- [x] Corrigir a identidade localmente e validar em QA troca de e-mail, colisão, concorrência e importação; ainda falta publicar código e aplicar a migration aprovada no Neon de produção.
+- [ ] Completar restore UI→API→Neon autenticado, retry/reabertura pela UI, backup completo, revisão visual pixel-level e prova de Cron automático.
+
+## Sessão 2026-11-04 — identidade estável do workspace
+- [x] Usar o UID Firebase para a chave do workspace Neon e do cache; conservar a chave derivada do e-mail exclusivamente para procurar snapshots Firestore legados.
+- [x] Normalizar `payload.uid` no backend a partir do token Firebase verificado, sem confiar no ID enviado pelo cliente; resolver leitura/gravação/migração por UID autenticado.
+- [x] Adicionar testes para troca de e-mail mantendo a mesma identidade, colisão entre slugs de e-mail, payloads/backs legados e limites de UID; suíte completa `bun run test`: 110 testes passaram em 20 arquivos; lint e build passaram.
+- [x] Preparar a migration 005 em branch Neon temporária e validar a transformação: 3 workspaces/3 titulares, zero chaves não migradas, zero recibos duplicados ou stale; branch também passou no E2E API com role `minhas_app_runtime` (troca de e-mail, isolamento de UIDs, colisão, corrida de criação, importação legada write-once).
+- [ ] Aplicar migration 005 em produção após a aprovação requerida pelo Neon connector; manter a branch de preparo até a decisão e não confundir preparação QA com migração publicada.
+- [ ] Publicar código e documentos em `main`, validar o deploy de produção e manter a identidade de UID interoperável com clientes já abertos.
+- [ ] Executar restore UI→API→Neon com Firebase real, retry visual, inspeção pixel-level e observar o Cron automático.

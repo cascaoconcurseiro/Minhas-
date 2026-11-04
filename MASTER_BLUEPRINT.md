@@ -26,6 +26,7 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 | Data | Decisão | Motivo |
 |------|---------|--------|
 | 2026-11-02 | Manter Firebase Auth e mover o workspace para PostgreSQL/Neon via API Express na Vercel | Preservar os logins existentes e restringir acesso ao banco ao servidor |
+| 2026-11-04 | Identificar e localizar o workspace por uma chave estável derivada do UID Firebase, nunca pelo e-mail mutável | Evitar colisões de normalização e perda aparente de acesso quando o titular troca de e-mail |
 | 2026-11-02 | Tratar Neon como escrita principal do workspace e atualizar Firestore somente após confirmação do Neon | Evitar que uma gravação concorrente ou rejeitada pelo Neon publique um snapshot local antigo como cópia mais recente |
 | 2026-11-02 | Iniciar a leitura do workspace diretamente no Neon após Firebase Auth; consultar Firestore apenas para migração inicial e como espelho/contingência | A autoridade e a carga principal não podem depender do listener Firestore estar disponível |
 | 2026-11-02 | Usar Neon como persistência exclusiva; remover gravações, listener e contingência Firestore | Evitar dois bancos operacionais divergentes; Firebase permanece apenas como provedor de identidade |

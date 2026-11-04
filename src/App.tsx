@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import {
   auth,
-  getVaultIdForEmail,
+  getLegacyVaultIdForEmail,
+  getOrCreateAutoCloudVaultId,
+  getVaultIdForUid,
   onAuthStateChanged,
   registerWithEmail,
   refreshFirebaseUser,
@@ -334,8 +336,10 @@ export default function App() {
   }, [currentUser, authSession, effectiveUserEmail]);
 
   const autoVaultId = useMemo(() => {
-    return getVaultIdForEmail(effectiveUserEmail);
-  }, [effectiveUserEmail]);
+    return currentUser && !currentUser.isAnonymous
+      ? getVaultIdForUid(currentUser.uid)
+      : getOrCreateAutoCloudVaultId();
+  }, [currentUser]);
 
   const scopedStorageKey = useMemo(
     () => `${STORAGE_KEY}_${autoVaultId}`,
@@ -713,7 +717,7 @@ export default function App() {
     isApplyingRemoteSnapshotRef.current = true;
     setWorkspaceLoadState('loading');
 
-    const docId = autoVaultId;
+    const legacyDocId = getLegacyVaultIdForEmail(effectiveUserEmail);
 
     setCloudSyncStatus('syncing');
 
@@ -727,7 +731,7 @@ export default function App() {
         }
 
         const { readLegacyFirestoreWorkspace } = await import('./lib/legacyFirestoreMigration');
-        const migrationPayload = await readLegacyFirestoreWorkspace(docId);
+        const migrationPayload = await readLegacyFirestoreWorkspace(legacyDocId);
         if (migrationPayload) {
           const sourceUpdatedAt = typeof migrationPayload.updatedAt === 'string'
             ? migrationPayload.updatedAt
@@ -744,7 +748,7 @@ export default function App() {
           }
         } else {
           try {
-            await createNeonWorkspace(buildCloudPayload(docId));
+            await createNeonWorkspace(buildCloudPayload(autoVaultId));
           } catch (createError) {
             if (
               !(createError instanceof NeonWorkspaceError) ||
@@ -3875,7 +3879,6 @@ export default function App() {
                 <AuthAndCloudTab
                   userEmail={effectiveUserEmail}
                   userDisplayName={effectiveUserDisplayName}
-                  userUid={currentUser?.uid || autoVaultId}
                   isAnonymousUser={!isUserAuthenticated}
                   autoVaultId={autoVaultId}
                   cloudSyncStatus={cloudSyncStatus}

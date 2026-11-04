@@ -255,9 +255,9 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-indigo-700 dark:text-indigo-400">uid</td>
                     <td className="py-2 px-3">string</td>
-                    <td className="py-2 px-3">Obrigatório • igual ao vaultId</td>
+                    <td className="py-2 px-3">Obrigatório • igual à chave estável derivada do UID Firebase</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
-                      Chave primária do titular ou cofre determinístico
+                      Chave do workspace definida pelo servidor a partir do UID autenticado
                     </td>
                   </tr>
                   <tr>

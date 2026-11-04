@@ -14,6 +14,10 @@ import {
   User,
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
+import {
+  getLegacyVaultIdForEmail as deriveLegacyVaultIdForEmail,
+  getVaultIdForUid as getStableVaultIdForUid,
+} from '../../shared/workspaceIdentity';
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
@@ -94,20 +98,16 @@ export async function signOutFirebaseUser(): Promise<void> {
   await signOut(auth);
 }
 
-export function getVaultIdForEmail(email: string | null | undefined): string {
-  if (!email || !email.trim()) {
-    return getOrCreateAutoCloudVaultId();
-  }
-  const cleanSlug = email
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-  const candidate = `vault_usr_${cleanSlug}`;
-  const padded =
-    candidate.length < 18 ? `${candidate}_cloud_vault_br` : candidate;
-  return padded.slice(0, 60);
+export function getLegacyVaultIdForEmail(email: string | null | undefined): string {
+  return email?.trim()
+    ? deriveLegacyVaultIdForEmail(email)
+    : getOrCreateAutoCloudVaultId();
+}
+
+export function getVaultIdForUid(uid: string | null | undefined): string {
+  return uid?.trim()
+    ? getStableVaultIdForUid(uid)
+    : getOrCreateAutoCloudVaultId();
 }
 
 export {

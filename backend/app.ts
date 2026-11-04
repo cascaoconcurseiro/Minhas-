@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
+import { getVaultIdForUid } from '../shared/workspaceIdentity';
 import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
@@ -89,20 +90,10 @@ async function verifyFirebaseIdToken(idToken: string): Promise<FirebaseUserIdent
   }
 }
 
-function getVaultIdForEmail(email: string): string {
-  const cleanSlug = email
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-  const candidate = `vault_usr_${cleanSlug}`;
-  const padded =
-    candidate.length < 18 ? `${candidate}_cloud_vault_br` : candidate;
-  return padded.slice(0, 60);
-}
-
-function getRequestWorkspacePayload(value: unknown, vaultId: string) {
+function getRequestWorkspacePayload(
+  value: unknown,
+  vaultId: string
+): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const payload = value as Record<string, unknown>;
   const requiredJsonFields = [
@@ -114,7 +105,6 @@ function getRequestWorkspacePayload(value: unknown, vaultId: string) {
     'investmentsJson',
   ];
   if (
-    payload.uid !== vaultId ||
     typeof payload.updatedAt !== 'string' ||
     requiredJsonFields.some((field) => typeof payload[field] !== 'string')
   ) {
@@ -145,7 +135,9 @@ function getRequestWorkspacePayload(value: unknown, vaultId: string) {
       return null;
     }
   }
-  return payload;
+  // Identity always comes from the verified Firebase token, never from a
+  // client-provided or legacy backup UID.
+  return { ...payload, uid: vaultId };
 }
 
 function getWorkspaceEntityCounts(payload: Record<string, unknown>) {
@@ -173,8 +165,7 @@ async function withWorkspaceRls<T>(
   user: FirebaseUserIdentity,
   operation: (client: import('pg').PoolClient, vaultId: string) => Promise<T>
 ): Promise<T> {
-  if (!user.email) throw new Error('A conta Firebase precisa ter um e-mail.');
-  const vaultId = getVaultIdForEmail(user.email);
+  const vaultId = getVaultIdForUid(user.uid);
   const client = await getNeonPool().connect();
   try {
     await client.query('BEGIN');
@@ -291,14 +282,20 @@ async function startServer() {
 
   app.get('/api/workspace', async (_req, res) => {
     const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const vaultId = getVaultIdForUid(user.uid);
     try {
       const workspace = await withWorkspaceRls(user, async (client, vaultId) => {
         const result = await client.query(
-          `SELECT payload, revision, updated_at
+          `SELECT vault_id, payload, revision, updated_at
              FROM public.finance_workspaces
-            WHERE vault_id = $1 AND owner_firebase_uid = $2`,
-          [vaultId, user.uid]
+            WHERE owner_firebase_uid = $1
+            ORDER BY updated_at DESC
+            LIMIT 2`,
+          [user.uid]
         );
+        if (result.rows.length > 1) {
+          throw new Error('Mais de um workspace está associado a esta identidade Firebase.');
+        }
         return result.rows[0] ?? null;
       });
       if (!workspace) {
@@ -306,7 +303,7 @@ async function startServer() {
         return;
       }
       res.json({
-        payload: workspace.payload,
+        payload: { ...workspace.payload, uid: vaultId },
         revision: Number(workspace.revision),
         updatedAt: workspace.updated_at,
       });
@@ -322,7 +319,7 @@ async function startServer() {
       res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
       return;
     }
-    const vaultId = getVaultIdForEmail(user.email);
+    const vaultId = getVaultIdForUid(user.uid);
     const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
     if (!payload) {
       res.status(400).json({ error: 'Payload inicial do workspace inválido.' });
@@ -331,12 +328,18 @@ async function startServer() {
 
     try {
       const created = await withWorkspaceRls(user, async (client) => {
+        const existing = await client.query(
+          `SELECT vault_id FROM public.finance_workspaces
+            WHERE owner_firebase_uid = $1 LIMIT 1 FOR UPDATE`,
+          [user.uid]
+        );
+        if (existing.rowCount) return null;
         const result = await client.query(
           `INSERT INTO public.finance_workspaces
              (vault_id, owner_firebase_uid, owner_email, display_name, payload,
               revision, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5::jsonb, 1, now(), now())
-           ON CONFLICT (vault_id) DO NOTHING
+           ON CONFLICT DO NOTHING
            RETURNING revision, updated_at`,
           [
             vaultId,
@@ -368,7 +371,7 @@ async function startServer() {
       res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
       return;
     }
-    const vaultId = getVaultIdForEmail(user.email);
+    const vaultId = getVaultIdForUid(user.uid);
     const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
     if (!payload) {
       res.status(400).json({ error: 'Snapshot legado inválido para esta conta.' });
@@ -386,12 +389,18 @@ async function startServer() {
     const entityCounts = getWorkspaceEntityCounts(payload);
     try {
       const imported = await withWorkspaceRls(user, async (client) => {
+        const existing = await client.query(
+          `SELECT vault_id FROM public.finance_workspaces
+            WHERE owner_firebase_uid = $1 LIMIT 1 FOR UPDATE`,
+          [user.uid]
+        );
+        if (existing.rowCount) return false;
         const inserted = await client.query(
           `INSERT INTO public.finance_workspaces
              (vault_id, owner_firebase_uid, owner_email, display_name, payload,
               source_updated_at, revision, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5::jsonb, $6::timestamptz, 1, now(), now())
-           ON CONFLICT (vault_id) DO NOTHING RETURNING revision`,
+           ON CONFLICT DO NOTHING RETURNING revision`,
           [vaultId, user.uid, user.email.toLowerCase(),
             typeof payload.displayName === 'string' ? payload.displayName : null,
             payloadJson, sourceUpdatedAt]
@@ -422,7 +431,7 @@ async function startServer() {
       res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
       return;
     }
-    const vaultId = getVaultIdForEmail(user.email);
+    const vaultId = getVaultIdForUid(user.uid);
     const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
     const expectedRevision = Number(req.body?.expectedRevision);
     if (
@@ -438,20 +447,20 @@ async function startServer() {
       const updated = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `UPDATE public.finance_workspaces
-              SET payload = $1::jsonb,
-                  owner_email = $2,
-                  display_name = $3,
+              SET vault_id = $1,
+                  payload = $2::jsonb,
+                  owner_email = $3,
+                  display_name = $4,
                   revision = revision + 1,
                   updated_at = now()
-            WHERE vault_id = $4
-              AND owner_firebase_uid = $5
+            WHERE owner_firebase_uid = $5
               AND revision = $6
           RETURNING revision, updated_at`,
           [
+            vaultId,
             JSON.stringify(payload),
             user.email!.toLowerCase(),
             typeof payload.displayName === 'string' ? payload.displayName : null,
-            vaultId,
             user.uid,
             expectedRevision,
           ]

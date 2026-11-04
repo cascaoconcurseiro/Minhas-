@@ -41,6 +41,8 @@ const invitationInsertParameters: unknown[][] = [];
 const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
 let workspaceRevision = 2;
 let workspacePayload: Record<string, unknown> = { accountsJson: '[]' };
+let workspaceVaultId = 'vault_usr_owner_example_com';
+let workspaceOwnerUid = 'owner-uid';
 let workspaceExists = true;
 let workspaceMigrationCount = 0;
 let workspaceMigrationRecord: unknown[] = [];
@@ -63,9 +65,10 @@ before(async () => {
       const authRequest = JSON.parse(String(init?.body || '{}')) as { idToken?: string };
       const invitedUser = authRequest.idToken === 'invited-user-test-token';
       const otherUser = authRequest.idToken === 'other-user-test-token';
+      const changedEmail = authRequest.idToken === 'owner-changed-email-test-token';
       return new Response(JSON.stringify({ users: [{
         localId: invitedUser ? 'member-uid' : otherUser ? 'other-uid' : 'owner-uid',
-        email: invitedUser ? 'member@example.com' : otherUser ? 'other@example.com' : 'owner@example.com',
+        email: invitedUser ? 'member@example.com' : otherUser ? 'other@example.com' : changedEmail ? 'renamed@example.net' : 'owner@example.com',
         emailVerified: authRequest.idToken !== 'unverified-test-token',
       }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -77,15 +80,22 @@ before(async () => {
       query: async (sql: string, params: unknown[] = []) => {
         const normalized = sql.replace(/\s+/g, ' ').trim();
         sqlLog.push(normalized);
-        if (normalized.startsWith('SELECT payload, revision, updated_at')) {
+        if (normalized.startsWith('SELECT vault_id, payload, revision, updated_at FROM public.finance_workspaces')) {
           workspaceQueries.push({ sql: normalized, params });
-          return params[1] === 'owner-uid' && workspaceExists
-            ? { rows: [{ payload: workspacePayload, revision: workspaceRevision, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
+          return params[0] === workspaceOwnerUid && workspaceExists
+            ? { rows: [{ vault_id: workspaceVaultId, payload: workspacePayload, revision: workspaceRevision, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
+            : { rows: [], rowCount: 0 };
+        }
+        if (normalized.startsWith('SELECT vault_id FROM public.finance_workspaces')) {
+          return workspaceExists && workspaceOwnerUid === params[0]
+            ? { rows: [{ vault_id: workspaceVaultId }], rowCount: 1 }
             : { rows: [], rowCount: 0 };
         }
         if (normalized.startsWith('INSERT INTO public.finance_workspaces')) {
           if (workspaceExists) return { rows: [], rowCount: 0 };
           workspaceExists = true;
+          workspaceVaultId = String(params[0]);
+          workspaceOwnerUid = String(params[1]);
           workspaceRevision = 1;
           workspacePayload = JSON.parse(String(params[4])) as Record<string, unknown>;
           return { rows: [{ revision: 1, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 };
@@ -98,10 +108,14 @@ before(async () => {
         if (normalized.startsWith('UPDATE public.finance_workspaces')) {
           workspaceUpdateParameters.push(params);
           if (failWorkspaceUpdates) throw new Error('simulated database unavailable');
-          if (params[5] !== workspaceRevision) return { rows: [], rowCount: 0 };
-          workspacePayload = JSON.parse(String(params[0])) as Record<string, unknown>;
+          if (params[4] !== workspaceOwnerUid || params[5] !== workspaceRevision) return { rows: [], rowCount: 0 };
+          workspaceVaultId = String(params[0]);
+          workspacePayload = JSON.parse(String(params[1])) as Record<string, unknown>;
           workspaceRevision += 1;
           return { rows: [{ revision: workspaceRevision, updated_at: '2026-11-03T00:01:00.000Z' }], rowCount: 1 };
+        }
+        if (normalized.startsWith('UPDATE public.finance_workspace_migrations')) {
+          return { rows: [], rowCount: 0 };
         }
         if (normalized.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) {
           const rows = invitation.status === 'accepted' ? [{ ...invitation }] : [];
@@ -308,6 +322,13 @@ test('API de workspace mantém leituras isoladas pelo UID autenticado', async ()
   assert.equal(ownerWorkspace.revision, 2);
   assert.equal(ownerWorkspace.payload.accountsJson, '[]');
 
+  const renamedEmailResponse = await originalFetch(`${baseUrl}/api/workspace`, {
+    headers: { Authorization: 'Bearer owner-changed-email-test-token' },
+  });
+  assert.equal(renamedEmailResponse.status, 200, 'a mesma identidade UID deve localizar o workspace após troca de e-mail');
+  const renamedWorkspace = await renamedEmailResponse.json() as { payload: { uid: string } };
+  assert.equal(renamedWorkspace.payload.uid, 'vault_uid_owner-uid');
+
   const otherResponse = await originalFetch(`${baseUrl}/api/workspace`, {
     headers: { Authorization: 'Bearer other-user-test-token' },
   });
@@ -315,14 +336,14 @@ test('API de workspace mantém leituras isoladas pelo UID autenticado', async ()
 
   const otherQuery = workspaceQueries.at(-1);
   assert.ok(otherQuery);
-  assert.match(otherQuery.sql, /WHERE vault_id = \$1 AND owner_firebase_uid = \$2/);
-  assert.equal(otherQuery.params[1], 'other-uid');
+  assert.match(otherQuery.sql, /WHERE owner_firebase_uid = \$1/);
+  assert.equal(otherQuery.params[0], 'other-uid');
 });
 
 test('API de workspace serializa duas gravações simultâneas pela mesma revisão', async () => {
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
   const firstPayload = {
-    uid: 'vault_usr_owner_example_com',
+    uid: 'old-email-derived-id-from-client',
     updatedAt: '2026-11-03T00:01:00.000Z',
     accountsJson: '[{"id":"writer-a"}]', cardsJson: '[]', categoriesJson: '[]',
     transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
@@ -346,14 +367,16 @@ test('API de workspace serializa duas gravações simultâneas pela mesma revis�
   assert.ok(['[{"id":"writer-a"}]', '[{"id":"writer-b"}]'].includes(String(workspacePayload.accountsJson)));
 
   assert.equal(workspaceRevision, 3, 'gravação obsoleta não deve sobrescrever a versão mais nova');
+  assert.equal(workspaceVaultId, 'vault_uid_owner-uid', 'a chave de banco deve ser normalizada para o UID autenticado');
+  assert.equal(workspacePayload.uid, 'vault_uid_owner-uid', 'UID enviado pelo cliente não pode definir o titular');
   assert.equal(workspaceUpdateParameters.length, 2);
-  assert.match(String(workspaceUpdateParameters[0]?.[0]), /accountsJson/);
+  assert.match(String(workspaceUpdateParameters[0]?.[1]), /accountsJson/);
 });
 
 test('API persiste e relê o payload completo de uma restauração de backup', async () => {
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
   const restoredPayload = {
-    uid: 'vault_usr_owner_example_com',
+    uid: 'legacy-backup-vault-id',
     updatedAt: '2026-11-04T00:00:00.000Z',
     accountsJson: JSON.stringify([{ id: 'qa-account' }]),
     cardsJson: JSON.stringify([{ id: 'qa-card' }]),
@@ -379,7 +402,7 @@ test('API persiste e relê o payload completo de uma restauração de backup', a
   assert.equal(read.status, 200);
   const response = await read.json() as { revision: number; payload: Record<string, unknown> };
   assert.equal(response.revision, 4);
-  assert.deepEqual(response.payload, restoredPayload);
+  assert.deepEqual(response.payload, { ...restoredPayload, uid: 'vault_uid_owner-uid' });
 });
 
 test('API de workspace responde 503 quando o banco fica indisponível', async () => {
@@ -393,7 +416,7 @@ test('API de workspace responde 503 quando o banco fica indisponível', async ()
       headers: { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         payload: {
-          uid: 'vault_usr_owner_example_com',
+          uid: 'legacy-email-derived-id',
           updatedAt: '2026-11-03T00:02:00.000Z',
           accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
           transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
@@ -416,7 +439,7 @@ test('API cria o workspace inicial uma única vez sem sobrescrever o existente',
   workspacePayload = {};
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
   const payload = {
-    uid: 'vault_usr_owner_example_com',
+    uid: 'untrusted-legacy-id',
     updatedAt: '2026-11-04T00:00:00.000Z',
     accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
     transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
@@ -432,7 +455,8 @@ test('API cria o workspace inicial uma única vez sem sobrescrever o existente',
     method: 'POST', headers, body: JSON.stringify({ payload: { ...payload, accountsJson: '[{"id":"overwrite"}]' } }),
   });
   assert.equal(duplicate.status, 409);
-  assert.deepEqual(workspacePayload, payload);
+  assert.equal(workspaceVaultId, 'vault_uid_owner-uid');
+  assert.deepEqual(workspacePayload, { ...payload, uid: 'vault_uid_owner-uid' });
 });
 
 test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace existente', async () => {
@@ -443,7 +467,7 @@ test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace exi
   workspaceMigrationRecord = [];
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
   const payload = {
-    uid: 'vault_usr_owner_example_com',
+    uid: 'legacy-firestore-vault-id',
     updatedAt: '2026-11-04T00:00:00.000Z',
     accountsJson: JSON.stringify([{ id: 'legacy-account' }]),
     cardsJson: '[]', categoriesJson: '[]', transactionsJson: '[]',
@@ -455,7 +479,7 @@ test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace exi
     body: JSON.stringify({ payload, sourceUpdatedAt: payload.updatedAt }),
   });
   assert.equal(first.status, 201, await first.clone().text());
-  assert.deepEqual(await first.json(), { ok: true, vaultId: payload.uid });
+  assert.deepEqual(await first.json(), { ok: true, vaultId: 'vault_uid_owner-uid' });
   assert.equal(workspaceMigrationCount, 1);
   assert.equal(workspaceMigrationRecord[2], payload.updatedAt);
   assert.match(String(workspaceMigrationRecord[3]), /^[a-f0-9]{64}$/);
@@ -470,7 +494,7 @@ test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace exi
   });
   assert.equal(duplicate.status, 409);
   assert.equal(workspaceMigrationCount, 1, 'importação duplicada não deve criar log ou substituir dados');
-  assert.deepEqual(workspacePayload, payload);
+  assert.deepEqual(workspacePayload, { ...payload, uid: 'vault_uid_owner-uid' });
 });
 
 test('API rejeita migração sem autenticação, payload inválido e data malformada antes de consultar Neon', async () => {

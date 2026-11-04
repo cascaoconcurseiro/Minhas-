@@ -1,28 +1,35 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 16:19 UTC
+## Estado atual — 2026-11-04 16:41 UTC
 
-Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Código app/CI `feda1f6` e docs estão sincronizados até `2834ea0`. Vercel deployment `dpl_6odSZ9PU5VUjxCtE2zXPc1P4uxpA` está Ready; health às `16:19:15Z` retornou HTTP 200 e Neon `ok`; Cron `/api/health` segue cadastrado em `15 12 * * *` UTC. CI `41864938058` permanece queued sem runner. O status oficial do GitHub registra degradação de Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
+Meta ativa: tornar o sistema Minhas Economias funcional de ponta a ponta, usando Neon como persistência e Firebase Auth para identidade. `main` ainda está em `debb613` neste instante; as correções de identidade e os documentos desta sessão estão locais, ainda sem commit/push. Produção permanece sem alteração de banco nesta rodada; a última consulta `/api/health` respondeu HTTP 200/Neon `ok` às `16:24:45Z`. A migration de identidade foi preparada e validada apenas numa branch Neon temporária.
 
 ## Feito nesta sessão
 
-- Em branch Neon isolada `qa-api-neon-live-20261104` (`br-summer-feather-b60nenis`), conectei a API HTTP ao banco real usando `minhas_app_runtime` e identidades Firebase sintéticas.
-- Confirmados: criação/duplicata de workspace (201/409); GET do payload com cartão e lançamento sintéticos; corrida de dois PUTs na mesma revisão (um 200, um 409, revisão avançou uma vez); isolamento entre UIDs (outro UID recebeu 404); importação legada única com recibo (201 e depois 409); convite familiar criado, identidade errada bloqueada (404), aceite 200, compartilhamento idempotente e revogação limpando o espelho.
-- Excluí a branch QA e confirmei somente `production`. Depois, health da produção continuou HTTP 200/Neon `ok`; nenhum dado de teste foi gravado em produção.
-- Cron Vercel `/api/health` segue cadastrado em `15 12 * * *` UTC. A janela de hoje encerrou sem log automático conclusivo observável. `updated_at` da branch Neon em `13:14:50Z` é compatível com a execução, mas não prova o disparo; logs de query Neon não estão disponíveis em `aws-sa-east-1`. Disparei manualmente às `15:54:53Z`, recebendo HTTP 200, o que valida apenas o endpoint manual.
-- Os três agentes concluíram auditorias: segurança/API confirmou RLS forçada, escopo de verificação de e-mail por rota e resultados E2E compatíveis; responsividade encontrou layouts adaptáveis no código e limites de revisão pixel-level; backup/recovery confirmou cobertura local de parser/regras e a lacuna de restore UI/Neon e dump/restore independente.
-- Encontrei uma lacuna no CI: o workflow não incluía testes backend de segurança SMTP e validação compartilhada. Adicionei script `bun run test` para a suíte integral, limitei permissões do workflow a `contents: read` e alinhei a execução. No estado atualizado, `bun run test` passou (106 testes/19 arquivos), lint e build também passaram localmente. A run remota correspondente ainda não iniciou por degradação do Actions do GitHub.
-- Em branch QA temporária, fiz dump custom real do PostgreSQL 18.6 apenas do schema sintético `qa_portable_restore` (4036 bytes); inspecionei o TOC, restaurei com `pg_restore --clean --if-exists` e confirmei 2 linhas, soma `42.75` e JSON recuperado. Não exportei dados do schema `public`. Apaguei a branch e utilitários; Neon lista apenas `production`; health após limpeza continuou 200/Neon ok.
+- Os três agentes revisaram backup/recovery, segurança/API e interface. Não encontraram evidência de leitura cruzada entre UIDs. Confirmaram cobertura responsiva no código e limites de backup/UI já descritos no checklist. O risco encontrado foi a chave do workspace derivada de e-mail mutável.
+- Alterei o contrato localmente para usar `vault_uid_<Firebase UID>` como identidade estável do workspace e cache. A chave derivada do e-mail ficou restrita à leitura do documento Firestore legado. O backend agora localiza registros por `owner_firebase_uid` e define `payload.uid` a partir do token verificado, ignorando IDs enviados por backups ou clientes antigos.
+- O autosave atualiza a chave primária do registro existente para a chave estável sem substituir o payload. A importação Firestore continua uma única vez e conserva os dados do snapshot.
+- Acrescentei `db/migrations/005_stable_workspace_identity.sql`; a migration foi preparada com Neon em branch temporária baseada em produção. Antes dela, consulta agregada confirmou 3 workspaces/3 titulares, zero duplicidade de titular ou recibo e zero conflito com as chaves canônicas.
+- A migration de QA terminou com 3 workspaces migradas, zero chave ou recibo pendente e índice único por `owner_firebase_uid`. A API atual, conectada com `minhas_app_runtime`, passou E2E sintético de mudança de e-mail, colisão de slugs, isolamento por UID, corrida de criação (201/409), gravação/releitura e migração Firestore write-once.
+- Um primeiro E2E revelou que o autosave tentava atualizar recibos sem permissão da role runtime. Removi essa escrita do autosave; os recibos são reconciliados pela migration owner. O E2E seguinte passou.
+- Suíte local final: `bun run test` — 110 testes em 20 arquivos; `bun run lint` e `bun run build` passaram. O build mantém o aviso conhecido de bundle inicial ~566 kB (167 kB gzip).
+- Atualizei a decisão de arquitetura em `MASTER_BLUEPRINT.md`; `CHECKLIST.md` separa o que passou em QA do que ainda aguarda publicação/aplicação em produção.
 
 ## Pendências e limites
 
-- Evidenciar uma execução automática do Cron em log diretamente atribuível ao agendamento; chamadas manuais não contam. No Hobby, a hora agendada pode ocorrer em qualquer minuto dentro da janela documentada.
-- Restore/importação pela interface autenticada com Firebase real até Neon e recuperação após indisponibilidade real. Dump/restore portátil foi validado apenas para um schema sintético isolado, não para um backup completo da base de produção.
-- Revisão visual pixel-level desktop/mobile. As medidas DOM prévias são favoráveis, mas não substituem captura visual.
-- Cobertura real de duas contas familiares foi dispensada pelo usuário. SMTP/Gemini e integrações externas seguem sem configuração e não foram aceitas por ponta a ponta.
-- `bun run build` gerou PWA com 77 itens precache. Permanece aviso de chunk inicial 566 kB (167 kB gzip).
+- Publicar código/migration/documentação em `main`, aguardar CI e Vercel, e confirmar health em produção. Depois aplicar a migration ao branch `production`. O Neon connector exige solicitar ao usuário a confirmação final antes de `complete_database_migration`; nada foi aplicado em produção.
+- A branch Neon temporária da migration continua ativa, com fixtures sintéticas criadas nos testes. Se a migration for aplicada ou recusada, concluir a chamada do Neon para remover a branch; ela não é produção.
+- Confirmar leitura e gravação com a sessão Firebase real depois do deploy; o E2E desta sessão usou identidade sintética e role runtime real em Neon QA.
+- Executar restore completo pela UI autenticada, teste visual de bloqueio/retry durante pane e inspeção pixel-level desktop/mobile. BrowserOS não está disponível para esses passos.
+- Confirmar a execução automática do Cron `/api/health` na janela de 5/nov, `12:15–13:14:59Z`; chamadas manuais não contam como comprovação.
+- Os testes com duas contas familiares foram dispensados pelo usuário; SMTP/Gemini e outras integrações externas seguem sem aceitação ponta a ponta.
 
 ## Próximo passo concreto
 
-Reconsultar o incidente do GitHub e a run `41864938058` até o Actions voltar a despachar runner; confirmar que o workflow novo executou a suíte completa. Depois buscar evidência do Cron automático na janela de 5/nov (12:15–13:14:59 UTC). Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
+Revisar e publicar o diff atual em `main` (`backend/app.ts`, `src/App.tsx`, `src/lib/firebase.ts`, `shared/workspaceIdentity.ts`, `db/migrations/005_stable_workspace_identity.sql` e documentos). Esperar os checks da run resultante e Vercel `Ready`; depois pedir a confirmação final para aplicar exatamente a migration 005 preparada e validar as contagens/health em produção.
 
+## Bloqueios
+
+- Confirmação final de aplicação da migration exigida pelo fluxo do Neon.
+- Acesso BrowserOS autenticado e captura visual não estão disponíveis nesta sessão.
+- Janela automática do Cron de 5/nov ainda não ocorreu.

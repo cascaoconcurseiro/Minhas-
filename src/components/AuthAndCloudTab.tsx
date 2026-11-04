@@ -34,7 +34,6 @@ import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
 interface AuthAndCloudTabProps {
   userEmail: string | null;
   userDisplayName: string | null;
-  userUid: string | null;
   isAnonymousUser: boolean;
   autoVaultId: string;
   cloudSyncStatus: 'local' | 'syncing' | 'synced' | 'error';
@@ -59,7 +58,6 @@ interface AuthAndCloudTabProps {
 export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   userEmail,
   userDisplayName,
-  userUid,
   isAnonymousUser,
   autoVaultId,
   cloudSyncStatus,
@@ -283,7 +281,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   : 'Sessão Desconectada (Visitante)'}
               </span>
               <span className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-mono text-slate-300">
-                Cofre ID: {userUid ? userUid.slice(0, 14) : autoVaultId.slice(0, 14)}
+                Cofre ID: {autoVaultId.slice(0, 14)}
               </span>
             </div>
 
