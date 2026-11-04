@@ -332,3 +332,12 @@
 - [x] Revalidar produção no commit `feda1f6`: deploy `dpl_E2NUvo2h4xLkBphCHgDoyX3yTayu` Ready, health em `16:08:58Z` HTTP 200/Neon `ok`, Cron continua cadastrado diariamente.
 - [ ] Confirmar execução automática do Cron na próxima janela, 5/nov entre `12:15–13:14:59Z` UTC; execução manual e timestamp de atualização não são evidência conclusiva.
 - [x] Publicar atualização de status no commit `da116d1`; Vercel deployment `dpl_4Xs5g3EmYT8y8BEpNemCCGrHDpug` ficou Ready e o health após deploy respondeu 200/Neon `ok`. CI `41864691411` segue na fila por incidente Actions/Páginas do GitHub.
+
+## Continuação — dump/restore PostgreSQL isolado (2026-11-04)
+- [x] Usar pacote oficial EDB PostgreSQL 18.6 com SHA-256 conferido; manter cliente e arquivo no TEMP para remoção ao final.
+- [x] Criar branch Neon QA `qa-portable-restore-20261104` e schema isolado `qa_portable_restore` com fixture financeiro sintético; nenhum dado da tabela pública foi exportado.
+- [x] Gerar arquivo PostgreSQL custom (4036 bytes), verificar TOC restrito ao schema sintético e executar `pg_restore --clean --if-exists` na branch QA.
+- [x] Confirmar após restore duas linhas, soma de valor `42.75` e array JSON reconstituído; nenhum dado de produção foi alterado.
+- [x] Remover a branch e artefatos binários/dump temporários; Neon lista apenas `production`; health de produção HTTP 200/Neon `ok` após o ensaio.
+- [ ] Executar restore de backup completo da aplicação pela UI, autenticado com Firebase real; a validação atual cobre dump/restore independente somente de fixture sintética isolada.
+- [ ] Acompanhar CI remoto da suíte completa: run `41864938058` queued sem runner por incidente Actions do GitHub; repetir smoke do Cron automático na janela de 5/nov `12:15–13:14:59Z` UTC.
