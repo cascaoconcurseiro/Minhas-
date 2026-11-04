@@ -321,3 +321,11 @@
 - [ ] Confirmar execução automática: após a janela `12:15–13:14:59Z`, logs acessíveis não mostraram uma requisição Cron conclusiva; o `updated_at` da branch produção em `13:14:50Z` é indício, não prova. Logs de query Neon não estão disponíveis na região `aws-sa-east-1`.
 - [ ] Validar restore UI→API→Neon com Firebase real, recuperação após indisponibilidade, dump/restore independente e revisão visual pixel-level; E2E desta sessão usou token sintético e API direta. Agentes concluíram auditorias estáticas de API/segurança, responsividade e backup/recovery; detalhes e limites estão no HANDOFF.
 - [x] Publicar esta atualização documental no commit 2419d58; deploy dpl_2eAPNAa3egP5o9XD6XbJonpFXv9c ficou Ready e health de produção em 15:59:38Z retornou 200/Neon ok. CI 41862988415 ainda estava queued na última consulta.
+
+## Continuação — cobertura CI e suíte completa (2026-11-04)
+- [x] Identificar que o CI anterior executava apenas `src/utils/*.test.ts` via tsx e `backend/familyApi.test.ts`, deixando fora outros testes backend e componente.
+- [x] Rodar `bun test`: 106 passaram em 19 arquivos; `bun run lint` passou; `bun run build` passou e gerou PWA com 77 arquivos precache. Permanece aviso de chunk inicial 566 kB (167 kB gzip).
+- [x] Adicionar script padronizado `bun run test` e atualizar `.github/workflows/ci.yml` para executar a suíte completa de 106 testes.
+- [x] Reauditar infraestrutura em produção: CSP sem `unsafe-inline` em script-src, HSTS 2 anos com includeSubDomains/preload, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, API `no-store`, assets imutáveis; env Vercel contém apenas os nomes esperados sem expor valores.
+- [ ] Validar o novo CI com workflow completo após publicação; workflows dos commits docs anteriores permaneciam queued na última consulta.
+- [ ] Revalidar produção após o deploy do commit com CI atualizado.

@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 15:59 UTC
+## Estado atual — 2026-11-04 16:03 UTC
 
-Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Docs publicados no commit `2419d58` em `main`. Deploy Vercel `dpl_2eAPNAa3egP5o9XD6XbJonpFXv9c` está Ready; às `15:59:38Z`, `https://minhaseconomias-blue.vercel.app/api/health` respondeu HTTP 200 e Neon `ok`. CI GitHub `41862988415` ainda estava queued na última consulta.
+Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Docs publicados em `main` no commit `6616528`. Deploy Vercel correspondente `dpl_DpQ7b45EUdJ1uLwd6Z6ADtaU7Q3x` está Ready; último health em produção respondeu HTTP 200/Neon `ok` às `16:02:58Z`. GitHub CI `41863242008` e run anterior `41862988415` permanecem queued.
 
 ## Feito nesta sessão
 
@@ -11,6 +11,7 @@ Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persis
 - Excluí a branch QA e confirmei somente `production`. Depois, health da produção continuou HTTP 200/Neon `ok`; nenhum dado de teste foi gravado em produção.
 - Cron Vercel `/api/health` segue cadastrado em `15 12 * * *` UTC. A janela de hoje encerrou sem log automático conclusivo observável. `updated_at` da branch Neon em `13:14:50Z` é compatível com a execução, mas não prova o disparo; logs de query Neon não estão disponíveis em `aws-sa-east-1`. Disparei manualmente às `15:54:53Z`, recebendo HTTP 200, o que valida apenas o endpoint manual.
 - Os três agentes concluíram auditorias: segurança/API confirmou RLS forçada, escopo de verificação de e-mail por rota e resultados E2E compatíveis; responsividade encontrou layouts adaptáveis no código e limites de revisão pixel-level; backup/recovery confirmou cobertura local de parser/regras e a lacuna de restore UI/Neon e dump/restore independente.
+- Encontrei uma lacuna no CI: o workflow não incluía testes backend de segurança SMTP e validação compartilhada. Adicionei script `bun run test` para a suíte integral e alinhei o workflow. No estado atualizado, `bun run test` passou (106 testes/19 arquivos), lint e build também passaram.
 
 ## Pendências e limites
 
@@ -22,5 +23,5 @@ Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persis
 
 ## Próximo passo concreto
 
-Acompanhar o CI `41862988415` até resultado terminal. Depois buscar evidência do Cron automático no painel/logs Vercel em janela posterior. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
+Validar e publicar o ajuste do CI para executar a suíte completa; aguardar resultado terminal de `41863242008` e da nova execução no commit de correção. Confirmar deploy e health. Depois buscar evidência do Cron automático em próxima janela. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
 

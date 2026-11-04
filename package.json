@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx backend/app.ts",
     "start": "node backend/app.ts",
+    "test": "bun test",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js backend/server.js",
