@@ -1,6 +1,6 @@
 # Handoff — Minhas Economias
 
-## Estado — 2026-11-04 17:59 UTC
+## Estado — 2026-11-04 18:07 UTC
 
 Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon `production` é o banco operacional e Firebase Auth fornece identidade. Código funcional publicado em `71c0fdc` está Ready; o commit documental `347247c` está em `main`, com CI `41881539585` success e deployment `dpl_FFQC7fHym3Kdo1KyTp2JtLCw4wgy` Ready. Health do alias principal respondeu HTTP 200/Neon ok; workspace sem token respondeu 401.
 
@@ -14,6 +14,8 @@ Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon
 - Removi os dois vínculos órfãos da conta autenticada aberta e confirmei estado sincronizado. Os 3 vínculos restantes estão em outros 2 workspaces: 2 têm `invitationId` sem convite correspondente e 1 não tem `invitationId`. UI/API restringe alterações ao UID autenticado; não executei SQL administrativo para apagar registros de outros titulares.
 - A auditoria dos agentes mapeou dez módulos e encontrou quase nenhum teste React/browser; não há Playwright, Cypress ou Testing Library configurados. Lógica, API simulada e regras têm testes, mas isso não substitui aceite visual e funcional de cada módulo.
 - Login Google no `localhost` exibiu “Não foi possível conectar com o Google”. Ainda não foi possível distinguir domínio autorizado ausente de outra falha OAuth; nenhuma credencial foi copiada. A sessão de produção continua utilizável.
+- Com autorização específica do usuário, adicionei `localhost` aos domínios autorizados do Firebase e confirmei que o app redirecionou para o seletor Google. A interação com a janela de seleção falhou repetidamente no controle do navegador antes de selecionar uma conta. Removi `localhost`; conferi que ele não aparece mais e que `minhaseconomias-blue.vercel.app` continua autorizado.
+- Criei e removi `qa-restore-auth-2026-11-04`; Neon lista novamente apenas `production`. Parei o servidor local e removi `.env` temporário. Nenhum restore ou dado foi gravado nessa branch ou em produção.
 
 ## Evidências anteriores ainda válidas
 
@@ -25,7 +27,7 @@ Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon
 
 ## Pendências e limites
 
-- Fazer o restore pelo navegador autenticado até Neon em QA, sem alterar a produção; a validação atual foi API→Neon com Firebase simulado.
+- Fazer o restore UI→API→Neon com uma sessão autenticada utilizável em ambiente QA. A tentativa local avançou até o seletor de contas Google, mas o controle da janela não permitiu selecionar conta; a branch de QA foi removida e Firebase voltou à configuração original.
 - Cobrir mais profundamente Compartilhado e Relatórios, revisar os dez módulos em desktop/mobile e executar testes de acessibilidade e visual.
 - Identificar os domínios autorizados no Firebase Authentication em modo somente leitura e habilitar um caminho de login QA, se apropriado.
 - Remover os 3 vínculos demo nos dois workspaces restantes sem violar o isolamento por UID; faltam as sessões dos respectivos titulares ou caminho administrativo explicitamente autorizado.
@@ -34,9 +36,9 @@ Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon
 
 ## Próximo passo concreto
 
-Verificar a lista de domínios autorizados em Firebase Console → Authentication → Settings para o projeto `gen-lang-client-0890983411` (somente leitura). Com um domínio QA já autorizado, criar branch Neon descartável, apontar ambiente isolado para essa branch e autenticar nela antes do restore UI→Neon. Caso não haja domínio autorizado, registrar a alteração mínima necessária e validar pelo mesmo fluxo.
+Estabelecer uma sessão de navegador autenticada controlável no ambiente QA (ou autenticação de preview aprovada pelo Firebase), então recriar branch Neon descartável, apontar a aplicação para ela e importar um backup sintético até confirmar os agregados no Neon. Confirmar também a execução automática de Cron na janela de 2026-11-05 12:15–13:14:59 UTC.
 
 ## Bloqueios
 
-- UI de produção está autenticada, mas essa sessão é específica do domínio de produção. Login local/Preview QA ainda não foi comprovado.
+- UI de produção está autenticada, mas essa sessão é específica do domínio de produção. O seletor de conta Google em localhost foi visível, porém interação pelo navegador não funcionou; localhost já foi removido dos domínios autorizados.
 - O Cron depende da próxima execução automática.

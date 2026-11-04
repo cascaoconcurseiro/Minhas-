@@ -420,7 +420,7 @@
 - [x] Consultar agregados na branch QA: 1 workspace de teste, 1 categoria, revisão 2 e marcador de restauração; nenhum valor financeiro foi lido.
 - [x] Confirmar que o UID sintético tem zero linhas em `production`, e que os 3 workspaces de produção continuam sem contas, cartões e lançamentos.
 - [x] Excluir a branch QA e confirmar que Neon voltou a listar somente `production`; apagar também os arquivos e variáveis locais temporários.
-- [ ] A interface de restauração ainda não foi exercitada ponta a ponta: login Google no `localhost` exibiu “Não foi possível conectar com o Google”; nenhuma escrita ocorreu em produção. Criar Preview com Firebase autorizado ou obter sessão autenticada de QA para fechar esse teste.
+- [ ] A interface de restauração ainda não foi exercitada ponta a ponta: após autorização temporária de `localhost`, o app abriu o seletor Google, mas a interação do navegador não selecionou uma conta. Nenhuma escrita ocorreu em produção; Firebase foi restaurado à lista original de domínios e a branch QA foi removida.
 - [ ] CI `41877421967` do commit `71c0fdc` estava `queued` na última consulta (17:40 UTC); confirmar conclusão.
 
 ## CRUD real pela interface autenticada (2026-11-04)
@@ -435,3 +435,11 @@
 - [ ] Compartilhado e Relatórios não tiveram CRUD completo nesta continuação; o inventário encontrou quase nenhum teste React/Browser, sem Playwright/Cypress configurado. O erro de cartão relatado não se reproduziu no create→reload→delete desta sessão.
 - [ ] Os outros 3 links demo não pertencem à identidade autenticada; API/UI restringe mutações ao UID do titular. Não há segundo login fornecido, e nenhuma alteração administrativa privilegiada foi feita.
 - [ ] Corrigir registro antigo do CI: `41877421967` terminou em sucesso após a consulta de 17:40 UTC; o CI do commit documental `fab6de6` é `41879557461`, com lint/testes/build completos e sucesso, aguardando conclusão final do workflow na última consulta.
+
+## Tentativa de restore autenticado em localhost (2026-11-04)
+- [x] Com aprovação específica, autorizar temporariamente `localhost` em Firebase Authentication para ensaio local; a aplicação abriu o seletor Google.
+- [x] Confirmar que não foi possível selecionar uma conta pela automação do navegador; não usar credenciais alternativas nem criar dados de produção.
+- [x] Remover `localhost` após a tentativa e verificar que `minhaseconomias-blue.vercel.app` permaneceu autorizado.
+- [x] Criar e excluir a branch temporária `qa-restore-auth-2026-11-04`; Neon voltou a listar somente `production`.
+- [x] Encerrar o servidor local e remover `.env` de QA; não houve gravação de fixture.
+- [ ] Retomar o restore completo com uma sessão autenticada controlável em preview/localhost autorizado; comprovar payload sintético no Neon e limpar depois.
