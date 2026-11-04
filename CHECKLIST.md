@@ -232,3 +232,16 @@
 - [ ] Confirmar a primeira execução automática do Vercel Cron em `2026-11-04T12:15:00Z` ou depois; às `00:03Z` a janela ainda não havia ocorrido.
 
 
+
+## Sessão 2026-11-04 — remoção de cartão demonstrativo
+- [x] Confirmar com o usuário que o cartão Azul Mastercard era demonstração e estava autorizado apagar.
+- [x] Remover o cartão pela interface autenticada de produção, confirmar o diálogo e receber confirmação de remoção de cartão e lançamentos associados.
+- [x] Confirmar status “Nuvem sincronizada - Neon PostgreSQL” e consultar contagens agregadas Neon: 0 cartões, 0 contas e 0 lançamentos nas 3 workspaces.
+- [ ] Simular indisponibilidade temporária no navegador e comprovar bloqueio, retry e recuperação após a rede voltar; o controle BrowserOS/Brave não está acessível nesta sessão.
+
+## Sessão 2026-11-04 — contrato HTTP de restauração
+- [x] Estender o backend de teste para persistir o payload aceito pelo `PUT /api/workspace` e relê-lo pelo `GET`, cobrindo todas as coleções e campos opcionais de um backup completo.
+- [x] Reexecutar `bun test`: 103 testes passaram em 19 arquivos; inclui novo ciclo HTTP PUT→GET com identidade Firebase simulada e banco mock. Isso valida o contrato/middleware da API, não interface real nem Neon.
+- [x] `bun run lint` passou; `bun run build` passou (chunk inicial 566 kB, aviso conhecido).
+- [x] Revalidar produção: `/api/health` retornou 200/Neon `ok`; Vercel lista `/api/health` em `15 12 * * *`. Às 00:14 UTC a invocação automática de hoje ainda era futura.
+- [ ] Fazer restore UI→API→Neon em ambiente isolado com Firebase Auth real; nesta máquina não há `.env` local nem sessão Brave autenticada controlável.

@@ -23,6 +23,7 @@ const shared = new Map<string, unknown>();
 const sqlLog: string[] = [];
 const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
 let workspaceRevision = 2;
+let workspacePayload: Record<string, unknown> = { accountsJson: '[]' };
 let failWorkspaceUpdates = false;
 const workspaceUpdateParameters: unknown[][] = [];
 
@@ -58,13 +59,14 @@ before(async () => {
         if (normalized.startsWith('SELECT payload, revision, updated_at')) {
           workspaceQueries.push({ sql: normalized, params });
           return params[1] === 'owner-uid'
-            ? { rows: [{ payload: { accountsJson: '[]' }, revision: workspaceRevision, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
+            ? { rows: [{ payload: workspacePayload, revision: workspaceRevision, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
             : { rows: [], rowCount: 0 };
         }
         if (normalized.startsWith('UPDATE public.finance_workspaces')) {
           workspaceUpdateParameters.push(params);
           if (failWorkspaceUpdates) throw new Error('simulated database unavailable');
           if (params[5] !== workspaceRevision) return { rows: [], rowCount: 0 };
+          workspacePayload = JSON.parse(String(params[0])) as Record<string, unknown>;
           workspaceRevision += 1;
           return { rows: [{ revision: workspaceRevision, updated_at: '2026-11-03T00:01:00.000Z' }], rowCount: 1 };
         }
@@ -194,8 +196,41 @@ test('API de workspace serializa gravações concorrentes pela revisão esperada
   assert.match(String(workspaceUpdateParameters[0]?.[0]), /accountsJson/);
 });
 
+test('API persiste e relê o payload completo de uma restauração de backup', async () => {
+  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const restoredPayload = {
+    uid: 'vault_usr_owner_example_com',
+    updatedAt: '2026-11-04T00:00:00.000Z',
+    accountsJson: JSON.stringify([{ id: 'qa-account' }]),
+    cardsJson: JSON.stringify([{ id: 'qa-card' }]),
+    categoriesJson: JSON.stringify([{ id: 'qa-category' }]),
+    transactionsJson: JSON.stringify([{ id: 'qa-transaction' }]),
+    goalsJson: JSON.stringify([{ id: 'qa-goal' }]),
+    familyMembersJson: JSON.stringify([{ id: 'qa-member' }]),
+    investmentsJson: JSON.stringify([{ id: 'qa-investment' }]),
+    investmentTargetsJson: JSON.stringify({ reserve: 123 }),
+    tripsJson: JSON.stringify([{ id: 'qa-trip' }]),
+    settingsJson: JSON.stringify({ userName: 'QA restore' }),
+  };
+
+  const write = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers, body: JSON.stringify({ payload: restoredPayload, expectedRevision: 3 }),
+  });
+  assert.equal(write.status, 200, await write.clone().text());
+  assert.equal((await write.json() as { revision: number }).revision, 4);
+
+  const read = await originalFetch(`${baseUrl}/api/workspace`, {
+    headers: { Authorization: 'Bearer local-test-token' },
+  });
+  assert.equal(read.status, 200);
+  const response = await read.json() as { revision: number; payload: Record<string, unknown> };
+  assert.equal(response.revision, 4);
+  assert.deepEqual(response.payload, restoredPayload);
+});
+
 test('API de workspace responde 503 quando o banco fica indisponível', async () => {
   const originalConsoleError = console.error;
+  const revisionBeforeFailure = workspaceRevision;
   failWorkspaceUpdates = true;
   console.error = () => undefined;
   try {
@@ -209,7 +244,7 @@ test('API de workspace responde 503 quando o banco fica indisponível', async ()
           accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
           transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
         },
-        expectedRevision: 3,
+        expectedRevision: revisionBeforeFailure,
       }),
     });
     assert.equal(response.status, 503);
@@ -218,5 +253,5 @@ test('API de workspace responde 503 quando o banco fica indisponível', async ()
     failWorkspaceUpdates = false;
     console.error = originalConsoleError;
   }
-  assert.equal(workspaceRevision, 3, 'falha de banco não pode avançar a revisão');
+  assert.equal(workspaceRevision, revisionBeforeFailure, 'falha de banco não pode avançar a revisão');
 });

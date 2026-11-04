@@ -2,7 +2,7 @@
 
 ## Estado atual — 2026-11-04
 
-Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit de código `7b555dc` está publicado na branch `main`; deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; repo limpo na ponta `17cc624` (documentação).
+Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit de código `7b555dc` está publicado na branch `main`; deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; ponta versionada em `9ac36a9`; há alterações locais de teste/documentação desta rodada ainda a publicar.
 
 ## Trabalho desta rodada
 
@@ -42,3 +42,17 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 ## Próximo passo concreto
 
 Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026-11-04T12:15:00Z`. Em seguida, retomar restore UI→API→Neon em ambiente isolado. Segurança de roles depende de um fluxo Neon com privilégio de membership e gestão segura de credenciais; não mudar a DATABASE_URL de produção até o runtime restrito estar provado. Falta também validar indisponibilidade/retry, dump/restore independente e revisão visual pixel-level; compartilhar entre duas contas foi dispensado pelo usuário.
+
+## Atualização — 2026-11-04
+
+- O usuário confirmou que o cartão Azul Mastercard era demonstração e autorizou a exclusão. Removi o cartão pela interface autenticada de produção, confirmei a ação na tela e a UI informou remoção do cartão e lançamentos associados.
+- A UI voltou a indicar “Nuvem sincronizada - Neon PostgreSQL”. A consulta agregada posterior confirmou 3 workspaces, 0 cartões, 0 contas e 0 lançamentos; nenhuma informação financeira individual foi consultada.
+- Tentei retomar o ensaio de indisponibilidade/retry; o conector atual não disponibilizou o browser Brave autenticado para controle. Não desliguei a rede nem alterei dados.
+- Próximos passos concretos: (1) repetir o ensaio de indisponibilidade/retry com controle do navegador disponível; (2) concluir restore UI→API→Neon em branch isolada; (3) conferir o disparo real do Cron depois de `2026-11-04T12:15:00Z`; (4) resolver o privilégio excessivo das roles por fluxo administrativo Neon seguro.
+
+## Atualização — 2026-11-04, contrato HTTP de restore
+
+- Acrescentei teste de integração local à API de workspace: uma gravação autenticada `PUT /api/workspace` com um payload que contém contas, cartões, categorias, lançamentos, metas, membros, investimentos, destinos, viagens e configurações é relida integralmente pelo `GET`, com revisão incrementada. A simulação usa Firebase Identity Toolkit e pool Neon mock; não representa UI real nem Neon remoto.
+- `bun test`: 103 passaram, 0 falharam, 19 arquivos; `bun run lint` passou; `bun run build` passou com o aviso conhecido de chunk inicial 566 kB.
+- Produção verificada às `2026-11-04T00:14Z`: `/api/health` 200 e Neon `ok`; Vercel ainda lista cron `15 12 * * *`. A execução programada permanece pendente até depois de `12:15Z`.
+- Não há `.env` local e o controle do browser Brave autenticado falha como indisponível; restore remoto ponta a ponta e falha/retry pela interface continuam sem evidência. Não alterei o Neon de produção.
