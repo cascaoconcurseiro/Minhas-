@@ -410,5 +410,15 @@
 - [x] Baixar o backup no navegador autenticado e confirmar versão 5, 12 campos esperados e zero campos ausentes; não importar nem substituir dados de produção.
 - [x] Avaliar Relatórios em viewport 390×844: largura documental 390px, sem overflow horizontal; screenshot revisto. Outros módulos e fluxos mobile ainda precisam de cobertura.
 - [x] Detectar, sem ler nomes/emails, que o payload contém 2 `familyMembers` aceitos cujos convites correspondentes foram excluídos como demonstração.
-- [ ] Publicar o tratamento de 404 ao remover convite órfão; remover os 2 vínculos demo pela interface e confirmar que o autosave os retirou do Neon.
+- [x] Publicar o tratamento de 404 ao remover convite órfão no commit `71c0fdc`, com deployment Production `Ready`.
+- [x] Remover pela interface os 2 vínculos órfãos da conta aberta e aguardar “Nuvem sincronizada”; verificação agregada no Neon ainda encontra 3 vínculos familiares em outros 2 workspaces demo.
 - [ ] Completar restore UI→API→Neon com fixture numa branch isolada, sem substituir dados de produção.
+
+## Restore API→Neon em branch isolada (2026-11-04)
+- [x] Criar a branch descartável `qa-restore-e2e-2026-11-04` a partir de `production`; backend local usou `minhas_app_runtime` e credencial apontada somente à branch QA.
+- [x] Executar contra o backend real: workspace ausente (404), criação inicial (201), gravação de fixture de restauração (200) e releitura (200), revisão 2; UID foi canonicalizado para `vault_uid_<Firebase UID>`.
+- [x] Consultar agregados na branch QA: 1 workspace de teste, 1 categoria, revisão 2 e marcador de restauração; nenhum valor financeiro foi lido.
+- [x] Confirmar que o UID sintético tem zero linhas em `production`, e que os 3 workspaces de produção continuam sem contas, cartões e lançamentos.
+- [x] Excluir a branch QA e confirmar que Neon voltou a listar somente `production`; apagar também os arquivos e variáveis locais temporários.
+- [ ] A interface de restauração ainda não foi exercitada ponta a ponta: login Google no `localhost` exibiu “Não foi possível conectar com o Google”; nenhuma escrita ocorreu em produção. Criar Preview com Firebase autorizado ou obter sessão autenticada de QA para fechar esse teste.
+- [ ] CI `41877421967` do commit `71c0fdc` estava `queued` na última consulta (17:40 UTC); confirmar conclusão.

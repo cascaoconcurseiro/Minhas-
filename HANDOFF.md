@@ -1,47 +1,42 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 17:24 UTC
+## Estado atual — 2026-11-04 17:40 UTC
 
-Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. A correção de exportação completa está publicada no commit `734c6ed`; CI `41875825794` passou e deployment `dpl_C3tkx84DT3ifGKMHD8kfMGEpwNRB` está `Ready`. O download pelo navegador autenticado confirmou versão 5 com os 12 campos esperados e nenhum ausente. A migration 005 foi aplicada em produção e a branch QA foi removida.
+Meta permanece ativa: concluir auditoria requisito a requisito e deixar o sistema funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth como identidade. A migration 005 está aplicada em `production`; o deployment Production mais recente do commit `71c0fdc` está `Ready`. O alias principal respondeu `/api/health` 200 com Neon `ok`; `/api/workspace` sem autenticação respondeu 401. O CI `41877421967` ainda estava `queued` na última consulta.
 
-## Feito nesta sessão
+## Feito nesta continuação
 
-- Corrigi o botão “Baixar Backup JSON” em Relatórios: antes ele exportava um JSON parcial, sem a versão e campos requeridos pelo restaurador completo. Agora usa o mesmo callback de exportação versionada usado nas Configurações e se chama “Baixar Backup Completo JSON”.
-- Após a correção, `bun run test` passou (112/112 em 21 arquivos), `bun run lint` passou e `bun run build` passou; o alerta de bundle >500 kB permanece. O download completo foi verificado na interface; ainda falta importar um fixture pelo fluxo UI→Neon em QA.
-- A estrutura do backup (sem ler nomes, emails ou valores) contém 0 contas, cartões, lançamentos, metas, investimentos e viagens; 16 categorias e 2 `familyMembers` com status aceito ligados a convites removidos.
-- Em viewport 390×844, a tela de Relatórios teve largura documental 390px, sem overflow horizontal; screenshot foi revisado. Isto não cobre todos os módulos mobile.
-- Corrigi localmente a remoção de vínculo órfão: resposta HTTP 404 do convite ao revogar agora permite remover o `familyMember` local. A alteração ainda não está publicada. Os dois vínculos de demonstração permanecem no payload de produção até publicar e limpar pela interface.
-- Os três agentes de auditoria cobriram backup/recuperação, segurança/API e interface responsiva. A descoberta de identidade mutável foi consolidada na mudança para `vault_uid_<Firebase UID>`; as auditorias não encontraram evidência de leitura cruzada entre titulares.
-- Publicado `9429eaa` para vincular workspaces a UID Firebase estável e `c6fd0ba` para corrigir a resolução ESM do módulo compartilhado no runtime Vercel.
-- O primeiro deploy da mudança de identidade entrou em `Ready`, mas o smoke encontrou HTTP 500 por import TypeScript sem extensão. Corrigi o caminho, publiquei `c6fd0ba` e confirmei o novo deploy `Ready`, health 200 e CI success. A regressão está resolvida.
-- QA isolado validou a migration 005 e o fluxo real da API→Neon com role runtime: mudança de e-mail, colisão de slugs antigos, isolamento por UID, corrida de criação (201/409), persistência/releitura e importação Firestore write-once.
-- Preflight agregado de produção identificou 3 workspaces/3 titulares, sem duplicidade ou conflito de IDs. Não houve leitura de nomes, emails ou payload financeiro.
-- Suíte local mais recente: 112 testes em 21 arquivos, lint e build passaram. Build mantém alerta de bundle inicial ~566 kB (167 kB gzip).
-- Após a aplicação em produção, consultas agregadas confirmaram 3/3 workspaces com ID e payload UID canônicos, 0 IDs legados, 3/3 recibos canônicos, 0 recibos órfãos e índice único por `owner_firebase_uid`; a lista Neon contém somente `production`.
-- Nova consulta agregada dos três workspaces confirmou zero contas, cartões, lançamentos, metas, investimentos e viagens; as tabelas de convites e lançamentos compartilhados também estão vazias. Nenhum valor ou dado identificável foi lido.
-- Depois da migration, o Brave autenticado carregou o app com indicador “Nuvem sincronizada — Neon PostgreSQL”. Naveguei até Cartões e abri os modos de despesa, cartão, receita e transferência; o formulário do cartão e o de lançamento rejeitam submissão vazia. Nenhuma gravação foi feita em produção.
-- A inspeção dos logs Vercel encontrou um aviso de `pg-connection-string` sobre modos SSL legados. A configuração em execução hoje preserva verificação completa, mas uma versão futura pode mudar a semântica; implementei normalização explícita para `sslmode=verify-full` e dois testes unitários.
-- Os novos testes SSL passaram (2/2), e a suíte passou com 112 testes em 21 arquivos; lint e build também passaram. `9ccf0ff` publicou a correção; CI `41872738808` passou, Vercel `dpl_StTtu5jQonDym6sQqzDZif8w6pbv` ficou Ready, health 200/Neon ok e o log da chamada `/api/health` em `16:59:13Z` não registrou o aviso TLS.
-- A revalidação Neon confirmou que ambas as roles runtime não têm atributos elevados ou membership em `neon_superuser`; RLS está habilitado e forçado nas quatro tabelas financeiras; a role diária não tem grants financeiros e a role app não tem DELETE em workspaces, convites ou recibos.
-- Depois da atualização documental final, Vercel `dpl_Efr8rjnResNzusKer8a3NP7ZNGLb` ficou Ready; homepage 200, health 200/Neon ok, `/api/workspace` sem token 401, e os logs do deployment têm health 200 sem o aviso TLS.
-- Nesta continuação, `bun run test` passou (112 testes/21 arquivos), `bun run lint` passou e `bun run build` passou com aviso conhecido de chunk inicial acima de 500 kB. Reconsulta do CI confirmou sucesso em `e08b379`.
-- A sessão Brave autenticada mostrou o workspace vazio, status “Nuvem sincronizada — Neon PostgreSQL”, categorias padrão e navegação sem o Guia Rápido; screenshot observado em viewport desktop. Esta observação não valida mutações nem viewport mobile.
-- A auditoria dos agentes confirmou que `backend/familyApi.test.ts` usa servidor HTTP real, mas `pg` e Firebase são simulados; cobre UID isolado, concorrência 200/409, restore PUT+GET, falha DB→503 e migração write-once. Ainda não é o fluxo browser→Firebase→Vercel→Postgres real.
-- O deployment do commit `e08b379` e o deploy subsequente ficaram `Ready`; CI `41875339400` do `30fb1b0` passou. Smoke pós-publicação no alias principal: health 200/Neon ok e workspace sem token 401.
+- A branch Neon `qa-restore-e2e-2026-11-04` foi criada, usada com a role `minhas_app_runtime` e descartada após o ensaio.
+- No backend real apontado à branch QA, validei workspace ausente 404, criação inicial 201, gravação de fixture 200 e releitura 200 na revisão 2. A identidade retornou canonicalizada por UID Firebase. O teste usou identidade sintética injetada localmente e fixture sem dados pessoais.
+- Consulta agregada confirmou a fixture e o marcador de restauração na branch isolada; o UID sintético não tinha linha em produção. A produção manteve 3 workspaces e zero contas, cartões ou lançamentos.
+- A branch QA foi excluída e Neon lista apenas `production`. Arquivos e variáveis locais temporários foram removidos.
+- O tratamento de convite órfão foi publicado em `71c0fdc`. A conta autenticada usada no navegador teve seus dois vínculos demo removidos pela interface e indicou sincronização. Ainda há 3 vínculos familiares em outros dois workspaces demo segundo contagem agregada; a limpeza total de todos os workspaces não está concluída.
+- Tentei abrir a interface local para completar UI→API→Neon. O login Google no `localhost` mostrou “Não foi possível conectar com o Google”; interrompi o caminho sem pedir senha, sem copiar token da produção e sem escrever em produção. Portanto, o teste real desta continuação cobre API→Neon, não a restauração completa pelo navegador.
+- O alias de produção foi reconsultado às 17:40 UTC: health 200/Neon ok, workspace sem token 401. A checagem não leu dados financeiros identificáveis.
+
+## Evidências já existentes
+
+- `bun run test`: 112 testes em 21 arquivos; `bun run lint` e `bun run build` passaram na última execução registrada. O build alerta para chunk inicial de cerca de 566 kB (~168 kB gzip).
+- Testes automatizados de API cobrem identidade isolada, concorrência, falha DB→503, persistência e readback com Postgres simulado. O ensaio desta continuação acrescenta persistência/readback numa branch Neon real, ainda com verificação Firebase simulada.
+- Exportação completa v5 foi baixada e conferida no navegador: 12 campos esperados, nenhum ausente.
+- Tela Relatórios observada em 390×844 sem overflow horizontal; overview observada em desktop. Isso não cobre visualmente todos os módulos e fluxos.
+- CI anteriores e deployments ficaram verdes/Ready. A última execução do CI, `41877421967` para `71c0fdc`, continuava na fila.
 
 ## Pendências e limites
 
-- Migration 005 aplicada: transformou os 3 IDs de workspace e UIDs dos payloads de chave baseada em email para chave baseada no UID Firebase estável, atualizou recibos, ampliou o limite do identificador e criou índice único por titular. A branch temporária foi removida.
-- Após a migration, `/api/health` respondeu 200 com Neon `ok`.
-- Leitura autenticada pós-migration foi comprovada no Brave, mas não foi feito lançamento/gravação; restore completo pela UI e visualização pixel-level desktop/mobile continuam sem evidência. A sessão BrowserOS dedicada não estava disponível. As duas contas para validação de compartilhamento foram dispensadas pelo usuário.
-- Confirmar o Cron Vercel diário na primeira janela automática seguinte: 2026-11-05, entre 12:15 e 13:14:59 UTC. Execução manual não conta.
-- SMTP/Gemini e demais integrações externas não têm validação ponta a ponta configurada.
+- Confirmar o CI `41877421967` e investigar a fila se continuar sem iniciar.
+- Completar restore pela UI autenticada até Neon em QA com fixture sintética; é necessária uma origem Firebase autorizada e uma sessão válida nessa origem.
+- Percorrer todos os módulos em desktop e mobile, testar CRUD e confirmar persistência/releitura no Neon; cartão e formulário de lançamento foram apenas abertos e validados contra envio vazio anteriormente.
+- Reconciliar os 3 vínculos familiares restantes nos outros workspaces demo; a segunda conta para teste de compartilhamento foi dispensada pelo usuário.
+- Comprovar execução automática do Cron Vercel em 2026-11-05, janela `12:15–13:14:59 UTC`; `vercel.json` agenda `/api/health` diariamente às 12:15 UTC.
+- SMTP/Gemini e outros serviços externos não têm validação ponta a ponta configurada; `/api/health` informa Gemini não configurado.
 
 ## Próximo passo concreto
 
-Publicar a correção do vínculo órfão em `main`/Vercel e remover pela interface os dois `familyMembers` que referenciam convites de demonstração já excluídos; confirmar salvamento no Neon. Depois, preparar restore UI→API→Neon numa branch isolada e consultar o Cron automático de 5/nov.
+Consultar novamente `gh run view 41877421967 --json status,conclusion,jobs,url`; depois preparar um Preview isolado apontado a uma nova branch Neon QA e incluir o domínio Preview na configuração de autenticação Firebase se ainda não estiver autorizado. Só então validar a importação do fixture pela interface, aguardar sincronização e confirmar readback agregado antes de remover variáveis Preview e branch.
 
 ## Bloqueios
 
-- Teste autenticado em Brave limitado a leitura/navegação e validação de formulário; restore UI→API→Neon e screenshot pixel-level desktop/mobile pendentes.
-- A execução automática do Cron de 5/nov ainda não ocorreu.
+- A sessão autenticada atual é do domínio de produção e não foi reutilizável no `localhost`; não copiar nem reaproveitar token de produção para este teste.
+- CI `41877421967` estava na fila na consulta mais recente.
+- Cron diário ainda aguarda a próxima execução automática.
