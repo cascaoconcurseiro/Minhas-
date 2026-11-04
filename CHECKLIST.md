@@ -276,3 +276,8 @@
 ## Continuação — 2026-11-04 00:37 UTC
 - [x] Reexecutar a suíte completa: `bun test` — 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build informa chunk inicial 566 kB, 167 kB gzip.
 - [x] Confirmar que o deploy docs `dpl_FE6ys2bk2cFe8LhPMEL5mwJdyCPb` está Ready com alias de produção; health depois do deploy retornou 200/Neon ok.
+
+## Continuação — auditoria da persistência e autosuspend
+- [x] Busca estática em `src`/`backend` confirmou que o Firestore é referenciado somente no módulo de leitura legada para migração; sem `onSnapshot`, `setDoc`, `updateDoc`, `addDoc` ou `deleteDoc` no fluxo atual.
+- [x] Conferir semântica do endpoint Neon: `suspend_timeout_seconds: 0` usa padrão de 300 segundos; no plano Free o autosuspend não pode ser desativado. A rotina diária dá atividade diária, não mantém compute ligado 24h.
+- [ ] Verificar o primeiro disparo automático do Cron em `2026-11-04T12:15:00Z` ou depois.

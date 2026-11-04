@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 00:35 UTC
+## Estado atual — 2026-11-04 00:39 UTC
 
-Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `848bcca` e a última implantação conhecida está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
+Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `7cb494e` e a última implantação conhecida está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
 
 ## Feito nesta continuação
 
@@ -20,8 +20,8 @@ Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon c
 - Dump portátil e restauração independente ainda não foram demonstrados.
 - `minhas_app` e `minhas_daily` mantêm membership em `neon_superuser` e privilégios elevados (`BYPASSRLS`, `CREATEROLE`, `CREATEDB`, `REPLICATION`). O acesso atual não permitiu revogá-los; nenhuma mudança foi feita em produção.
 - Revisão visual pixel-level segue pendente porque a captura BrowserOS falhou. SMTP real e Gemini não estão configurados.
-- Endpoint Neon informa `suspend_timeout_seconds: 0`; o significado e a relação com a suspensão automática ainda não foram estabelecidos. Não alterei a configuração. O requisito de atividade diária será considerado comprovado somente após verificar a execução agendada real.
-- O build mais recente passou anteriormente com aviso de bundle inicial próximo de 566 kB.
+- Endpoint Neon informa `suspend_timeout_seconds: 0`, que usa o padrão de 300 segundos. O plano Free não permite desabilitar autosuspend; o Cron diário faz uma consulta e o compute pode voltar a suspender após inatividade. Não alterei a configuração. Ainda falta comprovar a execução agendada real. Veja https://neon.com/docs/introduction/scale-to-zero.
+- Busca estática atual: as chamadas do SDK Firestore aparecem apenas em `src/lib/legacyFirestoreMigration.ts` para migração legada; não encontrei listeners ou gravações de rotina no workspace. Dados de sessão/cópia local continuam em `localStorage`.
 
 ## Próximo passo concreto
 
