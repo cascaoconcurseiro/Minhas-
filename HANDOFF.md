@@ -1,6 +1,6 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 17:06 UTC
+## Estado atual — 2026-11-04 17:08 UTC
 
 Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `4c47266`. A produção Vercel está `Ready` no deployment `dpl_Efr8rjnResNzusKer8a3NP7ZNGLb`; o alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200, com Neon `ok`. O CI do commit `4c47266` concluiu `success`. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
 
@@ -13,6 +13,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 - Preflight agregado de produção identificou 3 workspaces/3 titulares, sem duplicidade ou conflito de IDs. Não houve leitura de nomes, emails ou payload financeiro.
 - Suíte local mais recente: 112 testes em 21 arquivos, lint e build passaram. Build mantém alerta de bundle inicial ~566 kB (167 kB gzip).
 - Após a aplicação em produção, consultas agregadas confirmaram 3/3 workspaces com ID e payload UID canônicos, 0 IDs legados, 3/3 recibos canônicos, 0 recibos órfãos e índice único por `owner_firebase_uid`; a lista Neon contém somente `production`.
+- Nova consulta agregada dos três workspaces confirmou zero contas, cartões, lançamentos, metas, investimentos e viagens; as tabelas de convites e lançamentos compartilhados também estão vazias. Nenhum valor ou dado identificável foi lido.
 - Depois da migration, o Brave autenticado carregou o app com indicador “Nuvem sincronizada — Neon PostgreSQL”. Naveguei até Cartões e abri os modos de despesa, cartão, receita e transferência; o formulário do cartão e o de lançamento rejeitam submissão vazia. Nenhuma gravação foi feita em produção.
 - A inspeção dos logs Vercel encontrou um aviso de `pg-connection-string` sobre modos SSL legados. A configuração em execução hoje preserva verificação completa, mas uma versão futura pode mudar a semântica; implementei normalização explícita para `sslmode=verify-full` e dois testes unitários.
 - Os novos testes SSL passaram (2/2), e a suíte passou com 112 testes em 21 arquivos; lint e build também passaram. `9ccf0ff` publicou a correção; CI `41872738808` passou, Vercel `dpl_StTtu5jQonDym6sQqzDZif8w6pbv` ficou Ready, health 200/Neon ok e o log da chamada `/api/health` em `16:59:13Z` não registrou o aviso TLS.
