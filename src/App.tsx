@@ -2082,6 +2082,10 @@ export default function App() {
     void revokeNeonFamilyInvitation(target.invitationId)
       .then(removeLocalLink)
       .catch((error) => {
+        if (error instanceof NeonWorkspaceError && error.status === 404) {
+          removeLocalLink();
+          return;
+        }
         console.error('Falha ao revogar vínculo familiar:', error);
         showNotice('Não foi possível remover o vínculo. Os dados permaneceram intactos.');
       });

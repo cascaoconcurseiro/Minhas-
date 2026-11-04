@@ -1,13 +1,16 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 17:12 UTC
+## Estado atual — 2026-11-04 17:24 UTC
 
-Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. A atualização da auditoria está publicada em `main`; o CI do commit `30fb1b0` concluiu com sucesso (`41875339400`). O deployment `dpl_7imqmThQJ6zNBh5gffB2W28fHR6F` está `Ready` e recebeu o alias `https://minhaseconomias-blue.vercel.app`. No smoke pós-deploy, `/api/health` respondeu HTTP 200 com Neon `ok` e `/api/workspace` sem token respondeu HTTP 401. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
+Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. A correção de exportação completa está publicada no commit `734c6ed`; CI `41875825794` passou e deployment `dpl_C3tkx84DT3ifGKMHD8kfMGEpwNRB` está `Ready`. O download pelo navegador autenticado confirmou versão 5 com os 12 campos esperados e nenhum ausente. A migration 005 foi aplicada em produção e a branch QA foi removida.
 
 ## Feito nesta sessão
 
 - Corrigi o botão “Baixar Backup JSON” em Relatórios: antes ele exportava um JSON parcial, sem a versão e campos requeridos pelo restaurador completo. Agora usa o mesmo callback de exportação versionada usado nas Configurações e se chama “Baixar Backup Completo JSON”.
-- Após a correção, `bun run test` passou (112/112 em 21 arquivos), `bun run lint` passou e `bun run build` passou; o alerta de bundle >500 kB permanece. A validação manual do download completo na interface e restore até Neon ainda precisa ser feita isoladamente.
+- Após a correção, `bun run test` passou (112/112 em 21 arquivos), `bun run lint` passou e `bun run build` passou; o alerta de bundle >500 kB permanece. O download completo foi verificado na interface; ainda falta importar um fixture pelo fluxo UI→Neon em QA.
+- A estrutura do backup (sem ler nomes, emails ou valores) contém 0 contas, cartões, lançamentos, metas, investimentos e viagens; 16 categorias e 2 `familyMembers` com status aceito ligados a convites removidos.
+- Em viewport 390×844, a tela de Relatórios teve largura documental 390px, sem overflow horizontal; screenshot foi revisado. Isto não cobre todos os módulos mobile.
+- Corrigi localmente a remoção de vínculo órfão: resposta HTTP 404 do convite ao revogar agora permite remover o `familyMember` local. A alteração ainda não está publicada. Os dois vínculos de demonstração permanecem no payload de produção até publicar e limpar pela interface.
 - Os três agentes de auditoria cobriram backup/recuperação, segurança/API e interface responsiva. A descoberta de identidade mutável foi consolidada na mudança para `vault_uid_<Firebase UID>`; as auditorias não encontraram evidência de leitura cruzada entre titulares.
 - Publicado `9429eaa` para vincular workspaces a UID Firebase estável e `c6fd0ba` para corrigir a resolução ESM do módulo compartilhado no runtime Vercel.
 - O primeiro deploy da mudança de identidade entrou em `Ready`, mas o smoke encontrou HTTP 500 por import TypeScript sem extensão. Corrigi o caminho, publiquei `c6fd0ba` e confirmei o novo deploy `Ready`, health 200 e CI success. A regressão está resolvida.
@@ -36,7 +39,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 
 ## Próximo passo concreto
 
-Publicar a correção do backup em `main`/Vercel, validar o arquivo exportado na interface e preparar o restore UI→API→Neon numa branch isolada; consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport mobile com ferramenta que permita emulação.
+Publicar a correção do vínculo órfão em `main`/Vercel e remover pela interface os dois `familyMembers` que referenciam convites de demonstração já excluídos; confirmar salvamento no Neon. Depois, preparar restore UI→API→Neon numa branch isolada e consultar o Cron automático de 5/nov.
 
 ## Bloqueios
 

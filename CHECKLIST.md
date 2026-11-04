@@ -406,4 +406,9 @@
 ## Correção identificada na auditoria de backup (2026-11-04)
 - [x] Em código, o botão de Relatórios foi ligado ao exportador completo versionado (versão 5), em vez do JSON parcial que o restaurador não aceitava.
 - [x] Reexecutar após a alteração: 112/112 testes, lint e build passaram; build ainda reporta chunk inicial ~566 kB (~168 kB gzip).
-- [ ] Publicar em `main`/Vercel e validar o arquivo baixado pelo botão da interface, sem importar ou substituir dados de produção.
+- [x] Publicar `734c6ed` em `main`; CI `41875825794` success e Vercel `dpl_C3tkx84DT3ifGKMHD8kfMGEpwNRB` Ready.
+- [x] Baixar o backup no navegador autenticado e confirmar versão 5, 12 campos esperados e zero campos ausentes; não importar nem substituir dados de produção.
+- [x] Avaliar Relatórios em viewport 390×844: largura documental 390px, sem overflow horizontal; screenshot revisto. Outros módulos e fluxos mobile ainda precisam de cobertura.
+- [x] Detectar, sem ler nomes/emails, que o payload contém 2 `familyMembers` aceitos cujos convites correspondentes foram excluídos como demonstração.
+- [ ] Publicar o tratamento de 404 ao remover convite órfão; remover os 2 vínculos demo pela interface e confirmar que o autosave os retirou do Neon.
+- [ ] Completar restore UI→API→Neon com fixture numa branch isolada, sem substituir dados de produção.
