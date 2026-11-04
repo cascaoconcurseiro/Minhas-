@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 15:57 UTC
+## Estado atual — 2026-11-04 15:59 UTC
 
-Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Código de produção está em `b5abfd7`; antes desta atualização, CI `41753358838` passou, deploy Vercel `dpl_6tzYKQmVzphfn5H8kkw7YoZmPqQq` estava Ready e `https://minhaseconomias-blue.vercel.app` respondia health 200/Neon `ok`.
+Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Docs publicados no commit `2419d58` em `main`. Deploy Vercel `dpl_2eAPNAa3egP5o9XD6XbJonpFXv9c` está Ready; às `15:59:38Z`, `https://minhaseconomias-blue.vercel.app/api/health` respondeu HTTP 200 e Neon `ok`. CI GitHub `41862988415` ainda estava queued na última consulta.
 
 ## Feito nesta sessão
 
@@ -22,4 +22,5 @@ Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persis
 
 ## Próximo passo concreto
 
-Revisar o diff documental, publicar em `main`, aguardar CI e o novo deploy Ready, e confirmar health 200/Neon `ok`. Em seguida, buscar evidência do Cron automático no painel/logs Vercel em janela posterior. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
+Acompanhar o CI `41862988415` até resultado terminal. Depois buscar evidência do Cron automático no painel/logs Vercel em janela posterior. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
+
