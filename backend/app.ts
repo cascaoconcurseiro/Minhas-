@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
+import { normalizeDatabaseConnectionString } from './databaseConnection.ts';
 import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
@@ -30,7 +31,7 @@ function getNeonPool(): Pool {
     throw new Error('DATABASE_URL não configurada no servidor.');
   }
   neonPool ??= new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL),
     max: 5,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,

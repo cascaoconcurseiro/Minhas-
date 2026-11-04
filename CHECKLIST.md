@@ -369,3 +369,16 @@
 - [x] Verificar pós-migration por agregados: 3 workspaces, 3 UIDs canônicos, 0 IDs legados; 3 recibos canônicos, 0 órfãos e índice único de titular presente.
 - [x] Confirmar `/api/health` de produção HTTP 200/Neon ok após a migration e Cron diário `/api/health` cadastrado para `15 12 * * *` UTC.
 - [ ] Confirmar a execução Cron automática na janela de 5/nov, `12:15–13:14:59Z`; o agendamento ativo não comprova que a execução ocorreu.
+
+## Sessão 2026-11-04 — smoke autenticado pós-migration
+- [x] Abrir o site de produção na sessão Brave já autenticada e confirmar que o workspace carrega após a migration, com indicador “Nuvem sincronizada — Neon PostgreSQL”.
+- [x] Navegar pelos módulos Cartões e Lançamentos; abrir os formulários de cartão e lançamento e validar que submissões vazias são bloqueadas com erro de campo obrigatório.
+- [x] Alternar os modos Despesa, Cartão, Receita e Transferência/Fatura no formulário; campos e opções específicos de cada modo apareceram. Nenhum dado foi submetido ou alterado em produção.
+- [ ] Validar restore completo UI→API→Neon com fixture em ambiente isolado; não importar arquivo que substitua workspace de produção.
+- [ ] Revisar screenshot pixel-level e responsividade em viewport desktop/mobile depois de obter controle de viewport apropriado.
+
+## Continuação — aviso TLS do driver Postgres (2026-11-04)
+- [x] Inspecionar logs recentes de produção e localizar aviso do `pg-connection-string`: `prefer`, `require` e `verify-ca` hoje equivalem a `verify-full`, mas a semântica mudará na próxima versão principal.
+- [x] Tornar `sslmode=verify-full` explícito no pool sem ler ou alterar o segredo `DATABASE_URL`; preservar o comportamento de `uselibpqcompat=true` e modos fora da lista afetada.
+- [x] Adicionar 2 regressões de conexão SSL; `bun run test` passou com 112 testes em 21 arquivos, `bun run lint` e `bun run build` passaram.
+- [ ] Publicar esta correção em `main` e confirmar health 200/Neon ok e ausência do aviso nos logs após o novo deploy.

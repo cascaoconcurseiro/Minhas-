@@ -1,6 +1,6 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 17:01 UTC
+## Estado atual — 2026-11-04 16:57 UTC
 
 Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `c6fd0ba`. A produção Vercel está `Ready` no deployment `dpl_5yz4pXwgBzHAsGL9ua4yKQ2S4E6D`; o alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200, com Neon `ok`. O CI do commit `c6fd0ba` concluiu `success`. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
 
@@ -13,20 +13,24 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 - Preflight agregado de produção identificou 3 workspaces/3 titulares, sem duplicidade ou conflito de IDs. Não houve leitura de nomes, emails ou payload financeiro.
 - Suíte local: 110 testes em 20 arquivos, lint e build passaram. Build mantém alerta de bundle inicial ~566 kB (167 kB gzip).
 - Após a aplicação em produção, consultas agregadas confirmaram 3/3 workspaces com ID e payload UID canônicos, 0 IDs legados, 3/3 recibos canônicos, 0 recibos órfãos e índice único por `owner_firebase_uid`; a lista Neon contém somente `production`.
+- Depois da migration, o Brave autenticado carregou o app com indicador “Nuvem sincronizada — Neon PostgreSQL”. Naveguei até Cartões e abri os modos de despesa, cartão, receita e transferência; o formulário do cartão e o de lançamento rejeitam submissão vazia. Nenhuma gravação foi feita em produção.
+- A inspeção dos logs Vercel encontrou um aviso de `pg-connection-string` sobre modos SSL legados. A configuração em execução hoje preserva verificação completa, mas uma versão futura pode mudar a semântica; implementei normalização explícita para `sslmode=verify-full` e dois testes unitários.
+- Os novos testes SSL passaram (2/2), e a suíte passou com 112 testes em 21 arquivos; lint e build também passaram. Esta correção ainda está local e precisa de publicação/deploy e smoke posterior.
 
 ## Pendências e limites
 
 - Migration 005 aplicada: transformou os 3 IDs de workspace e UIDs dos payloads de chave baseada em email para chave baseada no UID Firebase estável, atualizou recibos, ampliou o limite do identificador e criou índice único por titular. A branch temporária foi removida.
 - Após a migration, `/api/health` respondeu 200 com Neon `ok`.
-- A validação de leitura/gravação com a sessão Firebase real, restore completo via UI e visualização pixel-level desktop/mobile continuam sem evidência desta rodada; BrowserOS não estava disponível. As duas contas para validação de compartilhamento foram dispensadas pelo usuário.
+- Leitura autenticada pós-migration foi comprovada no Brave, mas não foi feito lançamento/gravação; restore completo pela UI e visualização pixel-level desktop/mobile continuam sem evidência. A sessão BrowserOS dedicada não estava disponível. As duas contas para validação de compartilhamento foram dispensadas pelo usuário.
 - Confirmar o Cron Vercel diário na primeira janela automática seguinte: 2026-11-05, entre 12:15 e 13:14:59 UTC. Execução manual não conta.
 - SMTP/Gemini e demais integrações externas não têm validação ponta a ponta configurada.
+- Publicar a normalização SSL após revisar o diff; depois confirmar health 200 e que as novas invocações Vercel não emitem o aviso de modos SSL legados.
 
 ## Próximo passo concreto
 
-Testar os fluxos possíveis com a sessão Firebase real em modo somente leitura; depois consultar a execução automática Vercel Cron na janela de 5/nov e validar restore UI→API→Neon quando houver sessão de navegador adequada.
+Preparar um fluxo isolado para restore UI→API→Neon sem substituir dados de produção; consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport/screenshot desktop e mobile.
 
 ## Bloqueios
 
-- Sessão BrowserOS autenticada/captura pixel-level não disponível.
+- Teste autenticado em Brave limitado a leitura/navegação e validação de formulário; restore UI→API→Neon e screenshot pixel-level desktop/mobile pendentes.
 - A execução automática do Cron de 5/nov ainda não ocorreu.
