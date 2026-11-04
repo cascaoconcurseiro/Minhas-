@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 16:09 UTC
+## Estado atual — 2026-11-04 16:12 UTC
 
-Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Commit atual `feda1f6` está sincronizado com `origin/main`. Vercel deployment `dpl_E2NUvo2h4xLkBphCHgDoyX3yTayu` está Ready; às `16:08:58Z`, health de produção retornou HTTP 200 e Neon `ok`; Cron `/api/health` aparece cadastrado em `15 12 * * *` UTC. A run CI `41864165636` está queued sem runner atribuído. O status oficial do GitHub registra degradação de Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
+Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Código app/CI `feda1f6` e docs `da116d1` estão sincronizados com `origin/main`. Vercel deployment `dpl_4Xs5g3EmYT8y8BEpNemCCGrHDpug` está Ready; às `16:11:38Z`, health de produção retornou HTTP 200 e Neon `ok`; Cron `/api/health` aparece cadastrado em `15 12 * * *` UTC. CI `41864691411` permanece queued sem runner. O status oficial do GitHub registra degradação de Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
 
 ## Feito nesta sessão
 

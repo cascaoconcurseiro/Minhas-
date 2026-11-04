@@ -331,3 +331,4 @@
 - [ ] Validar o novo CI com workflow completo após publicação; run `41864165636` está queued sem runner, e o status oficial do GitHub informou degradação do Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
 - [x] Revalidar produção no commit `feda1f6`: deploy `dpl_E2NUvo2h4xLkBphCHgDoyX3yTayu` Ready, health em `16:08:58Z` HTTP 200/Neon `ok`, Cron continua cadastrado diariamente.
 - [ ] Confirmar execução automática do Cron na próxima janela, 5/nov entre `12:15–13:14:59Z` UTC; execução manual e timestamp de atualização não são evidência conclusiva.
+- [x] Publicar atualização de status no commit `da116d1`; Vercel deployment `dpl_4Xs5g3EmYT8y8BEpNemCCGrHDpug` ficou Ready e o health após deploy respondeu 200/Neon `ok`. CI `41864691411` segue na fila por incidente Actions/Páginas do GitHub.
