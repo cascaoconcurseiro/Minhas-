@@ -24,6 +24,9 @@ const sqlLog: string[] = [];
 const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
 let workspaceRevision = 2;
 let workspacePayload: Record<string, unknown> = { accountsJson: '[]' };
+let workspaceExists = true;
+let workspaceMigrationCount = 0;
+let workspaceMigrationRecord: unknown[] = [];
 let failWorkspaceUpdates = false;
 const workspaceUpdateParameters: unknown[][] = [];
 
@@ -58,9 +61,21 @@ before(async () => {
         sqlLog.push(normalized);
         if (normalized.startsWith('SELECT payload, revision, updated_at')) {
           workspaceQueries.push({ sql: normalized, params });
-          return params[1] === 'owner-uid'
+          return params[1] === 'owner-uid' && workspaceExists
             ? { rows: [{ payload: workspacePayload, revision: workspaceRevision, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 }
             : { rows: [], rowCount: 0 };
+        }
+        if (normalized.startsWith('INSERT INTO public.finance_workspaces')) {
+          if (workspaceExists) return { rows: [], rowCount: 0 };
+          workspaceExists = true;
+          workspaceRevision = 1;
+          workspacePayload = JSON.parse(String(params[4])) as Record<string, unknown>;
+          return { rows: [{ revision: 1, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 };
+        }
+        if (normalized.startsWith('INSERT INTO public.finance_workspace_migrations')) {
+          workspaceMigrationCount += 1;
+          workspaceMigrationRecord = params;
+          return { rows: [], rowCount: 1 };
         }
         if (normalized.startsWith('UPDATE public.finance_workspaces')) {
           workspaceUpdateParameters.push(params);
@@ -254,4 +269,67 @@ test('API de workspace responde 503 quando o banco fica indisponível', async ()
     console.error = originalConsoleError;
   }
   assert.equal(workspaceRevision, revisionBeforeFailure, 'falha de banco não pode avançar a revisão');
+});
+
+test('API cria o workspace inicial uma única vez sem sobrescrever o existente', async () => {
+  workspaceExists = false;
+  workspaceRevision = 0;
+  workspacePayload = {};
+  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const payload = {
+    uid: 'vault_usr_owner_example_com',
+    updatedAt: '2026-11-04T00:00:00.000Z',
+    accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
+    transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
+  };
+
+  const first = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'POST', headers, body: JSON.stringify({ payload }),
+  });
+  assert.equal(first.status, 201, await first.clone().text());
+  assert.equal((await first.json() as { revision: number }).revision, 1);
+
+  const duplicate = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'POST', headers, body: JSON.stringify({ payload: { ...payload, accountsJson: '[{"id":"overwrite"}]' } }),
+  });
+  assert.equal(duplicate.status, 409);
+  assert.deepEqual(workspacePayload, payload);
+});
+
+test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace existente', async () => {
+  workspaceExists = false;
+  workspaceRevision = 0;
+  workspacePayload = {};
+  workspaceMigrationCount = 0;
+  workspaceMigrationRecord = [];
+  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const payload = {
+    uid: 'vault_usr_owner_example_com',
+    updatedAt: '2026-11-04T00:00:00.000Z',
+    accountsJson: JSON.stringify([{ id: 'legacy-account' }]),
+    cardsJson: '[]', categoriesJson: '[]', transactionsJson: '[]',
+    goalsJson: '[]', investmentsJson: '[]',
+  };
+
+  const first = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ payload, sourceUpdatedAt: payload.updatedAt }),
+  });
+  assert.equal(first.status, 201, await first.clone().text());
+  assert.deepEqual(await first.json(), { ok: true, vaultId: payload.uid });
+  assert.equal(workspaceMigrationCount, 1);
+  assert.equal(workspaceMigrationRecord[2], payload.updatedAt);
+  assert.match(String(workspaceMigrationRecord[3]), /^[a-f0-9]{64}$/);
+  assert.deepEqual(JSON.parse(String(workspaceMigrationRecord[4])), {
+    accounts: 1, cards: 0, categories: 0, transactions: 0, goals: 0,
+    familyMembers: 0, investments: 0, trips: 0,
+  });
+
+  const duplicate = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ payload: { ...payload, accountsJson: '[]' }, sourceUpdatedAt: payload.updatedAt }),
+  });
+  assert.equal(duplicate.status, 409);
+  assert.equal(workspaceMigrationCount, 1, 'importação duplicada não deve criar log ou substituir dados');
+  assert.deepEqual(workspacePayload, payload);
 });

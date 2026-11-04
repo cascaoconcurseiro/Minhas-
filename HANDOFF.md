@@ -66,3 +66,9 @@ Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026
 - Sete rotas de workspace, migração, familiar, FX, investimentos e lembretes retornaram 401 sem token.
 - O deploy corrente na hora da verificação (`dpl_HsfSYcqrz4qU3hbUyJDZWetVWFPt`) estava Ready; `/api/health` retornou 200/Neon ok.
 - Pendência sem mudança: restore autenticado de ponta a ponta, concorrência real de API, indisponibilidade/retry na UI, roles com BYPASSRLS, dump independente, revisão visual pixel-level e execução cron após 12:15 UTC.
+
+## Atualização — integração de onboarding/migração (2026-11-04)
+
+- Ampliei o harness HTTP autenticado de workspace: cobre criação inicial idempotente, rejeição de overwrite, importação legada Firestore→Neon uma vez, hash SHA-256, contagem de entidades e conflito de segunda importação sem alterações.
+- `bun test`: 105 passaram em 19 arquivos; lint passou. A API usa pool Neon simulado e Firebase Identity Toolkit simulado; valida contrato e idempotência, não prova banco real.
+- Próximo passo concreto segue sendo executar restore e importação em branch Neon isolada pelo navegador autenticado; a sessão BrowserOS não está conectada. Depois validar indisponibilidade/retry real e o cron após `12:15 UTC`.
