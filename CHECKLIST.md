@@ -261,3 +261,7 @@
 ## Sessão 2026-11-04 — corrida HTTP simultânea de workspace
 - [x] Substituir o teste sequencial por duas requisições autenticadas `PUT /api/workspace` disparadas em `Promise.all`, ambas com `expectedRevision=2` e payloads distintos; exatamente uma retorna 200 e outra 409, revisão final 3.
 - [x] Reexecutar `bun test`: 105 testes passaram em 19 arquivos; `bun run lint` passou. O pool Neon permanece mock; concorrência HTTP real contra Neon continua pendente.
+
+## Sessão 2026-11-04 — validação negativa da migração
+- [x] Cobrir migração sem token (401), payload inválido (400) e `sourceUpdatedAt` inválido (400); o mock confirma zero consultas SQL em todas as entradas rejeitadas.
+- [x] Reexecutar suíte integral: 106 testes passaram em 19 arquivos; `bun run lint` passou. As validações são da API local com Identity Toolkit/Neon simulados.

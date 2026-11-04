@@ -77,3 +77,8 @@ Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026
 
 - O teste do workspace agora executa duas requisições `PUT` simultâneas com a mesma revisão e payloads diferentes; uma vence com 200 e a outra recebe 409, sem avanço duplo. O ensaio usa middleware Firebase simulado e pool Neon mock; não substitui a corrida autenticada no Neon.
 - Suíte completa: 105 passou, 0 falhou; lint passou. Próxima validação segue sendo a corrida real em branch QA, depois restore e falha/retry autenticados, sem gravar em produção.
+
+## Atualização — rejeição de entradas inválidas da migração
+
+- Novo teste HTTP confirma que ausência de token retorna 401, snapshot inválido e data de origem malformada retornam 400, sem executar consultas ao banco.
+- `bun test`: 106 passaram, 0 falharam, em 19 arquivos; lint passou. A API usa mocks; Neon de produção permaneceu sem mutações.

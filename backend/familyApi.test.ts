@@ -337,3 +337,32 @@ test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace exi
   assert.equal(workspaceMigrationCount, 1, 'importação duplicada não deve criar log ou substituir dados');
   assert.deepEqual(workspacePayload, payload);
 });
+
+test('API rejeita migração sem autenticação, payload inválido e data malformada antes de consultar Neon', async () => {
+  const queriesBefore = sqlLog.length;
+  const unauthenticated = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+  });
+  assert.equal(unauthenticated.status, 401);
+
+  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const invalidPayload = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
+    method: 'POST', headers, body: JSON.stringify({ payload: [] }),
+  });
+  assert.equal(invalidPayload.status, 400);
+
+  const invalidDate = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      payload: {
+        uid: 'vault_usr_owner_example_com',
+        updatedAt: '2026-11-04T00:00:00.000Z',
+        accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
+        transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
+      },
+      sourceUpdatedAt: 'not-a-date',
+    }),
+  });
+  assert.equal(invalidDate.status, 400);
+  assert.equal(sqlLog.length, queriesBefore, 'requisições inválidas não devem consultar Neon');
+});
