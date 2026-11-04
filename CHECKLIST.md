@@ -146,8 +146,8 @@
 - [x] Confirmar no Vercel `crons list` o job de produção `/api/health` em `15 12 * * *` UTC e dispará-lo manualmente em `2026-11-03T22:53:50Z`; a invocação foi aceita. A execução programada de 4/nov 12:15 UTC ainda está no futuro.
 - [x] Smoke de produção sem token: workspace, migração, rotas familiares, câmbio, investimentos e lembretes retornam 401; bundle publicado não contém Guia Rápido nem `tx-demo`; health responde 200/Neon `ok`.
 - [x] Publicar teste/documentação em `025b18b`; GitHub CI `success`, Vercel `dpl_FzMQzZLf3RkVes1PjScumzt2JpAx` `READY`, homepage/health e bundle de produção verificados depois da publicação.
-- [ ] Corrigir privilégios das roles Neon com acesso que possa administrar role membership/attributes; não tentar upgrade de plano nem girar credenciais sem avaliar custo e impacto.
-- [ ] Fazer backup/dump portátil e restore independente; o Neon Free atual não permite agenda de snapshots automáticos e PITR está em 6h. O snapshot manual de QA existente expira 4/nov 22:00 UTC.
+- [x] Corrigir privilégios das roles Neon com acesso que possa administrar membership/attributes; os papéis runtime foram criados e as credenciais antigas elevadas removidas em sessão posterior, sem upgrade de plano.
+- [x] Fazer backup/dump portátil e restore independente de fixture sintética em branch QA; isso não substitui backup completo de produção nem restauração integral da aplicação.
 - [ ] Confirmar a primeira execução automática do cron depois de 4/nov 12:15 UTC.
 - [ ] Concluir revisão visual desktop/mobile e ações autenticadas que gravam dados; a sessão BrowserOS carregou autenticada, mas screenshot e teste mobile não foram possíveis.
 
@@ -182,7 +182,7 @@
 - [x] Identificar risco no sanitizador: IDs genéricos `acc-nubank`, `acc-itau`, `card-*`, `trip-eurotrip` e FITIDs Nubank eram classificados automaticamente como mock, embora possam ser registros reais; remover esses falsos positivos e adicionar regressões.
 - [x] Revalidar testes utilitários/backend, `bun run lint` e `bun run build` após a correção do sanitizador; todos passaram, com aviso de chunk principal >500 kB.
 - [x] Publicar a correção do sanitizador em `21df8f7`; CI Vercel `success`, deploy `dpl_HRHcWTH9BucsNwezxR2ZH4RNE8jz` `READY`, health 200/Neon `ok`; bundle servido não contém os filtros `acc-nubank`/`NUBANK-SAL-`.
-- [ ] Restringir privilégios de `minhas_app` e `minhas_daily`: a consulta encontrou membership em `neon_superuser` e `CREATEROLE`, `CREATEDB`, `BYPASSRLS`, `REPLICATION`; `neon_run_sql` negou tanto `REVOKE neon_superuser FROM minhas_app` quanto `ALTER ROLE ...`. Nenhuma alteração foi aplicada; requer ferramenta/credencial com administração de roles.
+- [x] Restringir privilégios dos papéis antigos `minhas_app`/`minhas_daily` (elevados): foram substituídos por `minhas_app_runtime`/`minhas_daily_runtime` limitados e removidos após rotação de credenciais. Reconsulta em 4/nov confirma `rolsuper`, `rolcreaterole`, `rolcreatedb`, `rolreplication`, `rolbypassrls` e membership em `neon_superuser` falsos nos papéis atuais.
 - [x] Verificar nas quatro tabelas operacionais que RLS está habilitado/forçado e há policy baseada em `app.firebase_uid`; registrar que as roles com `BYPASSRLS` ainda podem contornar essa proteção.
 
 ## Sessão 2026-11-03 — regressão geral e backup/câmbio
@@ -228,7 +228,7 @@
 - [x] Criar branch temporária QA autorizada e confirmar o modelo de roles: `neon_create_postgres_role` também cria role com privilégios elevados; a membership `neon_superuser` está sem `ADMIN OPTION`.
 - [x] Testar remoção na QA: `REVOKE neon_superuser FROM minhas_app` negado; `ALTER ROLE ... NOBYPASSRLS` pelo `neondb_owner` e pela própria role negado. Role restrita criada por SQL não tem senha administrável pelo reset de password do conector e não aceita login pelo conector sem credencial.
 - [x] Excluir a branch QA e confirmar que só a branch `production` permanece; nenhuma mudança de role foi feita em produção.
-- [ ] Resolver a elevação de privilégios das roles com credencial/fluxo Neon que permita administrar memberships e credenciais sem interromper o app; só então revalidar RLS com o runtime real.
+- [x] Resolver a elevação de privilégios das roles e revalidar RLS; em 4/nov, as quatro tabelas `finance_*` estavam com RLS habilitado e forçado, e `minhas_daily_runtime` não tinha grants financeiros.
 - [ ] Confirmar a primeira execução automática do Vercel Cron em `2026-11-04T12:15:00Z` ou depois; às `00:03Z` a janela ainda não havia ocorrido.
 
 
@@ -237,21 +237,21 @@
 - [x] Confirmar com o usuário que o cartão Azul Mastercard era demonstração e estava autorizado apagar.
 - [x] Remover o cartão pela interface autenticada de produção, confirmar o diálogo e receber confirmação de remoção de cartão e lançamentos associados.
 - [x] Confirmar status “Nuvem sincronizada - Neon PostgreSQL” e consultar contagens agregadas Neon: 0 cartões, 0 contas e 0 lançamentos nas 3 workspaces.
-- [ ] Simular indisponibilidade temporária no navegador e comprovar bloqueio, retry e recuperação após a rede voltar; o controle BrowserOS/Brave não está acessível nesta sessão.
+- [ ] Simular indisponibilidade temporária no navegador e comprovar bloqueio, retry e recuperação após a rede voltar; a sessão Brave autenticada foi acessada, mas essa pane/retry não foi ensaiada no navegador.
 
 ## Sessão 2026-11-04 — contrato HTTP de restauração
 - [x] Estender o backend de teste para persistir o payload aceito pelo `PUT /api/workspace` e relê-lo pelo `GET`, cobrindo todas as coleções e campos opcionais de um backup completo.
 - [x] Reexecutar `bun test`: 103 testes passaram em 19 arquivos; inclui novo ciclo HTTP PUT→GET com identidade Firebase simulada e banco mock. Isso valida o contrato/middleware da API, não interface real nem Neon.
 - [x] `bun run lint` passou; `bun run build` passou (chunk inicial 566 kB, aviso conhecido).
 - [x] Revalidar produção: `/api/health` retornou 200/Neon `ok`; Vercel lista `/api/health` em `15 12 * * *`. Às 00:14 UTC a invocação automática de hoje ainda era futura.
-- [ ] Fazer restore UI→API→Neon em ambiente isolado com Firebase Auth real; nesta máquina não há `.env` local nem sessão Brave autenticada controlável.
+- [ ] Fazer restore UI→API→Neon em ambiente isolado com Firebase Auth real; Brave autenticado está disponível, mas não foi ligado a uma branch Neon isolada para evitar escrita/restauração em produção.
 - [x] Publicar teste e documentação em `8145fe2`; CI Vercel `success`, deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` `Ready` com alias de produção; health posterior 200/Neon `ok`.
 
 ## Sessão 2026-11-04 — smoke da publicação atual
 - [x] Conferir homepage de produção HTTP 200 e bundle servido sem “Guia Rápido de Ativação”, marcador `tx-demo` ou URL/nomes de conexão PostgreSQL/Neon.
 - [x] Repetir smoke sem credenciais: workspace, migração, convites, compartilhamento, FX, cotações e lembretes responderam `401`.
 - [x] Confirmar que o deploy corrente `dpl_HsfSYcqrz4qU3hbUyJDZWetVWFPt` está `Ready`; `/api/health` continuou 200/Neon `ok`.
-- [ ] Validar fluxo autenticado navegador→API→Neon com arquivo sintético em branch isolada; controle BrowserOS não está conectado às ferramentas desta sessão.
+- [ ] Validar fluxo autenticado navegador→API→Neon com arquivo sintético em branch isolada; Brave de produção foi usado somente para leitura e validação de formulário, sem alterar workspace.
 
 ## Sessão 2026-11-04 — onboarding Neon e importação legada
 - [x] Cobrir `POST /api/workspace`: cria o workspace ausente com revisão 1 e rejeita uma segunda criação com 409 sem substituir o payload existente.
@@ -271,7 +271,7 @@
 - [x] Confirmar zero lançamentos compartilhados, somente branch `production` e health de produção 200/Neon `ok`.
 - [x] Registrar cobertura HTTP local para roundtrip do backup, criação/importação idempotentes, rejeição de migração inválida sem SQL e conflito de duas gravações concorrentes; `bun test`: 106 passaram em 19 arquivos, `bun run lint` passou.
 - [ ] Confirmar execução automática do Cron depois de `2026-11-04T12:15:00Z`; a hora ainda é futura e checks manuais não contam.
-- [ ] Aceitar restore/importação UI→API→Neon autenticados com Firebase real, recuperação pela UI, backup/restore completo e inspeção pixel-level; BrowserOS não está disponível. Revisar identidade do workspace derivada do e-mail (`backend/app.ts:92-103`), que pode colidir após normalização ou mudar quando o usuário troca de e-mail. Compartilhamento entre duas contas foi dispensado; SMTP/Gemini permanecem sem configuração.
+- [ ] Aceitar restore/importação UI→API→Neon autenticados com Firebase real, recuperação pela UI, backup/restore completo e inspeção pixel-level. A identidade derivada de email foi corrigida no commit `9429eaa` e migration 005 aplicada em produção. Compartilhamento com duas contas foi dispensado; SMTP/Gemini permanecem sem configuração.
 
 ## Continuação — 2026-11-04 00:37 UTC
 - [x] Reexecutar a suíte completa: `bun test` — 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build informa chunk inicial 566 kB, 167 kB gzip.
@@ -300,7 +300,7 @@
 ## Continuação — fluxo de convites familiares
 - [x] Expandir o teste HTTP local para criação/listagem de convite, normalização de e-mail, recusa de auto convite, bloqueio sem autenticação/e-mail verificado, rejeição por identidade errada, ação inválida, aceitação e revogação com limpeza das transações compartilhadas.
 - [x] Validar `bun test backend/familyApi.test.ts`: 8 testes passaram; suíte completa: 106 testes em 19 arquivos; `bun run lint` e `bun run build` passaram. A API usa Firebase simulado e Neon mockado; isso não comprova aceitação real entre duas contas.
-- [ ] Validar o fluxo autenticado com duas contas reais permanece dispensado pelo usuário; revisar o fluxo com uma segunda conta só se voltar a ser solicitado.
+- [x] Registrar que o usuário dispensou a validação do fluxo autenticado com duas contas reais; não fazer convite de teste com uma segunda conta.
 
 ## Continuação — validação das roles em produção
 - [x] Confirmar por conexão real que `minhas_app_runtime` tem apenas os grants operacionais previstos (sem DELETE em workspaces, CREATE de schema/database ou bypass RLS) e que `minhas_daily_runtime` pode conectar sem ler workspaces.
@@ -328,7 +328,7 @@
 - [x] Adicionar script padronizado `bun run test` e atualizar `.github/workflows/ci.yml` para executar a suíte completa de 106 testes.
 - [x] Limitar o token do workflow CI a `contents: read`; checkout e execução dos testes/build não precisam de grants de escrita.
 - [x] Reauditar infraestrutura em produção: CSP sem `unsafe-inline` em script-src, HSTS 2 anos com includeSubDomains/preload, nosniff, X-Frame-Options, Referrer-Policy, Permissions-Policy, API `no-store`, assets imutáveis; env Vercel contém apenas os nomes esperados sem expor valores.
-- [ ] Validar o novo CI com workflow completo após publicação; run `41864165636` está queued sem runner, e o status oficial do GitHub informou degradação do Actions desde `16:05:31Z` ([incidente](https://stspg.io/pjgptg3cfc6n)).
+- [x] Validar o novo CI com workflow completo após publicação; após a run `41864165636` ficar sem runner, os runs completos `41870527840`, `41871401082` e `41872738808` concluíram com sucesso.
 - [x] Revalidar produção no commit `feda1f6`: deploy `dpl_E2NUvo2h4xLkBphCHgDoyX3yTayu` Ready, health em `16:08:58Z` HTTP 200/Neon `ok`, Cron continua cadastrado diariamente.
 - [ ] Confirmar execução automática do Cron na próxima janela, 5/nov entre `12:15–13:14:59Z` UTC; execução manual e timestamp de atualização não são evidência conclusiva.
 - [x] Publicar atualização de status no commit `da116d1`; Vercel deployment `dpl_4Xs5g3EmYT8y8BEpNemCCGrHDpug` ficou Ready e o health após deploy respondeu 200/Neon `ok`. CI `41864691411` segue na fila por incidente Actions/Páginas do GitHub.
@@ -382,3 +382,9 @@
 - [x] Tornar `sslmode=verify-full` explícito no pool sem ler ou alterar o segredo `DATABASE_URL`; preservar o comportamento de `uselibpqcompat=true` e modos fora da lista afetada.
 - [x] Adicionar 2 regressões de conexão SSL; `bun run test` passou com 112 testes em 21 arquivos, `bun run lint` e `bun run build` passaram.
 - [x] Publicar a correção SSL no commit `9ccf0ff`; CI `41872738808` passou e Vercel `dpl_StTtu5jQonDym6sQqzDZif8w6pbv` ficou Ready. Após deploy, `/api/health` respondeu 200/Neon ok e o log da rota não registrou o aviso TLS.
+
+## Revalidação de privilégios em produção (2026-11-04)
+- [x] Conferir em `pg_roles` que `minhas_app_runtime` e `minhas_daily_runtime` não são superuser, não podem criar roles/databases, não têm REPLICATION/BYPASSRLS e não pertencem a `neon_superuser`.
+- [x] Confirmar que as 4 tabelas `finance_*` estão com RLS habilitado e forçado.
+- [x] Conferir grants das tabelas: role diária não pode ler/escrever dados financeiros; role app tem apenas os grants operacionais, sem DELETE em workspaces/invitations/migration receipts.
+- [x] Publicar a reconciliação do checklist/handoff no commit `0a5f46c`; CI `41873185968` success, Vercel `dpl_6KgS2nu2n5d16VWqt97G6uUfFZgh` Ready, health de produção HTTP 200/Neon ok.
