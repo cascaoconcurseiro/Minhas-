@@ -2,7 +2,7 @@
 
 ## Estado atual — 2026-11-04
 
-Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit de código `7b555dc` está publicado na branch `main`; deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; ponta versionada em `9ac36a9`; há alterações locais de teste/documentação desta rodada ainda a publicar.
+Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit `8145fe2` está publicado na branch `main`; Vercel CI `success` e deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; working tree limpo em `8145fe2`.
 
 ## Trabalho desta rodada
 
@@ -56,3 +56,6 @@ Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026
 - `bun test`: 103 passaram, 0 falharam, 19 arquivos; `bun run lint` passou; `bun run build` passou com o aviso conhecido de chunk inicial 566 kB.
 - Produção verificada às `2026-11-04T00:14Z`: `/api/health` 200 e Neon `ok`; Vercel ainda lista cron `15 12 * * *`. A execução programada permanece pendente até depois de `12:15Z`.
 - Não há `.env` local e o controle do browser Brave autenticado falha como indisponível; restore remoto ponta a ponta e falha/retry pela interface continuam sem evidência. Não alterei o Neon de produção.
+
+- Publicação concluída no commit `8145fe2`; o status combinado Vercel/GitHub está `success`, o deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` está `Ready` e atende o alias principal. Health posterior (`00:17Z`) retornou 200/Neon `ok`; agenda diária ainda `15 12 * * *` UTC. A janela automática de 4/nov continua futura.
+- Próximo passo após `12:15Z`: verificar execução agendada nos logs Vercel e health. Antes disso, buscar caminho de autenticação local/sessão navegável para validar restore UI→API→Neon e recovery; manter sem gravação em produção.

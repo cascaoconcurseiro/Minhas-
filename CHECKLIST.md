@@ -245,3 +245,4 @@
 - [x] `bun run lint` passou; `bun run build` passou (chunk inicial 566 kB, aviso conhecido).
 - [x] Revalidar produção: `/api/health` retornou 200/Neon `ok`; Vercel lista `/api/health` em `15 12 * * *`. Às 00:14 UTC a invocação automática de hoje ainda era futura.
 - [ ] Fazer restore UI→API→Neon em ambiente isolado com Firebase Auth real; nesta máquina não há `.env` local nem sessão Brave autenticada controlável.
+- [x] Publicar teste e documentação em `8145fe2`; CI Vercel `success`, deploy `dpl_4Z8zzFdJG3h7PHgmaNyK2qCfCAvw` `Ready` com alias de produção; health posterior 200/Neon `ok`.
