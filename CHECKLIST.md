@@ -426,8 +426,12 @@
 ## CRUD real pela interface autenticada (2026-11-04)
 - [x] Criar pela interface o cartão temporário `QA Cartão Temporário 20261104`; estado sincronizado, recarga confirmou persistência, e exclusão seguida de recarga voltou ao estado sem cartões.
 - [x] Criar conta temporária e despesa sintética pela interface; status Neon sincronizado, recarga confirmou a despesa; excluir a despesa e a conta pela interface.
+- [x] Criar meta temporária, recarregar para confirmar persistência, excluir e aguardar sincronização.
+- [x] Atualizar o teto de “Moradia & Condomínio”, recarregar e confirmar persistência; restaurar o teto para R$ 0,00 e aguardar sincronização.
+- [x] Criar viagem temporária, recarregar para confirmar persistência, excluir e aguardar sincronização.
+- [x] Criar ativo de investimento sintético com valores mínimos, recarregar para confirmar persistência, excluir e aguardar sincronização; não executar sincronização externa de cotações.
 - [x] Consulta agregada final no Neon confirmou, nos 3 workspaces de produção, zero contas, cartões, lançamentos, metas, investimentos e viagens; zero linha do identificador de cartão QA.
 - [x] A mesma UI de produção exibiu estado vazio após recarga, sem o cartão/conta de QA, e status “Nuvem sincronizada”.
-- [ ] Os demais módulos não tiveram CRUD completo testado; o inventário encontrou quase nenhum teste React/Browser, sem Playwright/Cypress configurado. O erro de cartão relatado não se reproduziu no create→reload→delete desta sessão.
+- [ ] Compartilhado e Relatórios não tiveram CRUD completo nesta continuação; o inventário encontrou quase nenhum teste React/Browser, sem Playwright/Cypress configurado. O erro de cartão relatado não se reproduziu no create→reload→delete desta sessão.
 - [ ] Os outros 3 links demo não pertencem à identidade autenticada; API/UI restringe mutações ao UID do titular. Não há segundo login fornecido, e nenhuma alteração administrativa privilegiada foi feita.
 - [ ] Corrigir registro antigo do CI: `41877421967` terminou em sucesso após a consulta de 17:40 UTC; o CI do commit documental `fab6de6` é `41879557461`, com lint/testes/build completos e sucesso, aguardando conclusão final do workflow na última consulta.
