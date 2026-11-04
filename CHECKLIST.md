@@ -388,3 +388,4 @@
 - [x] Confirmar que as 4 tabelas `finance_*` estão com RLS habilitado e forçado.
 - [x] Conferir grants das tabelas: role diária não pode ler/escrever dados financeiros; role app tem apenas os grants operacionais, sem DELETE em workspaces/invitations/migration receipts.
 - [x] Publicar a reconciliação do checklist/handoff no commit `0a5f46c`; CI `41873185968` success, Vercel `dpl_6KgS2nu2n5d16VWqt97G6uUfFZgh` Ready, health de produção HTTP 200/Neon ok.
+- [x] Atualizar o handoff/checklist com a revalidação final em `4c47266`; CI `41873897405` success, Vercel `dpl_Efr8rjnResNzusKer8a3NP7ZNGLb` Ready, homepage 200, health 200/Neon ok e rota workspace sem token 401.
