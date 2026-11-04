@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 00:55 UTC
+## Estado atual — 2026-11-04 00:58 UTC
 
-Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. `main` está em `fdb7eca`; o deploy `dpl_5r9VsLfvpaYwXweNysT1U9RzK4aA` está Ready no domínio de produção. O smoke às 00:42 UTC confirmou homepage 200, health 200/Neon `ok`, seis APIs protegidas em 401 sem token e bundle sem o Guia Rápido, `tx-demo` ou URL PostgreSQL.
+Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. A migração de roles está publicada em `08337df`; o deploy `dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s` está Ready no domínio de produção. O smoke às 00:42 UTC confirmou homepage 200, health 200/Neon `ok`, seis APIs protegidas em 401 sem token e bundle sem o Guia Rápido, `tx-demo` ou URL PostgreSQL.
 
 ## Feito nesta sessão
 
@@ -12,7 +12,7 @@ Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional
 - Criei [004_restricted_runtime_roles.sql](db/migrations/004_restricted_runtime_roles.sql), que define roles limitadas criadas por SQL (NOLOGIN), grants necessários ao app e CONNECT apenas para a rotina manual diária.
 - Em branch Neon QA, executei o bloco de criação e os grants da migração e conferi a matriz de permissões: sem associação a `neon_superuser`, `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, `REPLICATION` ou DDL; privilégios de DML restritos por tabela.
 - Testei uma role limitada de QA com conexão real via `pg`: `current_user` foi a role limitada; ela leu só o workspace de UID teste, atualizou o próprio workspace, não atualizou o workspace de outro UID e inseriu um recibo com sequence identity. A transação foi revertida.
-- Removi as branches QA e confirmei a listagem contendo somente `production`. Nenhum segredo ou role de produção foi alterado nesta rodada.
+- Removi as branches QA e confirmei a listagem contendo somente `production`. Nenhum segredo ou role de produção foi alterado nesta rodada. O novo deploy de produção também confirmou health 200/Neon ok.
 
 ## Pendências e limites
 

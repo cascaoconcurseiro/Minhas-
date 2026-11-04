@@ -293,3 +293,4 @@
 - [x] Conectar via cliente `pg` como role SQL restrita em QA; confirmar RLS (1 linha própria visível, update próprio 1, estrangeiro 0) e inserção do recibo de migração; rollback da transação.
 - [x] Remover branch QA; Neon lista somente `production`.
 - [ ] Com aprovação explícita, criar credenciais e ativar as roles limitadas na produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, testar e desabilitar as roles privilegiadas antigas após sucesso.
+- [x] Publicar a migração e documentação no commit `08337df`; Vercel Ready (`dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s`), CI success, health 200/Neon ok.
