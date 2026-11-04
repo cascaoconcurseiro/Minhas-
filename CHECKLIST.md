@@ -393,3 +393,12 @@
 ## Conferência de dados após limpeza (2026-11-04)
 - [x] Consultas agregadas na branch `production` confirmaram que os 3 workspaces têm zero contas, cartões, lançamentos, metas, investimentos e viagens; convites familiares e transações compartilhadas também estão zerados.
 - [x] A consulta não leu valores financeiros, emails, nomes ou payloads pessoais; o Neon contém somente a branch `production`.
+
+## Continuação da auditoria abrangente (2026-11-04)
+- [x] Reexecutar a suíte atual: `bun run test` passou (112 testes em 21 arquivos), `bun run lint` passou e `bun run build` passou; permanece aviso de chunk inicial 566 kB (~168 kB gzip).
+- [x] Confirmar CI `41874968462` do `e08b379` em sucesso; `/api/health` no domínio de produção respondeu HTTP 200.
+- [x] Observar a sessão autenticada em desktop: status Neon sincronizado, workspace vazio e navegação acessível; sem escrever dados em produção. O deployment iniciado pelo commit `e08b379` ainda estava em `Building` na última consulta.
+- [x] Auditar a cobertura dos testes: API com Express e token Firebase simulado/Pool simulado cobre concorrência, 503, isolamento e restore HTTP, mas não comprova UI→Vercel→Postgres real. A suíte cobre validação de backup, não a restauração completa pelo navegador.
+- [ ] Completar restore UI→API→Postgres com fixture numa branch isolada, sem modificar dados de produção.
+- [ ] Fazer inspeção de viewport mobile/screenshot e testes visuais de fluxos desktop/mobile.
+- [ ] Aguardar e comprovar a execução automática do Cron em `2026-11-05 12:15 UTC` (janela até `13:14:59 UTC`).

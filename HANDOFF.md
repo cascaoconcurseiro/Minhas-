@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 17:08 UTC
+## Estado atual — 2026-11-04 17:12 UTC
 
-Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `4c47266`. A produção Vercel está `Ready` no deployment `dpl_Efr8rjnResNzusKer8a3NP7ZNGLb`; o alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200, com Neon `ok`. O CI do commit `4c47266` concluiu `success`. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
+Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `e08b379`; o CI `41874968462` passou. Vercel iniciou o deployment de produção para esse commit e ainda estava `Building` na última consulta; o deployment anterior continuava `Ready`. O alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
 
 ## Feito nesta sessão
 
@@ -19,6 +19,9 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 - Os novos testes SSL passaram (2/2), e a suíte passou com 112 testes em 21 arquivos; lint e build também passaram. `9ccf0ff` publicou a correção; CI `41872738808` passou, Vercel `dpl_StTtu5jQonDym6sQqzDZif8w6pbv` ficou Ready, health 200/Neon ok e o log da chamada `/api/health` em `16:59:13Z` não registrou o aviso TLS.
 - A revalidação Neon confirmou que ambas as roles runtime não têm atributos elevados ou membership em `neon_superuser`; RLS está habilitado e forçado nas quatro tabelas financeiras; a role diária não tem grants financeiros e a role app não tem DELETE em workspaces, convites ou recibos.
 - Depois da atualização documental final, Vercel `dpl_Efr8rjnResNzusKer8a3NP7ZNGLb` ficou Ready; homepage 200, health 200/Neon ok, `/api/workspace` sem token 401, e os logs do deployment têm health 200 sem o aviso TLS.
+- Nesta continuação, `bun run test` passou (112 testes/21 arquivos), `bun run lint` passou e `bun run build` passou com aviso conhecido de chunk inicial acima de 500 kB. Reconsulta do CI confirmou sucesso em `e08b379`.
+- A sessão Brave autenticada mostrou o workspace vazio, status “Nuvem sincronizada — Neon PostgreSQL”, categorias padrão e navegação sem o Guia Rápido; screenshot observado em viewport desktop. Esta observação não valida mutações nem viewport mobile.
+- A auditoria dos agentes confirmou que `backend/familyApi.test.ts` usa servidor HTTP real, mas `pg` e Firebase são simulados; cobre UID isolado, concorrência 200/409, restore PUT+GET, falha DB→503 e migração write-once. Ainda não é o fluxo browser→Firebase→Vercel→Postgres real.
 
 ## Pendências e limites
 
@@ -30,7 +33,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 
 ## Próximo passo concreto
 
-Preparar um fluxo isolado para restore UI→API→Neon sem substituir dados de produção; consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport/screenshot desktop e mobile.
+Preparar um fluxo isolado para restore UI→API→Neon sem substituir dados de produção; corrigir o handoff se o deployment do commit `e08b379` terminar com outro estado, então consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport mobile com ferramenta que permita emulação.
 
 ## Bloqueios
 
