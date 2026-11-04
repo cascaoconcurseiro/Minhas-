@@ -217,6 +217,8 @@
 - [x] Fazer restore substituir esses campos com defaults seguros; preencher metas de investimento ausentes com o mapa padrão, preservando somente os valores presentes no próprio arquivo.
 - [x] Adicionar testes para backups antigos sem campos opcionais e versões atuais com valores presentes/metas parciais.
 - [x] Validar `bun test` completo: 102 testes passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build mantém aviso de chunk inicial >500 kB.
-- [ ] Publicar e verificar deploy; validar importação/releitura completa UI→API→Neon somente em ambiente isolado.
+- [x] Publicar a correção no commit `7b555dc`; GitHub Actions run `41743298046` concluiu `success` e Vercel deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` ficou `Ready` com alias de produção.
+- [x] Verificar `GET /api/health` em produção: HTTP 200, `status: ok`, `services.neon: ok`; recarregar a sessão autenticada e confirmar workspace sincronizado com Neon.
+- [ ] Validar importação/releitura completa UI→API→Neon somente em ambiente isolado.
 
 

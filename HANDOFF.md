@@ -2,7 +2,7 @@
 
 ## Estado atual — 2026-11-03
 
-Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit `583d91a` está publicado na branch `main`; deploy `dpl_DHiUDhgAvLADaGY652nudZdTFcSu` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`.
+Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit `7b555dc` está publicado na branch `main`; deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`.
 
 ## Trabalho desta rodada
 
@@ -33,7 +33,8 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - A auditoria completa não está concluída; manter o objetivo ativo.
 - A branch QA `br-rough-smoke-b6fhm3lh` foi removida e a listagem confirmou apenas `production`.
 - Corrigi a semântica de restore para backups antigos: campos opcionais ausentes agora usam defaults, em vez de manter silenciosamente metas, membros ou preferências do workspace que está sendo substituído. Os 2 novos testes específicos passaram; suíte completa agora tem 102 testes, lint e build passaram.
+- Publiquei a correção no commit `7b555dc`; CI run `41743298046` e Vercel ficaram `success`/`Ready`. Health de produção confirmou Neon `ok`, e a sessão autenticada recarregada voltou ao estado sincronizado.
 
 ## Próximo passo concreto
 
-Publicar e validar a correção de restore (`src/utils/fullBackup.ts`, `src/App.tsx`); depois preparar novamente branch Neon isolada e testar importação UI→API→Neon sem tocar na produção. A primeira verificação do cron após este deploy será depois de `2026-11-04T12:15:00Z`. Permanecem abertos falha/retry no navegador, dump/restore independente, segurança de roles, revisão visual pixel-level e os itens de `CHECKLIST.md`.
+Preparar novamente branch Neon isolada e testar importação UI→API→Neon sem tocar na produção. A primeira verificação automática do cron após o deploy é depois de `2026-11-04T12:15:00Z`. Permanecem abertos falha/retry no navegador, dump/restore independente, segurança de roles, revisão visual pixel-level e os itens de `CHECKLIST.md`.
