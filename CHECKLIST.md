@@ -265,3 +265,10 @@
 ## Sessão 2026-11-04 — validação negativa da migração
 - [x] Cobrir migração sem token (401), payload inválido (400) e `sourceUpdatedAt` inválido (400); o mock confirma zero consultas SQL em todas as entradas rejeitadas.
 - [x] Reexecutar suíte integral: 106 testes passaram em 19 arquivos; `bun run lint` passou. As validações são da API local com Identity Toolkit/Neon simulados.
+
+## Sessão 2026-11-04 — limpeza de convites e testes HTTP
+- [x] Com autorização explícita, remover do Neon os 3 convites familiares de demonstração; confirmar contagem agregada final zero.
+- [x] Confirmar zero lançamentos compartilhados, somente branch `production` e health de produção 200/Neon `ok`.
+- [x] Registrar cobertura HTTP local para roundtrip do backup, criação/importação idempotentes, rejeição de migração inválida sem SQL e conflito de duas gravações concorrentes; `bun test`: 106 passaram em 19 arquivos, `bun run lint` passou.
+- [ ] Confirmar execução automática do Cron depois de `2026-11-04T12:15:00Z`; a hora ainda é futura e checks manuais não contam.
+- [ ] Aceitar restore/importação UI→API→Neon autenticados, recovery após indisponibilidade, backup independente, inspeção visual pixel-level e revisão segura das roles elevadas. BrowserOS não está disponível; compartilhamento entre duas contas foi dispensado; SMTP/Gemini permanecem sem configuração.
