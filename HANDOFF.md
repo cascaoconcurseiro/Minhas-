@@ -1,35 +1,32 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 16:41 UTC
+## Estado atual — 2026-11-04 17:01 UTC
 
-Meta ativa: tornar o sistema Minhas Economias funcional de ponta a ponta, usando Neon como persistência e Firebase Auth para identidade. `main` ainda está em `debb613` neste instante; as correções de identidade e os documentos desta sessão estão locais, ainda sem commit/push. Produção permanece sem alteração de banco nesta rodada; a última consulta `/api/health` respondeu HTTP 200/Neon `ok` às `16:24:45Z`. A migration de identidade foi preparada e validada apenas numa branch Neon temporária.
+Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `c6fd0ba`. A produção Vercel está `Ready` no deployment `dpl_5yz4pXwgBzHAsGL9ua4yKQ2S4E6D`; o alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200, com Neon `ok`. O CI do commit `c6fd0ba` concluiu `success`. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
 
 ## Feito nesta sessão
 
-- Os três agentes revisaram backup/recovery, segurança/API e interface. Não encontraram evidência de leitura cruzada entre UIDs. Confirmaram cobertura responsiva no código e limites de backup/UI já descritos no checklist. O risco encontrado foi a chave do workspace derivada de e-mail mutável.
-- Alterei o contrato localmente para usar `vault_uid_<Firebase UID>` como identidade estável do workspace e cache. A chave derivada do e-mail ficou restrita à leitura do documento Firestore legado. O backend agora localiza registros por `owner_firebase_uid` e define `payload.uid` a partir do token verificado, ignorando IDs enviados por backups ou clientes antigos.
-- O autosave atualiza a chave primária do registro existente para a chave estável sem substituir o payload. A importação Firestore continua uma única vez e conserva os dados do snapshot.
-- Acrescentei `db/migrations/005_stable_workspace_identity.sql`; a migration foi preparada com Neon em branch temporária baseada em produção. Antes dela, consulta agregada confirmou 3 workspaces/3 titulares, zero duplicidade de titular ou recibo e zero conflito com as chaves canônicas.
-- A migration de QA terminou com 3 workspaces migradas, zero chave ou recibo pendente e índice único por `owner_firebase_uid`. A API atual, conectada com `minhas_app_runtime`, passou E2E sintético de mudança de e-mail, colisão de slugs, isolamento por UID, corrida de criação (201/409), gravação/releitura e migração Firestore write-once.
-- Um primeiro E2E revelou que o autosave tentava atualizar recibos sem permissão da role runtime. Removi essa escrita do autosave; os recibos são reconciliados pela migration owner. O E2E seguinte passou.
-- Suíte local final: `bun run test` — 110 testes em 20 arquivos; `bun run lint` e `bun run build` passaram. O build mantém o aviso conhecido de bundle inicial ~566 kB (167 kB gzip).
-- Atualizei a decisão de arquitetura em `MASTER_BLUEPRINT.md`; `CHECKLIST.md` separa o que passou em QA do que ainda aguarda publicação/aplicação em produção.
+- Os três agentes de auditoria cobriram backup/recuperação, segurança/API e interface responsiva. A descoberta de identidade mutável foi consolidada na mudança para `vault_uid_<Firebase UID>`; as auditorias não encontraram evidência de leitura cruzada entre titulares.
+- Publicado `9429eaa` para vincular workspaces a UID Firebase estável e `c6fd0ba` para corrigir a resolução ESM do módulo compartilhado no runtime Vercel.
+- O primeiro deploy da mudança de identidade entrou em `Ready`, mas o smoke encontrou HTTP 500 por import TypeScript sem extensão. Corrigi o caminho, publiquei `c6fd0ba` e confirmei o novo deploy `Ready`, health 200 e CI success. A regressão está resolvida.
+- QA isolado validou a migration 005 e o fluxo real da API→Neon com role runtime: mudança de e-mail, colisão de slugs antigos, isolamento por UID, corrida de criação (201/409), persistência/releitura e importação Firestore write-once.
+- Preflight agregado de produção identificou 3 workspaces/3 titulares, sem duplicidade ou conflito de IDs. Não houve leitura de nomes, emails ou payload financeiro.
+- Suíte local: 110 testes em 20 arquivos, lint e build passaram. Build mantém alerta de bundle inicial ~566 kB (167 kB gzip).
+- Após a aplicação em produção, consultas agregadas confirmaram 3/3 workspaces com ID e payload UID canônicos, 0 IDs legados, 3/3 recibos canônicos, 0 recibos órfãos e índice único por `owner_firebase_uid`; a lista Neon contém somente `production`.
 
 ## Pendências e limites
 
-- Publicar código/migration/documentação em `main`, aguardar CI e Vercel, e confirmar health em produção. Depois aplicar a migration ao branch `production`. O Neon connector exige solicitar ao usuário a confirmação final antes de `complete_database_migration`; nada foi aplicado em produção.
-- A branch Neon temporária da migration continua ativa, com fixtures sintéticas criadas nos testes. Se a migration for aplicada ou recusada, concluir a chamada do Neon para remover a branch; ela não é produção.
-- Confirmar leitura e gravação com a sessão Firebase real depois do deploy; o E2E desta sessão usou identidade sintética e role runtime real em Neon QA.
-- Executar restore completo pela UI autenticada, teste visual de bloqueio/retry durante pane e inspeção pixel-level desktop/mobile. BrowserOS não está disponível para esses passos.
-- Confirmar a execução automática do Cron `/api/health` na janela de 5/nov, `12:15–13:14:59Z`; chamadas manuais não contam como comprovação.
-- Os testes com duas contas familiares foram dispensados pelo usuário; SMTP/Gemini e outras integrações externas seguem sem aceitação ponta a ponta.
+- Migration 005 aplicada: transformou os 3 IDs de workspace e UIDs dos payloads de chave baseada em email para chave baseada no UID Firebase estável, atualizou recibos, ampliou o limite do identificador e criou índice único por titular. A branch temporária foi removida.
+- Após a migration, `/api/health` respondeu 200 com Neon `ok`.
+- A validação de leitura/gravação com a sessão Firebase real, restore completo via UI e visualização pixel-level desktop/mobile continuam sem evidência desta rodada; BrowserOS não estava disponível. As duas contas para validação de compartilhamento foram dispensadas pelo usuário.
+- Confirmar o Cron Vercel diário na primeira janela automática seguinte: 2026-11-05, entre 12:15 e 13:14:59 UTC. Execução manual não conta.
+- SMTP/Gemini e demais integrações externas não têm validação ponta a ponta configurada.
 
 ## Próximo passo concreto
 
-Revisar e publicar o diff atual em `main` (`backend/app.ts`, `src/App.tsx`, `src/lib/firebase.ts`, `shared/workspaceIdentity.ts`, `db/migrations/005_stable_workspace_identity.sql` e documentos). Esperar os checks da run resultante e Vercel `Ready`; depois pedir a confirmação final para aplicar exatamente a migration 005 preparada e validar as contagens/health em produção.
+Testar os fluxos possíveis com a sessão Firebase real em modo somente leitura; depois consultar a execução automática Vercel Cron na janela de 5/nov e validar restore UI→API→Neon quando houver sessão de navegador adequada.
 
 ## Bloqueios
 
-- Confirmação final de aplicação da migration exigida pelo fluxo do Neon.
-- Acesso BrowserOS autenticado e captura visual não estão disponíveis nesta sessão.
-- Janela automática do Cron de 5/nov ainda não ocorreu.
+- Sessão BrowserOS autenticada/captura pixel-level não disponível.
+- A execução automática do Cron de 5/nov ainda não ocorreu.

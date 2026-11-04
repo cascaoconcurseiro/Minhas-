@@ -356,6 +356,16 @@
 - [x] Normalizar `payload.uid` no backend a partir do token Firebase verificado, sem confiar no ID enviado pelo cliente; resolver leitura/gravação/migração por UID autenticado.
 - [x] Adicionar testes para troca de e-mail mantendo a mesma identidade, colisão entre slugs de e-mail, payloads/backs legados e limites de UID; suíte completa `bun run test`: 110 testes passaram em 20 arquivos; lint e build passaram.
 - [x] Preparar a migration 005 em branch Neon temporária e validar a transformação: 3 workspaces/3 titulares, zero chaves não migradas, zero recibos duplicados ou stale; branch também passou no E2E API com role `minhas_app_runtime` (troca de e-mail, isolamento de UIDs, colisão, corrida de criação, importação legada write-once).
-- [ ] Aplicar migration 005 em produção após a aprovação requerida pelo Neon connector; manter a branch de preparo até a decisão e não confundir preparação QA com migração publicada.
-- [ ] Publicar código e documentos em `main`, validar o deploy de produção e manter a identidade de UID interoperável com clientes já abertos.
+- [x] Aplicar migration 005 em produção após autorização explícita do usuário; Neon confirmou aplicação bem-sucedida e remoção da branch QA `br-ancient-smoke-b6ayrslh`.
+- [x] Publicar código em `main`: `9429eaa` e correção runtime `c6fd0ba`; CI `41870527840` concluiu `success`.
+- [x] Confirmar Vercel deployment `dpl_5yz4pXwgBzHAsGL9ua4yKQ2S4E6D` como Ready, alias de produção ativo e `/api/health` HTTP 200/Neon `ok` depois da correção do import ESM.
 - [ ] Executar restore UI→API→Neon com Firebase real, retry visual, inspeção pixel-level e observar o Cron automático.
+
+## Continuação — verificação do deploy de identidade (2026-11-04)
+- [x] Corrigir a regressão do primeiro deploy: o import sem extensão do módulo compartilhado falhava no runtime ESM Vercel e causava HTTP 500; publicar `c6fd0ba` com import `.ts`.
+- [x] Confirmar novo deploy `dpl_5yz4pXwgBzHAsGL9ua4yKQ2S4E6D` Ready, alias `minhaseconomias-blue.vercel.app`, health HTTP 200 e CI success.
+- [x] Confirmar antes da aplicação que a branch Neon `br-ancient-smoke-b6ayrslh` era isolada e filha de `production`, e que os testes sintéticos ficaram restritos a QA.
+- [x] Aplicar a migration 005 aprovada e remover a branch QA no mesmo fluxo; Neon lista somente a branch `production`.
+- [x] Verificar pós-migration por agregados: 3 workspaces, 3 UIDs canônicos, 0 IDs legados; 3 recibos canônicos, 0 órfãos e índice único de titular presente.
+- [x] Confirmar `/api/health` de produção HTTP 200/Neon ok após a migration e Cron diário `/api/health` cadastrado para `15 12 * * *` UTC.
+- [ ] Confirmar a execução Cron automática na janela de 5/nov, `12:15–13:14:59Z`; o agendamento ativo não comprova que a execução ocorreu.
