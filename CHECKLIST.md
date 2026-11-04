@@ -301,3 +301,9 @@
 - [x] Expandir o teste HTTP local para criação/listagem de convite, normalização de e-mail, recusa de auto convite, bloqueio sem autenticação/e-mail verificado, rejeição por identidade errada, ação inválida, aceitação e revogação com limpeza das transações compartilhadas.
 - [x] Validar `bun test backend/familyApi.test.ts`: 8 testes passaram; suíte completa: 106 testes em 19 arquivos; `bun run lint` e `bun run build` passaram. A API usa Firebase simulado e Neon mockado; isso não comprova aceitação real entre duas contas.
 - [ ] Validar o fluxo autenticado com duas contas reais permanece dispensado pelo usuário; revisar o fluxo com uma segunda conta só se voltar a ser solicitado.
+
+## Continuação — validação das roles em produção
+- [x] Confirmar por conexão real que `minhas_app_runtime` tem apenas os grants operacionais previstos (sem DELETE em workspaces, CREATE de schema/database ou bypass RLS) e que `minhas_daily_runtime` pode conectar sem ler workspaces.
+- [x] Revalidar homepage 200, health de produção 200/Neon `ok` e as sete rotas protegidas retornando 401; deploy após troca de credenciais `dpl_4JfcUPPqqRoruvYq8RswM4a2ujwJ` ficou Ready.
+- [x] Confirmar CI do commit docs `0a80d16` passou em `41752694921` e conferir que o worktree está sincronizado com `origin/main`.
+- [ ] Aguardar a primeira execução automática Vercel. No plano Hobby, a invocação pode ocorrer em qualquer minuto dentro da hora agendada; conferir depois de `2026-11-04T13:15:00Z` (janela `12:15–13:14:59Z`), não apenas logo após `12:15Z`.

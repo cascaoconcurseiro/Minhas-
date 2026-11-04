@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 01:14 UTC
+## Estado atual — 2026-11-04 01:17 UTC
 
-Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. A migração de roles está publicada em `08337df`; o deploy `dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s` está Ready no domínio de produção. O smoke às 00:42 UTC confirmou homepage 200, health 200/Neon `ok`, seis APIs protegidas em 401 sem token e bundle sem o Guia Rápido, `tx-demo` ou URL PostgreSQL.
+Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. O commit atual de docs é `0a80d16`; CI `41752694921` passou e deploy `dpl_4JfcUPPqqRoruvYq8RswM4a2ujwJ` está Ready no domínio de produção. Às 01:16 UTC, homepage respondeu 200, health 200/Neon `ok` e sete APIs protegidas responderam 401 sem token.
 
 ## Feito nesta sessão
 
@@ -29,11 +29,11 @@ Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional
 
 - `minhas_app` e `minhas_daily` ainda são roles administrativas com `LOGIN`; o `neondb_owner` não conseguiu desativá-las via SQL. Suas senhas antigas foram rotacionadas e falham em autenticação; app e cron usam credenciais separadas das roles limitadas. Para remover também os atributos e membership das roles antigas, será necessário um mecanismo Neon com autoridade para editar ou eliminar esses papéis.
 - Nenhuma senha foi registrada no repositório, checklist, handoff ou resposta. As senhas novas foram transmitidas diretamente aos destinos de segredo Vercel/GitHub.
-- Cron Vercel `/api/health` está agendado para `15 12 * * *` UTC (09:15 São Paulo). Confirmar a primeira execução automática após `2026-11-04T12:15:00Z`; execução manual não prova o agendamento.
+- Cron Vercel `/api/health` está agendado para `15 12 * * *` UTC (12:15 nominal; 09:15 São Paulo). No Hobby a Vercel pode chamar em qualquer minuto da hora agendada; confirmar a primeira execução automática após `2026-11-04T13:15:00Z`, e não contar chamadas manuais como evidência do agendamento. [A Vercel documenta precisão horária de ±59 min no Hobby](https://vercel.com/docs/cron-jobs/usage-and-pricing).
 - Restore/importação autenticados de UI até Neon e recovery após indisponibilidade continuam sem prova. BrowserOS não está conectado às ferramentas e não há `.env` local.
 - Corrida simultânea por API foi validada com pool mock; corrida real SQL ocorreu em QA anterior, mas não por API autenticada. Backup portátil/restore independente e inspeção pixel-level desktop/mobile seguem pendentes. Compartilhamento entre duas contas foi dispensado pelo usuário; SMTP/Gemini não estão configurados.
 - No Neon Free, `suspend_timeout_seconds: 0` usa o padrão de 300 segundos e não é possível desativar o autosuspend. A chamada diária do Cron ativa o banco para a consulta e depois ele pode suspender novamente: https://neon.com/docs/introduction/scale-to-zero.
 
 ## Próximo passo concreto
 
-Confirmar a primeira execução automática do Cron depois de `2026-11-04T12:15:00Z`. Depois, obter autoridade Neon apropriada para remover `LOGIN`/membership/atributos das roles antigas, se suportado, sem interromper rollback. Restore/recovery autenticados e inspeção visual continuam pendentes de sessão BrowserOS; não há `.env` local. Compartilhamento entre duas contas foi dispensado pelo usuário.
+Confirmar a primeira execução automática do Cron depois de `2026-11-04T13:15:00Z`. Depois, obter autoridade Neon apropriada para remover `LOGIN`/membership/atributos das roles antigas, se suportado, sem interromper rollback. Restore/recovery autenticados e inspeção visual continuam pendentes de sessão BrowserOS; não há `.env` local. Compartilhamento entre duas contas foi dispensado pelo usuário.
