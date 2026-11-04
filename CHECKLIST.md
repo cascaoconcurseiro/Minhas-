@@ -292,9 +292,9 @@
 - [x] Aplicar bloco DO e GRANTs equivalentes em branch QA; verificar atributos e permissões efetivas.
 - [x] Conectar via cliente `pg` como role SQL restrita em QA; confirmar RLS (1 linha própria visível, update próprio 1, estrangeiro 0) e inserção do recibo de migração; rollback da transação.
 - [x] Remover branch QA; Neon lista somente `production`.
-- [x] Com delegação explícita de decisão do usuário, ativar `minhas_app_runtime` e `minhas_daily_runtime` em produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, validar as conexões e rotacionar as senhas das roles elevadas antigas. A Neon negou `ALTER ROLE ... NOLOGIN` ao `neondb_owner`; as credenciais anteriores falham após a rotação, mas as roles antigas ainda aparecem com `LOGIN` e privilégios elevados no catálogo.
+- [x] Com delegação explícita de decisão do usuário, ativar `minhas_app_runtime` e `minhas_daily_runtime` em produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, validar as conexões e remover via gerenciamento Neon as roles elevadas antigas `minhas_app` e `minhas_daily`. O SQL `ALTER ROLE ... NOLOGIN` foi negado; consulta prévia confirmou que os papéis não possuíam objetos de banco.
 - [x] Publicar a migração e documentação no commit `08337df`; Vercel Ready (`dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s`), CI success, health 200/Neon ok.
-- [x] Validar `minhas_app_runtime` por conexão PostgreSQL direta e pelo health de produção; validar a role diária por conexão direta e execução Actions `41752365265` (`success`). As credenciais antigas `minhas_app`/`minhas_daily` falham em teste de autenticação depois da rotação.
+- [x] Validar `minhas_app_runtime` por conexão PostgreSQL direta e pelo health de produção; validar a role diária por conexão direta e execução Actions `41752365265` (`success`). As credenciais antigas `minhas_app`/`minhas_daily` falharam após rotação e os papéis foram removidos.
 - [x] Confirmar após a troca homepage em produção e health HTTP 200/Neon `ok`; sete rotas protegidas retornaram 401 sem token. CI do commit `5674d66` passou em `41751616349`; deploy `dpl_FDc4SDYbLjH1rULCwFWNBoMF1aNM` Ready.
 
 ## Continuação — fluxo de convites familiares
@@ -305,5 +305,6 @@
 ## Continuação — validação das roles em produção
 - [x] Confirmar por conexão real que `minhas_app_runtime` tem apenas os grants operacionais previstos (sem DELETE em workspaces, CREATE de schema/database ou bypass RLS) e que `minhas_daily_runtime` pode conectar sem ler workspaces.
 - [x] Revalidar homepage 200, health de produção 200/Neon `ok` e as sete rotas protegidas retornando 401; deploy após troca de credenciais `dpl_4JfcUPPqqRoruvYq8RswM4a2ujwJ` ficou Ready.
-- [x] Confirmar CI do commit docs `0a80d16` passou em `41752694921` e conferir que o worktree está sincronizado com `origin/main`.
+- [x] Confirmar CI do commit docs `2636a3a` passou em `41753080216` e conferir que o worktree está sincronizado com `origin/main`.
+- [x] Após remover os papéis antigos, confirmar que a lista Neon contém somente `neondb_owner` e as duas roles limitadas; health de produção segue ok e Actions `41753214075` passou usando a role diária.
 - [ ] Aguardar a primeira execução automática Vercel. No plano Hobby, a invocação pode ocorrer em qualquer minuto dentro da hora agendada; conferir depois de `2026-11-04T13:15:00Z` (janela `12:15–13:14:59Z`), não apenas logo após `12:15Z`.
