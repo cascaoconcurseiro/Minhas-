@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
-import { getVaultIdForUid } from '../shared/workspaceIdentity';
+import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
