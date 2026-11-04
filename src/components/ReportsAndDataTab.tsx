@@ -45,6 +45,7 @@ interface ReportsAndDataTabProps {
   investments?: InvestmentAsset[];
   userName?: string;
   userEmail?: string;
+  onExportFullBackupJson: () => void;
   onAddAccount?: (account: Omit<BankAccount, 'id'>) => void;
   onUpdateAccountInitialBalance?: (accountId: string, newInitial: number) => void;
   onImportQuickCsvLines: (linesText: string, targetAccountId: string) => number;
@@ -135,6 +136,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   investments = [],
   userName,
   userEmail,
+  onExportFullBackupJson,
   onImportQuickCsvLines,
   onOpenReconciliation,
   onResetWorkspaceData,
@@ -307,27 +309,6 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     const a = document.createElement('a');
     a.href = url;
     a.download = `minhas-economias-extrato-${selectedMonth}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadJSONBackup = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      app: 'Minhas Economias BR',
-      accounts,
-      cards,
-      categories,
-      transactions,
-      investments,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `minhas-economias-backup-${selectedMonth}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1192,11 +1173,11 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
               <button
                 type="button"
-                onClick={handleDownloadJSONBackup}
+                onClick={onExportFullBackupJson}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <Download className="h-4 w-4" />
-                Baixar Backup JSON
+                Baixar Backup Completo JSON
               </button>
 
               {!confirmReset ? (

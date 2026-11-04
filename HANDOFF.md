@@ -6,6 +6,8 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 
 ## Feito nesta sessão
 
+- Corrigi o botão “Baixar Backup JSON” em Relatórios: antes ele exportava um JSON parcial, sem a versão e campos requeridos pelo restaurador completo. Agora usa o mesmo callback de exportação versionada usado nas Configurações e se chama “Baixar Backup Completo JSON”.
+- Após a correção, `bun run test` passou (112/112 em 21 arquivos), `bun run lint` passou e `bun run build` passou; o alerta de bundle >500 kB permanece. A validação manual do download completo na interface e restore até Neon ainda precisa ser feita isoladamente.
 - Os três agentes de auditoria cobriram backup/recuperação, segurança/API e interface responsiva. A descoberta de identidade mutável foi consolidada na mudança para `vault_uid_<Firebase UID>`; as auditorias não encontraram evidência de leitura cruzada entre titulares.
 - Publicado `9429eaa` para vincular workspaces a UID Firebase estável e `c6fd0ba` para corrigir a resolução ESM do módulo compartilhado no runtime Vercel.
 - O primeiro deploy da mudança de identidade entrou em `Ready`, mas o smoke encontrou HTTP 500 por import TypeScript sem extensão. Corrigi o caminho, publiquei `c6fd0ba` e confirmei o novo deploy `Ready`, health 200 e CI success. A regressão está resolvida.
@@ -34,7 +36,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 
 ## Próximo passo concreto
 
-Preparar um fluxo isolado para restore UI→API→Neon sem substituir dados de produção; consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport mobile com ferramenta que permita emulação.
+Publicar a correção do backup em `main`/Vercel, validar o arquivo exportado na interface e preparar o restore UI→API→Neon numa branch isolada; consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport mobile com ferramenta que permita emulação.
 
 ## Bloqueios
 

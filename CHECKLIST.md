@@ -402,3 +402,8 @@
 - [ ] Completar restore UI→API→Postgres com fixture numa branch isolada, sem modificar dados de produção.
 - [ ] Fazer inspeção de viewport mobile/screenshot e testes visuais de fluxos desktop/mobile.
 - [ ] Aguardar e comprovar a execução automática do Cron em `2026-11-05 12:15 UTC` (janela até `13:14:59 UTC`).
+
+## Correção identificada na auditoria de backup (2026-11-04)
+- [x] Em código, o botão de Relatórios foi ligado ao exportador completo versionado (versão 5), em vez do JSON parcial que o restaurador não aceitava.
+- [x] Reexecutar após a alteração: 112/112 testes, lint e build passaram; build ainda reporta chunk inicial ~566 kB (~168 kB gzip).
+- [ ] Publicar em `main`/Vercel e validar o arquivo baixado pelo botão da interface, sem importar ou substituir dados de produção.

@@ -3867,6 +3867,7 @@ export default function App() {
                   investments={investments}
                   userName={effectiveUserDisplayName || undefined}
                   userEmail={effectiveUserEmail || undefined}
+                  onExportFullBackupJson={handleExportFullBackupJson}
                   onAddAccount={handleAddAccount}
                   onUpdateAccountInitialBalance={handleUpdateAccountInitialBalance}
                   onImportQuickCsvLines={handleImportQuickCsvLines}
