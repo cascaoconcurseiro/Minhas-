@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 16:57 UTC
+## Estado atual — 2026-11-04 16:59 UTC
 
-Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `c6fd0ba`. A produção Vercel está `Ready` no deployment `dpl_5yz4pXwgBzHAsGL9ua4yKQ2S4E6D`; o alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200, com Neon `ok`. O CI do commit `c6fd0ba` concluiu `success`. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
+Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `9ccf0ff`. A produção Vercel está `Ready` no deployment `dpl_StTtu5jQonDym6sQqzDZif8w6pbv`; o alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200, com Neon `ok`. O CI do commit `9ccf0ff` concluiu `success`. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
 
 ## Feito nesta sessão
 
@@ -15,7 +15,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 - Após a aplicação em produção, consultas agregadas confirmaram 3/3 workspaces com ID e payload UID canônicos, 0 IDs legados, 3/3 recibos canônicos, 0 recibos órfãos e índice único por `owner_firebase_uid`; a lista Neon contém somente `production`.
 - Depois da migration, o Brave autenticado carregou o app com indicador “Nuvem sincronizada — Neon PostgreSQL”. Naveguei até Cartões e abri os modos de despesa, cartão, receita e transferência; o formulário do cartão e o de lançamento rejeitam submissão vazia. Nenhuma gravação foi feita em produção.
 - A inspeção dos logs Vercel encontrou um aviso de `pg-connection-string` sobre modos SSL legados. A configuração em execução hoje preserva verificação completa, mas uma versão futura pode mudar a semântica; implementei normalização explícita para `sslmode=verify-full` e dois testes unitários.
-- Os novos testes SSL passaram (2/2), e a suíte passou com 112 testes em 21 arquivos; lint e build também passaram. Esta correção ainda está local e precisa de publicação/deploy e smoke posterior.
+- Os novos testes SSL passaram (2/2), e a suíte passou com 112 testes em 21 arquivos; lint e build também passaram. `9ccf0ff` publicou a correção; CI `41872738808` passou, Vercel `dpl_StTtu5jQonDym6sQqzDZif8w6pbv` ficou Ready, health 200/Neon ok e o log da chamada `/api/health` em `16:59:13Z` não registrou o aviso TLS.
 
 ## Pendências e limites
 
@@ -24,7 +24,6 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 - Leitura autenticada pós-migration foi comprovada no Brave, mas não foi feito lançamento/gravação; restore completo pela UI e visualização pixel-level desktop/mobile continuam sem evidência. A sessão BrowserOS dedicada não estava disponível. As duas contas para validação de compartilhamento foram dispensadas pelo usuário.
 - Confirmar o Cron Vercel diário na primeira janela automática seguinte: 2026-11-05, entre 12:15 e 13:14:59 UTC. Execução manual não conta.
 - SMTP/Gemini e demais integrações externas não têm validação ponta a ponta configurada.
-- Publicar a normalização SSL após revisar o diff; depois confirmar health 200 e que as novas invocações Vercel não emitem o aviso de modos SSL legados.
 
 ## Próximo passo concreto
 

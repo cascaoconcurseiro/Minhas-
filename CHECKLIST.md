@@ -381,4 +381,4 @@
 - [x] Inspecionar logs recentes de produção e localizar aviso do `pg-connection-string`: `prefer`, `require` e `verify-ca` hoje equivalem a `verify-full`, mas a semântica mudará na próxima versão principal.
 - [x] Tornar `sslmode=verify-full` explícito no pool sem ler ou alterar o segredo `DATABASE_URL`; preservar o comportamento de `uselibpqcompat=true` e modos fora da lista afetada.
 - [x] Adicionar 2 regressões de conexão SSL; `bun run test` passou com 112 testes em 21 arquivos, `bun run lint` e `bun run build` passaram.
-- [ ] Publicar esta correção em `main` e confirmar health 200/Neon ok e ausência do aviso nos logs após o novo deploy.
+- [x] Publicar a correção SSL no commit `9ccf0ff`; CI `41872738808` passou e Vercel `dpl_StTtu5jQonDym6sQqzDZif8w6pbv` ficou Ready. Após deploy, `/api/health` respondeu 200/Neon ok e o log da rota não registrou o aviso TLS.
