@@ -308,3 +308,15 @@
 - [x] Confirmar CI do commit docs `2636a3a` passou em `41753080216` e conferir que o worktree está sincronizado com `origin/main`.
 - [x] Após remover os papéis antigos, confirmar que a lista Neon contém somente `neondb_owner` e as duas roles limitadas; health de produção segue ok e Actions `41753214075` passou usando a role diária.
 - [ ] Aguardar a primeira execução automática Vercel. No plano Hobby, a invocação pode ocorrer em qualquer minuto dentro da hora agendada; conferir depois de `2026-11-04T13:15:00Z` (janela `12:15–13:14:59Z`), não apenas logo após `12:15Z`.
+
+## Sessão 2026-11-04 — E2E HTTP com Neon isolado
+- [x] Criar branch Neon QA `qa-api-neon-live-20261104` (`br-summer-feather-b60nenis`) e endpoint temporário, sem alterar produção.
+- [x] Executar a API real com identidade Firebase sintética e conexão `minhas_app_runtime` à branch Neon: criar workspace (201), rejeitar duplicata (409), ler payload restaurado com cartão e lançamento sintéticos.
+- [x] Disparar dois PUT simultâneos com a mesma revisão: exatamente um 200 e um 409; revisão final avançou uma vez.
+- [x] Confirmar isolamento de UID: outra identidade recebe 404 para workspace alheio.
+- [x] Exercitar migração legada: primeira importação 201, repetição 409, recibo único com contagem correta.
+- [x] Exercitar convite familiar em QA: criação 201, identidade incorreta 404, aceite 200, compartilhamento idempotente e revogação remove o espelho.
+- [x] Remover a branch QA e confirmar que só `production` permanece; health de produção HTTP 200 com Neon `ok` após a limpeza.
+- [x] Disparar manualmente o Cron `/api/health` às `2026-11-04T15:54:53Z`; Vercel registrou HTTP 200. Esta chamada valida o endpoint, não a execução automática.
+- [ ] Confirmar execução automática: após a janela `12:15–13:14:59Z`, logs acessíveis não mostraram uma requisição Cron conclusiva; o `updated_at` da branch produção em `13:14:50Z` é indício, não prova. Logs de query Neon não estão disponíveis na região `aws-sa-east-1`.
+- [ ] Validar restore UI→API→Neon com Firebase real, recuperação após indisponibilidade, dump/restore independente e revisão visual pixel-level; E2E desta sessão usou token sintético e API direta. Agentes concluíram auditorias estáticas de API/segurança, responsividade e backup/recovery; detalhes e limites estão no HANDOFF.

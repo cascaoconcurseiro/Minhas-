@@ -1,39 +1,25 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 01:20 UTC
+## Estado atual — 2026-11-04 15:57 UTC
 
-Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. O commit atual de docs é `2636a3a`; CI `41753080216` passou e deploy `dpl_BwK4GTeLNekeaEH1BSin2H2XhU3E` está Ready no domínio de produção. Às 01:19 UTC, health respondeu 200/Neon `ok`, inclusive após excluir as roles elevadas antigas.
+Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Código de produção está em `b5abfd7`; antes desta atualização, CI `41753358838` passou, deploy Vercel `dpl_6tzYKQmVzphfn5H8kkw7YoZmPqQq` estava Ready e `https://minhaseconomias-blue.vercel.app` respondia health 200/Neon `ok`.
 
 ## Feito nesta sessão
 
-- Ampliei `backend/familyApi.test.ts` com os fluxos locais de criação e listagem de convite, normalização de e-mail, autenticação/verificação, identidade errada, resposta inválida, aceitação, compartilhamento e revogação.
-- Validei `bun test backend/familyApi.test.ts`: 8 passaram; `bun test`: 106 em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o bundle inicial de 566 kB (167 kB gzip).
-- Essa cobertura familiar é de contrato HTTP com identidade Firebase simulada e banco mockado. Não valida o fluxo entre duas contas reais; o usuário dispensou essa validação.
-- O usuário delegou a decisão sobre a troca de credenciais em produção. Ativei as roles SQL `minhas_app_runtime` (DML apenas nas tabelas necessárias e sequence) e `minhas_daily_runtime` (CONNECT apenas), ambas sem `neon_superuser` e sem atributos administrativos/RLS bypass.
-- Atualizei Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL` com credenciais distintas para as roles limitadas. Validei ambas por conexão direta; health de produção segue 200/Neon ok; a rotina manual Actions `41752365265` passou; sete rotas protegidas continuam 401 sem token.
-- A Neon negou `ALTER ROLE ... NOLOGIN` para `neondb_owner`; a API de gerenciamento Neon removeu as roles antigas após consulta confirmar que não possuíam objetos de banco. A lista atual contém `neondb_owner` e apenas as duas roles runtime restritas. Health de produção continuou 200/Neon ok e a execução GitHub Actions `41753214075` passou depois da remoção.
-- Publiquei os testes e docs em `5674d66` na `main`; CI `41751616349` passou e Vercel deployment `dpl_FDc4SDYbLjH1rULCwFWNBoMF1aNM` ficou Ready e recebeu os aliases, incluindo `minhaseconomias-blue.vercel.app`.
-
-## Feito em sessões anteriores
-
-- Excluí com autorização os 3 convites familiares de demonstração; Neon confirmou zero convites e zero transações compartilhadas. Só a branch `production` permanece.
-- A suíte de workspace já cobre restauração HTTP, criação/importação idempotentes, migração inválida e conflito de gravações simultâneas.
-- Reexecutei `bun test`: 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o bundle inicial de 566 kB.
-- Busca estática confirma chamadas Firestore apenas em `src/lib/legacyFirestoreMigration.ts`, para leitura/migração legada; sem listeners ou gravações rotineiras do workspace no Firestore.
-- Criei [004_restricted_runtime_roles.sql](db/migrations/004_restricted_runtime_roles.sql), que define roles limitadas criadas por SQL (NOLOGIN), grants necessários ao app e CONNECT apenas para a rotina manual diária.
-- Em branch Neon QA, executei o bloco de criação e os grants da migração e conferi a matriz de permissões: sem associação a `neon_superuser`, `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, `REPLICATION` ou DDL; privilégios de DML restritos por tabela.
-- Testei uma role limitada de QA com conexão real via `pg`: `current_user` foi a role limitada; ela leu só o workspace de UID teste, atualizou o próprio workspace, não atualizou o workspace de outro UID e inseriu um recibo com sequence identity. A transação foi revertida.
-- Removi as branches QA e confirmei a listagem contendo somente `production`. Nenhum segredo ou role de produção foi alterado nesta rodada. O novo deploy de produção também confirmou health 200/Neon ok.
+- Em branch Neon isolada `qa-api-neon-live-20261104` (`br-summer-feather-b60nenis`), conectei a API HTTP ao banco real usando `minhas_app_runtime` e identidades Firebase sintéticas.
+- Confirmados: criação/duplicata de workspace (201/409); GET do payload com cartão e lançamento sintéticos; corrida de dois PUTs na mesma revisão (um 200, um 409, revisão avançou uma vez); isolamento entre UIDs (outro UID recebeu 404); importação legada única com recibo (201 e depois 409); convite familiar criado, identidade errada bloqueada (404), aceite 200, compartilhamento idempotente e revogação limpando o espelho.
+- Excluí a branch QA e confirmei somente `production`. Depois, health da produção continuou HTTP 200/Neon `ok`; nenhum dado de teste foi gravado em produção.
+- Cron Vercel `/api/health` segue cadastrado em `15 12 * * *` UTC. A janela de hoje encerrou sem log automático conclusivo observável. `updated_at` da branch Neon em `13:14:50Z` é compatível com a execução, mas não prova o disparo; logs de query Neon não estão disponíveis em `aws-sa-east-1`. Disparei manualmente às `15:54:53Z`, recebendo HTTP 200, o que valida apenas o endpoint manual.
+- Os três agentes concluíram auditorias: segurança/API confirmou RLS forçada, escopo de verificação de e-mail por rota e resultados E2E compatíveis; responsividade encontrou layouts adaptáveis no código e limites de revisão pixel-level; backup/recovery confirmou cobertura local de parser/regras e a lacuna de restore UI/Neon e dump/restore independente.
 
 ## Pendências e limites
 
-- As roles administrativas antigas `minhas_app` e `minhas_daily` foram removidas; o runtime de produção usa apenas as roles limitadas verificadas.
-- Nenhuma senha foi registrada no repositório, checklist, handoff ou resposta. As senhas novas foram transmitidas diretamente aos destinos de segredo Vercel/GitHub.
-- Cron Vercel `/api/health` está agendado para `15 12 * * *` UTC (12:15 nominal; 09:15 São Paulo). No Hobby a Vercel pode chamar em qualquer minuto da hora agendada; confirmar a primeira execução automática após `2026-11-04T13:15:00Z`, e não contar chamadas manuais como evidência do agendamento. [A Vercel documenta precisão horária de ±59 min no Hobby](https://vercel.com/docs/cron-jobs/usage-and-pricing).
-- Restore/importação autenticados de UI até Neon e recovery após indisponibilidade continuam sem prova. BrowserOS não está conectado às ferramentas e não há `.env` local.
-- Corrida simultânea por API foi validada com pool mock; corrida real SQL ocorreu em QA anterior, mas não por API autenticada. Backup portátil/restore independente e inspeção pixel-level desktop/mobile seguem pendentes. Compartilhamento entre duas contas foi dispensado pelo usuário; SMTP/Gemini não estão configurados.
-- No Neon Free, `suspend_timeout_seconds: 0` usa o padrão de 300 segundos e não é possível desativar o autosuspend. A chamada diária do Cron ativa o banco para a consulta e depois ele pode suspender novamente: https://neon.com/docs/introduction/scale-to-zero.
+- Evidenciar uma execução automática do Cron em log diretamente atribuível ao agendamento; chamadas manuais não contam. No Hobby, a hora agendada pode ocorrer em qualquer minuto dentro da janela documentada.
+- Restore/importação pela interface autenticada com Firebase real até Neon; recuperar após indisponibilidade real; dump/restore independente.
+- Revisão visual pixel-level desktop/mobile. As medidas DOM prévias são favoráveis, mas não substituem captura visual.
+- Cobertura real de duas contas familiares foi dispensada pelo usuário. SMTP/Gemini e integrações externas seguem sem configuração e não foram aceitas por ponta a ponta.
+- A suíte local anterior passou (`bun test`: 106 testes, lint e build); nesta sessão não rodei nova suíte porque o foco foi o E2E real isolado e atualização documental.
 
 ## Próximo passo concreto
 
-Confirmar a primeira execução automática do Cron depois de `2026-11-04T13:15:00Z`. Restore/recovery autenticados e inspeção visual continuam pendentes de sessão BrowserOS; não há `.env` local. Compartilhamento entre duas contas foi dispensado pelo usuário.
+Revisar o diff documental, publicar em `main`, aguardar CI e o novo deploy Ready, e confirmar health 200/Neon `ok`. Em seguida, buscar evidência do Cron automático no painel/logs Vercel em janela posterior. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
