@@ -281,3 +281,7 @@
 - [x] Busca estática em `src`/`backend` confirmou que o Firestore é referenciado somente no módulo de leitura legada para migração; sem `onSnapshot`, `setDoc`, `updateDoc`, `addDoc` ou `deleteDoc` no fluxo atual.
 - [x] Conferir semântica do endpoint Neon: `suspend_timeout_seconds: 0` usa padrão de 300 segundos; no plano Free o autosuspend não pode ser desativado. A rotina diária dá atividade diária, não mantém compute ligado 24h.
 - [ ] Verificar o primeiro disparo automático do Cron em `2026-11-04T12:15:00Z` ou depois.
+
+## Continuação — smoke de produção
+- [x] Após o deploy Ready, confirmar homepage 200, health 200/Neon ok e seis endpoints protegidos respondendo 401 sem token.
+- [x] Conferir bundle principal de produção: Guia Rápido ausente, sem marcador `tx-demo` e sem URL PostgreSQL.

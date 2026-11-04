@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 00:39 UTC
+## Estado atual — 2026-11-04 00:42 UTC
 
-Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `7cb494e` e a última implantação conhecida está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
+Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `ca998e0`; o deploy `dpl_GmyxgmanJzHYHnD9PA3QJeeiuwSt` está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
 
 ## Feito nesta continuação
 
@@ -26,3 +26,10 @@ Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon c
 ## Próximo passo concreto
 
 Após `2026-11-04T12:15:00Z`, conferir a execução automática do Cron nos logs da Vercel e consultar novamente `/api/health`. Depois, retomar restore/importação e recovery autenticados em ambiente isolado assim que houver sessão BrowserOS utilizável. Manter a meta aberta até fechar essas evidências ou registrar um limite externo que não possa ser resolvido.
+
+## Smoke de produção em 00:42 UTC
+
+- Homepage HTTP 200; /api/health status 200 com Neon ok.
+- Seis rotas protegidas (workspace, família, FX, investimentos, lembretes) retornaram 401 sem token.
+- Bundle principal publicado não contém Guia Rápido, 	x-demo ou URL postgres://.
+- Esta é validação HTTP e de bundle; não prova UI autenticada, pixels, restore, ou cron agendado.
