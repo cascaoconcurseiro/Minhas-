@@ -37,6 +37,7 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - Reauditei as roles de produção: as duas continuam membros efetivos de `neon_superuser`, com `CREATEROLE`, `CREATEDB`, `REPLICATION` e `BYPASSRLS`; confirmei também em branch QA que a ferramenta Neon nega `REVOKE`/`ALTER ROLE` usando o owner atual. A criação de uma role pela API também a associa ao grupo privilegiado.
 - A role de QA criada por SQL sem senha não pode ser acessada pelo conector; a API Neon de reset de senha recusou essa role. Não alterei privilégios nem credenciais em produção. Branch QA removida; lista confirma somente `production`.
 - Em `2026-11-04T00:02Z`, health de produção ainda era `ok`/Neon `ok`. A execução automática do Cron ainda era futura para `12:15Z`; logs anteriores mostravam somente os health checks manuais desta sessão.
+- Repeti smoke sem token após o deploy: sete rotas API protegidas responderam `401`; a busca no bundle local encontrou zero URL/variável de conexão Neon.
 
 ## Próximo passo concreto
 

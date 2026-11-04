@@ -222,6 +222,8 @@
 - [ ] Validar importação/releitura completa UI→API→Neon somente em ambiente isolado.
 
 ## Sessão 2026-11-04 — auditoria de privilégios Neon
+- [x] Repetir smoke de proteção na produção: sete rotas de workspace, migração, familiar, câmbio, investimentos e e-mail retornaram `401` sem token (`GET`/`POST`, sem payload ou credenciais).
+- [x] Procurar URLs `postgres://`/`postgresql://` e nomes de variáveis `DATABASE_URL`/`NEON_DATABASE_URL` no bundle `dist`; zero ocorrências.
 - [x] Reconsultar os atributos de `minhas_app` e `minhas_daily` em produção: `rolsuper=false`, porém ambas têm `CREATEROLE`, `CREATEDB`, `REPLICATION` e `BYPASSRLS`, além de membership efetivo/inherited em `neon_superuser`.
 - [x] Criar branch temporária QA autorizada e confirmar o modelo de roles: `neon_create_postgres_role` também cria role com privilégios elevados; a membership `neon_superuser` está sem `ADMIN OPTION`.
 - [x] Testar remoção na QA: `REVOKE neon_superuser FROM minhas_app` negado; `ALTER ROLE ... NOBYPASSRLS` pelo `neondb_owner` e pela própria role negado. Role restrita criada por SQL não tem senha administrável pelo reset de password do conector e não aceita login pelo conector sem credencial.
