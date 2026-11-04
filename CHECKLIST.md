@@ -396,8 +396,8 @@
 
 ## Continuação da auditoria abrangente (2026-11-04)
 - [x] Reexecutar a suíte atual: `bun run test` passou (112 testes em 21 arquivos), `bun run lint` passou e `bun run build` passou; permanece aviso de chunk inicial 566 kB (~168 kB gzip).
-- [x] Confirmar CI `41874968462` do `e08b379` em sucesso; `/api/health` no domínio de produção respondeu HTTP 200.
-- [x] Observar a sessão autenticada em desktop: status Neon sincronizado, workspace vazio e navegação acessível; sem escrever dados em produção. O deployment iniciado pelo commit `e08b379` ainda estava em `Building` na última consulta.
+- [x] Confirmar CI `41874968462` do `e08b379` e `41875339400` do `30fb1b0` em sucesso; deployments sequenciais ficaram `Ready`; smoke do alias principal retornou health 200/Neon ok e workspace sem token 401.
+- [x] Observar a sessão autenticada em desktop: status Neon sincronizado, workspace vazio e navegação acessível; sem escrever dados em produção. O screenshot foi conferido em viewport desktop, sem teste mobile.
 - [x] Auditar a cobertura dos testes: API com Express e token Firebase simulado/Pool simulado cobre concorrência, 503, isolamento e restore HTTP, mas não comprova UI→Vercel→Postgres real. A suíte cobre validação de backup, não a restauração completa pelo navegador.
 - [ ] Completar restore UI→API→Postgres com fixture numa branch isolada, sem modificar dados de produção.
 - [ ] Fazer inspeção de viewport mobile/screenshot e testes visuais de fluxos desktop/mobile.

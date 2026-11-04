@@ -2,7 +2,7 @@
 
 ## Estado atual — 2026-11-04 17:12 UTC
 
-Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. `main` e `origin/main` estão em `e08b379`; o CI `41874968462` passou. Vercel iniciou o deployment de produção para esse commit e ainda estava `Building` na última consulta; o deployment anterior continuava `Ready`. O alias `https://minhaseconomias-blue.vercel.app` e `/api/health` responderam HTTP 200. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
+Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Firebase Auth para identidade. A atualização da auditoria está publicada em `main`; o CI do commit `30fb1b0` concluiu com sucesso (`41875339400`). O deployment `dpl_7imqmThQJ6zNBh5gffB2W28fHR6F` está `Ready` e recebeu o alias `https://minhaseconomias-blue.vercel.app`. No smoke pós-deploy, `/api/health` respondeu HTTP 200 com Neon `ok` e `/api/workspace` sem token respondeu HTTP 401. A migration 005 foi aplicada em produção com aprovação explícita e a branch QA foi removida.
 
 ## Feito nesta sessão
 
@@ -22,6 +22,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 - Nesta continuação, `bun run test` passou (112 testes/21 arquivos), `bun run lint` passou e `bun run build` passou com aviso conhecido de chunk inicial acima de 500 kB. Reconsulta do CI confirmou sucesso em `e08b379`.
 - A sessão Brave autenticada mostrou o workspace vazio, status “Nuvem sincronizada — Neon PostgreSQL”, categorias padrão e navegação sem o Guia Rápido; screenshot observado em viewport desktop. Esta observação não valida mutações nem viewport mobile.
 - A auditoria dos agentes confirmou que `backend/familyApi.test.ts` usa servidor HTTP real, mas `pg` e Firebase são simulados; cobre UID isolado, concorrência 200/409, restore PUT+GET, falha DB→503 e migração write-once. Ainda não é o fluxo browser→Firebase→Vercel→Postgres real.
+- O deployment do commit `e08b379` e o deploy subsequente ficaram `Ready`; CI `41875339400` do `30fb1b0` passou. Smoke pós-publicação no alias principal: health 200/Neon ok e workspace sem token 401.
 
 ## Pendências e limites
 
@@ -33,7 +34,7 @@ Meta ativa: concluir a funcionalidade ponta a ponta usando Neon para dados e Fir
 
 ## Próximo passo concreto
 
-Preparar um fluxo isolado para restore UI→API→Neon sem substituir dados de produção; corrigir o handoff se o deployment do commit `e08b379` terminar com outro estado, então consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport mobile com ferramenta que permita emulação.
+Preparar um fluxo isolado para restore UI→API→Neon sem substituir dados de produção; consultar a execução automática Vercel Cron na janela de 5/nov e obter viewport mobile com ferramenta que permita emulação.
 
 ## Bloqueios
 
