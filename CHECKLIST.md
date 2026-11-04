@@ -292,8 +292,10 @@
 - [x] Aplicar bloco DO e GRANTs equivalentes em branch QA; verificar atributos e permissões efetivas.
 - [x] Conectar via cliente `pg` como role SQL restrita em QA; confirmar RLS (1 linha própria visível, update próprio 1, estrangeiro 0) e inserção do recibo de migração; rollback da transação.
 - [x] Remover branch QA; Neon lista somente `production`.
-- [ ] Com aprovação explícita, criar credenciais e ativar as roles limitadas na produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, testar e desabilitar as roles privilegiadas antigas após sucesso.
+- [x] Com delegação explícita de decisão do usuário, ativar `minhas_app_runtime` e `minhas_daily_runtime` em produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, validar as conexões e rotacionar as senhas das roles elevadas antigas. A Neon negou `ALTER ROLE ... NOLOGIN` ao `neondb_owner`; as credenciais anteriores falham após a rotação, mas as roles antigas ainda aparecem com `LOGIN` e privilégios elevados no catálogo.
 - [x] Publicar a migração e documentação no commit `08337df`; Vercel Ready (`dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s`), CI success, health 200/Neon ok.
+- [x] Validar `minhas_app_runtime` por conexão PostgreSQL direta e pelo health de produção; validar a role diária por conexão direta e execução Actions `41752365265` (`success`). As credenciais antigas `minhas_app`/`minhas_daily` falham em teste de autenticação depois da rotação.
+- [x] Confirmar após a troca homepage em produção e health HTTP 200/Neon `ok`; sete rotas protegidas retornaram 401 sem token. CI do commit `5674d66` passou em `41751616349`; deploy `dpl_FDc4SDYbLjH1rULCwFWNBoMF1aNM` Ready.
 
 ## Continuação — fluxo de convites familiares
 - [x] Expandir o teste HTTP local para criação/listagem de convite, normalização de e-mail, recusa de auto convite, bloqueio sem autenticação/e-mail verificado, rejeição por identidade errada, ação inválida, aceitação e revogação com limpeza das transações compartilhadas.

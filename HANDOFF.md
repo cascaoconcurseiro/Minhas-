@@ -1,6 +1,6 @@
 # Handoff — Minhas Economias
 
-## Estado atual — continuação após 2026-11-04 00:58 UTC
+## Estado atual — 2026-11-04 01:14 UTC
 
 Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. A migração de roles está publicada em `08337df`; o deploy `dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s` está Ready no domínio de produção. O smoke às 00:42 UTC confirmou homepage 200, health 200/Neon `ok`, seis APIs protegidas em 401 sem token e bundle sem o Guia Rápido, `tx-demo` ou URL PostgreSQL.
 
@@ -9,6 +9,10 @@ Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional
 - Ampliei `backend/familyApi.test.ts` com os fluxos locais de criação e listagem de convite, normalização de e-mail, autenticação/verificação, identidade errada, resposta inválida, aceitação, compartilhamento e revogação.
 - Validei `bun test backend/familyApi.test.ts`: 8 passaram; `bun test`: 106 em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o bundle inicial de 566 kB (167 kB gzip).
 - Essa cobertura familiar é de contrato HTTP com identidade Firebase simulada e banco mockado. Não valida o fluxo entre duas contas reais; o usuário dispensou essa validação.
+- O usuário delegou a decisão sobre a troca de credenciais em produção. Ativei as roles SQL `minhas_app_runtime` (DML apenas nas tabelas necessárias e sequence) e `minhas_daily_runtime` (CONNECT apenas), ambas sem `neon_superuser` e sem atributos administrativos/RLS bypass.
+- Atualizei Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL` com credenciais distintas para as roles limitadas. Validei ambas por conexão direta; health de produção segue 200/Neon ok; a rotina manual Actions `41752365265` passou; sete rotas protegidas continuam 401 sem token.
+- A Neon negou `ALTER ROLE ... NOLOGIN` para `neondb_owner`. Como contingência, usei a API Neon para redefinir as senhas de `minhas_app` e `minhas_daily`; as senhas anteriores agora falham na autenticação. Limite restante: as roles antigas ainda aparecem com `LOGIN` e atributos elevados no catálogo, embora as credenciais publicadas tenham sido substituídas e as senhas antigas invalidadas.
+- Publiquei os testes e docs em `5674d66` na `main`; CI `41751616349` passou e Vercel deployment `dpl_FDc4SDYbLjH1rULCwFWNBoMF1aNM` ficou Ready e recebeu os aliases, incluindo `minhaseconomias-blue.vercel.app`.
 
 ## Feito em sessões anteriores
 
@@ -23,8 +27,8 @@ Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional
 
 ## Pendências e limites
 
-- Roles `minhas_app` e `minhas_daily` de produção ainda herdam `neon_superuser`. A migração está pronta e ensaiada em QA, mas falta ativar as credenciais limitadas na produção: criar/definir senhas fora do Git, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, validar health/fluxos e só então desativar os logins antigos. Manter rollback possível durante o corte.
-- A mudança de credenciais na produção é externa e de alto impacto; executar após aprovação explícita do usuário. Nunca registrar senhas em arquivos ou mensagens.
+- `minhas_app` e `minhas_daily` ainda são roles administrativas com `LOGIN`; o `neondb_owner` não conseguiu desativá-las via SQL. Suas senhas antigas foram rotacionadas e falham em autenticação; app e cron usam credenciais separadas das roles limitadas. Para remover também os atributos e membership das roles antigas, será necessário um mecanismo Neon com autoridade para editar ou eliminar esses papéis.
+- Nenhuma senha foi registrada no repositório, checklist, handoff ou resposta. As senhas novas foram transmitidas diretamente aos destinos de segredo Vercel/GitHub.
 - Cron Vercel `/api/health` está agendado para `15 12 * * *` UTC (09:15 São Paulo). Confirmar a primeira execução automática após `2026-11-04T12:15:00Z`; execução manual não prova o agendamento.
 - Restore/importação autenticados de UI até Neon e recovery após indisponibilidade continuam sem prova. BrowserOS não está conectado às ferramentas e não há `.env` local.
 - Corrida simultânea por API foi validada com pool mock; corrida real SQL ocorreu em QA anterior, mas não por API autenticada. Backup portátil/restore independente e inspeção pixel-level desktop/mobile seguem pendentes. Compartilhamento entre duas contas foi dispensado pelo usuário; SMTP/Gemini não estão configurados.
@@ -32,4 +36,4 @@ Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional
 
 ## Próximo passo concreto
 
-Confirmar o disparo automático do Cron depois de `2026-11-04T12:15:00Z`. A substituição de credenciais privilegiadas em produção permanece pendente de aprovação explícita; depois dela, aplicar `004_restricted_runtime_roles.sql`, trocar Vercel/GitHub, validar health e fluxos, e desabilitar os logins antigos. Restore/recovery autenticados e inspeção visual continuam pendentes de sessão BrowserOS; não há `.env` local. Compartilhamento entre duas contas foi dispensado pelo usuário.
+Confirmar a primeira execução automática do Cron depois de `2026-11-04T12:15:00Z`. Depois, obter autoridade Neon apropriada para remover `LOGIN`/membership/atributos das roles antigas, se suportado, sem interromper rollback. Restore/recovery autenticados e inspeção visual continuam pendentes de sessão BrowserOS; não há `.env` local. Compartilhamento entre duas contas foi dispensado pelo usuário.
