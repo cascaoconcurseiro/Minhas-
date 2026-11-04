@@ -2,15 +2,15 @@
 
 ## Estado atual — 2026-11-04 00:35 UTC
 
-Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `ba07fd4` e a última implantação conhecida está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
+Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `848bcca` e a última implantação conhecida está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
 
 ## Feito nesta continuação
 
 - O usuário confirmou que os três convites familiares eram demonstração e autorizou apagar todos. O Neon confirmou `deleted_count = 3`; consulta agregada posterior confirmou 0 convites e 0 lançamentos compartilhados.
 - Reconfirmei em produção: somente a branch `production` existe; workspace agregado permanece sem contas, cartões e lançamentos de demonstração, conforme decisões anteriores do usuário.
 - Smoke atual do site: `/api/health` 200; Neon ok.
-- A última suíte registrada é `bun test`: 106 passaram, 0 falharam, em 19 arquivos; `bun run lint` passou. Cobertura nova inclui roundtrip de payload, inicialização e importação idempotentes, entradas inválidas rejeitadas antes do SQL e duas requisições HTTP concorrentes com a mesma revisão (mock de Firebase/Neon).
-- As mudanças de teste foram publicadas em `e447706`, `4722e1a` e `ba07fd4`; o último deploy Ready conhecido é `dpl_7qsJ4gmP1g3ASMuzVr4AZn46ecVL`.
+- Nesta continuação reexecutei `bun test`: 106 passaram, 0 falharam, em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o chunk inicial de 566 kB. Cobertura nova inclui roundtrip de payload, inicialização e importação idempotentes, entradas inválidas rejeitadas antes do SQL e duas requisições HTTP concorrentes com a mesma revisão (mock de Firebase/Neon).
+- As mudanças de teste foram publicadas em `e447706`, `4722e1a` e `848bcca`; o último deploy Ready conhecido é `dpl_FE6ys2bk2cFe8LhPMEL5mwJdyCPb`.
 
 ## Pendências e limites
 

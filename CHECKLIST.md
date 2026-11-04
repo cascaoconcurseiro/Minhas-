@@ -272,3 +272,7 @@
 - [x] Registrar cobertura HTTP local para roundtrip do backup, criação/importação idempotentes, rejeição de migração inválida sem SQL e conflito de duas gravações concorrentes; `bun test`: 106 passaram em 19 arquivos, `bun run lint` passou.
 - [ ] Confirmar execução automática do Cron depois de `2026-11-04T12:15:00Z`; a hora ainda é futura e checks manuais não contam.
 - [ ] Aceitar restore/importação UI→API→Neon autenticados, recovery após indisponibilidade, backup independente, inspeção visual pixel-level e revisão segura das roles elevadas. BrowserOS não está disponível; compartilhamento entre duas contas foi dispensado; SMTP/Gemini permanecem sem configuração.
+
+## Continuação — 2026-11-04 00:37 UTC
+- [x] Reexecutar a suíte completa: `bun test` — 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build informa chunk inicial 566 kB, 167 kB gzip.
+- [x] Confirmar que o deploy docs `dpl_FE6ys2bk2cFe8LhPMEL5mwJdyCPb` está Ready com alias de produção; health depois do deploy retornou 200/Neon ok.
