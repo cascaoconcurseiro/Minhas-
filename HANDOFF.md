@@ -72,3 +72,8 @@ Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026
 - Ampliei o harness HTTP autenticado de workspace: cobre criação inicial idempotente, rejeição de overwrite, importação legada Firestore→Neon uma vez, hash SHA-256, contagem de entidades e conflito de segunda importação sem alterações.
 - `bun test`: 105 passaram em 19 arquivos; lint passou. A API usa pool Neon simulado e Firebase Identity Toolkit simulado; valida contrato e idempotência, não prova banco real.
 - Próximo passo concreto segue sendo executar restore e importação em branch Neon isolada pelo navegador autenticado; a sessão BrowserOS não está conectada. Depois validar indisponibilidade/retry real e o cron após `12:15 UTC`.
+
+## Atualização — concorrência HTTP local (2026-11-04 00:27 UTC)
+
+- O teste do workspace agora executa duas requisições `PUT` simultâneas com a mesma revisão e payloads diferentes; uma vence com 200 e a outra recebe 409, sem avanço duplo. O ensaio usa middleware Firebase simulado e pool Neon mock; não substitui a corrida autenticada no Neon.
+- Suíte completa: 105 passou, 0 falhou; lint passou. Próxima validação segue sendo a corrida real em branch QA, depois restore e falha/retry autenticados, sem gravar em produção.

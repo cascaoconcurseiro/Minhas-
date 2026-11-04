@@ -184,27 +184,31 @@ test('API de workspace mantém leituras isoladas pelo UID autenticado', async ()
   assert.equal(otherQuery.params[1], 'other-uid');
 });
 
-test('API de workspace serializa gravações concorrentes pela revisão esperada', async () => {
+test('API de workspace serializa duas gravações simultâneas pela mesma revisão', async () => {
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
-  const payload = {
+  const firstPayload = {
     uid: 'vault_usr_owner_example_com',
     updatedAt: '2026-11-03T00:01:00.000Z',
-    accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
+    accountsJson: '[{"id":"writer-a"}]', cardsJson: '[]', categoriesJson: '[]',
     transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
   };
-  const firstWrite = await originalFetch(`${baseUrl}/api/workspace`, {
-    method: 'PUT', headers, body: JSON.stringify({ payload, expectedRevision: 2 }),
-  });
-  assert.equal(firstWrite.status, 200, await firstWrite.clone().text());
-  assert.deepEqual(await firstWrite.json(), {
+  const secondPayload = { ...firstPayload, accountsJson: '[{"id":"writer-b"}]' };
+  const responses = await Promise.all([firstPayload, secondPayload].map((payload) =>
+    originalFetch(`${baseUrl}/api/workspace`, {
+      method: 'PUT', headers, body: JSON.stringify({ payload, expectedRevision: 2 }),
+    })
+  ));
+  const statuses = responses.map((response) => response.status).sort((a, b) => a - b);
+  assert.deepEqual(statuses, [200, 409]);
+  const success = responses.find((response) => response.status === 200);
+  const conflict = responses.find((response) => response.status === 409);
+  assert.ok(success);
+  assert.ok(conflict);
+  assert.deepEqual(await success.json(), {
     revision: 3, updatedAt: '2026-11-03T00:01:00.000Z',
   });
-
-  const staleConcurrentWrite = await originalFetch(`${baseUrl}/api/workspace`, {
-    method: 'PUT', headers, body: JSON.stringify({ payload, expectedRevision: 2 }),
-  });
-  assert.equal(staleConcurrentWrite.status, 409);
-  assert.match((await staleConcurrentWrite.json() as { error: string }).error, /revisão desatualizada/);
+  assert.match((await conflict.json() as { error: string }).error, /revisão desatualizada/);
+  assert.ok(['[{"id":"writer-a"}]', '[{"id":"writer-b"}]'].includes(String(workspacePayload.accountsJson)));
 
   assert.equal(workspaceRevision, 3, 'gravação obsoleta não deve sobrescrever a versão mais nova');
   assert.equal(workspaceUpdateParameters.length, 2);

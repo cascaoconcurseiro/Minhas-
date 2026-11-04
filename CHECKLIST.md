@@ -257,3 +257,7 @@
 - [x] Cobrir `POST /api/workspace`: cria o workspace ausente com revisão 1 e rejeita uma segunda criação com 409 sem substituir o payload existente.
 - [x] Cobrir `POST /api/workspace/migrate`: importa snapshot legado uma vez, registra data de origem, SHA-256 de 64 caracteres e contagens de entidades; tentativa duplicada recebe 409 e preserva o workspace e o único registro de migração.
 - [x] Reexecutar `bun test`: 105 testes passaram em 19 arquivos; `bun run lint` passou. As novas rotas usam identidade Firebase simulada e pool Neon mock, sem alterar Firestore ou Neon remoto.
+
+## Sessão 2026-11-04 — corrida HTTP simultânea de workspace
+- [x] Substituir o teste sequencial por duas requisições autenticadas `PUT /api/workspace` disparadas em `Promise.all`, ambas com `expectedRevision=2` e payloads distintos; exatamente uma retorna 200 e outra 409, revisão final 3.
+- [x] Reexecutar `bun test`: 105 testes passaram em 19 arquivos; `bun run lint` passou. O pool Neon permanece mock; concorrência HTTP real contra Neon continua pendente.
