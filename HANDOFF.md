@@ -1,8 +1,8 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-03
+## Estado atual — 2026-11-04
 
-Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit `7b555dc` está publicado na branch `main`; deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`.
+Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco operacional e Firebase Auth. O commit de código `7b555dc` está publicado na branch `main`; deploy `dpl_994fFbt4qy1TqQPuXPzYSXBUdDj9` está `Ready` e associado ao alias de produção. `/api/health` respondeu 200 com Neon `ok`; repo limpo na ponta `17cc624` (documentação).
 
 ## Trabalho desta rodada
 
@@ -34,7 +34,10 @@ Meta ativa: concluir auditoria funcional ponta a ponta, mantendo Neon como banco
 - A branch QA `br-rough-smoke-b6fhm3lh` foi removida e a listagem confirmou apenas `production`.
 - Corrigi a semântica de restore para backups antigos: campos opcionais ausentes agora usam defaults, em vez de manter silenciosamente metas, membros ou preferências do workspace que está sendo substituído. Os 2 novos testes específicos passaram; suíte completa agora tem 102 testes, lint e build passaram.
 - Publiquei a correção no commit `7b555dc`; CI run `41743298046` e Vercel ficaram `success`/`Ready`. Health de produção confirmou Neon `ok`, e a sessão autenticada recarregada voltou ao estado sincronizado.
+- Reauditei as roles de produção: as duas continuam membros efetivos de `neon_superuser`, com `CREATEROLE`, `CREATEDB`, `REPLICATION` e `BYPASSRLS`; confirmei também em branch QA que a ferramenta Neon nega `REVOKE`/`ALTER ROLE` usando o owner atual. A criação de uma role pela API também a associa ao grupo privilegiado.
+- A role de QA criada por SQL sem senha não pode ser acessada pelo conector; a API Neon de reset de senha recusou essa role. Não alterei privilégios nem credenciais em produção. Branch QA removida; lista confirma somente `production`.
+- Em `2026-11-04T00:02Z`, health de produção ainda era `ok`/Neon `ok`. A execução automática do Cron ainda era futura para `12:15Z`; logs anteriores mostravam somente os health checks manuais desta sessão.
 
 ## Próximo passo concreto
 
-Preparar novamente branch Neon isolada e testar importação UI→API→Neon sem tocar na produção. A primeira verificação automática do cron após o deploy é depois de `2026-11-04T12:15:00Z`. Permanecem abertos falha/retry no navegador, dump/restore independente, segurança de roles, revisão visual pixel-level e os itens de `CHECKLIST.md`.
+Próxima ação temporal: conferir logs do Vercel Cron `/api/health` após `2026-11-04T12:15:00Z`. Em seguida, retomar restore UI→API→Neon em ambiente isolado. Segurança de roles depende de um fluxo Neon com privilégio de membership e gestão segura de credenciais; não mudar a DATABASE_URL de produção até o runtime restrito estar provado. Falta também validar indisponibilidade/retry, dump/restore independente e revisão visual pixel-level; compartilhar entre duas contas foi dispensado pelo usuário.

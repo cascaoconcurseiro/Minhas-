@@ -221,4 +221,12 @@
 - [x] Verificar `GET /api/health` em produção: HTTP 200, `status: ok`, `services.neon: ok`; recarregar a sessão autenticada e confirmar workspace sincronizado com Neon.
 - [ ] Validar importação/releitura completa UI→API→Neon somente em ambiente isolado.
 
+## Sessão 2026-11-04 — auditoria de privilégios Neon
+- [x] Reconsultar os atributos de `minhas_app` e `minhas_daily` em produção: `rolsuper=false`, porém ambas têm `CREATEROLE`, `CREATEDB`, `REPLICATION` e `BYPASSRLS`, além de membership efetivo/inherited em `neon_superuser`.
+- [x] Criar branch temporária QA autorizada e confirmar o modelo de roles: `neon_create_postgres_role` também cria role com privilégios elevados; a membership `neon_superuser` está sem `ADMIN OPTION`.
+- [x] Testar remoção na QA: `REVOKE neon_superuser FROM minhas_app` negado; `ALTER ROLE ... NOBYPASSRLS` pelo `neondb_owner` e pela própria role negado. Role restrita criada por SQL não tem senha administrável pelo reset de password do conector e não aceita login pelo conector sem credencial.
+- [x] Excluir a branch QA e confirmar que só a branch `production` permanece; nenhuma mudança de role foi feita em produção.
+- [ ] Resolver a elevação de privilégios das roles com credencial/fluxo Neon que permita administrar memberships e credenciais sem interromper o app; só então revalidar RLS com o runtime real.
+- [ ] Confirmar a primeira execução automática do Vercel Cron em `2026-11-04T12:15:00Z` ou depois; às `00:03Z` a janela ainda não havia ocorrido.
+
 
