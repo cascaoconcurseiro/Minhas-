@@ -1,12 +1,19 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 00:58 UTC
+## Estado atual — continuação após 2026-11-04 00:58 UTC
 
 Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. A migração de roles está publicada em `08337df`; o deploy `dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s` está Ready no domínio de produção. O smoke às 00:42 UTC confirmou homepage 200, health 200/Neon `ok`, seis APIs protegidas em 401 sem token e bundle sem o Guia Rápido, `tx-demo` ou URL PostgreSQL.
 
 ## Feito nesta sessão
 
+- Ampliei `backend/familyApi.test.ts` com os fluxos locais de criação e listagem de convite, normalização de e-mail, autenticação/verificação, identidade errada, resposta inválida, aceitação, compartilhamento e revogação.
+- Validei `bun test backend/familyApi.test.ts`: 8 passaram; `bun test`: 106 em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o bundle inicial de 566 kB (167 kB gzip).
+- Essa cobertura familiar é de contrato HTTP com identidade Firebase simulada e banco mockado. Não valida o fluxo entre duas contas reais; o usuário dispensou essa validação.
+
+## Feito em sessões anteriores
+
 - Excluí com autorização os 3 convites familiares de demonstração; Neon confirmou zero convites e zero transações compartilhadas. Só a branch `production` permanece.
+- A suíte de workspace já cobre restauração HTTP, criação/importação idempotentes, migração inválida e conflito de gravações simultâneas.
 - Reexecutei `bun test`: 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o bundle inicial de 566 kB.
 - Busca estática confirma chamadas Firestore apenas em `src/lib/legacyFirestoreMigration.ts`, para leitura/migração legada; sem listeners ou gravações rotineiras do workspace no Firestore.
 - Criei [004_restricted_runtime_roles.sql](db/migrations/004_restricted_runtime_roles.sql), que define roles limitadas criadas por SQL (NOLOGIN), grants necessários ao app e CONNECT apenas para a rotina manual diária.
@@ -25,4 +32,4 @@ Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional
 
 ## Próximo passo concreto
 
-Após aprovação da troca de credenciais, aplicar `004_restricted_runtime_roles.sql` em produção, definir senhas seguras sem registrá-las, atualizar Vercel/GitHub, verificar health e os fluxos de workspace/migração, e então desabilitar os logins privilegiados antigos. Em paralelo, verificar o Cron após `12:15 UTC` e retomar restore/recovery autenticados quando BrowserOS estiver conectado.
+Confirmar o disparo automático do Cron depois de `2026-11-04T12:15:00Z`. A substituição de credenciais privilegiadas em produção permanece pendente de aprovação explícita; depois dela, aplicar `004_restricted_runtime_roles.sql`, trocar Vercel/GitHub, validar health e fluxos, e desabilitar os logins antigos. Restore/recovery autenticados e inspeção visual continuam pendentes de sessão BrowserOS; não há `.env` local. Compartilhamento entre duas contas foi dispensado pelo usuário.

@@ -11,7 +11,23 @@ const oldEnv = {
   FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
 };
 
-let invitation = {
+let invitation: {
+  invitation_id?: string;
+  owner_firebase_uid: string;
+  owner_email: string;
+  invited_email: string;
+  invited_firebase_uid: string | null;
+  owner_member_id: string;
+  owner_name?: string;
+  owner_pix_key?: string | null;
+  relationship?: string;
+  color?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+  responded_at?: string | null;
+} = {
+  invitation_id: 'test-invitation',
   owner_firebase_uid: 'owner-uid',
   owner_email: 'owner@example.com',
   invited_email: 'member@example.com',
@@ -21,6 +37,7 @@ let invitation = {
 };
 const shared = new Map<string, unknown>();
 const sqlLog: string[] = [];
+const invitationInsertParameters: unknown[][] = [];
 const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
 let workspaceRevision = 2;
 let workspacePayload: Record<string, unknown> = { accountsJson: '[]' };
@@ -44,10 +61,11 @@ before(async () => {
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     if (String(input).includes('identitytoolkit.googleapis.com')) {
       const authRequest = JSON.parse(String(init?.body || '{}')) as { idToken?: string };
+      const invitedUser = authRequest.idToken === 'invited-user-test-token';
       const otherUser = authRequest.idToken === 'other-user-test-token';
       return new Response(JSON.stringify({ users: [{
-        localId: otherUser ? 'other-uid' : 'owner-uid',
-        email: otherUser ? 'other@example.com' : 'owner@example.com',
+        localId: invitedUser ? 'member-uid' : otherUser ? 'other-uid' : 'owner-uid',
+        email: invitedUser ? 'member@example.com' : otherUser ? 'other@example.com' : 'owner@example.com',
         emailVerified: authRequest.idToken !== 'unverified-test-token',
       }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -86,11 +104,54 @@ before(async () => {
           return { rows: [{ revision: workspaceRevision, updated_at: '2026-11-03T00:01:00.000Z' }], rowCount: 1 };
         }
         if (normalized.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) {
-          return { rows: invitation.status === 'accepted' ? [{ ...invitation }] : [], rowCount: 1 };
+          const rows = invitation.status === 'accepted' ? [{ ...invitation }] : [];
+          return { rows, rowCount: rows.length };
+        }
+        if (normalized.startsWith('SELECT invitation_id, owner_firebase_uid, owner_email, invited_email')) {
+          const userUid = String(params[0]);
+          const userEmail = String(params[1]).toLowerCase();
+          const visible = invitation.owner_firebase_uid === userUid || invitation.invited_email.toLowerCase() === userEmail;
+          return { rows: visible ? [{ ...invitation }] : [], rowCount: visible ? 1 : 0 };
+        }
+        if (normalized.startsWith('INSERT INTO public.finance_family_invitations')) {
+          invitationInsertParameters.push(params);
+          invitation = {
+            invitation_id: String(params[0]),
+            owner_firebase_uid: String(params[1]),
+            owner_email: String(params[2]),
+            invited_email: String(params[3]),
+            invited_firebase_uid: null,
+            owner_member_id: String(params[4]),
+            owner_name: String(params[5]),
+            owner_pix_key: params[6] ? String(params[6]) : null,
+            relationship: String(params[7]),
+            color: String(params[8]),
+            status: 'invited',
+            created_at: '2026-11-04T00:00:00.000Z',
+            updated_at: '2026-11-04T00:00:00.000Z',
+            responded_at: null,
+          };
+          return { rows: [{ ...invitation }], rowCount: 1 };
         }
         if (normalized.startsWith('INSERT INTO public.finance_shared_transactions')) {
           shared.set(String(params[2]), JSON.parse(String(params[3])));
           return { rows: [], rowCount: 1 };
+        }
+        if (normalized.startsWith('UPDATE public.finance_family_invitations') && normalized.includes('SET status = $1')) {
+          const [status, invitedUid, invitationId, invitedEmail] = params.map(String);
+          if (
+            invitation.invitation_id !== invitationId ||
+            invitation.invited_email.toLowerCase() !== invitedEmail.toLowerCase() ||
+            !['invited', 'accepted', 'declined'].includes(invitation.status)
+          ) return { rows: [], rowCount: 0 };
+          invitation = {
+            ...invitation,
+            status,
+            invited_firebase_uid: invitedUid,
+            updated_at: '2026-11-04T00:01:00.000Z',
+            responded_at: '2026-11-04T00:01:00.000Z',
+          };
+          return { rows: [{ ...invitation }], rowCount: 1 };
         }
         if (normalized.startsWith('UPDATE public.finance_family_invitations')) {
           invitation = { ...invitation, status: 'revoked' };
@@ -135,6 +196,13 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
   const unauthenticated = await originalFetch(`${baseUrl}/api/family/shared`);
   assert.equal(unauthenticated.status, 401);
 
+  const unauthenticatedInvite = await originalFetch(`${baseUrl}/api/family/invitations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invitedEmail: 'member@example.com', ownerMemberId: 'member-1' }),
+  });
+  assert.equal(unauthenticatedInvite.status, 401);
+
   const sqlBeforeUnverified = sqlLog.length;
   const unverified = await originalFetch(`${baseUrl}/api/family/shared`, {
     headers: { Authorization: 'Bearer unverified-test-token' },
@@ -143,6 +211,73 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
   assert.equal(sqlLog.length, sqlBeforeUnverified, 'conta sem email verificado não deve consultar tabelas familiares');
 
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const unverifiedInvite = await originalFetch(`${baseUrl}/api/family/invitations`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer unverified-test-token', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invitedEmail: 'member@example.com', ownerMemberId: 'member-1' }),
+  });
+  assert.equal(unverifiedInvite.status, 403);
+  assert.equal(sqlLog.length, sqlBeforeUnverified, 'convite sem email verificado não deve consultar Neon');
+
+  const sqlBeforeInvalidInvite = sqlLog.length;
+  const selfInvite = await originalFetch(`${baseUrl}/api/family/invitations`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ invitedEmail: ' OWNER@example.com ', ownerMemberId: 'member-1' }),
+  });
+  assert.equal(selfInvite.status, 400);
+  assert.equal(sqlLog.length, sqlBeforeInvalidInvite, 'convite para o próprio email deve ser recusado antes do SQL');
+
+  const createInvite = await originalFetch(`${baseUrl}/api/family/invitations`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      invitedEmail: ' Member@Example.com ',
+      ownerMemberId: 'member-1',
+      ownerName: 'Owner Test',
+      relationship: 'parceiro',
+    }),
+  });
+  assert.equal(createInvite.status, 201, await createInvite.clone().text());
+  const createdBody = await createInvite.json() as { invitation: typeof invitation };
+  assert.match(String(createdBody.invitation.invitation_id), /^[a-f0-9]{64}$/);
+  assert.equal(createdBody.invitation.invited_email, 'member@example.com');
+  assert.equal(createdBody.invitation.owner_firebase_uid, 'owner-uid');
+  assert.equal(createdBody.invitation.status, 'invited');
+  assert.equal(invitationInsertParameters.at(-1)?.[3], 'member@example.com');
+
+  const wrongInvitee = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer other-user-test-token', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'accepted' }),
+  });
+  assert.equal(wrongInvitee.status, 404);
+  assert.equal(invitation.status, 'invited', 'outra identidade não pode aceitar o convite');
+
+  const sqlBeforeInvalidResponse = sqlLog.length;
+  const invalidResponse = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer invited-user-test-token', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'admin' }),
+  });
+  assert.equal(invalidResponse.status, 400);
+  assert.equal(sqlLog.length, sqlBeforeInvalidResponse, 'ação de convite inválida deve ser recusada antes do SQL');
+
+  const accepted = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer invited-user-test-token', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'accepted' }),
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal(invitation.status, 'accepted');
+  assert.equal(invitation.invited_firebase_uid, 'member-uid');
+
+  const invitedList = await originalFetch(`${baseUrl}/api/family/invitations`, {
+    headers: { Authorization: 'Bearer invited-user-test-token' },
+  });
+  assert.equal(invitedList.status, 200);
+  assert.equal((await invitedList.json() as { invitations: unknown[] }).invitations.length, 1);
+
   const sync = await originalFetch(`${baseUrl}/api/family/shared`, {
     method: 'PUT',
     headers,

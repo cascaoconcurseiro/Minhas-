@@ -294,3 +294,8 @@
 - [x] Remover branch QA; Neon lista somente `production`.
 - [ ] Com aprovação explícita, criar credenciais e ativar as roles limitadas na produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, testar e desabilitar as roles privilegiadas antigas após sucesso.
 - [x] Publicar a migração e documentação no commit `08337df`; Vercel Ready (`dpl_AWTr5384tMr9W2cJDgt4XPPQnA2s`), CI success, health 200/Neon ok.
+
+## Continuação — fluxo de convites familiares
+- [x] Expandir o teste HTTP local para criação/listagem de convite, normalização de e-mail, recusa de auto convite, bloqueio sem autenticação/e-mail verificado, rejeição por identidade errada, ação inválida, aceitação e revogação com limpeza das transações compartilhadas.
+- [x] Validar `bun test backend/familyApi.test.ts`: 8 testes passaram; suíte completa: 106 testes em 19 arquivos; `bun run lint` e `bun run build` passaram. A API usa Firebase simulado e Neon mockado; isso não comprova aceitação real entre duas contas.
+- [ ] Validar o fluxo autenticado com duas contas reais permanece dispensado pelo usuário; revisar o fluxo com uma segunda conta só se voltar a ser solicitado.
