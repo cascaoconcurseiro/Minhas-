@@ -411,7 +411,7 @@
 - [x] Avaliar Relatórios em viewport 390×844: largura documental 390px, sem overflow horizontal; screenshot revisto. Outros módulos e fluxos mobile ainda precisam de cobertura.
 - [x] Detectar, sem ler nomes/emails, que o payload contém 2 `familyMembers` aceitos cujos convites correspondentes foram excluídos como demonstração.
 - [x] Publicar o tratamento de 404 ao remover convite órfão no commit `71c0fdc`, com deployment Production `Ready`.
-- [x] Remover pela interface os 2 vínculos órfãos da conta aberta e aguardar “Nuvem sincronizada”; verificação agregada no Neon ainda encontra 3 vínculos familiares em outros 2 workspaces demo.
+- [x] Remover pela interface os 2 vínculos órfãos da conta aberta e aguardar “Nuvem sincronizada”; consulta agregada identifica 3 vínculos em outros 2 workspaces: 2 com `invitationId` órfão e 1 sem invitationId.
 - [ ] Completar restore UI→API→Neon com fixture numa branch isolada, sem substituir dados de produção.
 
 ## Restore API→Neon em branch isolada (2026-11-04)
@@ -422,3 +422,12 @@
 - [x] Excluir a branch QA e confirmar que Neon voltou a listar somente `production`; apagar também os arquivos e variáveis locais temporários.
 - [ ] A interface de restauração ainda não foi exercitada ponta a ponta: login Google no `localhost` exibiu “Não foi possível conectar com o Google”; nenhuma escrita ocorreu em produção. Criar Preview com Firebase autorizado ou obter sessão autenticada de QA para fechar esse teste.
 - [ ] CI `41877421967` do commit `71c0fdc` estava `queued` na última consulta (17:40 UTC); confirmar conclusão.
+
+## CRUD real pela interface autenticada (2026-11-04)
+- [x] Criar pela interface o cartão temporário `QA Cartão Temporário 20261104`; estado sincronizado, recarga confirmou persistência, e exclusão seguida de recarga voltou ao estado sem cartões.
+- [x] Criar conta temporária e despesa sintética pela interface; status Neon sincronizado, recarga confirmou a despesa; excluir a despesa e a conta pela interface.
+- [x] Consulta agregada final no Neon confirmou, nos 3 workspaces de produção, zero contas, cartões, lançamentos, metas, investimentos e viagens; zero linha do identificador de cartão QA.
+- [x] A mesma UI de produção exibiu estado vazio após recarga, sem o cartão/conta de QA, e status “Nuvem sincronizada”.
+- [ ] Os demais módulos não tiveram CRUD completo testado; o inventário encontrou quase nenhum teste React/Browser, sem Playwright/Cypress configurado. O erro de cartão relatado não se reproduziu no create→reload→delete desta sessão.
+- [ ] Os outros 3 links demo não pertencem à identidade autenticada; API/UI restringe mutações ao UID do titular. Não há segundo login fornecido, e nenhuma alteração administrativa privilegiada foi feita.
+- [ ] Corrigir registro antigo do CI: `41877421967` terminou em sucesso após a consulta de 17:40 UTC; o CI do commit documental `fab6de6` é `41879557461`, com lint/testes/build completos e sucesso, aguardando conclusão final do workflow na última consulta.

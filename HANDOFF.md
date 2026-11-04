@@ -1,42 +1,43 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 17:40 UTC
+## Estado — 2026-11-04 17:49 UTC
 
-Meta permanece ativa: concluir auditoria requisito a requisito e deixar o sistema funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth como identidade. A migration 005 está aplicada em `production`; o deployment Production mais recente do commit `71c0fdc` está `Ready`. O alias principal respondeu `/api/health` 200 com Neon `ok`; `/api/workspace` sem autenticação respondeu 401. O CI `41877421967` ainda estava `queued` na última consulta.
+Meta ainda ativa: auditoria requisito a requisito e funcionalidade completa de ponta a ponta, usando Neon para dados e Firebase Auth para identidade. Migration 005 aplicada em `production`. O código atual do commit `71c0fdc` está em Production `Ready` (`dpl_3NjsCFT49Shuq4iuEj2G3Gn8qrsy`, alias `minhaseconomias-blue.vercel.app`). Os documentos do commit `fab6de6` também foram publicados; deployment `dpl_T7VpLhtHqocGpYBmJdpf4cbLe1aj` está `Ready`. CI `41879557461` executou lint, suíte completa e build com sucesso; o workflow ainda constava `in_progress` na checagem final.
 
 ## Feito nesta continuação
 
-- A branch Neon `qa-restore-e2e-2026-11-04` foi criada, usada com a role `minhas_app_runtime` e descartada após o ensaio.
-- No backend real apontado à branch QA, validei workspace ausente 404, criação inicial 201, gravação de fixture 200 e releitura 200 na revisão 2. A identidade retornou canonicalizada por UID Firebase. O teste usou identidade sintética injetada localmente e fixture sem dados pessoais.
-- Consulta agregada confirmou a fixture e o marcador de restauração na branch isolada; o UID sintético não tinha linha em produção. A produção manteve 3 workspaces e zero contas, cartões ou lançamentos.
-- A branch QA foi excluída e Neon lista apenas `production`. Arquivos e variáveis locais temporários foram removidos.
-- O tratamento de convite órfão foi publicado em `71c0fdc`. A conta autenticada usada no navegador teve seus dois vínculos demo removidos pela interface e indicou sincronização. Ainda há 3 vínculos familiares em outros dois workspaces demo segundo contagem agregada; a limpeza total de todos os workspaces não está concluída.
-- Tentei abrir a interface local para completar UI→API→Neon. O login Google no `localhost` mostrou “Não foi possível conectar com o Google”; interrompi o caminho sem pedir senha, sem copiar token da produção e sem escrever em produção. Portanto, o teste real desta continuação cobre API→Neon, não a restauração completa pelo navegador.
-- O alias de produção foi reconsultado às 17:40 UTC: health 200/Neon ok, workspace sem token 401. A checagem não leu dados financeiros identificáveis.
+- Restore de API real→Neon foi validado em branch descartável com `minhas_app_runtime`: GET vazio 404, criação 201, atualização 200 e leitura 200 na revisão 2. Token Firebase foi simulado localmente e a branch continha fixture sintética; isto não é restore completo pela UI com Firebase real.
+- Confirmei contagens agregadas de QA, que o UID sintético não existe em produção, excluí a branch e confirmei que Neon voltou a listar apenas `production`.
+- No site de produção autenticado, criei o cartão `QA Cartão Temporário 20261104`, recarreguei e confirmei persistência, depois o excluí e recarreguei. O app voltou ao estado sem cartão, com a nuvem sincronizada.
+- Também criei conta e despesa temporárias, confirmei a despesa após recarregar, excluí a despesa e a conta pela interface. Nova recarga confirmou o estado vazio.
+- Consulta agregada ao Neon confirmou que os três workspaces de produção continuam com zero contas, cartões, lançamentos, metas, investimentos e viagens; nenhum dado financeiro pessoal foi consultado.
+- O erro relatado ao criar cartão não se reproduziu no create→reload→delete de produção. O inventário dos agentes encontrou dez módulos principais e quase nenhum teste React/browser; a suíte existente cobre sobretudo regras e API, sem Playwright/Cypress/Testing Library.
+- Os dois vínculos familiares órfãos da conta autenticada aberta foram removidos pela UI e a tela mostrou sincronização. Os 3 vínculos restantes estão em outros 2 workspaces: 2 com `invitationId` sem linha correspondente em invitations e 1 sem invitationId. A API/UI não pode alterar esses titulares sem o UID autenticado deles; não fiz update SQL privilegiado. A segunda conta para testar compartilhamento foi dispensada pelo usuário.
+- Login Google no `localhost` falhou com mensagem genérica. Não se concluiu se o domínio localhost não está autorizado ou se a configuração OAuth tem outro problema. A sessão do domínio de produção continuou funcionando; nenhum token foi copiado/reutilizado.
+- O alias principal respondeu health 200/Neon ok e workspace sem token 401. Firebase/OAuth real na origem QA ainda não foi configurado/testado.
 
-## Evidências já existentes
+## Evidências anteriores válidas
 
-- `bun run test`: 112 testes em 21 arquivos; `bun run lint` e `bun run build` passaram na última execução registrada. O build alerta para chunk inicial de cerca de 566 kB (~168 kB gzip).
-- Testes automatizados de API cobrem identidade isolada, concorrência, falha DB→503, persistência e readback com Postgres simulado. O ensaio desta continuação acrescenta persistência/readback numa branch Neon real, ainda com verificação Firebase simulada.
-- Exportação completa v5 foi baixada e conferida no navegador: 12 campos esperados, nenhum ausente.
-- Tela Relatórios observada em 390×844 sem overflow horizontal; overview observada em desktop. Isso não cobre visualmente todos os módulos e fluxos.
-- CI anteriores e deployments ficaram verdes/Ready. A última execução do CI, `41877421967` para `71c0fdc`, continuava na fila.
+- `bun run test`: 112 testes/21 arquivos; `bun run lint` e `bun run build` passaram. Build continua alertando para chunk inicial de cerca de 566 kB (~168 kB gzip).
+- Backup completo v5 baixado na sessão autenticada: 12 campos esperados e nenhum ausente. Export foi corrigido para usar o mesmo contrato completo do restaurador.
+- Mobile: somente Relatórios foi verificado em 390×844, sem overflow horizontal; desktop: Overview observada. Isso não comprova responsividade nem aparência de todos os módulos.
+- Segurança: RLS forçado nas tabelas financeiras; roles app e diária revisadas sem privilégios elevados. Migração e identificadores estáveis por UID Firebase validados.
+- O Cron Vercel está configurado em `vercel.json` como `/api/health`, `15 12 * * *`; só a execução automática de 2026-11-05 comprovará o requisito diário.
 
 ## Pendências e limites
 
-- Confirmar o CI `41877421967` e investigar a fila se continuar sem iniciar.
-- Completar restore pela UI autenticada até Neon em QA com fixture sintética; é necessária uma origem Firebase autorizada e uma sessão válida nessa origem.
-- Percorrer todos os módulos em desktop e mobile, testar CRUD e confirmar persistência/releitura no Neon; cartão e formulário de lançamento foram apenas abertos e validados contra envio vazio anteriormente.
-- Reconciliar os 3 vínculos familiares restantes nos outros workspaces demo; a segunda conta para teste de compartilhamento foi dispensada pelo usuário.
-- Comprovar execução automática do Cron Vercel em 2026-11-05, janela `12:15–13:14:59 UTC`; `vercel.json` agenda `/api/health` diariamente às 12:15 UTC.
-- SMTP/Gemini e outros serviços externos não têm validação ponta a ponta configurada; `/api/health` informa Gemini não configurado.
+- Completar restore pela UI autenticada até Neon em branch QA, sem trocar o workspace de produção.
+- Testar os módulos de Orçamentos, Viagens, Compartilhado, Investimentos, Metas e Relatórios além dos fluxos exercitados; obter cobertura visual desktop e mobile abrangente.
+- Confirmar o fim do workflow CI `41879557461` (passos de lint/test/build já concluíram em sucesso).
+- Os 3 vínculos demo em outros workspaces só podem ser removidos por seus titulares usando UI/API, ou por manutenção administrativa explicitamente autorizada; nenhum desses caminhos ocorreu.
+- Verificar a execução automática do Cron na janela de 2026-11-05 `12:15–13:14:59 UTC`.
+- Gemini não está configurado; SMTP e integrações externas não foram testados ponta a ponta.
 
 ## Próximo passo concreto
 
-Consultar novamente `gh run view 41877421967 --json status,conclusion,jobs,url`; depois preparar um Preview isolado apontado a uma nova branch Neon QA e incluir o domínio Preview na configuração de autenticação Firebase se ainda não estiver autorizado. Só então validar a importação do fixture pela interface, aguardar sincronização e confirmar readback agregado antes de remover variáveis Preview e branch.
+Consultar novamente `gh run view 41879557461 --json status,conclusion,jobs` e conferir a página Authentication → Settings do projeto Firebase `gen-lang-client-0890983411` em modo somente leitura para identificar domínios autorizados. Depois, se o Preview puder autenticar, repetir o restore UI→Neon em nova branch QA e removê-la após o readback.
 
 ## Bloqueios
 
-- A sessão autenticada atual é do domínio de produção e não foi reutilizável no `localhost`; não copiar nem reaproveitar token de produção para este teste.
-- CI `41877421967` estava na fila na consulta mais recente.
-- Cron diário ainda aguarda a próxima execução automática.
+- A UI de produção está autenticada, mas a sessão é específica daquele domínio; a tentativa local de Google login falhou. Ainda não há Firebase auth confirmado em `localhost` nem em Preview.
+- O Cron diário aguarda o primeiro evento automático seguinte.
