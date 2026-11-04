@@ -2,7 +2,7 @@
 
 ## Estado atual — 2026-11-04 16:03 UTC
 
-Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Docs publicados em `main` no commit `6616528`. Deploy Vercel correspondente `dpl_DpQ7b45EUdJ1uLwd6Z6ADtaU7Q3x` está Ready; último health em produção respondeu HTTP 200/Neon `ok` às `16:02:58Z`. GitHub CI `41863242008` e run anterior `41862988415` permanecem queued.
+Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persistência e Firebase Auth como identidade. Workflow atualizado no commit `0931366` e sincronizado com `origin/main`. Deploy do commit documental anterior `dpl_DpQ7b45EUdJ1uLwd6Z6ADtaU7Q3x` está Ready; último health em produção respondeu HTTP 200/Neon `ok` às `16:02:58Z`. CI da revisão atual `41864046383` e as duas runs anteriores permanecem queued.
 
 ## Feito nesta sessão
 
@@ -23,5 +23,5 @@ Meta ativa: concluir a validação ponta a ponta do sistema com Neon como persis
 
 ## Próximo passo concreto
 
-Validar e publicar o ajuste do CI para executar a suíte completa; aguardar resultado terminal de `41863242008` e da nova execução no commit de correção. Confirmar deploy e health. Depois buscar evidência do Cron automático em próxima janela. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
+Validar a alteração de menor privilégio do CI, acompanhar a run `41864046383`, confirmar o deploy do commit atual e health. Depois buscar evidência do Cron automático em próxima janela. Para restore autenticado e revisão pixel-level, reconectar BrowserOS com sessão e permissões disponíveis.
 
