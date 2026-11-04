@@ -1,35 +1,28 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-04 00:42 UTC
+## Estado atual — 2026-11-04 00:55 UTC
 
-Meta ativa: tornar o sistema confiável e funcional de ponta a ponta, com Neon como banco operacional e Firebase Auth para identidade. A validação está avançada, mas não concluída. `main` está no commit `ca998e0`; o deploy `dpl_GmyxgmanJzHYHnD9PA3QJeeiuwSt` está Ready no domínio principal. Hoje às 00:35 UTC, `/api/health` respondeu HTTP 200, ambiente `production`, Neon `ok`; Gemini e busca FX ao vivo não estão configurados, Google Finance está disponível.
+Meta ativa: concluir a validação ponta a ponta com Neon como banco operacional e Firebase Auth para identidade. `main` está em `fdb7eca`; o deploy `dpl_5r9VsLfvpaYwXweNysT1U9RzK4aA` está Ready no domínio de produção. O smoke às 00:42 UTC confirmou homepage 200, health 200/Neon `ok`, seis APIs protegidas em 401 sem token e bundle sem o Guia Rápido, `tx-demo` ou URL PostgreSQL.
 
-## Feito nesta continuação
+## Feito nesta sessão
 
-- O usuário confirmou que os três convites familiares eram demonstração e autorizou apagar todos. O Neon confirmou `deleted_count = 3`; consulta agregada posterior confirmou 0 convites e 0 lançamentos compartilhados.
-- Reconfirmei em produção: somente a branch `production` existe; workspace agregado permanece sem contas, cartões e lançamentos de demonstração, conforme decisões anteriores do usuário.
-- Smoke atual do site: `/api/health` 200; Neon ok.
-- Nesta continuação reexecutei `bun test`: 106 passaram, 0 falharam, em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o chunk inicial de 566 kB. Cobertura nova inclui roundtrip de payload, inicialização e importação idempotentes, entradas inválidas rejeitadas antes do SQL e duas requisições HTTP concorrentes com a mesma revisão (mock de Firebase/Neon).
-- As mudanças de teste foram publicadas em `e447706`, `4722e1a` e `848bcca`; o último deploy Ready conhecido é `dpl_FE6ys2bk2cFe8LhPMEL5mwJdyCPb`.
+- Excluí com autorização os 3 convites familiares de demonstração; Neon confirmou zero convites e zero transações compartilhadas. Só a branch `production` permanece.
+- Reexecutei `bun test`: 106 passaram em 19 arquivos; `bun run lint` e `bun run build` passaram. O build ainda avisa sobre o bundle inicial de 566 kB.
+- Busca estática confirma chamadas Firestore apenas em `src/lib/legacyFirestoreMigration.ts`, para leitura/migração legada; sem listeners ou gravações rotineiras do workspace no Firestore.
+- Criei [004_restricted_runtime_roles.sql](db/migrations/004_restricted_runtime_roles.sql), que define roles limitadas criadas por SQL (NOLOGIN), grants necessários ao app e CONNECT apenas para a rotina manual diária.
+- Em branch Neon QA, executei o bloco de criação e os grants da migração e conferi a matriz de permissões: sem associação a `neon_superuser`, `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, `REPLICATION` ou DDL; privilégios de DML restritos por tabela.
+- Testei uma role limitada de QA com conexão real via `pg`: `current_user` foi a role limitada; ela leu só o workspace de UID teste, atualizou o próprio workspace, não atualizou o workspace de outro UID e inseriu um recibo com sequence identity. A transação foi revertida.
+- Removi as branches QA e confirmei a listagem contendo somente `production`. Nenhum segredo ou role de produção foi alterado nesta rodada.
 
 ## Pendências e limites
 
-- Cron Vercel `/api/health` está configurado em `15 12 * * *` UTC (09:15 São Paulo). A primeira execução automática de hoje ainda precisa ser confirmada após 12:15 UTC; chamada manual não serve como prova.
-- Restore/importação ainda não foram percorridos autenticados de UI até Neon em branch QA; não há `.env` local e BrowserOS não está disponível para controlar a sessão autenticada. Compartilhamento entre duas contas foi dispensado pelo usuário.
-- Concorrência e falha/retry foram exercitadas com pool mock na API. A corrida SQL real Neon ocorreu anteriormente em branch QA, removida depois; falta aceitação autenticada por API. A tela de retry após indisponibilidade ainda não foi validada.
-- Dump portátil e restauração independente ainda não foram demonstrados.
-- `minhas_app` e `minhas_daily` mantêm membership em `neon_superuser` e privilégios elevados (`BYPASSRLS`, `CREATEROLE`, `CREATEDB`, `REPLICATION`). O acesso atual não permitiu revogá-los; nenhuma mudança foi feita em produção.
-- Revisão visual pixel-level segue pendente porque a captura BrowserOS falhou. SMTP real e Gemini não estão configurados.
-- Endpoint Neon informa `suspend_timeout_seconds: 0`, que usa o padrão de 300 segundos. O plano Free não permite desabilitar autosuspend; o Cron diário faz uma consulta e o compute pode voltar a suspender após inatividade. Não alterei a configuração. Ainda falta comprovar a execução agendada real. Veja https://neon.com/docs/introduction/scale-to-zero.
-- Busca estática atual: as chamadas do SDK Firestore aparecem apenas em `src/lib/legacyFirestoreMigration.ts` para migração legada; não encontrei listeners ou gravações de rotina no workspace. Dados de sessão/cópia local continuam em `localStorage`.
+- Roles `minhas_app` e `minhas_daily` de produção ainda herdam `neon_superuser`. A migração está pronta e ensaiada em QA, mas falta ativar as credenciais limitadas na produção: criar/definir senhas fora do Git, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, validar health/fluxos e só então desativar os logins antigos. Manter rollback possível durante o corte.
+- A mudança de credenciais na produção é externa e de alto impacto; executar após aprovação explícita do usuário. Nunca registrar senhas em arquivos ou mensagens.
+- Cron Vercel `/api/health` está agendado para `15 12 * * *` UTC (09:15 São Paulo). Confirmar a primeira execução automática após `2026-11-04T12:15:00Z`; execução manual não prova o agendamento.
+- Restore/importação autenticados de UI até Neon e recovery após indisponibilidade continuam sem prova. BrowserOS não está conectado às ferramentas e não há `.env` local.
+- Corrida simultânea por API foi validada com pool mock; corrida real SQL ocorreu em QA anterior, mas não por API autenticada. Backup portátil/restore independente e inspeção pixel-level desktop/mobile seguem pendentes. Compartilhamento entre duas contas foi dispensado pelo usuário; SMTP/Gemini não estão configurados.
+- No Neon Free, `suspend_timeout_seconds: 0` usa o padrão de 300 segundos e não é possível desativar o autosuspend. A chamada diária do Cron ativa o banco para a consulta e depois ele pode suspender novamente: https://neon.com/docs/introduction/scale-to-zero.
 
 ## Próximo passo concreto
 
-Após `2026-11-04T12:15:00Z`, conferir a execução automática do Cron nos logs da Vercel e consultar novamente `/api/health`. Depois, retomar restore/importação e recovery autenticados em ambiente isolado assim que houver sessão BrowserOS utilizável. Manter a meta aberta até fechar essas evidências ou registrar um limite externo que não possa ser resolvido.
-
-## Smoke de produção em 00:42 UTC
-
-- Homepage HTTP 200; /api/health status 200 com Neon ok.
-- Seis rotas protegidas (workspace, família, FX, investimentos, lembretes) retornaram 401 sem token.
-- Bundle principal publicado não contém Guia Rápido, 	x-demo ou URL postgres://.
-- Esta é validação HTTP e de bundle; não prova UI autenticada, pixels, restore, ou cron agendado.
+Após aprovação da troca de credenciais, aplicar `004_restricted_runtime_roles.sql` em produção, definir senhas seguras sem registrá-las, atualizar Vercel/GitHub, verificar health e os fluxos de workspace/migração, e então desabilitar os logins privilegiados antigos. Em paralelo, verificar o Cron após `12:15 UTC` e retomar restore/recovery autenticados quando BrowserOS estiver conectado.

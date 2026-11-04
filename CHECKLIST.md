@@ -285,3 +285,11 @@
 ## Continuação — smoke de produção
 - [x] Após o deploy Ready, confirmar homepage 200, health 200/Neon ok e seis endpoints protegidos respondendo 401 sem token.
 - [x] Conferir bundle principal de produção: Guia Rápido ausente, sem marcador `tx-demo` e sem URL PostgreSQL.
+
+## Sessão 2026-11-04 — roles limitadas Neon
+- [x] Consultar documentação oficial Neon: roles criadas por Console/API herdam `neon_superuser`; roles com privilégios mínimos devem ser criadas via SQL.
+- [x] Adicionar `db/migrations/004_restricted_runtime_roles.sql`: role de app com DML necessário por tabela e role da rotina diária com CONNECT apenas; ambas NOLOGIN e sem permissões administrativas.
+- [x] Aplicar bloco DO e GRANTs equivalentes em branch QA; verificar atributos e permissões efetivas.
+- [x] Conectar via cliente `pg` como role SQL restrita em QA; confirmar RLS (1 linha própria visível, update próprio 1, estrangeiro 0) e inserção do recibo de migração; rollback da transação.
+- [x] Remover branch QA; Neon lista somente `production`.
+- [ ] Com aprovação explícita, criar credenciais e ativar as roles limitadas na produção, atualizar Vercel `DATABASE_URL` e GitHub `NEON_DATABASE_URL`, testar e desabilitar as roles privilegiadas antigas após sucesso.
