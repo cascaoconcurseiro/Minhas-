@@ -10,7 +10,7 @@
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
 - [x] Publicar Neon como persistência exclusiva em `bdaf318` e remover o adaptador de rota Vercel `api/workspace/migrate.ts` em `88f0824`; CI `42305119471` e deploy `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` Ready. A função de migração não aparece no deployment; `/api/workspace/migrate` retorna 404, `/api/workspace` sem token retorna 401 e `/api/health` retorna 200/Neon ok.
 - [x] Corrigir comentário legado no parser OFX e confirmar que `src`, `backend`, `shared` e `api` não importam SDK nem fazem consultas Firestore; referências restantes apenas explicam Firebase Auth e as regras deny-all.
-- [ ] Manter Firebase Auth apenas como identidade; testar cadastro/login real. Email/Password está habilitado, Google segue habilitado enquanto as 3 identidades Google-only não tiverem um caminho de conversão.
+- [ ] Manter Firebase Auth apenas como identidade e testar cadastro/login real por e-mail/senha; a UI não oferece OAuth Google, e a configuração dos provedores no Console não foi verificada nesta sessão.
 - [ ] Confirmar execução automática do Vercel Cron `15 12 * * *`; consulta dos logs em 2026-11-06 22:25 UTC encontrou apenas chamadas manuais a `/api/health`.
 - [ ] Revisar visualmente os fluxos completos em desktop e mobile; a tela de login foi observada em desktop, mas a inspeção responsiva foi interrompida pelo controle do Brave.
 
@@ -21,11 +21,19 @@
 - [x] Adicionar quatro testes de mapeamento de erros Firebase; suíte total 120/120 em 22 arquivos, lint e build aprovados.
 - [x] Habilitar workflow diário GitHub `SELECT 1` para 12:23 UTC; CI do commit `3a611de` passou e execução manual `42275346060` passou.
 - [x] Habilitar Email/Password no Console Firebase.
-- [ ] Resolver a transição das 3 identidades Google-only sem bloqueá-las; cadastro/login real ainda não foi validado.
+- [x] Manter e-mail/senha como único fluxo de acesso oferecido pela UI, conforme decisão do usuário de que Google não é necessário; cadastro/login real ainda não foi validado.
 - [ ] Recriar branch QA e validar cadastro/login real, CRUD e restore UI→API→Neon.
 - [ ] Observar evento automático GitHub `schedule` na janela 7/nov às 12:23 UTC; logs da Vercel ainda não comprovam a agenda diária de 12:15 UTC.
 - [x] Encerrar tentativa atual sem dados gravados: servidor local parado, `.env` temporário removido e branch QA apagada; Neon lista somente `production`.
 - [ ] Cobrir os fluxos funcionais, segurança, backup/restore, concorrência, indisponibilidade e layouts desktop/mobile ainda pendentes.
+
+## Continuação 2026-11-06 — recuperação de sync e mensagens de autenticação
+- [x] Unificar os erros da aba Autenticação e nuvem com o mapeador testado de erros Firebase e remover mensagens que afirmavam sincronização antes da carga Neon.
+- [x] Remover comentário obsoleto sobre Cloud Vault e confirmar que os seeds de contas, cartões, lançamentos, metas, investimentos, viagens e membros familiares são vazios; categorias iniciais são defaults do produto.
+- [x] Implementar até oito novas tentativas com backoff para falhas transitórias ao salvar no Neon, usar sempre o último payload, tentar imediatamente no evento `online`, cancelar em troca de usuário e não repetir conflitos 409.
+- [x] Adicionar testes de classificação: erros de rede/408/429/5xx repetem; erros de autenticação/validação/conflito não repetem. Suíte 121/121, `bun run lint`, `bun run build` e `git diff --check` passaram.
+- [ ] Validar o retry com pane real UI→API→Neon em ambiente isolado; implementação e política unitária não equivalem a ensaio runtime.
+- [ ] A exportação JSON do workspace não inclui as tabelas relacionais `finance_family_invitations` e `finance_shared_transactions`; decidir/documentar backup e restore desses vínculos sem reimportar convites/compartilhamentos para outro UID.
 
 ## Incidente pós-deploy — 2026-11-06
 - [x] Capturar o 500 de `/api/health` após `af357d3` e identificar `ERR_MODULE_NOT_FOUND` em import local ESM.

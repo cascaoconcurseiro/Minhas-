@@ -86,6 +86,7 @@ import {
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
 import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
+import { isRetryableWorkspaceSaveError } from './utils/workspaceSyncRecovery';
 const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
 const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
 const InvestmentsTab = lazy(() => import('./components/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
@@ -279,8 +280,14 @@ export default function App() {
   const neonWorkspaceRevisionRef = useRef<number | null>(null);
   const neonSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const workspaceConflictRef = useRef<WorkspaceConflictState | null>(null);
+  const latestNeonPayloadRef = useRef<Record<string, unknown> | null>(null);
+  const saveRetryTimerRef = useRef<number | null>(null);
+  const saveRetryCountRef = useRef(0);
+  const saveRetryPendingRef = useRef(false);
+  const saveRetryUidRef = useRef<string | null>(null);
+  const scheduleSaveRetryRef = useRef<(delayMs?: number) => void>(() => {});
 
-  // Persisted User Auth Session (Supports Firebase Auth + Cloud Vault Session Login/Logout)
+  // Persisted session state; Firebase Auth provides identity while Neon stores the workspace.
   const [authSession, setAuthSession] = useState<{
     isLoggedIn: boolean;
     email: string;
@@ -631,6 +638,90 @@ export default function App() {
     return queuedSave;
   };
 
+  const cancelSaveRetry = (resetAttempts = false) => {
+    if (saveRetryTimerRef.current !== null) {
+      window.clearTimeout(saveRetryTimerRef.current);
+      saveRetryTimerRef.current = null;
+    }
+    saveRetryPendingRef.current = false;
+    saveRetryUidRef.current = null;
+    if (resetAttempts) saveRetryCountRef.current = 0;
+  };
+
+  const persistNeonWorkspacePayload = async (
+    payload: Record<string, unknown>,
+    showResultNotice = false
+  ) => {
+    latestNeonPayloadRef.current = payload;
+    const firebaseUid = auth.currentUser?.uid;
+    setCloudSyncStatus('syncing');
+    try {
+      await queueNeonWorkspaceSave(payload);
+      cancelSaveRetry(true);
+      setCloudSyncStatus('synced');
+      setLastSyncedAt(
+        typeof payload.updatedAt === 'string' ? payload.updatedAt : new Date().toISOString()
+      );
+      if (showResultNotice) {
+        showNotice('Sincronização em nuvem concluída agora!', undefined, true);
+      }
+    } catch (error) {
+      setCloudSyncStatus('error');
+      console.error(
+        'Falha ao salvar workspace no Neon; alterações locais foram mantidas.',
+        error instanceof Error ? error.message : String(error)
+      );
+
+      const canRetry =
+        isRetryableWorkspaceSaveError(error) &&
+        firebaseUid &&
+        !workspaceConflictRef.current;
+      if (canRetry) {
+        saveRetryPendingRef.current = true;
+        saveRetryUidRef.current = firebaseUid;
+        if (saveRetryCountRef.current < 8) {
+          const attempt = saveRetryCountRef.current++;
+          const delayMs = Math.min(1000 * 2 ** attempt, 30_000);
+          scheduleSaveRetryRef.current(delayMs);
+        }
+      } else {
+        cancelSaveRetry();
+      }
+
+      if (showResultNotice) {
+        showNotice(
+          'Não foi possível concluir a sincronização. Seus dados locais foram preservados; tente novamente.',
+          undefined,
+          true
+        );
+      }
+    }
+  };
+
+  scheduleSaveRetryRef.current = (delayMs = 0) => {
+    if (saveRetryTimerRef.current !== null) {
+      window.clearTimeout(saveRetryTimerRef.current);
+    }
+    saveRetryTimerRef.current = window.setTimeout(() => {
+      saveRetryTimerRef.current = null;
+      const latestPayload = latestNeonPayloadRef.current;
+      const currentUid = auth.currentUser?.uid;
+      if (
+        !saveRetryPendingRef.current ||
+        !navigator.onLine ||
+        !latestPayload ||
+        !hasLoadedRemoteOnceRef.current ||
+        workspaceConflictRef.current ||
+        !currentUid ||
+        currentUid !== saveRetryUidRef.current
+      ) {
+        return;
+      }
+      saveRetryPendingRef.current = false;
+      void persistNeonWorkspacePayload(latestPayload);
+    }, delayMs);
+  };
+
   const handleKeepLocalWorkspaceVersion = async () => {
     const conflict = workspaceConflictRef.current;
     if (!conflict || isResolvingWorkspaceConflict) return;
@@ -887,6 +978,22 @@ export default function App() {
     return () => window.removeEventListener('online', retryWhenOnline);
   }, [workspaceLoadState]);
 
+  useEffect(() => {
+    cancelSaveRetry(true);
+    latestNeonPayloadRef.current = null;
+  }, [currentUser?.uid]);
+
+  useEffect(() => {
+    if (!isAuthReady || !isUserAuthenticated) return;
+    const retryAfterReconnect = () => {
+      if (saveRetryPendingRef.current && !workspaceConflictRef.current) {
+        scheduleSaveRetryRef.current(0);
+      }
+    };
+    window.addEventListener('online', retryAfterReconnect);
+    return () => window.removeEventListener('online', retryAfterReconnect);
+  }, [isAuthReady, isUserAuthenticated]);
+
   // Poll Neon for family invitations and incoming shared expenses while the app is open.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
@@ -1016,24 +1123,10 @@ export default function App() {
       !isApplyingRemoteSnapshotRef.current
     ) {
       const docId = autoVaultId;
-
-      setCloudSyncStatus('syncing');
+      cancelSaveRetry(true);
       const timer = setTimeout(() => {
         const payload = buildCloudPayload(docId);
-        void (async () => {
-          try {
-            await queueNeonWorkspaceSave(payload);
-          } catch (error) {
-            console.error(
-              'Falha ao salvar workspace no Neon; alterações locais foram mantidas.',
-              error instanceof Error ? error.message : String(error)
-            );
-            setCloudSyncStatus('error');
-            return;
-          }
-          setCloudSyncStatus('synced');
-          setLastSyncedAt(payload.updatedAt);
-        })();
+        void persistNeonWorkspacePayload(payload);
       }, 420);
       return () => clearTimeout(timer);
     }
@@ -1056,25 +1149,7 @@ export default function App() {
 
   const handleForceCloudSync = async () => {
     const docId = autoVaultId;
-    setCloudSyncStatus('syncing');
-    try {
-      const payload = buildCloudPayload(docId);
-      await queueNeonWorkspaceSave(payload);
-      setCloudSyncStatus('synced');
-      setLastSyncedAt(payload.updatedAt);
-      showNotice('Sincronização em nuvem concluída agora!', undefined, true);
-    } catch (error) {
-      setCloudSyncStatus('error');
-      console.error(
-        'Falha na sincronização manual com Neon.',
-        error instanceof Error ? error.message : String(error)
-      );
-      showNotice(
-        'Não foi possível concluir a sincronização. Seus dados locais foram preservados; tente novamente.',
-        undefined,
-        true
-      );
-    }
+    await persistNeonWorkspacePayload(buildCloudPayload(docId), true);
   };
 
   const handleSignInEmail = async (email: string, pass: string) => {

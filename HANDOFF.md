@@ -10,15 +10,17 @@ No Neon production, uma consulta agregada após limpar o cartão temporário de 
 
 Publicado em `main` no commit `bdaf318` (`fix: make Neon the only financial data store`). CI GitHub `42304154567` passou. Deployment Vercel `dpl_DYGLyJ3kvBn4YeGYVeiG79ZVxw97` ficou Ready com alias `minhaseconomias-blue.vercel.app`. Pós-deploy: `/api/health` respondeu `status=ok` e `Neon=ok`; `/api/workspace` sem token respondeu 401; o bundle principal publicado (`index-DOQJihoW.js`) não contém `getFirestore`, `cloud_vaults`, a rota de migração nem endpoint do Firestore. Localmente `bun test` passou 119/119, `bun run lint`, `bun run build` e `git diff --check` passaram. Build mantém aviso de chunk principal acima de 500 kB.
 
-Autenticação: Email/Password foi habilitado no Console Firebase. Google continua habilitado porque as três identidades existentes são Google-only e desabilitá-lo sem conversão as bloquearia. O cadastro Firebase ainda não foi validado ponta a ponta.
+Autenticação: a UI oferece e-mail/senha via Firebase Auth e não oferece OAuth Google, conforme a decisão do usuário de que Google não é necessário. O estado dos provedores no Console Firebase não foi verificado nesta sessão. O cadastro/login real ainda não foi validado ponta a ponta.
 
 Atividade diária: workflow GitHub `neon-daily-activity.yml` teve execução manual bem-sucedida com `SELECT 1`; falta confirmar o primeiro evento automático previsto para 2026-11-07 12:23 UTC. O Vercel Cron diário `/api/health` continua listado em `15 12 * * *`; a consulta dos logs de produção às 2026-11-06 22:25 UTC retornou apenas chamadas manuais recentes e nenhuma execução programada identificável. A próxima ação é confirmar o evento automático do GitHub na janela de 7/nov e reavaliar o cron Vercel.
 
-Próximo passo concreto: validar cadastro/login real e restore autenticado UI→API→Neon; depois confirmar a execução automática diária na janela prevista de 2026-11-07 12:23 UTC.
+Nesta continuação, corrigi a aba “Autenticação e nuvem” para usar o mapeador de erros Firebase e retirar a afirmação prematura de sincronização. Também removi comentário obsoleto de Cloud Vault. A auditoria confirmou que as listas iniciais de dados financeiros são vazias, com categorias-base como defaults do produto. O fluxo de persistência agora agenda até oito novas tentativas com backoff para falhas de rede/408/429/5xx, lê sempre o payload mais recente, tenta no evento `online`, limpa a fila ao trocar de UID e deixa conflitos 409 para a resolução existente. Adicionei testes da classificação de erros; suíte local 121/121, `bun run lint`, `bun run build` e `git diff --check` passaram. O build ainda alerta que o bundle principal tem cerca de 566 kB. A recuperação foi verificada por testes da política e compilação, mas ainda não por uma pane runtime UI→API→Neon.
+
+Próximo passo concreto: validar cadastro/login real e restore autenticado UI→API→Neon numa branch QA; exercitar pane e retry pelo navegador com fixture descartável; depois confirmar a execução automática diária na janela prevista de 2026-11-07 12:23 UTC. O backup JSON cobre workspace pessoal, mas não as tabelas relacionais de convites e transações compartilhadas; definir o comportamento sem transplantar dados para outro UID.
 
 Revisão visual: a página de login de produção foi observada no Brave em desktop (viewport 1920×917); a inspeção mobile não foi concluída porque o controle encerrou ao não conseguir determinar a URL atual da janela. Isso não comprova os demais fluxos visuais.
 
-Bloqueios pendentes: aceite real de cadastro/login; restore autenticado UI→API→Neon; verificação da agenda diária automática; cobertura visual desktop/mobile e testes dos demais módulos.
+Bloqueios pendentes: aceite real de cadastro/login; restore autenticado UI→API→Neon; ensaio runtime de pane/retry; definição e ensaio de backup das relações familiares; verificação da agenda diária automática; cobertura visual desktop/mobile e testes dos demais módulos.
 
 ## Incidente de produção — 2026-11-06, resolvido
 

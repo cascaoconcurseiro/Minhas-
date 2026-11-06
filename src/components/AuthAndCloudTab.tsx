@@ -29,6 +29,7 @@ import {
 } from '../types/finance';
 import { runFinancialIntegrityAudit } from '../utils/travelRules';
 import { summarizeBackendHealth } from '../utils/backendHealth';
+import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
 
 interface AuthAndCloudTabProps {
@@ -204,7 +205,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         await onSignInEmail(emailInput.trim(), passwordInput);
         setAuthFeedback({
           type: 'success',
-          message: `Bem-vindo! Sessão iniciada como ${emailInput.trim()} e sincronizada na nuvem.`,
+          message: `Sessão iniciada como ${emailInput.trim()}. O workspace será carregado do Neon.`,
         });
       } else {
         const cleanName = nameInput.trim() || emailInput.split('@')[0];
@@ -212,14 +213,14 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         onUpdateSettings({ userName: cleanName });
         setAuthFeedback({
           type: 'success',
-          message: `Conta criada para ${emailInput.trim()} com autenticação Firebase Auth.`,
+          message: `Conta criada para ${emailInput.trim()} com Firebase Auth. O workspace será conectado ao Neon.`,
         });
       }
       setPasswordInput('');
-    } catch {
+    } catch (error) {
       setAuthFeedback({
         type: 'error',
-        message: 'Verifique os dados informados e tente novamente.',
+        message: getFirebaseAuthErrorMessage(error),
       });
     } finally {
       setIsSubmitting(false);
