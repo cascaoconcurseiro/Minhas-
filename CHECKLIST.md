@@ -7,15 +7,15 @@
 - [x] Adicionar quatro testes de mapeamento de erros Firebase; suíte total 120/120 em 22 arquivos, lint e build aprovados.
 - [x] Habilitar workflow diário GitHub `SELECT 1` para 12:23 UTC; CI do commit `3a611de` passou e execução manual `42275346060` passou.
 - [ ] Login titular no Firebase Console, habilitar Email/Password e desabilitar Google; BrowserOS aguarda a etapa de login humano.
-- [ ] Validar cadastro/login real, CRUD e restore UI→API→Neon com branch QA `qa-auth-ui-2026-11-06` (`br-ancient-waterfall-b6kogpyf`).
+- [ ] Após habilitar o provedor, recriar branch QA e validar cadastro/login real, CRUD e restore UI→API→Neon.
 - [ ] Observar evento automático `schedule` na janela 7/nov às 12:23 UTC; logs consultados da Vercel não comprovaram a agenda diária de 12:15 UTC.
-- [ ] Após QA, excluir usuário sintético caso criado, branch QA, `.env` temporário e encerrar o servidor local.
+- [x] Encerrar tentativa atual sem dados gravados: servidor local parado, `.env` temporário removido e branch QA apagada; Neon lista somente `production`.
 - [ ] Cobrir os fluxos funcionais, segurança, backup/restore, concorrência, indisponibilidade e layouts desktop/mobile ainda pendentes.
 
 ## Incidente pós-deploy — 2026-11-06
 - [x] Capturar o 500 de `/api/health` após `af357d3` e identificar `ERR_MODULE_NOT_FOUND` em import local ESM.
 - [x] Atualizar `travelRules.ts` para importar `./financeRules.js`; testes focados 34/34, lint e build passam localmente.
-- [ ] Publicar a correção e confirmar `/api/health` 200 com `Neon=ok` e rotas protegidas 401 sem token.
+- [x] Publicar `78fd56f`; CI `42277562293` passou, deployment ficou Ready, `/api/health` 200 com `Neon=ok` e `/api/workspace` sem token 401.
 
 ## Hospedagem
 - [x] Criar projeto `minhaseconomias` no plano gratuito Hobby da Vercel.
