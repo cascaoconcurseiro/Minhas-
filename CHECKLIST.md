@@ -26,6 +26,7 @@
 - [x] Inspecionar o catálogo Neon e corrigir cinco constraints ainda nomeadas com `firebase_uid`, sem mudar dados ou lógica.
 - [x] Criar migration `007_neon_auth_constraint_names.sql`; validar primeiro na branch QA, aplicar em production e verificar zero relações, colunas, constraints ou rotinas com nome Firebase no catálogo ativo.
 - [x] Pós-migration, confirmar RLS habilitado/forçado nas quatro tabelas e contagens dos workspaces/recibos invariáveis; excluir a branch QA e confirmar apenas `production`.
+- [x] Rodar `bun test` (121/121), `bun run lint`, `bun run build` e `git diff --check`; publicar `d43394d`, CI `42312647937` aprovado, Vercel `dpl_Ce1zsXY2KY6rwAWUa9RNx76UPARg` Ready, health 200/Neon ok e workspace sem token 401.
 - [ ] Provar de forma segura qual role está dentro da variável Vercel `DATABASE_URL`; a listagem de env só mostra o nome, e o fluxo de `env pull` foi bloqueado sem revelar credenciais.
 - [ ] Comprovar ao menos uma execução automática diária do Vercel Cron `/api/health` ou do GitHub schedule; Vercel cron está cadastrado em `15 12 * * *`, mas logs recentes não mostraram a invocação agendada e Actions lista apenas `workflow_dispatch`.
 - [ ] Executar signup/login/sessão/OTP real por e-mail com caixa controlada; bundle contém o fluxo, mas isso não prova que CORS/cookies/endpoints funcionam em runtime.
