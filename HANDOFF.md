@@ -24,6 +24,8 @@ Interface: a auditoria de código confirmou seeds financeiros vazios e ausência
 
 Neon Auth: chamadas `OPTIONS` aos endpoints de envio e validação OTP responderam 204 com origem Vercel e `Access-Control-Allow-Credentials: true`; `GET /get-session` respondeu 200/null para essa origem. Isso valida a base de URL e CORS sem emitir e-mail; envio, confirmação com código, cookie de sessão e aceite real ainda não foram exercitados.
 
+Vestígio adicional de migração: a inspeção do catálogo revelou cinco constraints NOT NULL ainda nomeadas com `firebase_uid`, apesar das colunas já terem sido renomeadas em 006. Criei `db/migrations/007_neon_auth_constraint_names.sql`, apliquei primeiro na branch `qa-audit-rls-2026-11-06`, confirmei zero objetos/colunas/rotinas com nome Firebase e policies RLS intactas, depois apliquei em production. A validação pós-migração confirmou zero nomes Firebase no catálogo ativo, RLS enabled/forced nas quatro tabelas, contagens de workspaces/recibos inalteradas (3/3), convites/transações compartilhadas vazios (0/0). A branch QA foi removida; a listagem deve terminar com apenas production.
+
 As seções abaixo são registros cronológicos anteriores. Quando mencionarem Firebase Auth, login Google, `localhost` Firebase, branches expiradas ou passos já executados, esses dados descrevem o estado daquela sessão e estão superados pela migração Neon Auth e por esta auditoria atual.
 
 ## Histórico — migração Firestore → Neon (antes da troca de autenticação)

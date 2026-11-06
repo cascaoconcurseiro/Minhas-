@@ -1,0 +1,23 @@
+BEGIN;
+
+-- Remove Firebase-specific names left on NOT NULL constraints after migration 006.
+ALTER TABLE public.finance_family_invitations
+  RENAME CONSTRAINT finance_family_invitations_owner_firebase_uid_not_null
+  TO finance_family_invitations_owner_user_id_not_null;
+
+ALTER TABLE public.finance_shared_transactions
+  RENAME CONSTRAINT finance_shared_transactions_recipient_firebase_uid_not_null
+  TO finance_shared_transactions_recipient_user_id_not_null;
+ALTER TABLE public.finance_shared_transactions
+  RENAME CONSTRAINT finance_shared_transactions_sender_firebase_uid_not_null
+  TO finance_shared_transactions_sender_user_id_not_null;
+
+ALTER TABLE public.finance_workspace_migrations
+  RENAME CONSTRAINT finance_workspace_migrations_owner_firebase_uid_not_null
+  TO finance_workspace_migrations_owner_user_id_not_null;
+
+ALTER TABLE public.finance_workspaces
+  RENAME CONSTRAINT finance_workspaces_owner_firebase_uid_not_null
+  TO finance_workspaces_owner_user_id_not_null;
+
+COMMIT;

@@ -23,6 +23,9 @@
 - [x] Confirmar por contagens agregadas que contas, cartões, transações, metas, investimentos, viagens, convites e transações compartilhadas estão vazios; workspace/recibos de migração sem payload financeiro.
 - [x] Confirmar no Neon que a branch QA foi removida e apenas `production` está ativa.
 - [x] Verificar CORS atual dos endpoints Neon OTP: preflight `OPTIONS` retorna 204 para origem Vercel e permite credenciais; `GET /get-session` retorna 200/null nessa origem. Isso comprova rota/origem, não envio/aceite de código real.
+- [x] Inspecionar o catálogo Neon e corrigir cinco constraints ainda nomeadas com `firebase_uid`, sem mudar dados ou lógica.
+- [x] Criar migration `007_neon_auth_constraint_names.sql`; validar primeiro na branch QA, aplicar em production e verificar zero relações, colunas, constraints ou rotinas com nome Firebase no catálogo ativo.
+- [x] Pós-migration, confirmar RLS habilitado/forçado nas quatro tabelas e contagens dos workspaces/recibos invariáveis; excluir a branch QA e confirmar apenas `production`.
 - [ ] Provar de forma segura qual role está dentro da variável Vercel `DATABASE_URL`; a listagem de env só mostra o nome, e o fluxo de `env pull` foi bloqueado sem revelar credenciais.
 - [ ] Comprovar ao menos uma execução automática diária do Vercel Cron `/api/health` ou do GitHub schedule; Vercel cron está cadastrado em `15 12 * * *`, mas logs recentes não mostraram a invocação agendada e Actions lista apenas `workflow_dispatch`.
 - [ ] Executar signup/login/sessão/OTP real por e-mail com caixa controlada; bundle contém o fluxo, mas isso não prova que CORS/cookies/endpoints funcionam em runtime.
