@@ -12,7 +12,7 @@ Publicado em `main` no commit `bdaf318` (`fix: make Neon the only financial data
 
 Autenticação: Email/Password foi habilitado no Console Firebase. Google continua habilitado porque as três identidades existentes são Google-only e desabilitá-lo sem conversão as bloquearia. O cadastro Firebase ainda não foi validado ponta a ponta.
 
-Atividade diária: workflow GitHub `neon-daily-activity.yml` teve execução manual bem-sucedida com `SELECT 1`; falta confirmar o primeiro evento automático previsto para 2026-11-07 12:23 UTC. O Vercel Cron diário `/api/health` continua listado, mas não houve evidência da execução programada nos logs observados.
+Atividade diária: workflow GitHub `neon-daily-activity.yml` teve execução manual bem-sucedida com `SELECT 1`; falta confirmar o primeiro evento automático previsto para 2026-11-07 12:23 UTC. O Vercel Cron diário `/api/health` continua listado em `15 12 * * *`; a consulta dos logs de produção às 2026-11-06 22:25 UTC retornou apenas chamadas manuais recentes e nenhuma execução programada identificável. A próxima ação é confirmar o evento automático do GitHub na janela de 7/nov e reavaliar o cron Vercel.
 
 Próximo passo concreto: confirmar com os titulares se os documentos antigos do Firestore são todos demonstração e podem ser apagados, ou se algum precisa de exportação/importação individual; então executar a ação autorizada sem abrir acesso Firestore no app. Depois validar cadastro/login real e restore autenticado UI→API→Neon.
 

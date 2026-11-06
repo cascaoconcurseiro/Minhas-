@@ -9,7 +9,8 @@
 - [ ] Confirmar e decidir migração ou remoção dos documentos legados remanescentes em `cloud_vaults` e `workspaces`; não copiar/apagar dados de múltiplos titulares sem classificar propriedade.
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
 - [x] Publicar correção em `main` (`bdaf318`), CI `42304154567` e deploy Vercel `dpl_DYGLyJ3kvBn4YeGYVeiG79ZVxw97` Ready; `/api/health` 200/Neon ok, workspace sem token 401 e bundle principal sem chamadas/rotas Firestore.
-- [ ] Manter Firebase Auth como identidade conforme configuração aprovada; testar cadastro/login real e decidir o processo para as identidades existentes Google-only antes de desativar Google.
+- [ ] Manter Firebase Auth apenas como identidade; testar cadastro/login real. Email/Password está habilitado, Google segue habilitado enquanto as 3 identidades Google-only não tiverem um caminho de conversão.
+- [ ] Confirmar execução automática do Vercel Cron `15 12 * * *`; consulta dos logs em 2026-11-06 22:25 UTC encontrou apenas chamadas manuais a `/api/health`.
 
 ## Continuação 2026-11-06 — configuração de Auth e atividade diária
 - [x] Diagnosticar cadastro Firebase real em QA: `accounts:signUp` retorna `OPERATION_NOT_ALLOWED`; nenhum usuário/registro foi criado.
@@ -17,9 +18,10 @@
 - [x] Exibir mensagem útil para `operation-not-allowed` e `unauthorized-domain`, sem revelar existência de conta em erros de credenciais.
 - [x] Adicionar quatro testes de mapeamento de erros Firebase; suíte total 120/120 em 22 arquivos, lint e build aprovados.
 - [x] Habilitar workflow diário GitHub `SELECT 1` para 12:23 UTC; CI do commit `3a611de` passou e execução manual `42275346060` passou.
-- [ ] Login titular no Firebase Console, habilitar Email/Password e desabilitar Google; BrowserOS aguarda a etapa de login humano.
-- [ ] Após habilitar o provedor, recriar branch QA e validar cadastro/login real, CRUD e restore UI→API→Neon.
-- [ ] Observar evento automático `schedule` na janela 7/nov às 12:23 UTC; logs consultados da Vercel não comprovaram a agenda diária de 12:15 UTC.
+- [x] Habilitar Email/Password no Console Firebase.
+- [ ] Resolver a transição das 3 identidades Google-only sem bloqueá-las; cadastro/login real ainda não foi validado.
+- [ ] Recriar branch QA e validar cadastro/login real, CRUD e restore UI→API→Neon.
+- [ ] Observar evento automático GitHub `schedule` na janela 7/nov às 12:23 UTC; logs da Vercel ainda não comprovam a agenda diária de 12:15 UTC.
 - [x] Encerrar tentativa atual sem dados gravados: servidor local parado, `.env` temporário removido e branch QA apagada; Neon lista somente `production`.
 - [ ] Cobrir os fluxos funcionais, segurança, backup/restore, concorrência, indisponibilidade e layouts desktop/mobile ainda pendentes.
 
