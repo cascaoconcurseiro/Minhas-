@@ -472,7 +472,8 @@
 - [x] Validar UI de login local: formulário de e-mail/senha, sem botão Google.
 - [x] Executar `bun test`: 116 testes em 21 arquivos, todos aprovados; `bun run lint` e `bun run build` aprovados (aviso de bundle >500 kB).
 - [x] Excluir branch Neon QA `qa-restore-ui-retry-2026-11-06`, mantendo a branch de produção.
-- [ ] Confirmar/remover `.env` de QA; limpeza foi bloqueada pelo executor e conteúdo não foi lido.
+- [x] Remover `.env` local de QA sem revelar seu conteúdo.
 - [ ] Validar cadastro/login real com Firebase e restore UI→API→Neon em branch QA.
-- [ ] Confirmar execução automática do Vercel Cron e concluir cobertura funcional/visual dos módulos restantes.
+- [ ] Confirmar execução automática do Vercel Cron; logs de 24 h não mostram a chamada agendada.
+- [ ] Confirmar execução do workflow GitHub diário `schedule` às 12:23 UTC e concluir cobertura funcional/visual dos módulos restantes.
 - [x] Publicar commit `166f9a0` em `main`; CI `42274441778` passou, deploy Vercel ficou Ready, health Neon `ok` e UI de produção mostra login por e-mail/senha.

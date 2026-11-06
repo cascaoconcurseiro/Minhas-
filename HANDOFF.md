@@ -6,11 +6,19 @@ Meta segue ativa. Nesta sessão foram corrigidos fluxos financeiros (pagamento p
 
 Firebase informa autenticação na faixa sem custo conforme limites/planos e modalidade; SMS de telefone é cobrado. A troca de provedor remove Google da experiência, mas não garante custo zero do sistema completo. O projeto Firebase não foi acessado nesta retomada; não confirmei se Google continua habilitado no Console.
 
-O BrowserOS Neo não tinha sessão autenticada no Firebase Console ou Vercel. A página local confirmou a tela de login por e-mail/senha, mas não um fluxo autenticado. A branch QA `qa-restore-ui-retry-2026-11-06` foi removida ao final. A tentativa local de limpeza de `.env` foi bloqueada pela política do executor; confirmar e remover o arquivo ignorado sem exibir seu conteúdo. O servidor local foi interrompido.
+BrowserOS Neo não tinha sessão autenticada no Firebase Console ou Vercel. A página local e a produção mostram o login por e-mail/senha, mas isso não prova autenticação real. A branch QA `qa-restore-ui-retry-2026-11-06` e o `.env` temporário foram removidos; o servidor local foi interrompido.
 
 Publicação concluída: commit `166f9a0` na `main`; CI `42274441778` passou e deployment Vercel de produção ficou Ready, com alias `minhaseconomias-blue.vercel.app`. O endpoint de saúde respondeu `status=ok` e `Neon=ok`; a UI de produção mostrou o login por e-mail/senha.
 
-Próximo passo concreto: confirmar/remover `.env` temporário; depois testar cadastro e login real em Firebase, CRUD e restore de backup pela UI apontada a Neon QA, cobrindo os módulos restantes em desktop/mobile. O agendamento Vercel existe, mas a execução cron automática continua sem prova observada nesta retomada.
+Próximo passo concreto: testar cadastro e login real em Firebase, CRUD e restore de backup pela UI apontada a Neon QA, cobrindo os módulos restantes em desktop/mobile. Vercel Cron está listado, mas ainda não há evidência de execução automática nos logs consultados.
+
+## Continuação — atividade diária (2026-11-06)
+
+A busca de logs Vercel de produção nas últimas 24 horas encontrou um GET manual a `/api/health` às 18:51 UTC, mas não encontrou a invocação da janela diária das 12:15 UTC. `vercel crons list` continua listando essa agenda, o que comprova cadastro, não execução. Removi o `.env` local ignorado sem ler seus valores. A branch QA foi removida e só `production` permanece.
+
+Para manter checagem diária direta ao banco, alterei `.github/workflows/neon-daily-activity.yml` para agendar `SELECT 1` diariamente às 12:23 UTC, além do `workflow_dispatch`. O teste manual do workflow ainda deve ser executado após publicação; a primeira execução agendada precisa ser observada na próxima janela. GitHub informa que schedules usam UTC e podem sofrer atraso ou suspensão após 60 dias sem atividade no repositório público.
+
+Próximo passo concreto: publicar a alteração do workflow, dispará-lo manualmente e confirmar sucesso com o segredo `NEON_DATABASE_URL`; na próxima janela de 12:23 UTC confirmar `event=schedule` e `SELECT 1`. Em seguida, continuar cadastro/login Firebase real e restore UI→Neon QA.
 
 ## Estado — 2026-11-04 18:10 UTC
 

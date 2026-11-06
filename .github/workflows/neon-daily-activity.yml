@@ -1,6 +1,8 @@
-name: Neon — verificação manual
+name: Neon — verificação diária
 
 on:
+  schedule:
+    - cron: '23 12 * * *'
   workflow_dispatch:
 
 permissions: {}
