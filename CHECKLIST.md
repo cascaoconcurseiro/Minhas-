@@ -30,6 +30,7 @@
 ## Continuação 2026-11-06 — recuperação de sync e mensagens de autenticação
 - [x] Unificar os erros da aba Autenticação e nuvem com o mapeador testado de erros Firebase e remover mensagens que afirmavam sincronização antes da carga Neon.
 - [x] Remover comentário obsoleto sobre Cloud Vault e confirmar que os seeds de contas, cartões, lançamentos, metas, investimentos, viagens e membros familiares são vazios; categorias iniciais são defaults do produto.
+- [x] Pesquisar a interface por “Guia Rápido”, “Quick Guide” e “QuickGuide”; nenhum desses itens está presente no código da UI atual.
 - [x] Implementar até oito novas tentativas com backoff para falhas transitórias ao salvar no Neon, usar sempre o último payload, tentar imediatamente no evento `online`, cancelar em troca de usuário e não repetir conflitos 409.
 - [x] Adicionar testes de classificação: erros de rede/408/429/5xx repetem; erros de autenticação/validação/conflito não repetem. Suíte 121/121, `bun run lint`, `bun run build` e `git diff --check` passaram.
 - [x] Publicar a correção em `main` no commit `6e2a89e`; CI `42306945924` passou e o deployment Vercel `dpl_35NmsXWDRDADTL2sDs6uJCATX3uH` ficou Ready. O bundle servido em `minhaseconomias-blue.vercel.app` é idêntico byte a byte ao build local; `/api/health` retorna Neon ok e `/api/workspace` sem token retorna 401.
