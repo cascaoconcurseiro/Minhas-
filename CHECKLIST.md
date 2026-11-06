@@ -7,11 +7,13 @@
 - [x] Renomear identificadores Firebase nas tabelas e políticas RLS com `db/migrations/006_neon_auth_identity.sql`; validar em QA e aplicar à production.
 - [x] Remover SDK, arquivos de configuração e regras Firebase do repositório; substituir CSP e documentação pelo fluxo Neon.
 - [x] Configurar `VITE_NEON_AUTH_URL` e `NEON_AUTH_JWKS_URL` na Vercel production.
-- [x] Rodar `bun test` (121/121), `bun run lint`, `bun run build` e `git diff --check`; API usa testes com JWT EdDSA sintético.
-- [ ] Publicar o corte em `main` e confirmar deploy Vercel; no intervalo entre migration SQL e deploy, as rotas autenticadas podem falhar com o código antigo.
-- [ ] Validar signup, login, logout, recarga de sessão, confirmação de e-mail, CRUD e chamadas API com token Neon Auth real.
-- [ ] Remover variáveis `FIREBASE_API_KEY` e `FIREBASE_PROJECT_ID` da Vercel depois do deploy funcional.
-- [ ] Remover a branch QA `qa-neon-auth-migration-2026-11-06` após o deploy.
+- [x] Remover variáveis Firebase da Vercel e confirmar no deploy que o bundle publicado não contém SDK/chamadas Firebase.
+- [x] Publicar o corte em `main` e confirmar deploy Vercel Ready; health de produção retorna 200 e Neon `ok`.
+- [x] Remover a branch QA depois de validar a migration no banco de produção.
+- [x] Adicionar envio e confirmação OTP no aviso da interface, além de atualizar a mensagem de acesso para Neon.
+- [x] Rodar `bun test` (121/121), `bun run lint` e `git diff --check`; API usa testes com JWT EdDSA sintético.
+- [ ] Reexecutar `bun run build` após a correção da interface OTP e publicar a correção.
+- [ ] Validar signup, login, logout, recarga de sessão, confirmação OTP, CRUD e chamadas API com token Neon Auth real.
 - [ ] Aceitar que usuários anteriores precisam criar conta Neon Auth; senhas Firebase não são transferíveis. Os dados financeiros existentes no Neon foram mantidos.
 
 ## Migração da persistência Firestore → Neon — 2026-11-06

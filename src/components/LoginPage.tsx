@@ -171,7 +171,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   : 'Sua conta começa sem lançamentos. A sincronização é confirmada após o login e a conexão com o Neon.'}
               </p>
               <p className="pt-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
-                O login foi migrado para Neon Auth. Contas e senhas do Firebase não foram transferidas; crie uma nova conta para continuar.
+                O acesso agora usa Neon Auth. Contas anteriores não foram migradas; crie uma nova conta para continuar.
               </p>
             </div>
 

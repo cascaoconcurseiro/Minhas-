@@ -3,9 +3,9 @@ import test from 'node:test';
 import { getVaultIdForUid } from './workspaceIdentity';
 
 test('workspace identity depends on stable Neon Auth user ID, not mutable email', () => {
-  const firebaseUid = 'neon-auth-user-12345678901234567890';
-  assert.equal(getVaultIdForUid(firebaseUid), getVaultIdForUid(firebaseUid));
-  assert.equal(getVaultIdForUid(firebaseUid), `vault_uid_${firebaseUid}`);
+  const userId = 'neon-auth-user-12345678901234567890';
+  assert.equal(getVaultIdForUid(userId), getVaultIdForUid(userId));
+  assert.equal(getVaultIdForUid(userId), `vault_uid_${userId}`);
 });
 
 test('different Neon Auth user IDs remain isolated in Neon', () => {

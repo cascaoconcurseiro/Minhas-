@@ -21,6 +21,7 @@ import {
   registerWithEmail,
   refreshNeonAuthUser,
   resendEmailVerification,
+  verifyEmailOtp,
   signInWithEmail,
   signOutNeonAuth,
   toAppUser,
@@ -266,6 +267,7 @@ export default function App() {
   // Neon Auth & Neon workspace sync state
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isVerificationActionBusy, setIsVerificationActionBusy] = useState(false);
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
@@ -1229,6 +1231,25 @@ export default function App() {
       showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Ainda não encontramos a confirmação. Abra o link enviado e tente novamente.', undefined, true);
     } catch {
       showNotice('Não foi possível atualizar o estado do e-mail. Tente novamente.', undefined, true);
+    } finally {
+      setIsVerificationActionBusy(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    if (!currentUser?.email || !/^\d{6}$/.test(emailVerificationCode.trim())) {
+      showNotice('Informe o código de 6 dígitos recebido por e-mail.', undefined, true);
+      return;
+    }
+    setIsVerificationActionBusy(true);
+    try {
+      await verifyEmailOtp(currentUser.email, emailVerificationCode);
+      const refreshedUser = await refreshNeonAuthUser(currentUser);
+      setCurrentUser(refreshedUser);
+      setEmailVerificationCode('');
+      showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Código aceito, mas a sessão ainda não refletiu a confirmação. Atualize novamente em instantes.', undefined, true);
+    } catch {
+      showNotice('Não foi possível confirmar o código. Confira os 6 dígitos ou reenvie um novo código.', undefined, true);
     } finally {
       setIsVerificationActionBusy(false);
     }
@@ -3145,6 +3166,17 @@ export default function App() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>Confirme {currentUser.email} para ativar o compartilhamento familiar. Seus dados continuam sincronizados.</span>
             <div className="flex flex-wrap gap-2">
+              <input
+                aria-label="Código de verificação do e-mail"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={emailVerificationCode}
+                onChange={(event) => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Código de 6 dígitos"
+                className="min-h-10 w-40 rounded-lg border border-amber-700 bg-white px-3 py-1.5 text-center font-mono tracking-widest text-amber-950"
+              />
+              <button type="button" disabled={isVerificationActionBusy || emailVerificationCode.trim().length !== 6} onClick={handleVerifyEmailCode} className="min-h-10 rounded-lg bg-emerald-800 px-3 py-1.5 font-semibold text-white disabled:opacity-60">Confirmar código</button>
               <button type="button" disabled={isVerificationActionBusy} onClick={handleResendVerification} className="min-h-10 rounded-lg border border-amber-700 px-3 py-1.5 font-semibold disabled:opacity-60">Reenviar e-mail</button>
               <button type="button" disabled={isVerificationActionBusy} onClick={handleRefreshEmailVerification} className="min-h-10 rounded-lg bg-amber-800 px-3 py-1.5 font-semibold text-white disabled:opacity-60">Já confirmei</button>
             </div>

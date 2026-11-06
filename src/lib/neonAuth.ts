@@ -12,6 +12,19 @@ const neonAuth = createInternalNeonAuth(authUrl, {
 });
 export const authClient = neonAuth.adapter;
 
+async function neonAuthPost<T>(path: string, body: Record<string, string>): Promise<T> {
+  const baseUrl = authUrl.endsWith('/') ? authUrl : `${authUrl}/`;
+  const response = await fetch(new URL(path, baseUrl), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null) as { message?: string; error?: string } | null;
+  if (!response.ok) throw new Error(payload?.message || payload?.error || 'Falha na verificação de e-mail.');
+  return payload as T;
+}
+
 export interface AppUser {
   uid: string;
   email: string;
@@ -70,11 +83,17 @@ export async function registerWithEmail(
 }
 
 export async function resendEmailVerification(user: AppUser): Promise<void> {
-  const result = await authClient.sendVerificationEmail({
+  await neonAuthPost('email-otp/send-verification-otp', {
     email: user.email,
-    callbackURL: window.location.origin,
+    type: 'email-verification',
   });
-  if (result.error) throw result.error;
+}
+
+export async function verifyEmailOtp(email: string, otp: string): Promise<void> {
+  await neonAuthPost('email-otp/verify-email', {
+    email: email.trim(),
+    otp: otp.trim(),
+  });
 }
 
 export async function refreshNeonAuthUser(user: AppUser): Promise<AppUser> {

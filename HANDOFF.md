@@ -1,16 +1,16 @@
 # Handoff — Minhas Economias
 
-## Retomada atual — 2026-11-06, corte completo para Neon Auth + Neon PostgreSQL
+## Retomada atual — 2026-11-06, Neon Auth + Neon PostgreSQL
 
-O pedido atual ampliou o corte anterior: Firebase não pode mais fornecer nem a autenticação. Neon Auth Managed Better Auth foi habilitado na branch `production`; domínio `https://minhaseconomias-blue.vercel.app` autorizado; e-mail/senha ativado com cadastro e verificação OTP por e-mail compartilhado. Acesso localhost foi desativado na configuração de produção.
+O corte de identidade e persistência para Neon foi publicado em `main` nos commits `79c19eb` e `41f65eb`; o deploy de produção está ativo. A checagem ao vivo de 2026-11-06 respondeu `/api/health` HTTP 200 com `neon=ok`. O bundle publicado contém Neon Auth e não contém SDK/chamadas Firebase (`firebase-sdk=False`). As variáveis de produção verificadas após a publicação são `DATABASE_URL`, `NEON_AUTH_JWKS_URL` e `VITE_NEON_AUTH_URL`; as variáveis Firebase foram removidas. Firebase não participa mais da autenticação nem do armazenamento operacional.
 
-O cliente agora usa `@neon/auth`; signup, login, logout, sessão e token Neon foram conectados à aplicação. A API passou a verificar JWT EdDSA com JWKS por `NEON_AUTH_JWKS_URL`. Removi SDK/configs Firebase e tokens/UIDs com nomes Firebase do runtime; atualizei a migration `006_neon_auth_identity.sql`, que renomeia as colunas e políticas RLS. Migration foi ensaiada em QA (`br-purple-base-b6fq6jtr`), incluindo inspeção das quatro políticas; depois aplicada em produção. O schema e as consultas do servidor agora estão alinhados. Vercel já tem `VITE_NEON_AUTH_URL` e `NEON_AUTH_JWKS_URL` como variáveis de produção; as antigas variáveis Firebase ainda devem ser removidas depois que o deploy validar.
+A migration `006_neon_auth_identity.sql` foi ensaiada em QA e aplicada em production. A API valida tokens Neon Auth EdDSA/JWKS; Neon PostgreSQL é a única persistência financeira. As coleções antigas de demonstração no Firestore foram apagadas por autorização do usuário. A branch QA foi removida.
 
-Verificações locais: `bun test` 121/121, `bun run lint`, `bun run build` e `git diff --check` passaram. Teste de API assinado com JWT EdDSA sintético cobre identidade, e-mail verificado/não verificado, isolamento, concorrência, CRUD inicial e restore. Production `/api/health` respondeu 200 com `neon=ok`; `/api/workspace` sem token respondeu 401. O deploy do código ainda está pendente; até ele terminar, os fluxos autenticados estão em janela de transição após a migration de schema.
+Nesta continuação corrigi a lacuna na confirmação OTP: o aviso de e-mail agora permite reenviar código e submetê-lo aos endpoints `email-otp/send-verification-otp` e `email-otp/verify-email`; a mensagem de login não cita mais Firebase. `bun test` passou 121/121, `bun run lint` passou e `git diff --check` passou. O build passou antes da última alteração textual no login; deve ser reexecutado antes da publicação. O site publicado já atende, mas a sessão real de cadastro/verificação por e-mail ainda não foi exercitada com uma conta de teste.
 
-Próximo passo concreto: publicar as alterações em `main` imediatamente, confirmar deployment Vercel Ready, testar signup/login/logout/session e acesso API com uma conta de teste autorizada em Neon Auth; então remover `FIREBASE_API_KEY`/`FIREBASE_PROJECT_ID` da Vercel. A confirmação real de autenticação, verificação de e-mail e aceitação autenticada ainda não foi feita. As senhas e contas Firebase antigas não migram; a UI avisa o usuário para criar uma conta Neon Auth nova. A branch QA temporária deve ser excluída depois da confirmação do schema e do deploy.
+Próximo passo: terminar build/diff, publicar a correção OTP em `main` pelo fluxo GitHub/Vercel e conferir o deploy. Depois, validar cadastro, OTP e CRUD com conta autorizada; a validação de produção exige acesso a uma caixa de e-mail controlada. Meta de revisão ponta a ponta permanece ativa, incluindo teste de restauração autenticada e comprovação do job diário automático.
 
-Meta ponta a ponta permanece ativa. Cobertura desktop/mobile, restore autenticado real, recuperação em pane, backup integral independente, validação visual por navegador e execução automática diária continuam pendentes conforme a seção histórica abaixo.
+## Estado anterior — migração Firestore → Neon
 
 ## Estado atual — 2026-11-06, migração Firestore → Neon
 
