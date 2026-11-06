@@ -9,6 +9,7 @@
 - [ ] Confirmar e decidir migração ou remoção dos documentos legados remanescentes em `cloud_vaults` e `workspaces`; não copiar/apagar dados de múltiplos titulares sem classificar propriedade.
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
 - [x] Publicar Neon como persistência exclusiva em `bdaf318` e remover o adaptador de rota Vercel `api/workspace/migrate.ts` em `88f0824`; CI `42305119471` e deploy `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` Ready. A função de migração não aparece no deployment; `/api/workspace/migrate` retorna 404, `/api/workspace` sem token retorna 401 e `/api/health` retorna 200/Neon ok.
+- [x] Corrigir comentário legado no parser OFX e confirmar que `src`, `backend`, `shared` e `api` não importam SDK nem fazem consultas Firestore; referências restantes apenas explicam Firebase Auth e as regras deny-all.
 - [ ] Manter Firebase Auth apenas como identidade; testar cadastro/login real. Email/Password está habilitado, Google segue habilitado enquanto as 3 identidades Google-only não tiverem um caminho de conversão.
 - [ ] Confirmar execução automática do Vercel Cron `15 12 * * *`; consulta dos logs em 2026-11-06 22:25 UTC encontrou apenas chamadas manuais a `/api/health`.
 - [ ] Revisar visualmente os fluxos completos em desktop e mobile; a tela de login foi observada em desktop, mas a inspeção responsiva foi interrompida pelo controle do Brave.

@@ -733,7 +733,7 @@ export function convertCandidatesToTransactions(
 
 /**
  * Strips obsolete, null, undefined, and empty string properties from transactions
- * before saving to Firestore.
+ * before persisting the parsed records in Neon.
  * Reduces document payload size by 35-50%, extending storage headroom to thousands of transactions.
  */
 export function compactTransactionForStorage(tx: Transaction): Partial<Transaction> {
