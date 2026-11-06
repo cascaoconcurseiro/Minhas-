@@ -12,7 +12,7 @@
 - [x] Remover a branch QA depois de validar a migration no banco de produção.
 - [x] Adicionar envio e confirmação OTP no aviso da interface, além de atualizar a mensagem de acesso para Neon.
 - [x] Rodar `bun test` (121/121), `bun run lint` e `git diff --check`; API usa testes com JWT EdDSA sintético.
-- [ ] Reexecutar `bun run build` após a correção da interface OTP e publicar a correção.
+- [x] Reexecutar `bun run build` após a correção da interface OTP; publicar em `6559f24`, CI passou e Vercel production Ready com smoke OTP/Neon.
 - [ ] Validar signup, login, logout, recarga de sessão, confirmação OTP, CRUD e chamadas API com token Neon Auth real.
 - [ ] Aceitar que usuários anteriores precisam criar conta Neon Auth; senhas Firebase não são transferíveis. Os dados financeiros existentes no Neon foram mantidos.
 
