@@ -1,5 +1,17 @@
 # Handoff — Minhas Economias
 
+## Estado atual — 2026-11-06, continuação
+
+Meta ainda ativa. O provedor Firebase Email/Password está desativado: a tentativa de cadastro no app local fez POST a `accounts:signUp` e a API do Firebase retornou `OPERATION_NOT_ALLOWED`; não houve criação de usuário nem escrita de workspace. O erro não foi de domínio autorizado. O Console Firebase abriu uma tela Google que exige login; BrowserOS está aguardando o titular entrar. Após a entrada, habilitar Email/Password e desabilitar o provedor Google conforme pedido do usuário, depois repetir o teste.
+
+Para QA, branch Neon `qa-auth-ui-2026-11-06` (`br-ancient-waterfall-b6kogpyf`) está ativa, criada a partir de production. Local server está rodando em `localhost:3000` com role restrita `minhas_app_runtime`; `/api/health` confirmou Neon `ok` e `/api/workspace` sem token retornou 401. `.env` local ignorado foi recriado para esta branch; nunca mostrar seus valores, e remover arquivo/servidor/branch no encerramento. Nenhum dado foi gravado pela UI até agora.
+
+Mudança local não publicada: `LoginPage` agora traduz `auth/operation-not-allowed` e `auth/unauthorized-domain` em mensagens de configuração, mantém erros de credenciais/conta existentes indistinguíveis e possui 4 testes unitários. `bun test` passou com 120 testes em 22 arquivos; `bun run lint` e `bun run build` passaram. Build mantém aviso de chunk >500 kB. O app local exibiu a mensagem correta de configuração após limpar/reiniciar o servidor por Vite ter `watch: null`.
+
+Atividade diária: o commit `3a611de` adiciona GitHub Actions `schedule` diária às 12:23 UTC; CI `42275338896` passou e execução manual `workflow_dispatch` `42275346060` conectou ao Neon e concluiu `SELECT 1`. Ainda falta evidência da primeira execução automática (próxima janela 7/nov às 12:23 UTC). O Vercel Cron `/api/health` segue listado às 12:15 UTC, mas os logs de produção das últimas 24 horas não mostraram a chamada agendada; só apareceu uma chamada manual às 18:51 UTC.
+
+Próximo passo concreto: assim que o login do Console Firebase for concluído, habilitar Email/Password e desabilitar Google; então terminar cadastro/login, persistência CRUD e restore UI→API→Neon na branch QA, testar exclusões/concurrency/recovery, limpar a conta de QA (se criada), `.env`, servidor e branch. A cobertura responsiva/funcional dos demais módulos e a execução diária automática continuam pendentes.
+
 ## Retomada — 2026-11-06
 
 Meta segue ativa. Nesta sessão foram corrigidos fluxos financeiros (pagamento parcial de fatura, inclusão correta de compras na fatura, validação de rateio e precisão de centavos) e removido o login Google da interface/código; Firebase Auth permanece com e-mail e senha, e Neon continua como banco. `bun test` passou com 116 testes em 21 arquivos, `bun run lint` passou e `bun run build` passou com aviso de bundle acima de 500 kB. A UI local e a produção mostraram somente o formulário de e-mail/senha. Isso não valida cadastro/login autenticado nem restore de backup via UI.

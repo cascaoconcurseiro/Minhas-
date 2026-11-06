@@ -1,5 +1,17 @@
 # Checklist — Minhas Economias
 
+## Continuação 2026-11-06 — configuração de Auth e atividade diária
+- [x] Diagnosticar cadastro Firebase real em QA: `accounts:signUp` retorna `OPERATION_NOT_ALLOWED`; nenhum usuário/registro foi criado.
+- [x] Confirmar Neon QA com role `minhas_app_runtime`; health local Neon `ok` e rota workspace sem token retorna 401.
+- [x] Exibir mensagem útil para `operation-not-allowed` e `unauthorized-domain`, sem revelar existência de conta em erros de credenciais.
+- [x] Adicionar quatro testes de mapeamento de erros Firebase; suíte total 120/120 em 22 arquivos, lint e build aprovados.
+- [x] Habilitar workflow diário GitHub `SELECT 1` para 12:23 UTC; CI do commit `3a611de` passou e execução manual `42275346060` passou.
+- [ ] Login titular no Firebase Console, habilitar Email/Password e desabilitar Google; BrowserOS aguarda a etapa de login humano.
+- [ ] Validar cadastro/login real, CRUD e restore UI→API→Neon com branch QA `qa-auth-ui-2026-11-06` (`br-ancient-waterfall-b6kogpyf`).
+- [ ] Observar evento automático `schedule` na janela 7/nov às 12:23 UTC; logs consultados da Vercel não comprovaram a agenda diária de 12:15 UTC.
+- [ ] Após QA, excluir usuário sintético caso criado, branch QA, `.env` temporário e encerrar o servidor local.
+- [ ] Cobrir os fluxos funcionais, segurança, backup/restore, concorrência, indisponibilidade e layouts desktop/mobile ainda pendentes.
+
 ## Hospedagem
 - [x] Criar projeto `minhaseconomias` no plano gratuito Hobby da Vercel.
 - [x] Conectar projeto ao repositório `cascaoconcurseiro/Minhas-` e branch `main`.

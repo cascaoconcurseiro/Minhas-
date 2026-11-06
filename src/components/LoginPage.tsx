@@ -9,6 +9,7 @@ import {
   User as UserIcon,
   Wallet,
 } from 'lucide-react';
+import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
 
 interface LoginPageProps {
   defaultEmail?: string;
@@ -51,8 +52,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const cleanName = name.trim() || email.split('@')[0];
         await onRegisterEmail(cleanName, email.trim(), password);
       }
-    } catch {
-      setErrorMsg('Não foi possível autenticar. Verifique suas credenciais.');
+    } catch (error) {
+      setErrorMsg(getFirebaseAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
