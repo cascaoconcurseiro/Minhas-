@@ -8,9 +8,10 @@
 - [x] Confirmar no Neon production 3 workspaces e zero contas, cartões, lançamentos, metas e investimentos depois de criar/recarregar/apagar um cartão temporário de QA.
 - [ ] Confirmar e decidir migração ou remoção dos documentos legados remanescentes em `cloud_vaults` e `workspaces`; não copiar/apagar dados de múltiplos titulares sem classificar propriedade.
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
-- [x] Publicar correção em `main` (`bdaf318`), CI `42304154567` e deploy Vercel `dpl_DYGLyJ3kvBn4YeGYVeiG79ZVxw97` Ready; `/api/health` 200/Neon ok, workspace sem token 401 e bundle principal sem chamadas/rotas Firestore.
+- [x] Publicar Neon como persistência exclusiva em `bdaf318` e remover o adaptador de rota Vercel `api/workspace/migrate.ts` em `88f0824`; CI `42305119471` e deploy `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` Ready. A função de migração não aparece no deployment; `/api/workspace/migrate` retorna 404, `/api/workspace` sem token retorna 401 e `/api/health` retorna 200/Neon ok.
 - [ ] Manter Firebase Auth apenas como identidade; testar cadastro/login real. Email/Password está habilitado, Google segue habilitado enquanto as 3 identidades Google-only não tiverem um caminho de conversão.
 - [ ] Confirmar execução automática do Vercel Cron `15 12 * * *`; consulta dos logs em 2026-11-06 22:25 UTC encontrou apenas chamadas manuais a `/api/health`.
+- [ ] Revisar visualmente os fluxos completos em desktop e mobile; a tela de login foi observada em desktop, mas a inspeção responsiva foi interrompida pelo controle do Brave.
 
 ## Continuação 2026-11-06 — configuração de Auth e atividade diária
 - [x] Diagnosticar cadastro Firebase real em QA: `accounts:signUp` retorna `OPERATION_NOT_ALLOWED`; nenhum usuário/registro foi criado.
