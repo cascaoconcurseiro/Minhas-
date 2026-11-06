@@ -30,10 +30,12 @@
 - [x] Adicionar ao health da API o indicador booleano `services.neonLeastPrivilegeRole`, sem revelar o nome da role ou a connection string; incluir teste de rota.
 - [x] Revalidar suíte completa após o indicador: 122/122, `bun run lint`, `bun run build` e `git diff --check` passaram.
 - [x] Rodar `bun test` (121/121), `bun run lint`, `bun run build` e `git diff --check`; publicar `d43394d`, CI `42312647937` aprovado, Vercel `dpl_Ce1zsXY2KY6rwAWUa9RNx76UPARg` Ready, health 200/Neon ok e workspace sem token 401.
-- [ ] Após o deploy do indicador, confirmar em produção `services.neonLeastPrivilegeRole=true`; se for `false`, rotacionar a variável Vercel para a role restrita antes de marcar segurança concluída. A listagem de env esconde a role na connection string.
+- [x] Após o deploy do indicador, confirmar em produção `services.neonLeastPrivilegeRole=true`; health retornou `status=ok`, `neon=ok`, `leastPrivilegeRole=true` em 2026-11-06.
+- [x] Acrescentar teste de renderização da tela de acesso: confirma e-mail/senha, cópia Neon Auth/PostgreSQL e ausência de texto Firebase/dados demo; suíte passou 124/124 em 24 arquivos e `bun run lint` passou.
 - [ ] Comprovar ao menos uma execução automática diária do Vercel Cron `/api/health` ou do GitHub schedule; Vercel cron está cadastrado em `15 12 * * *`, mas logs recentes não mostraram a invocação agendada e Actions lista apenas `workflow_dispatch`.
 - [ ] Executar signup/login/sessão/OTP real por e-mail com caixa controlada; bundle contém o fluxo, mas isso não prova que CORS/cookies/endpoints funcionam em runtime.
-- [ ] Fazer revisão visual atual em desktop e mobile; o código de UI e seeds foram revisados, mas o controle do Brave não conseguiu identificar a URL para permitir a inspeção.
+- [x] Revisar no Brave, em desktop de produção, a tela de acesso e a alternância para cadastro; após recarga, o conteúdo exibiu Neon Auth e Neon PostgreSQL, sem o Guia Rápido.
+- [ ] Revisar os layouts e fluxos visuais atuais em viewport mobile; nenhuma verificação mobile foi realizada nesta etapa.
 - [ ] Fazer restore pela interface autenticada e validar readback no Neon, incluindo relacionamento familiar quando aplicável; o backup JSON não cobre convites/transações relacionais e os testes atuais são sintéticos.
 - [ ] Demonstrar concorrência API real com duas gravações e recuperação UI→API→Neon após indisponibilidade; testes existentes usam respostas/mocks sintéticos.
 - [ ] Preparar e executar backup PostgreSQL integral independente e restore isolado com validação das três tabelas financeiras; Neon Free/PITR de seis horas não substitui retenção externa.
