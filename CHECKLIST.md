@@ -8,7 +8,7 @@
 - [x] Confirmar no Neon production 3 workspaces e zero contas, cartões, lançamentos, metas e investimentos depois de criar/recarregar/apagar um cartão temporário de QA.
 - [ ] Confirmar e decidir migração ou remoção dos documentos legados remanescentes em `cloud_vaults` e `workspaces`; não copiar/apagar dados de múltiplos titulares sem classificar propriedade.
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
-- [ ] Publicar correção em `main`, confirmar CI e deploy Vercel, validar `/api/health` e conferir que o bundle/fluxo implantado não lê Firestore.
+- [x] Publicar correção em `main` (`bdaf318`), CI `42304154567` e deploy Vercel `dpl_DYGLyJ3kvBn4YeGYVeiG79ZVxw97` Ready; `/api/health` 200/Neon ok, workspace sem token 401 e bundle principal sem chamadas/rotas Firestore.
 - [ ] Manter Firebase Auth como identidade conforme configuração aprovada; testar cadastro/login real e decidir o processo para as identidades existentes Google-only antes de desativar Google.
 
 ## Continuação 2026-11-06 — configuração de Auth e atividade diária

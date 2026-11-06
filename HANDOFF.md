@@ -8,13 +8,13 @@ Nesta sessão, removi o importador e a rota `/api/workspace/migrate`, removi a l
 
 No Neon production, uma consulta agregada após limpar o cartão temporário de QA confirmou 3 workspaces, 0 contas, 0 cartões, 0 lançamentos e 0 metas/investimentos. O cartão QA foi criado pela UI, persistiu após recarga e foi removido; nenhum dado de demonstração ficou no Neon.
 
-Alterações locais ainda não publicadas: `src/App.tsx`, remoção do legado Firestore e ajustes de testes, regras e documentação. O histórico desta sessão registra `bun test` 119/119, lint e build aprovados; build mantém aviso de chunk principal acima de 500 kB. Antes do deploy, revisar `git diff --check` e rodar a suíte novamente após atualizar este handoff/checklist.
+Publicado em `main` no commit `bdaf318` (`fix: make Neon the only financial data store`). CI GitHub `42304154567` passou. Deployment Vercel `dpl_DYGLyJ3kvBn4YeGYVeiG79ZVxw97` ficou Ready com alias `minhaseconomias-blue.vercel.app`. Pós-deploy: `/api/health` respondeu `status=ok` e `Neon=ok`; `/api/workspace` sem token respondeu 401; o bundle principal publicado (`index-DOQJihoW.js`) não contém `getFirestore`, `cloud_vaults`, a rota de migração nem endpoint do Firestore. Localmente `bun test` passou 119/119, `bun run lint`, `bun run build` e `git diff --check` passaram. Build mantém aviso de chunk principal acima de 500 kB.
 
 Autenticação: Email/Password foi habilitado no Console Firebase. Google continua habilitado porque as três identidades existentes são Google-only e desabilitá-lo sem conversão as bloquearia. O cadastro Firebase ainda não foi validado ponta a ponta.
 
 Atividade diária: workflow GitHub `neon-daily-activity.yml` teve execução manual bem-sucedida com `SELECT 1`; falta confirmar o primeiro evento automático previsto para 2026-11-07 12:23 UTC. O Vercel Cron diário `/api/health` continua listado, mas não houve evidência da execução programada nos logs observados.
 
-Próximo passo concreto: revisar as alterações de código/documentação, confirmar se o legado que ficou no Firestore é apenas demonstração antes de apagá-lo ou planejar importação por titular, executar testes e publicar a correção em `main`; depois validar deploy, `/api/health` e ausência de chamadas Firestore no bundle/fluxo de produção.
+Próximo passo concreto: confirmar com os titulares se os documentos antigos do Firestore são todos demonstração e podem ser apagados, ou se algum precisa de exportação/importação individual; então executar a ação autorizada sem abrir acesso Firestore no app. Depois validar cadastro/login real e restore autenticado UI→API→Neon.
 
 Bloqueios pendentes: decisão segura sobre dados legados Firestore de múltiplos titulares; aceite real de cadastro/login; restore autenticado UI→API→Neon; verificação da agenda diária automática; cobertura visual desktop/mobile e testes dos demais módulos.
 
