@@ -10,9 +10,25 @@ Nesta continuação corrigi a lacuna na confirmação OTP: o aviso de e-mail ago
 
 Próximo passo: validar cadastro, OTP e CRUD com conta autorizada; isso requer caixa de e-mail controlada. Meta de revisão ponta a ponta permanece ativa, incluindo teste de restauração autenticada e comprovação do job diário automático.
 
-## Estado anterior — migração Firestore → Neon
+## Auditoria atual — 2026-11-06
 
-## Estado atual — 2026-11-06, migração Firestore → Neon
+Neon MCP confirmou somente a branch `production` (`br-steep-feather-b615vl9d`). A configuração Neon Auth está habilitada para o domínio de produção, localhost desligado, cadastro e senha ativados, verificação OTP e sem provedores OAuth. Não há branches QA abertas. No banco, as quatro tabelas `finance_*` estão com RLS habilitado e forçado; há uma policy de titular/participante por tabela. A role `minhas_app_runtime` não tem atributos administrativos, não pertence a `neon_superuser` e só possui os grants operacionais descritos na migration 004; `minhas_daily_runtime` não tem grants em tabelas financeiras. As contagens agregadas atuais são zero para contas, cartões, transações, metas, investimentos, viagens, convites e transações compartilhadas. Restam três linhas de workspace e três recibos de migração, sem itens financeiros nos snapshots.
+
+Limite de segurança: `vercel env ls production` confirma apenas `DATABASE_URL`, `NEON_AUTH_JWKS_URL` e `VITE_NEON_AUTH_URL`, mas não revela a role dentro da connection string. A tentativa de inspecionar por `env pull` foi bloqueada; não afirmar que a função Vercel usa `minhas_app_runtime` até obter prova segura sem divulgar a credencial.
+
+Atividade diária: Vercel lista `/api/health` às `15 12 * * *` UTC e a rota consulta a tabela Neon. O workflow GitHub segue às `23 12 * * *` UTC, mas as execuções visíveis são `workflow_dispatch`; logs Vercel consultados também não demonstraram disparo automático. A próxima execução programada é a janela de 7/nov, não comprovada nesta sessão.
+
+Backup: o JSON do app não inclui `finance_family_invitations` nem `finance_shared_transactions`; Neon Free mantém PITR de seis horas e não há cópia independente automática. Teste de restore API e ensaios de snapshot/dump foram sintéticos/isolados; restauração autenticada UI→API→Neon e retorno após corrupção continuam pendentes. A segunda conta para teste de compartilhamento foi dispensada pelo usuário, então a aceitação fica limitada ao fluxo do proprietário e regras de isolamento.
+
+Interface: a auditoria de código confirmou seeds financeiros vazios e ausência do Guia Rápido; testes existentes são majoritariamente de regra/API e não cobrem toda a interface renderizada. O Brave estava aberto em outra página, mas a ferramenta de uso do computador não conseguiu identificar sua URL com confiança; nenhuma revisão visual desktop/mobile foi feita nesta retomada. Exige novas capturas e fluxos completos quando o controle visual estiver disponível.
+
+Neon Auth: chamadas `OPTIONS` aos endpoints de envio e validação OTP responderam 204 com origem Vercel e `Access-Control-Allow-Credentials: true`; `GET /get-session` respondeu 200/null para essa origem. Isso valida a base de URL e CORS sem emitir e-mail; envio, confirmação com código, cookie de sessão e aceite real ainda não foram exercitados.
+
+As seções abaixo são registros cronológicos anteriores. Quando mencionarem Firebase Auth, login Google, `localhost` Firebase, branches expiradas ou passos já executados, esses dados descrevem o estado daquela sessão e estão superados pela migração Neon Auth e por esta auditoria atual.
+
+## Histórico — migração Firestore → Neon (antes da troca de autenticação)
+
+### Estado registrado — 2026-11-06, migração Firestore → Neon
 
 Meta de conclusão ponta a ponta ainda ativa. Neon é o único banco operacional do app. Firebase Auth continua como provedor de identidade e emissão do token que o backend valida; conforme pedido anterior, esta tarefa migra a persistência, não o login.
 

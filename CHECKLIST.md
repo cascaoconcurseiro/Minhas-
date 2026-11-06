@@ -16,6 +16,24 @@
 - [ ] Validar signup, login, logout, recarga de sessão, confirmação OTP, CRUD e chamadas API com token Neon Auth real.
 - [ ] Aceitar que usuários anteriores precisam criar conta Neon Auth; senhas Firebase não são transferíveis. Os dados financeiros existentes no Neon foram mantidos.
 
+## Auditoria requisito a requisito — retomada 2026-11-06
+- [x] Reconsultar estado Neon atual: apenas branch `production`; Neon Auth habilitado para domínio público, localhost desligado, email/senha e verificação OTP, sem OAuth.
+- [x] Consultar catálogo PostgreSQL: as quatro tabelas financeiras têm RLS habilitado e forçado; policies usam ID/e-mail autenticados.
+- [x] Conferir roles/grants: `minhas_app_runtime` não é admin, não tem BYPASSRLS nem associação `neon_superuser`, e possui somente grants operacionais; `minhas_daily_runtime` sem grants em tabelas financeiras.
+- [x] Confirmar por contagens agregadas que contas, cartões, transações, metas, investimentos, viagens, convites e transações compartilhadas estão vazios; workspace/recibos de migração sem payload financeiro.
+- [x] Confirmar no Neon que a branch QA foi removida e apenas `production` está ativa.
+- [x] Verificar CORS atual dos endpoints Neon OTP: preflight `OPTIONS` retorna 204 para origem Vercel e permite credenciais; `GET /get-session` retorna 200/null nessa origem. Isso comprova rota/origem, não envio/aceite de código real.
+- [ ] Provar de forma segura qual role está dentro da variável Vercel `DATABASE_URL`; a listagem de env só mostra o nome, e o fluxo de `env pull` foi bloqueado sem revelar credenciais.
+- [ ] Comprovar ao menos uma execução automática diária do Vercel Cron `/api/health` ou do GitHub schedule; Vercel cron está cadastrado em `15 12 * * *`, mas logs recentes não mostraram a invocação agendada e Actions lista apenas `workflow_dispatch`.
+- [ ] Executar signup/login/sessão/OTP real por e-mail com caixa controlada; bundle contém o fluxo, mas isso não prova que CORS/cookies/endpoints funcionam em runtime.
+- [ ] Fazer revisão visual atual em desktop e mobile; o código de UI e seeds foram revisados, mas o controle do Brave não conseguiu identificar a URL para permitir a inspeção.
+- [ ] Fazer restore pela interface autenticada e validar readback no Neon, incluindo relacionamento familiar quando aplicável; o backup JSON não cobre convites/transações relacionais e os testes atuais são sintéticos.
+- [ ] Demonstrar concorrência API real com duas gravações e recuperação UI→API→Neon após indisponibilidade; testes existentes usam respostas/mocks sintéticos.
+- [ ] Preparar e executar backup PostgreSQL integral independente e restore isolado com validação das três tabelas financeiras; Neon Free/PITR de seis horas não substitui retenção externa.
+- [ ] Cobrir fluxos renderizados de cada módulo e editar/excluir/cascata; hoje há apenas um teste de componente React e smokes seletivos.
+
+Nota: itens em seções históricas abaixo registram decisões e provedores de sessões anteriores. O estado atual usa Neon Auth; tarefas concluídas não devem ser inferidas a partir de um teste Firebase antigo.
+
 ## Migração da persistência Firestore → Neon — 2026-11-06
 - [x] Remover do app as leituras/gravações Firestore e o importador automático no primeiro carregamento; Neon passa a ser a única persistência operacional.
 - [x] Remover endpoint `/api/workspace/migrate` e respectivos testes/código legado.
@@ -26,7 +44,7 @@
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
 - [x] Publicar Neon como persistência exclusiva em `bdaf318` e remover o adaptador de rota Vercel `api/workspace/migrate.ts` em `88f0824`; CI `42305119471` e deploy `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` Ready. A função de migração não aparece no deployment; `/api/workspace/migrate` retorna 404, `/api/workspace` sem token retorna 401 e `/api/health` retorna 200/Neon ok.
 - [x] Corrigir comentário legado no parser OFX e confirmar que `src`, `backend`, `shared` e `api` não importam SDK nem fazem consultas Firestore; referências restantes apenas explicam Firebase Auth e as regras deny-all.
-- [ ] Manter Firebase Auth apenas como identidade e testar cadastro/login real por e-mail/senha; a UI não oferece OAuth Google, e a configuração dos provedores no Console não foi verificada nesta sessão.
+- [x] Migrar identidade de Firebase Auth para Neon Auth no corte posterior de 2026-11-06; o teste de cadastro/login real permanece na seção de pendências atuais.
 - [ ] Confirmar execução automática do Vercel Cron `15 12 * * *`; consulta dos logs em 2026-11-06 22:25 UTC encontrou apenas chamadas manuais a `/api/health`.
 - [ ] Revisar visualmente os fluxos completos em desktop e mobile; a tela de login foi observada em desktop, mas a inspeção responsiva foi interrompida pelo controle do Brave.
 
