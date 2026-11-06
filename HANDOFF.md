@@ -1,8 +1,18 @@
 # Handoff — Minhas Economias
 
-## Estado — 2026-11-04 18:07 UTC
+## Retomada — 2026-11-06
 
-Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon `production` é o banco operacional e Firebase Auth fornece identidade. Código funcional publicado em `71c0fdc` está Ready; o commit documental `347247c` está em `main`, com CI `41881539585` success e deployment `dpl_FFQC7fHym3Kdo1KyTp2JtLCw4wgy` Ready. Health do alias principal respondeu HTTP 200/Neon ok; workspace sem token respondeu 401.
+Meta segue ativa. Nesta sessão foram corrigidos fluxos financeiros (pagamento parcial de fatura, inclusão correta de compras na fatura, validação de rateio e precisão de centavos) e removido o login Google da interface/código; Firebase Auth permanece com e-mail e senha, e Neon continua como banco. `bun test` passou com 116 testes em 21 arquivos, `bun run lint` passou e `bun run build` passou com aviso de bundle acima de 500 kB. A UI local mostrou somente o formulário de e-mail/senha. Isso não valida cadastro/login autenticado nem restore de backup via UI.
+
+Firebase informa autenticação na faixa sem custo conforme limites/planos e modalidade; SMS de telefone é cobrado. A troca de provedor remove Google da experiência, mas não garante custo zero do sistema completo. O projeto Firebase não foi acessado nesta retomada; não confirmei se Google continua habilitado no Console.
+
+O BrowserOS Neo não tinha sessão autenticada no Firebase Console ou Vercel. A página local confirmou a tela de login por e-mail/senha, mas não um fluxo autenticado. A branch QA `qa-restore-ui-retry-2026-11-06` foi removida ao final. A tentativa local de limpeza de `.env` foi bloqueada pela política do executor; confirmar e remover o arquivo ignorado sem exibir seu conteúdo. O servidor local foi interrompido.
+
+Próximo passo concreto: confirmar/remover `.env` temporário; depois testar cadastro e login real em Firebase, CRUD e restore de backup pela UI apontada a Neon QA, cobrindo os módulos restantes em desktop/mobile. Com evidência dessas etapas, publicar a revisão de código e confirmar o deploy ativo. O agendamento Vercel existe, mas a execução cron automática continua sem prova observada nesta retomada.
+
+## Estado — 2026-11-04 18:10 UTC
+
+Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon `production` é o banco operacional e Firebase Auth fornece identidade. O commit mais recente `e185fa6` está em `main`; CI `41884363305` concluiu com sucesso e o deployment de produção correspondente está Ready. O alias principal retornou HTTP 200 e `Neon: ok` em `2026-11-04 18:10 UTC`; workspace sem token respondeu 401.
 
 ## Feito nesta continuação
 
@@ -16,6 +26,8 @@ Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon
 - Login Google no `localhost` exibiu “Não foi possível conectar com o Google”. Ainda não foi possível distinguir domínio autorizado ausente de outra falha OAuth; nenhuma credencial foi copiada. A sessão de produção continua utilizável.
 - Com autorização específica do usuário, adicionei `localhost` aos domínios autorizados do Firebase e confirmei que o app redirecionou para o seletor Google. A interação com a janela de seleção falhou repetidamente no controle do navegador antes de selecionar uma conta. Removi `localhost`; conferi que ele não aparece mais e que `minhaseconomias-blue.vercel.app` continua autorizado.
 - Criei e removi `qa-restore-auth-2026-11-04`; Neon lista novamente apenas `production`. Parei o servidor local e removi `.env` temporário. Nenhum restore ou dado foi gravado nessa branch ou em produção.
+- Reexecutei localmente `bun test` (112/112), `bun run lint` e `bun run build` com sucesso; o build ainda sinaliza chunk JS inicial de 566 kB (~168 kB gzip). Vercel lista deployment correspondente ao commit `e185fa6` como Ready.
+- `vercel crons list` mostra `/api/health` às 12:15 UTC diariamente, enabled, sem configuração undeployed. A verificação ao vivo em 18:10 confirmou Neon saudável. A próxima execução automática (2026-11-05) ainda precisa ser observada; o workflow GitHub chamado `neon-daily-activity.yml` é apenas manual (`workflow_dispatch`).
 
 ## Evidências anteriores ainda válidas
 
@@ -29,16 +41,42 @@ Meta ainda ativa: fechar a auditoria de ponta a ponta sem reduzir o escopo. Neon
 
 - Fazer o restore UI→API→Neon com uma sessão autenticada utilizável em ambiente QA. A tentativa local avançou até o seletor de contas Google, mas o controle da janela não permitiu selecionar conta; a branch de QA foi removida e Firebase voltou à configuração original.
 - Cobrir mais profundamente Compartilhado e Relatórios, revisar os dez módulos em desktop/mobile e executar testes de acessibilidade e visual.
-- Identificar os domínios autorizados no Firebase Authentication em modo somente leitura e habilitar um caminho de login QA, se apropriado.
+- Os domínios Firebase foram inspecionados; `localhost` foi removido. Falta uma sessão controlável no BrowserOS neo para autenticar em uma origem QA e concluir o restore UI→Neon. Nesta sessão só há Chrome comum; o plugin BrowserOS neo não está conectado.
 - Remover os 3 vínculos demo nos dois workspaces restantes sem violar o isolamento por UID; faltam as sessões dos respectivos titulares ou caminho administrativo explicitamente autorizado.
 - Comprovar a execução do Cron automático em 5/nov.
 - Gemini não está configurado; SMTP e demais integrações externas não foram validadas ponta a ponta.
 
 ## Próximo passo concreto
 
-Estabelecer uma sessão de navegador autenticada controlável no ambiente QA (ou autenticação de preview aprovada pelo Firebase), então recriar branch Neon descartável, apontar a aplicação para ela e importar um backup sintético até confirmar os agregados no Neon. Confirmar também a execução automática de Cron na janela de 2026-11-05 12:15–13:14:59 UTC.
+Após o BrowserOS neo estar conectado, abrir uma origem QA aceita pelo Firebase, recriar branch Neon descartável, apontar a aplicação para ela e importar um backup sintético; confirmar persistência pelo GET/consulta agregada no Neon, excluir fixture e branch. Confirmar a execução automática do Cron na janela de 2026-11-05 12:15–13:14:59 UTC.
 
 ## Bloqueios
 
 - UI de produção está autenticada, mas essa sessão é específica do domínio de produção. O seletor de conta Google em localhost foi visível, porém interação pelo navegador não funcionou; localhost já foi removido dos domínios autorizados.
+- BrowserOS neo não está ativo/conectado na sessão atual; a skill dedicada requer esperar por essa conexão em vez de operar o site no Chrome comum.
 - O Cron depende da próxima execução automática.
+
+## Continuação — 2026-11-04
+
+- Com autorização explícita do usuário, removi as 3 referências familiares demo órfãs dos dois workspaces afetados. Consulta agregada posterior confirmou zero contas, cartões, lançamentos, metas, investimentos, viagens, membros familiares, convites e lançamentos compartilhados nos 3 workspaces.
+- Neo Lite abriu o app local conectado à branch Neon QA `qa-restore-ui-2026-11-04` (`br-noisy-forest-b66bukxg`). A tela de login carregou, mas o estado permaneceu em “Autenticando...” por mais de 17 segundos; o restore UI→API→Neon não foi atingido. Branch QA removida ao encerrar.
+- `localhost` foi adicionado temporariamente aos domínios Firebase conforme autorização. A tentativa de login não terminou e não consegui remover a autorização temporária antes de encerrar; `localhost` precisa ser removido manualmente no Console Firebase.
+- Verificar e remover `.env` local temporário, caso ainda exista. Não reutilizar a connection string da branch QA já apagada.
+- O job diário `/api/health` segue ativo em `15 12 * * *` UTC; comprovar o disparo automático de 5/nov na janela 12:15–13:14:59 UTC.
+
+## Próximo passo concreto
+
+Remover `localhost` nos domínios autorizados do Firebase; diagnosticar por que o login no Neo Lite fica em “Autenticando...” e então repetir o restore com fixture em branch Neon QA isolada. Acompanhar o disparo automático do Cron de 5/nov.
+
+## Bloqueios atualizados
+
+- Restauração completa via UI permanece sem validação por carregamento indefinido da autenticação local.
+- Domínio Firebase temporário `localhost` ainda requer remoção.
+- A primeira execução diária automática do Cron ainda precisa de comprovação.
+
+## Atualização posterior — autenticação e domínio
+
+- Corrigido o registro acima: a autorização `localhost` foi removida no Firebase Console e a interface confirmou “localhost removido”; `minhaseconomias-blue.vercel.app` continua autorizado. O item de remoção não é mais pendente.
+- O popup OAuth estava em janela separada, não travado no app. A seleção automatizada abriu uma conta Google que pediu senha; não inseri senha, código ou credencial e interrompi o fluxo. Restore UI→API→Neon continua pendente até autenticar na conta correta do workspace.
+- `qa-restore-ui-2026-11-04` já foi excluída e `.env` temporário já foi apagado. O servidor local não está mais em execução; a branch `production` não foi usada para este ensaio.
+- Próximo passo concreto: retomar quando o usuário selecionar no popup a conta usada no Minhas Economias e o app local abrir autenticado; recriar então uma branch Neon QA com role runtime e confirmar um backup sintético no Neon. Depois limpar fixture e branch.

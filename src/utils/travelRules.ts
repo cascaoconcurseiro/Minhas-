@@ -18,6 +18,7 @@ import {
   TripParticipantBalance,
   TripSplitMethod,
 } from '../types/finance';
+import { parseBRLInput } from './financeRules';
 
 export interface CurrencyMetadata {
   code: CurrencyCode;
@@ -590,6 +591,47 @@ export interface CustomParticipantSplitInput {
   sharesWeight?: number;
 }
 
+export function validateTripExpenseSplitInputs(
+  totalForeignAmount: number,
+  participants: TripParticipant[],
+  selectedParticipantIds: string[],
+  method: TripSplitMethod,
+  customInputs: CustomParticipantSplitInput[] = []
+): string | null {
+  if (method !== 'exact' && method !== 'percentage') return null;
+  if (!Number.isFinite(totalForeignAmount) || totalForeignAmount <= 0) {
+    return 'Informe um total válido para o rateio da viagem.';
+  }
+
+  const selected = participants.filter((p) => selectedParticipantIds.includes(p.id));
+  const activeList = selected.length > 0 ? selected : participants.slice(0, 1);
+  if (activeList.length === 0) return 'Selecione ao menos uma pessoa para o rateio.';
+
+  const customMap = new Map(customInputs.map((input) => [input.participantId, input]));
+  const values = activeList.map((participant) =>
+    method === 'exact'
+      ? customMap.get(participant.id)?.exactForeign
+      : customMap.get(participant.id)?.percentage
+  );
+
+  if (values.some((value) => value === undefined || !Number.isFinite(value) || value < 0)) {
+    return 'Preencha valores válidos e não negativos para todas as pessoas selecionadas.';
+  }
+
+  const cents = values.map((value) => Math.round(parseBRLInput(String(value)) * 100));
+  const totalCents = Math.round(parseBRLInput(String(totalForeignAmount)) * 100);
+  const sumCents = cents.reduce((sum, value) => sum + value, 0);
+
+  if (method === 'exact' && sumCents !== totalCents) {
+    return 'A soma dos valores exatos precisa fechar o total da despesa na moeda original.';
+  }
+  if (method === 'percentage' && sumCents !== 10000) {
+    return 'A soma das porcentagens precisa ser exatamente 100%.';
+  }
+
+  return null;
+}
+
 /**
  * Calcula o rateio exato de uma despesa de viagem entre os participantes selecionados,
  * tanto na moeda original da viagem quanto em Reais (BRL), garantindo que a soma dos
@@ -610,6 +652,19 @@ export function calculateTripExpenseSplit(
     validParticipants.length > 0 ? validParticipants : participants.slice(0, 1);
 
   if (activeList.length === 0) return [];
+  const isSingleParticipant = activeList.length === 1;
+  if (
+    !(isSingleParticipant && (method === 'exact' || method === 'percentage')) &&
+    validateTripExpenseSplitInputs(
+      totalForeignAmount,
+      participants,
+      selectedParticipantIds,
+      method,
+      customInputs
+    )
+  ) {
+    return [];
+  }
 
   const count = activeList.length;
   const customMap = new Map(customInputs.map((c) => [c.participantId, c]));
@@ -617,7 +672,11 @@ export function calculateTripExpenseSplit(
   // Cálculo dos pesos proporcionais de cada participante
   let weights: number[] = [];
 
-  if (method === 'equal' || method === 'individual') {
+  if (
+    method === 'equal' ||
+    method === 'individual' ||
+    (isSingleParticipant && (method === 'exact' || method === 'percentage'))
+  ) {
     weights = activeList.map(() => 1);
   } else if (method === 'exact') {
     const exactValues = activeList.map(
@@ -650,9 +709,14 @@ export function calculateTripExpenseSplit(
     const ratio = weights[i] / totalWeight;
     const isLast = i === count - 1;
 
-    const rawForeign = isLast
-      ? Math.round((totalForeignAmount - allocatedForeign) * 100) / 100
-      : Math.floor(totalForeignAmount * ratio * 100) / 100;
+    const rawForeign =
+      method === 'exact' && !isSingleParticipant
+        ? Math.round(
+            parseBRLInput(String(customMap.get(p.id)?.exactForeign ?? 0)) * 100
+          ) / 100
+        : isLast
+        ? Math.round((totalForeignAmount - allocatedForeign) * 100) / 100
+        : Math.floor(totalForeignAmount * ratio * 100) / 100;
 
     const rawBrl = isLast
       ? Math.round((totalBrlAmount - allocatedBrl) * 100) / 100

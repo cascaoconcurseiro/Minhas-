@@ -92,6 +92,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   // Partial / Custom Invoice Payment State
   const [showPartialPayPanel, setShowPartialPayPanel] = useState(false);
   const [partialPayAmountStr, setPartialPayAmountStr] = useState('');
+  const [partialPayError, setPartialPayError] = useState('');
 
   // Installment anticipation panel state
   const [anticipatingGroupId, setAnticipatingGroupId] = useState<string | null>(null);
@@ -1047,8 +1048,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     type="button"
                     onClick={() => {
                       setShowPartialPayPanel((prev) => !prev);
+                      setPartialPayError('');
                       setPartialPayAmountStr(
-                        Math.round((activeSummary.invoicePendingAmount / 2) * 100 / 100)
+                        (Math.round((activeSummary.invoicePendingAmount / 2) * 100) / 100)
                           .toFixed(2)
                           .replace('.', ',')
                       );
@@ -1144,13 +1146,21 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   <p className="text-[11px] text-emerald-800 mt-0.5">
                     Informe o valor que deseja abater agora. O saldo restante continuará em aberto na fatura de {formatMonthYearPT(selectedMonth)}.
                   </p>
+                  {partialPayError && (
+                    <p role="alert" className="text-[11px] font-semibold text-rose-700 mt-1">
+                      {partialPayError}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-xs font-mono font-bold text-emerald-900">R$</span>
                   <input
                     type="text"
                     value={partialPayAmountStr}
-                    onChange={(e) => setPartialPayAmountStr(e.target.value)}
+                    onChange={(e) => {
+                      setPartialPayAmountStr(e.target.value);
+                      setPartialPayError('');
+                    }}
                     placeholder="Ex: 500,00"
                     className="w-28 rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-mono tabular-nums text-slate-900"
                   />
@@ -1158,10 +1168,16 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     type="button"
                     onClick={() => {
                       const customAmt = parseBRLInput(partialPayAmountStr);
-                      if (customAmt > 0) {
-                        onPayInvoice(activeCard.id, paymentAccountId, customAmt);
-                        setShowPartialPayPanel(false);
+                      if (customAmt <= 0) {
+                        setPartialPayError('Informe um valor maior que zero.');
+                        return;
                       }
+                      if (customAmt > activeSummary.invoicePendingAmount) {
+                        setPartialPayError('O valor não pode ultrapassar o saldo pendente da fatura.');
+                        return;
+                      }
+                      onPayInvoice(activeCard.id, paymentAccountId, customAmt);
+                      setShowPartialPayPanel(false);
                     }}
                     className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
                   >

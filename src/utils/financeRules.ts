@@ -37,18 +37,61 @@ export function parseBRLInput(raw: string): number {
   if (!raw || typeof raw !== 'string') return 0;
   const cleaned = raw.trim().replace(/[R$\s]/g, '');
   if (!cleaned) return 0;
-  if (cleaned.includes(',') && cleaned.includes('.')) {
-    const normalized = cleaned.replace(/\./g, '').replace(',', '.');
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+  const match = cleaned.match(/^([+-]?)([\d.,]+)$/);
+  if (!match) return 0;
+
+  const sign = match[1] === '-' ? -1n : 1n;
+  const value = match[2];
+  const lastComma = value.lastIndexOf(',');
+  const lastDot = value.lastIndexOf('.');
+  const hasComma = lastComma !== -1;
+  const hasDot = lastDot !== -1;
+
+  let integerPart = value;
+  let fractionPart = '';
+
+  if (hasComma && hasDot) {
+    const decimalSeparator = lastComma > lastDot ? ',' : '.';
+    const groupingSeparator = decimalSeparator === ',' ? '.' : ',';
+    const decimalIndex = Math.max(lastComma, lastDot);
+    integerPart = value.slice(0, decimalIndex);
+    fractionPart = value.slice(decimalIndex + 1);
+    if (
+      integerPart.includes(groupingSeparator) &&
+      !new RegExp(`^\\d{1,3}(?:\\${groupingSeparator}\\d{3})+$`).test(integerPart)
+    ) {
+      return 0;
+    }
+    integerPart = integerPart.replaceAll(groupingSeparator, '');
+  } else if (hasComma || hasDot) {
+    const separator = hasComma ? ',' : '.';
+    const parts = value.split(separator);
+    if (parts.length > 2) {
+      if (!/^\d{1,3}(?:[.,]\d{3})+$/.test(value)) return 0;
+      integerPart = parts.join('');
+    } else {
+      [integerPart, fractionPart] = parts;
+    }
   }
-  if (cleaned.includes(',')) {
-    const normalized = cleaned.replace(',', '.');
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+
+  if (!/^\d*$/.test(integerPart) || !/^\d*$/.test(fractionPart)) return 0;
+  if (!integerPart && !fractionPart) return 0;
+
+  try {
+    const wholeCents = BigInt(integerPart || '0') * 100n;
+    const fractionCents = BigInt((fractionPart + '00').slice(0, 2) || '0');
+    let cents = wholeCents + fractionCents;
+    if ((fractionPart[2] || '0') >= '5') cents += 1n;
+    cents *= sign;
+    const safeCents = Number(cents);
+    return Number.isSafeInteger(safeCents) ? safeCents / 100 : 0;
+  } catch {
+    return 0;
   }
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+}
+
+function isCreditCardInvoicePurchase(tx: Transaction): boolean {
+  return !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member';
 }
 
 export function addMonthsToYearMonth(yearMonth: string, offset: number): string {
@@ -546,9 +589,7 @@ export function calculateCreditCardSummary(
   const cardAllTx = transactions.filter(
     (tx) =>
       tx.creditCardId === card.id &&
-      !tx.isInvoicePayment &&
-      !tx.isCompanionOnlyExpense &&
-      tx.sharedPaidBy !== 'member'
+      isCreditCardInvoicePurchase(tx)
   );
   const monthTx = cardAllTx
     .filter((tx) => tx.competenceMonth === selectedMonth)
@@ -602,7 +643,7 @@ export function payCreditCardInvoice(
       tx.creditCardId === card.id &&
       tx.competenceMonth === invoiceMonth &&
       tx.status === 'pending' &&
-      !tx.isInvoicePayment
+      isCreditCardInvoicePurchase(tx)
   );
 
   const totalPending = Math.round(
@@ -610,6 +651,15 @@ export function payCreditCardInvoice(
   ) / 100;
 
   if (totalPending <= 0) {
+    return transactions;
+  }
+
+  if (
+    customPaymentAmount !== undefined &&
+    (!Number.isFinite(customPaymentAmount) ||
+      customPaymentAmount <= 0 ||
+      customPaymentAmount > totalPending + 0.009)
+  ) {
     return transactions;
   }
 
@@ -630,7 +680,7 @@ export function payCreditCardInvoice(
       tx.creditCardId === card.id &&
       tx.competenceMonth === invoiceMonth &&
       tx.status === 'pending' &&
-      !tx.isInvoicePayment
+      isCreditCardInvoicePurchase(tx)
     ) {
       if (!isPartial) {
         updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus });

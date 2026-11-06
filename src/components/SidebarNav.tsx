@@ -55,8 +55,7 @@ interface SidebarNavProps {
   investmentsTotalValue?: number;
   cloudUserEmail?: string | null;
   cloudSyncStatus?: 'local' | 'syncing' | 'synced' | 'error';
-  onSignInGoogle?: () => void;
-  onSignOutGoogle?: () => void;
+  onSignOut?: () => void;
 }
 
 interface NavItemConfig {
@@ -151,7 +150,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   activeTripsCount = 0,
   cloudUserEmail = null,
   cloudSyncStatus = 'synced',
-  onSignOutGoogle,
+  onSignOut,
 }) => {
   const syncConfig = getSyncStatusConfig(cloudSyncStatus);
   const SyncIcon = syncConfig.Icon;
@@ -432,11 +431,11 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             )}
           </div>
 
-          {cloudUserEmail && onSignOutGoogle && (
+          {cloudUserEmail && onSignOut && (
             <button
               type="button"
               data-testid="sidebar-logout-btn"
-              onClick={onSignOutGoogle}
+              onClick={onSignOut}
               title={isCollapsed ? `Sair (${cloudUserEmail})` : undefined}
               aria-label="Sair da conta"
               className={`w-full mt-1.5 flex items-center rounded-xl text-xs font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors ${
@@ -648,12 +647,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 <span>Configurações Completas</span>
               </button>
 
-              {cloudUserEmail && onSignOutGoogle && (
+              {cloudUserEmail && onSignOut && (
                 <button
                   type="button"
                   onClick={() => {
                     onCloseMobileDrawer();
-                    onSignOutGoogle();
+                    onSignOut();
                   }}
                   className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
                 >

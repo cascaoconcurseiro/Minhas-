@@ -1,8 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInAnonymously,
@@ -21,7 +19,6 @@ import {
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
-export const googleProvider = new GoogleAuthProvider();
 
 export const AUTO_VAULT_STORAGE_KEY = 'minhas_economias_cloud_vault_id_v2';
 
@@ -43,11 +40,6 @@ export function getOrCreateAutoCloudVaultId(): string {
   } catch {
     return 'vault_default_session_br_01';
   }
-}
-
-export async function signInWithGooglePopup(): Promise<User | null> {
-  const result = await signInWithPopup(auth, googleProvider);
-  return result.user;
 }
 
 export async function signInWithEmail(

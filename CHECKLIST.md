@@ -421,7 +421,7 @@
 - [x] Confirmar que o UID sintético tem zero linhas em `production`, e que os 3 workspaces de produção continuam sem contas, cartões e lançamentos.
 - [x] Excluir a branch QA e confirmar que Neon voltou a listar somente `production`; apagar também os arquivos e variáveis locais temporários.
 - [ ] A interface de restauração ainda não foi exercitada ponta a ponta: após autorização temporária de `localhost`, o app abriu o seletor Google, mas a interação do navegador não selecionou uma conta. Nenhuma escrita ocorreu em produção; Firebase foi restaurado à lista original de domínios e a branch QA foi removida.
-- [ ] CI `41877421967` do commit `71c0fdc` estava `queued` na última consulta (17:40 UTC); confirmar conclusão.
+- [x] Confirmar CI do commit documental mais recente `e185fa6`: run `41884363305` concluído com sucesso em 2026-11-04 18:09 UTC.
 
 ## CRUD real pela interface autenticada (2026-11-04)
 - [x] Criar pela interface o cartão temporário `QA Cartão Temporário 20261104`; estado sincronizado, recarga confirmou persistência, e exclusão seguida de recarga voltou ao estado sem cartões.
@@ -443,3 +443,36 @@
 - [x] Criar e excluir a branch temporária `qa-restore-auth-2026-11-04`; Neon voltou a listar somente `production`.
 - [x] Encerrar o servidor local e remover `.env` de QA; não houve gravação de fixture.
 - [ ] Retomar o restore completo com uma sessão autenticada controlável em preview/localhost autorizado; comprovar payload sintético no Neon e limpar depois.
+
+## Revalidação local e infraestrutura (2026-11-04)
+- [x] `bun test`: 112 testes aprovados, 0 falhas, em 21 arquivos.
+- [x] `bun run lint` (`tsc --noEmit`) concluiu sem erros.
+- [x] `bun run build` concluiu; registrar aviso existente de chunk JS inicial de 566,35 kB (~167,56 kB gzip).
+- [x] Deployment de produção correspondente ao commit `e185fa6` aparece Ready na Vercel; endpoint `/api/health` retornou HTTP 200 e Neon `ok` em 18:10 UTC.
+- [x] `vercel crons list` confirmou `/api/health` habilitado diariamente às 12:15 UTC, sem jobs undeployed. Uma chamada direta ao endpoint em 18:10 UTC respondeu Neon `ok`; isso não é evidência de execução pelo agendador.
+- [x] Distinguir o workflow GitHub `.github/workflows/neon-daily-activity.yml`: ele só tem `workflow_dispatch` e não é o agendamento diário.
+- [ ] Confirmar a execução automática do Vercel Cron após deploy; a chamada direta ao health endpoint não substitui essa evidência.
+- [ ] Revisar operações de edição, exclusão em cascata e layouts dos dez módulos em desktop/mobile; os smokes de CRUD anteriores foram pontuais, não cobertura exaustiva.
+
+## Continuação 2026-11-04 — limpeza e tentativa Neo Lite
+- [x] Com autorização anterior do usuário, limpar 3 referências familiares de demonstração órfãs em dois workspaces de produção; consulta agregada pós-limpeza confirmou zero dados operacionais e familiares nos 3 workspaces.
+- [x] Abrir a aplicação local pelo Neo Lite e confirmar que a tela de login carregou usando branch Neon QA isolada; branch removida ao terminar.
+- [ ] Login local ficou preso em “Autenticando...” e o fluxo de restore UI→API→Neon não foi executado.
+- [ ] Remover a autorização temporária `localhost` no Firebase; ela ainda estava presente ao encerrar a automação do Neo Lite.
+- [x] Remover `.env` temporário de QA após a tentativa; branch Neon correspondente já removida.
+
+## Retomada — 2026-11-04
+- [x] Remover a autorização temporária `localhost` no Firebase; UI confirmou remoção e o domínio Vercel permaneceu autorizado.
+- [x] Remover a branch QA descartável `qa-restore-ui-2026-11-04`; Neon QA não ficou ativa.
+- [x] Interromper OAuth que abriu uma conta que exigia senha; nenhuma senha, código ou credencial foi inserida.
+- [ ] Restore UI→API→Neon aguarda autenticação do titular do workspace, feita pelo usuário no popup.
+# Sessão 2026-11-06 — autenticação e integridade financeira
+- [x] Remover fluxo de login Google da UI e do cliente, mantendo Firebase Auth por e-mail/senha.
+- [x] Corrigir totalização/liquidação de fatura, validação de pagamentos parciais, rateios e arredondamento monetário.
+- [x] Validar UI de login local: formulário de e-mail/senha, sem botão Google.
+- [x] Executar `bun test`: 116 testes em 21 arquivos, todos aprovados; `bun run lint` e `bun run build` aprovados (aviso de bundle >500 kB).
+- [x] Excluir branch Neon QA `qa-restore-ui-retry-2026-11-06`, mantendo a branch de produção.
+- [ ] Confirmar/remover `.env` de QA; limpeza foi bloqueada pelo executor e conteúdo não foi lido.
+- [ ] Validar cadastro/login real com Firebase e restore UI→API→Neon em branch QA.
+- [ ] Confirmar execução automática do Vercel Cron e concluir cobertura funcional/visual dos módulos restantes.
+- [ ] Publicar esta revisão e verificar o deploy de produção.

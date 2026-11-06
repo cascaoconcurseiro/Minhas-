@@ -15,6 +15,7 @@ import {
   stripLegacyMockRecords,
   runFinancialIntegrityAudit,
   sanitizeAndRepairFinancialState,
+  validateTripExpenseSplitInputs,
 } from './travelRules';
 import { Trip, Transaction, TripParticipant } from '../types/finance';
 
@@ -154,6 +155,86 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
     assert.equal(weightShares[0].brlShare, 372);
     assert.equal(weightShares[1].foreignShare, 30);
     assert.equal(weightShares[1].brlShare, 186);
+  });
+
+  it('blocks exact and percentage splits that would be silently renormalized', () => {
+    const participants: TripParticipant[] = [
+      { id: 'me', name: 'Você', isMe: true, color: '#059669' },
+      { id: 'ana', name: 'Ana', color: '#ec4899' },
+    ];
+
+    assert.match(
+      validateTripExpenseSplitInputs(
+        100,
+        participants,
+        ['me', 'ana'],
+        'exact',
+        [
+          { participantId: 'me', exactForeign: 50 },
+          { participantId: 'ana', exactForeign: 30 },
+        ]
+      ) || '',
+      /fechar o total/
+    );
+    assert.deepEqual(
+      calculateTripExpenseSplit(
+        100,
+        620,
+        participants,
+        ['me', 'ana'],
+        'exact',
+        [
+          { participantId: 'me', exactForeign: 50 },
+          { participantId: 'ana', exactForeign: 30 },
+        ]
+      ),
+      []
+    );
+    assert.equal(
+      validateTripExpenseSplitInputs(
+        100,
+        participants,
+        ['me', 'ana'],
+        'exact',
+        [
+          { participantId: 'me', exactForeign: 50 },
+          { participantId: 'ana', exactForeign: 50 },
+        ]
+      ),
+      null
+    );
+    assert.match(
+      validateTripExpenseSplitInputs(
+        100,
+        participants,
+        ['me', 'ana'],
+        'percentage',
+        [
+          { participantId: 'me', percentage: 70 },
+          { participantId: 'ana', percentage: 20 },
+        ]
+      ) || '',
+      /exatamente 100%/
+    );
+  });
+
+  it('assigns the whole trip expense to the only participant in exact or percentage mode', () => {
+    const onlyParticipant: TripParticipant[] = [
+      { id: 'me', name: 'Você', isMe: true, color: '#059669' },
+    ];
+
+    for (const method of ['exact', 'percentage'] as const) {
+      const shares = calculateTripExpenseSplit(
+        100,
+        620,
+        onlyParticipant,
+        ['me'],
+        method
+      );
+      assert.equal(shares.length, 1);
+      assert.equal(shares[0].foreignShare, 100);
+      assert.equal(shares[0].brlShare, 620);
+    }
   });
 
   it('computes TravelSpend daily pace, personal vs group totals, and simplifies multi-payer debts with settlements', () => {

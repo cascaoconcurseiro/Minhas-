@@ -56,6 +56,7 @@ import {
   CustomParticipantSplitInput,
   formatExchangeRateBR,
   formatForeignCurrency,
+  validateTripExpenseSplitInputs,
 } from '../utils/travelRules';
 import { computeModalScrollState } from '../utils/modalScrollRules';
 import {
@@ -924,6 +925,41 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const numericPreview = parseBRLInput(amountStr);
 
+  const tripSplitValidationError = useMemo(() => {
+    if (!selectedTrip || selectedTrip.participants.length <= 1) return null;
+    const totalForeign =
+      originalCurrency !== 'BRL' && parsedForeignAmount > 0
+        ? parsedForeignAmount
+        : numericPreview;
+    const activeIds =
+      selectedTripParticipantIds.length > 0
+        ? selectedTripParticipantIds
+        : selectedTrip.participants.map((participant) => participant.id);
+    const customInputs = selectedTrip.participants.map((participant) => {
+      const value = parseBRLInput(tripCustomInputs[participant.id] || '');
+      return {
+        participantId: participant.id,
+        exactForeign: tripSplitMethod === 'exact' ? value : undefined,
+        percentage: tripSplitMethod === 'percentage' ? value : undefined,
+      };
+    });
+    return validateTripExpenseSplitInputs(
+      totalForeign,
+      selectedTrip.participants,
+      activeIds,
+      tripSplitMethod,
+      customInputs
+    );
+  }, [
+    selectedTrip,
+    originalCurrency,
+    parsedForeignAmount,
+    numericPreview,
+    selectedTripParticipantIds,
+    tripSplitMethod,
+    tripCustomInputs,
+  ]);
+
   // Compute live Trip Shares when a trip is selected
   const tripSharesPreview = useMemo((): TripExpenseShare[] => {
     if (!selectedTrip || selectedTrip.participants.length === 0) return [];
@@ -933,6 +969,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         : numericPreview;
     const totalBrl = numericPreview;
     if (totalBrl <= 0) return [];
+    if (tripSplitValidationError) return [];
 
     const activeIds =
       selectedTripParticipantIds.length > 0
@@ -967,6 +1004,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     selectedTripParticipantIds,
     tripSplitMethod,
     tripCustomInputs,
+    tripSplitValidationError,
   ]);
 
   const myTripShareObj = useMemo(() => {
@@ -1269,6 +1307,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       (isTripLinked || isMultiCurrencyOpen) &&
       entryMode !== 'transfer' &&
       (originalCurrency !== 'BRL' || Boolean(tripId));
+
+    if (activeMultiCurrency && tripId && tripSplitValidationError) {
+      setError(tripSplitValidationError);
+      return;
+    }
 
     // Enforce business rule: installment ONLY when credit_card
     const safeRecurrence: RecurrenceType =
@@ -3300,6 +3343,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                 })}
                               </div>
                             </div>
+                          )}
+
+                          {tripSplitValidationError && (
+                            <p role="alert" className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+                              {tripSplitValidationError}
+                            </p>
                           )}
                         </div>
                       )}

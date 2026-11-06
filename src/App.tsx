@@ -24,7 +24,6 @@ import {
   refreshFirebaseUser,
   resendEmailVerification,
   signInWithEmail,
-  signInWithGooglePopup,
   signOutFirebaseUser,
   User,
 } from './lib/firebase';
@@ -1100,28 +1099,6 @@ export default function App() {
     }
   };
 
-  const handleSignInGoogle = async () => {
-    const user = await signInWithGooglePopup();
-    if (!user || user.isAnonymous || !user.email) {
-      throw new Error('A autenticação Google não retornou uma conta válida.');
-    }
-    const cleanEmail = user.email.trim().toLowerCase();
-    if (cleanEmail !== effectiveUserEmail) {
-      resetFinancialStateToCleanZero();
-      hasLoadedRemoteOnceRef.current = false;
-    }
-    setAuthSession({
-      isLoggedIn: true,
-      email: cleanEmail,
-      displayName: user.displayName || settings.userName || cleanEmail.split('@')[0],
-    });
-    showNotice(
-      `Sessão autenticada com Firebase Auth como ${cleanEmail}. Sincronização de dados pela nuvem em andamento.`,
-      undefined,
-      true
-    );
-  };
-
   const handleSignInEmail = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const user = await signInWithEmail(cleanEmail, pass);
@@ -1189,7 +1166,7 @@ export default function App() {
     }
   };
 
-  const handleSignOutGoogle = async () => {
+  const handleSignOut = async () => {
     try {
       await signOutFirebaseUser();
     } catch {
@@ -1410,6 +1387,10 @@ export default function App() {
           input.date,
           input.amount
         );
+        if (updated === transactions) {
+          showNotice('Valor de pagamento inválido para o saldo pendente desta fatura.', undefined, true);
+          return;
+        }
         setTransactions(updated);
         showNotice(
           `Pagamento da fatura de ${targetCard.name} (${formatBRL(
@@ -1585,16 +1566,19 @@ export default function App() {
       paymentAccountId || card.defaultAccountId || accounts[0]?.id || '';
     const prevSnapshot = [...transactions];
     const paymentDate = `${selectedMonth}-${String(card.dueDay).padStart(2, '0')}`;
-    setTransactions((prev) =>
-      payCreditCardInvoice(
-        card,
-        prev,
-        selectedMonth,
-        effectiveAccountId,
-        paymentDate,
-        customAmount
-      )
+    const updated = payCreditCardInvoice(
+      card,
+      transactions,
+      selectedMonth,
+      effectiveAccountId,
+      paymentDate,
+      customAmount
     );
+    if (updated === transactions) {
+      showNotice('Informe um valor positivo que não ultrapasse o saldo pendente.', undefined, true);
+      return;
+    }
+    setTransactions(updated);
     if (customAmount && customAmount > 0) {
       showNotice(
         `Pagamento parcial de ${formatBRL(customAmount)} na fatura de ${card.name} registrado.`,
@@ -3031,7 +3015,6 @@ export default function App() {
           <LoginPage
             defaultEmail=""
             defaultName=""
-            onSignInGoogle={handleSignInGoogle}
             onSignInEmail={handleSignInEmail}
             onRegisterEmail={handleRegisterEmail}
           />
@@ -3142,8 +3125,7 @@ export default function App() {
         investmentsTotalValue={investmentsTotalValue}
         cloudUserEmail={effectiveUserEmail}
         cloudSyncStatus={cloudSyncStatus}
-        onSignInGoogle={handleSignInGoogle}
-        onSignOutGoogle={handleSignOutGoogle}
+        onSignOut={handleSignOut}
       />
 
       {/* Right Workspace Column */}
@@ -3896,10 +3878,9 @@ export default function App() {
                   investments={investments}
                   goals={goals}
                   trips={trips}
-                  onSignInGoogle={handleSignInGoogle}
                   onSignInEmail={handleSignInEmail}
                   onRegisterEmail={handleRegisterEmail}
-                  onSignOut={handleSignOutGoogle}
+                  onSignOut={handleSignOut}
                   onForceCloudSync={handleForceCloudSync}
                   onUpdateSettings={handleUpdateSettings}
                   onRunDiagnosticAndRepair={handleRunDiagnosticAndRepair}
@@ -3946,7 +3927,7 @@ export default function App() {
         onOpenNewTransaction={(mode) => handleOpenNewTransaction(mode)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         userEmail={effectiveUserEmail}
-        onSignOut={handleSignOutGoogle}
+        onSignOut={handleSignOut}
       />
 
       {/* In-App Mobile PWA Install Banner */}
@@ -3995,7 +3976,7 @@ export default function App() {
         onAddSubcategory={handleAddSubcategory}
         onDeleteSubcategory={handleDeleteSubcategory}
         onOpenCloudTab={() => handleSelectTab('cloud')}
-        onSignOut={handleSignOutGoogle}
+        onSignOut={handleSignOut}
         onExportFullBackupJson={handleExportFullBackupJson}
         onImportFullBackupJson={handleImportFullBackupJson}
         onResetWorkspaceData={handleResetWorkspaceData}

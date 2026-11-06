@@ -46,7 +46,6 @@ interface AuthAndCloudTabProps {
   investments: InvestmentAsset[];
   goals: SavingsGoal[];
   trips: Trip[];
-  onSignInGoogle: () => Promise<void>;
   onSignInEmail: (email: string, pass: string) => Promise<void>;
   onRegisterEmail: (name: string, email: string, pass: string) => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -70,7 +69,6 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   investments,
   goals,
   trips,
-  onSignInGoogle,
   onSignInEmail,
   onRegisterEmail,
   onSignOut,
@@ -393,7 +391,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   <p className="text-[11px] text-slate-500">
                     {isNamedAccountLoggedIn
                       ? 'Sessão autenticada. Confira abaixo o estado do Neon e da sincronização.'
-                      : 'Faça login com Google ou E-mail e Senha para sincronizar'}
+                      : 'Entre com e-mail e senha para sincronizar com o Neon'}
                   </p>
                 </div>
               </div>
@@ -475,27 +473,6 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    data-testid="google-login-btn"
-                    onClick={() => void onSignInGoogle()}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 px-3.5 py-2.5 text-xs font-bold text-white shadow-xs transition-all"
-                  >
-                    <Cloud className="h-4 w-4 text-emerald-400 dark:text-white shrink-0" />
-                    <span>Entrar com Google</span>
-                  </button>
-
-                </div>
-
-                <div className="relative flex py-1 items-center">
-                  <div className="grow border-t border-slate-200 dark:border-slate-800" />
-                  <span className="shrink mx-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    ou acesse com e-mail e senha
-                  </span>
-                  <div className="grow border-t border-slate-200 dark:border-slate-800" />
-                </div>
-
                 <div className="grid grid-cols-2 rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs">
                   <button
                     type="button"

@@ -33,9 +33,103 @@ import { INITIAL_CATEGORIES } from './seedData';
 
 test('parseBRLInput parses Brazilian and standard decimal strings accurately', () => {
   assert.equal(parseBRLInput('R$ 1.450,90'), 1450.9);
+  assert.equal(parseBRLInput('R$ 1.005'), 1.01);
+  assert.equal(parseBRLInput('R$ 0,105'), 0.11);
+  assert.equal(parseBRLInput('1,234.56'), 1234.56);
+  assert.equal(parseBRLInput('1.234.567'), 1234567);
   assert.equal(parseBRLInput('250,50'), 250.5);
   assert.equal(parseBRLInput('1200.75'), 1200.75);
   assert.equal(parseBRLInput(''), 0);
+});
+
+test('card invoice settlement uses the same eligible purchases as its summary', () => {
+  const card: CreditCard = {
+    id: 'card-filtered',
+    name: 'Cartão QA',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+  const [included] = createTransactionBatch({
+    description: 'Despesa pessoal',
+    amount: 100,
+    date: '2026-11-05',
+    competenceMonth: '2026-11',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-mercado',
+    creditCardId: card.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'single',
+  });
+  const excludedByMember = {
+    ...included,
+    id: 'tx-member-paid',
+    description: 'Paga por familiar',
+    amount: 25,
+    sharedPaidBy: 'member' as const,
+  };
+  const companionOnly = {
+    ...included,
+    id: 'tx-companion-only',
+    description: 'Despesa de acompanhante',
+    amount: 25,
+    isCompanionOnlyExpense: true,
+  };
+  const transactions = [included, excludedByMember, companionOnly];
+
+  const before = calculateCreditCardSummary(card, transactions, '2026-11');
+  assert.equal(before.invoiceTotal, 100);
+  assert.equal(before.usedLimit, 100);
+
+  const settled = payCreditCardInvoice(
+    card,
+    transactions,
+    '2026-11',
+    'acc-1',
+    '2026-11-28'
+  );
+  const payment = settled.find((tx) => tx.isInvoicePayment);
+  assert.equal(payment?.amount, 100);
+  assert.equal(settled.find((tx) => tx.id === included.id)?.status, 'paid');
+  assert.equal(settled.find((tx) => tx.id === excludedByMember.id)?.status, 'pending');
+  assert.equal(settled.find((tx) => tx.id === companionOnly.id)?.status, 'pending');
+  assert.equal(calculateCreditCardSummary(card, settled, '2026-11').invoicePendingAmount, 0);
+});
+
+test('card invoice settlement rejects invalid custom payments instead of treating them as full payment', () => {
+  const card: CreditCard = {
+    id: 'card-invalid-payment',
+    name: 'Cartão QA',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+  const transactions = createTransactionBatch({
+    description: 'Despesa',
+    amount: 100,
+    date: '2026-11-05',
+    competenceMonth: '2026-11',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-mercado',
+    creditCardId: card.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'single',
+  });
+
+  for (const invalidAmount of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 100.01]) {
+    assert.equal(
+      payCreditCardInvoice(card, transactions, '2026-11', 'acc-1', '2026-11-28', invalidAmount),
+      transactions
+    );
+  }
 });
 
 test('createTransactionBatch creates accurate installments with remainder on 1st parcel and preserves subcategoryId', () => {
