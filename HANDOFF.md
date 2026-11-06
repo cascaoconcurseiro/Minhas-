@@ -4,7 +4,7 @@
 
 Meta de conclusão ponta a ponta ainda ativa. Neon é o único banco operacional do app. Firebase Auth continua como provedor de identidade e emissão do token que o backend valida; conforme pedido anterior, esta tarefa migra a persistência, não o login.
 
-Nesta sessão, removi o importador, a rota do backend e a leitura Firestore de inicialização; usuário autenticado sem workspace passa a criar um vazio diretamente no Neon. A revisão do artefato Vercel revelou que `api/workspace/migrate.ts` ainda publicava uma função dedicada mesmo exportando o app Express, então removi esse adaptador no commit `88f0824`. CI `42305119471` passou; deployment `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` ficou Ready e não lista mais a função de migração. Pós-deploy `/api/workspace/migrate` retornou 404, `/api/workspace` sem token 401 e `/api/health` confirmou `Neon=ok`. Uma busca final em `src`, `backend`, `shared` e `api` não encontrou import ou chamada Firestore; corrigi também um comentário obsoleto no parser OFX. As regras foram publicadas no Console Firebase em modo deny-all. Ainda há documentos legados em `cloud_vaults` e `workspaces`; o app não os acessa e eles não foram copiados nem apagados porque a propriedade/conteúdo dos registros não foi confirmada.
+Nesta sessão, removi o importador, a rota do backend e a leitura Firestore de inicialização; usuário autenticado sem workspace passa a criar um vazio diretamente no Neon. A revisão do artefato Vercel revelou que `api/workspace/migrate.ts` ainda publicava uma função dedicada mesmo exportando o app Express, então removi esse adaptador no commit `88f0824`. CI `42305119471` passou; deployment `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` ficou Ready e não lista mais a função de migração. Pós-deploy `/api/workspace/migrate` retornou 404, `/api/workspace` sem token 401 e `/api/health` confirmou `Neon=ok`. Uma busca final em `src`, `backend`, `shared` e `api` não encontrou import ou chamada Firestore; corrigi também um comentário obsoleto no parser OFX. As regras foram publicadas no Console Firebase em modo deny-all. Após confirmação explícita de que eram demonstração, excluí no Console Firebase as coleções legadas `cloud_vaults` e `workspaces`; a raiz agora informa que o banco está pronto para receber dados.
 
 No Neon production, uma consulta agregada após limpar o cartão temporário de QA confirmou 3 workspaces, 0 contas, 0 cartões, 0 lançamentos e 0 metas/investimentos. O cartão QA foi criado pela UI, persistiu após recarga e foi removido; nenhum dado de demonstração ficou no Neon.
 
@@ -14,11 +14,11 @@ Autenticação: Email/Password foi habilitado no Console Firebase. Google contin
 
 Atividade diária: workflow GitHub `neon-daily-activity.yml` teve execução manual bem-sucedida com `SELECT 1`; falta confirmar o primeiro evento automático previsto para 2026-11-07 12:23 UTC. O Vercel Cron diário `/api/health` continua listado em `15 12 * * *`; a consulta dos logs de produção às 2026-11-06 22:25 UTC retornou apenas chamadas manuais recentes e nenhuma execução programada identificável. A próxima ação é confirmar o evento automático do GitHub na janela de 7/nov e reavaliar o cron Vercel.
 
-Próximo passo concreto: confirmar com os titulares se os documentos antigos do Firestore são todos demonstração e podem ser apagados, ou se algum precisa de exportação/importação individual; então executar a ação autorizada sem abrir acesso Firestore no app. Depois validar cadastro/login real e restore autenticado UI→API→Neon.
+Próximo passo concreto: validar cadastro/login real e restore autenticado UI→API→Neon; depois confirmar a execução automática diária na janela prevista de 2026-11-07 12:23 UTC.
 
 Revisão visual: a página de login de produção foi observada no Brave em desktop (viewport 1920×917); a inspeção mobile não foi concluída porque o controle encerrou ao não conseguir determinar a URL atual da janela. Isso não comprova os demais fluxos visuais.
 
-Bloqueios pendentes: decisão segura sobre dados legados Firestore de múltiplos titulares; aceite real de cadastro/login; restore autenticado UI→API→Neon; verificação da agenda diária automática; cobertura visual desktop/mobile e testes dos demais módulos.
+Bloqueios pendentes: aceite real de cadastro/login; restore autenticado UI→API→Neon; verificação da agenda diária automática; cobertura visual desktop/mobile e testes dos demais módulos.
 
 ## Incidente de produção — 2026-11-06, resolvido
 

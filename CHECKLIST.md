@@ -6,7 +6,7 @@
 - [x] Publicar regras Firestore deny-all no Console Firebase; Firestore deixa de ser acessível pelo cliente do app.
 - [x] Confirmar por busca de código que não há import/chamada `firebase/firestore` em `src`, `backend` ou `shared`.
 - [x] Confirmar no Neon production 3 workspaces e zero contas, cartões, lançamentos, metas e investimentos depois de criar/recarregar/apagar um cartão temporário de QA.
-- [ ] Confirmar e decidir migração ou remoção dos documentos legados remanescentes em `cloud_vaults` e `workspaces`; não copiar/apagar dados de múltiplos titulares sem classificar propriedade.
+- [x] Com autorização do usuário, excluir as coleções Firestore legadas `cloud_vaults` e `workspaces` como demonstração; a tela raiz do Console confirmou que o banco não contém coleções e está pronto para receber dados.
 - [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
 - [x] Publicar Neon como persistência exclusiva em `bdaf318` e remover o adaptador de rota Vercel `api/workspace/migrate.ts` em `88f0824`; CI `42305119471` e deploy `dpl_7Uzq7UXeRsfD29ZxhVernRFNkQWs` Ready. A função de migração não aparece no deployment; `/api/workspace/migrate` retorna 404, `/api/workspace` sem token retorna 401 e `/api/health` retorna 200/Neon ok.
 - [x] Corrigir comentário legado no parser OFX e confirmar que `src`, `backend`, `shared` e `api` não importam SDK nem fazem consultas Firestore; referências restantes apenas explicam Firebase Auth e as regras deny-all.
