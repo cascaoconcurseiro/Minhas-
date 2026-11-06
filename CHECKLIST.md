@@ -475,4 +475,4 @@
 - [ ] Confirmar/remover `.env` de QA; limpeza foi bloqueada pelo executor e conteúdo não foi lido.
 - [ ] Validar cadastro/login real com Firebase e restore UI→API→Neon em branch QA.
 - [ ] Confirmar execução automática do Vercel Cron e concluir cobertura funcional/visual dos módulos restantes.
-- [ ] Publicar esta revisão e verificar o deploy de produção.
+- [x] Publicar commit `166f9a0` em `main`; CI `42274441778` passou, deploy Vercel ficou Ready, health Neon `ok` e UI de produção mostra login por e-mail/senha.

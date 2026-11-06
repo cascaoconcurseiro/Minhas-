@@ -2,13 +2,15 @@
 
 ## Retomada — 2026-11-06
 
-Meta segue ativa. Nesta sessão foram corrigidos fluxos financeiros (pagamento parcial de fatura, inclusão correta de compras na fatura, validação de rateio e precisão de centavos) e removido o login Google da interface/código; Firebase Auth permanece com e-mail e senha, e Neon continua como banco. `bun test` passou com 116 testes em 21 arquivos, `bun run lint` passou e `bun run build` passou com aviso de bundle acima de 500 kB. A UI local mostrou somente o formulário de e-mail/senha. Isso não valida cadastro/login autenticado nem restore de backup via UI.
+Meta segue ativa. Nesta sessão foram corrigidos fluxos financeiros (pagamento parcial de fatura, inclusão correta de compras na fatura, validação de rateio e precisão de centavos) e removido o login Google da interface/código; Firebase Auth permanece com e-mail e senha, e Neon continua como banco. `bun test` passou com 116 testes em 21 arquivos, `bun run lint` passou e `bun run build` passou com aviso de bundle acima de 500 kB. A UI local e a produção mostraram somente o formulário de e-mail/senha. Isso não valida cadastro/login autenticado nem restore de backup via UI.
 
 Firebase informa autenticação na faixa sem custo conforme limites/planos e modalidade; SMS de telefone é cobrado. A troca de provedor remove Google da experiência, mas não garante custo zero do sistema completo. O projeto Firebase não foi acessado nesta retomada; não confirmei se Google continua habilitado no Console.
 
 O BrowserOS Neo não tinha sessão autenticada no Firebase Console ou Vercel. A página local confirmou a tela de login por e-mail/senha, mas não um fluxo autenticado. A branch QA `qa-restore-ui-retry-2026-11-06` foi removida ao final. A tentativa local de limpeza de `.env` foi bloqueada pela política do executor; confirmar e remover o arquivo ignorado sem exibir seu conteúdo. O servidor local foi interrompido.
 
-Próximo passo concreto: confirmar/remover `.env` temporário; depois testar cadastro e login real em Firebase, CRUD e restore de backup pela UI apontada a Neon QA, cobrindo os módulos restantes em desktop/mobile. Com evidência dessas etapas, publicar a revisão de código e confirmar o deploy ativo. O agendamento Vercel existe, mas a execução cron automática continua sem prova observada nesta retomada.
+Publicação concluída: commit `166f9a0` na `main`; CI `42274441778` passou e deployment Vercel de produção ficou Ready, com alias `minhaseconomias-blue.vercel.app`. O endpoint de saúde respondeu `status=ok` e `Neon=ok`; a UI de produção mostrou o login por e-mail/senha.
+
+Próximo passo concreto: confirmar/remover `.env` temporário; depois testar cadastro e login real em Firebase, CRUD e restore de backup pela UI apontada a Neon QA, cobrindo os módulos restantes em desktop/mobile. O agendamento Vercel existe, mas a execução cron automática continua sem prova observada nesta retomada.
 
 ## Estado — 2026-11-04 18:10 UTC
 
