@@ -18,7 +18,7 @@ import {
   TripParticipantBalance,
   TripSplitMethod,
 } from '../types/finance';
-import { parseBRLInput } from './financeRules';
+import { parseBRLInput } from './financeRules.js';
 
 export interface CurrencyMetadata {
   code: CurrencyCode;

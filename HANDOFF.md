@@ -12,6 +12,10 @@ Atividade diária: o commit `3a611de` adiciona GitHub Actions `schedule` diária
 
 Próximo passo concreto: assim que o login do Console Firebase for concluído, habilitar Email/Password e desabilitar Google; então terminar cadastro/login, persistência CRUD e restore UI→API→Neon na branch QA, testar exclusões/concurrency/recovery, limpar a conta de QA (se criada), `.env`, servidor e branch. A cobertura responsiva/funcional dos demais módulos e a execução diária automática continuam pendentes.
 
+## Incidente de produção — 2026-11-06
+
+Após o deploy `af357d3`, uma verificação real ao `/api/health` retornou 500. O log Vercel identificou `ERR_MODULE_NOT_FOUND` para `src/utils/financeRules`, importado por `src/utils/travelRules.js`; a causa foi o novo import local sem extensão, que passava no Vite/TypeScript mas não era resolvido pelo runtime ESM da função Node. Alterei o import para `./financeRules.js`. Testes focados (finance/travel/auth) passaram 34/34, `bun run lint` e `bun run build` passaram. A correção precisa ser publicada e `/api/health` revalidado antes de declarar recuperação.
+
 ## Retomada — 2026-11-06
 
 Meta segue ativa. Nesta sessão foram corrigidos fluxos financeiros (pagamento parcial de fatura, inclusão correta de compras na fatura, validação de rateio e precisão de centavos) e removido o login Google da interface/código; Firebase Auth permanece com e-mail e senha, e Neon continua como banco. `bun test` passou com 116 testes em 21 arquivos, `bun run lint` passou e `bun run build` passou com aviso de bundle acima de 500 kB. A UI local e a produção mostraram somente o formulário de e-mail/senha. Isso não valida cadastro/login autenticado nem restore de backup via UI.

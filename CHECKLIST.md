@@ -12,6 +12,11 @@
 - [ ] Após QA, excluir usuário sintético caso criado, branch QA, `.env` temporário e encerrar o servidor local.
 - [ ] Cobrir os fluxos funcionais, segurança, backup/restore, concorrência, indisponibilidade e layouts desktop/mobile ainda pendentes.
 
+## Incidente pós-deploy — 2026-11-06
+- [x] Capturar o 500 de `/api/health` após `af357d3` e identificar `ERR_MODULE_NOT_FOUND` em import local ESM.
+- [x] Atualizar `travelRules.ts` para importar `./financeRules.js`; testes focados 34/34, lint e build passam localmente.
+- [ ] Publicar a correção e confirmar `/api/health` 200 com `Neon=ok` e rotas protegidas 401 sem token.
+
 ## Hospedagem
 - [x] Criar projeto `minhaseconomias` no plano gratuito Hobby da Vercel.
 - [x] Conectar projeto ao repositório `cascaoconcurseiro/Minhas-` e branch `main`.
