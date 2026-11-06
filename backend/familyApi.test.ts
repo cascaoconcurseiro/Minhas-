@@ -88,6 +88,12 @@ before(async () => {
       query: async (sql: string, params: unknown[] = []) => {
         const normalized = sql.replace(/\s+/g, ' ').trim();
         sqlLog.push(normalized);
+        if (normalized.startsWith("SELECT current_user = 'minhas_app_runtime'")) {
+          return { rows: [{ is_least_privilege_role: true }], rowCount: 1 };
+        }
+        if (normalized === 'SELECT 1 FROM public.finance_workspaces LIMIT 0') {
+          return { rows: [], rowCount: 0 };
+        }
         if (normalized.startsWith('SELECT vault_id, payload, revision, updated_at FROM public.finance_workspaces')) {
           workspaceQueries.push({ sql: normalized, params });
           return params[0] === workspaceOwnerUid && workspaceExists
@@ -471,4 +477,14 @@ test('rota de migração legada está desativada; a autenticação permanece obr
   });
   assert.equal(retiredRoute.status, 404);
   assert.equal(sqlLog.length, queriesBefore, 'requisições inválidas não devem consultar Neon');
+});
+
+test('health reporta apenas se a conexão usa a role de runtime restrita', async () => {
+  const response = await originalFetch(`${baseUrl}/api/health`);
+  assert.equal(response.status, 200);
+  const health = await response.json() as {
+    services: { neon: string; neonLeastPrivilegeRole: boolean | null };
+  };
+  assert.equal(health.services.neon, 'ok');
+  assert.equal(health.services.neonLeastPrivilegeRole, true);
 });

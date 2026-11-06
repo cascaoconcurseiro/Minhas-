@@ -734,9 +734,19 @@ async function startServer() {
   app.get('/api/health', async (_req, res) => {
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
     let neonStatus: 'ok' | 'error' = 'error';
+    let neonLeastPrivilegeRole: boolean | null = null;
     try {
-      await getNeonPool().query('SELECT 1 FROM public.finance_workspaces LIMIT 0');
-      neonStatus = 'ok';
+      const client = await getNeonPool().connect();
+      try {
+        const roleCheck = await client.query(
+          `SELECT current_user = 'minhas_app_runtime' AS is_least_privilege_role`
+        );
+        neonLeastPrivilegeRole = roleCheck.rows[0]?.is_least_privilege_role === true;
+        await client.query('SELECT 1 FROM public.finance_workspaces LIMIT 0');
+        neonStatus = 'ok';
+      } finally {
+        client.release();
+      }
     } catch {
       // Do not expose connection strings or database errors from a public health route.
     }
@@ -752,6 +762,7 @@ async function startServer() {
         googleFinanceSync: true,
         neonConfigured: Boolean(process.env.DATABASE_URL),
         neon: neonStatus,
+        neonLeastPrivilegeRole,
       },
       checkedAt: new Date().toISOString(),
     });

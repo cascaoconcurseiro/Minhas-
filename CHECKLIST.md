@@ -27,8 +27,10 @@
 - [x] Criar migration `007_neon_auth_constraint_names.sql`; validar primeiro na branch QA, aplicar em production e verificar zero relações, colunas, constraints ou rotinas com nome Firebase no catálogo ativo.
 - [x] Pós-migration, confirmar RLS habilitado/forçado nas quatro tabelas e contagens dos workspaces/recibos invariáveis; excluir a branch QA e confirmar apenas `production`.
 - [x] Consultar `finance_workspaces` em production com a role `minhas_app_runtime` e sem `app.user_id`; RLS retornou 0 workspaces visíveis (fail-closed).
+- [x] Adicionar ao health da API o indicador booleano `services.neonLeastPrivilegeRole`, sem revelar o nome da role ou a connection string; incluir teste de rota.
+- [x] Revalidar suíte completa após o indicador: 122/122, `bun run lint`, `bun run build` e `git diff --check` passaram.
 - [x] Rodar `bun test` (121/121), `bun run lint`, `bun run build` e `git diff --check`; publicar `d43394d`, CI `42312647937` aprovado, Vercel `dpl_Ce1zsXY2KY6rwAWUa9RNx76UPARg` Ready, health 200/Neon ok e workspace sem token 401.
-- [ ] Provar de forma segura qual role está dentro da variável Vercel `DATABASE_URL`; a listagem de env só mostra o nome, e o fluxo de `env pull` foi bloqueado sem revelar credenciais.
+- [ ] Após o deploy do indicador, confirmar em produção `services.neonLeastPrivilegeRole=true`; se for `false`, rotacionar a variável Vercel para a role restrita antes de marcar segurança concluída. A listagem de env esconde a role na connection string.
 - [ ] Comprovar ao menos uma execução automática diária do Vercel Cron `/api/health` ou do GitHub schedule; Vercel cron está cadastrado em `15 12 * * *`, mas logs recentes não mostraram a invocação agendada e Actions lista apenas `workflow_dispatch`.
 - [ ] Executar signup/login/sessão/OTP real por e-mail com caixa controlada; bundle contém o fluxo, mas isso não prova que CORS/cookies/endpoints funcionam em runtime.
 - [ ] Fazer revisão visual atual em desktop e mobile; o código de UI e seeds foram revisados, mas o controle do Brave não conseguiu identificar a URL para permitir a inspeção.
