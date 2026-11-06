@@ -1,44 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function currentUsersLegacyVaultId() {
-      let email = request.auth.token.email.lower();
-      let slug = email.replace('[^a-z0-9]', '_').replace('_+', '_').replace('^_|_$', '');
-      let candidate = 'vault_usr_' + slug;
-      let padded = candidate.size() < 18 ? candidate + '_cloud_vault_br' : candidate;
-      return padded.size() > 60 ? padded[0:60] : padded;
-    }
-
-    function isLegacyVaultOwner(data) {
-      return request.auth != null && (
-        ('ownerFirebaseUid' in data)
-          ? data.ownerFirebaseUid == request.auth.uid
-          : (
-              ('email' in data) &&
-              data.email is string &&
-              request.auth.token.email is string &&
-              request.auth.token.email_verified == true &&
-              data.email.lower() == request.auth.token.email.lower()
-            )
-      );
-    }
-
-    match /cloud_vaults/{vaultId} {
-      // A user's own existing snapshot can be read only for its one-time Neon import.
-      // The only permitted missing-document lookup is that user's deterministic ID.
-      allow get: if request.auth != null && (
-        (resource == null &&
-          request.auth.token.email is string &&
-          request.auth.token.email_verified == true &&
-          vaultId == currentUsersLegacyVaultId()) ||
-        (resource != null && isLegacyVaultOwner(resource.data))
-      );
-      allow list, create, update, delete: if false;
-    }
-
-    // New operational workspaces are created only in Neon.
     match /{document=**} {
-      allow write: if false;
+      allow read, write: if false;
     }
   }
 }

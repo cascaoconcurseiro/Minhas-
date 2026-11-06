@@ -4,7 +4,7 @@
 
 - O arquivo JSON exportado em Configurações contém o workspace pessoal do app: contas, cartões, categorias, lançamentos, metas, investimentos, viagens, membros familiares e preferências incluídas pelo exportador.
 - Esse JSON **não** é um backup integral do banco Neon. Convites e lançamentos compartilhados são armazenados em tabelas próprias do Neon e não fazem parte desse arquivo.
-- Documentos `cloud_vaults` antigos no Firestore não são atualizados nem usados como contingência; o titular só pode ler seu snapshot uma vez para importação inicial. Eles não substituem backup integral do PostgreSQL.
+- Documentos `cloud_vaults` antigos no Firestore não são lidos, atualizados nem usados como contingência. As regras do Firebase negam acesso; eles não substituem backup integral do PostgreSQL.
 
 ## Exportar e restaurar o workspace pelo app
 

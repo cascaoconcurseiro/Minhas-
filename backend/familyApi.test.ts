@@ -44,8 +44,6 @@ let workspacePayload: Record<string, unknown> = { accountsJson: '[]' };
 let workspaceVaultId = 'vault_usr_owner_example_com';
 let workspaceOwnerUid = 'owner-uid';
 let workspaceExists = true;
-let workspaceMigrationCount = 0;
-let workspaceMigrationRecord: unknown[] = [];
 let failWorkspaceUpdates = false;
 const workspaceUpdateParameters: unknown[][] = [];
 
@@ -100,11 +98,6 @@ before(async () => {
           workspacePayload = JSON.parse(String(params[4])) as Record<string, unknown>;
           return { rows: [{ revision: 1, updated_at: '2026-11-03T00:00:00.000Z' }], rowCount: 1 };
         }
-        if (normalized.startsWith('INSERT INTO public.finance_workspace_migrations')) {
-          workspaceMigrationCount += 1;
-          workspaceMigrationRecord = params;
-          return { rows: [], rowCount: 1 };
-        }
         if (normalized.startsWith('UPDATE public.finance_workspaces')) {
           workspaceUpdateParameters.push(params);
           if (failWorkspaceUpdates) throw new Error('simulated database unavailable');
@@ -113,9 +106,6 @@ before(async () => {
           workspacePayload = JSON.parse(String(params[1])) as Record<string, unknown>;
           workspaceRevision += 1;
           return { rows: [{ revision: workspaceRevision, updated_at: '2026-11-03T00:01:00.000Z' }], rowCount: 1 };
-        }
-        if (normalized.startsWith('UPDATE public.finance_workspace_migrations')) {
-          return { rows: [], rowCount: 0 };
         }
         if (normalized.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) {
           const rows = invitation.status === 'accepted' ? [{ ...invitation }] : [];
@@ -459,45 +449,7 @@ test('API cria o workspace inicial uma única vez sem sobrescrever o existente',
   assert.deepEqual(workspacePayload, { ...payload, uid: 'vault_uid_owner-uid' });
 });
 
-test('migração Firestore→Neon ocorre uma vez e nunca substitui workspace existente', async () => {
-  workspaceExists = false;
-  workspaceRevision = 0;
-  workspacePayload = {};
-  workspaceMigrationCount = 0;
-  workspaceMigrationRecord = [];
-  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
-  const payload = {
-    uid: 'legacy-firestore-vault-id',
-    updatedAt: '2026-11-04T00:00:00.000Z',
-    accountsJson: JSON.stringify([{ id: 'legacy-account' }]),
-    cardsJson: '[]', categoriesJson: '[]', transactionsJson: '[]',
-    goalsJson: '[]', investmentsJson: '[]',
-  };
-
-  const first = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
-    method: 'POST', headers,
-    body: JSON.stringify({ payload, sourceUpdatedAt: payload.updatedAt }),
-  });
-  assert.equal(first.status, 201, await first.clone().text());
-  assert.deepEqual(await first.json(), { ok: true, vaultId: 'vault_uid_owner-uid' });
-  assert.equal(workspaceMigrationCount, 1);
-  assert.equal(workspaceMigrationRecord[2], payload.updatedAt);
-  assert.match(String(workspaceMigrationRecord[3]), /^[a-f0-9]{64}$/);
-  assert.deepEqual(JSON.parse(String(workspaceMigrationRecord[4])), {
-    accounts: 1, cards: 0, categories: 0, transactions: 0, goals: 0,
-    familyMembers: 0, investments: 0, trips: 0,
-  });
-
-  const duplicate = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
-    method: 'POST', headers,
-    body: JSON.stringify({ payload: { ...payload, accountsJson: '[]' }, sourceUpdatedAt: payload.updatedAt }),
-  });
-  assert.equal(duplicate.status, 409);
-  assert.equal(workspaceMigrationCount, 1, 'importação duplicada não deve criar log ou substituir dados');
-  assert.deepEqual(workspacePayload, { ...payload, uid: 'vault_uid_owner-uid' });
-});
-
-test('API rejeita migração sem autenticação, payload inválido e data malformada antes de consultar Neon', async () => {
+test('rota de migração legada está desativada; a autenticação permanece obrigatória', async () => {
   const queriesBefore = sqlLog.length;
   const unauthenticated = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
@@ -505,23 +457,9 @@ test('API rejeita migração sem autenticação, payload inválido e data malfor
   assert.equal(unauthenticated.status, 401);
 
   const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
-  const invalidPayload = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
-    method: 'POST', headers, body: JSON.stringify({ payload: [] }),
+  const retiredRoute = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
+    method: 'POST', headers, body: JSON.stringify({}),
   });
-  assert.equal(invalidPayload.status, 400);
-
-  const invalidDate = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
-    method: 'POST', headers,
-    body: JSON.stringify({
-      payload: {
-        uid: 'vault_usr_owner_example_com',
-        updatedAt: '2026-11-04T00:00:00.000Z',
-        accountsJson: '[]', cardsJson: '[]', categoriesJson: '[]',
-        transactionsJson: '[]', goalsJson: '[]', investmentsJson: '[]',
-      },
-      sourceUpdatedAt: 'not-a-date',
-    }),
-  });
-  assert.equal(invalidDate.status, 400);
+  assert.equal(retiredRoute.status, 404);
   assert.equal(sqlLog.length, queriesBefore, 'requisições inválidas não devem consultar Neon');
 });

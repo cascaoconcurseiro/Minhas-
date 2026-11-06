@@ -1,5 +1,16 @@
 # Checklist — Minhas Economias
 
+## Migração da persistência Firestore → Neon — 2026-11-06
+- [x] Remover do app as leituras/gravações Firestore e o importador automático no primeiro carregamento; Neon passa a ser a única persistência operacional.
+- [x] Remover endpoint `/api/workspace/migrate` e respectivos testes/código legado.
+- [x] Publicar regras Firestore deny-all no Console Firebase; Firestore deixa de ser acessível pelo cliente do app.
+- [x] Confirmar por busca de código que não há import/chamada `firebase/firestore` em `src`, `backend` ou `shared`.
+- [x] Confirmar no Neon production 3 workspaces e zero contas, cartões, lançamentos, metas e investimentos depois de criar/recarregar/apagar um cartão temporário de QA.
+- [ ] Confirmar e decidir migração ou remoção dos documentos legados remanescentes em `cloud_vaults` e `workspaces`; não copiar/apagar dados de múltiplos titulares sem classificar propriedade.
+- [x] Rodar `bun test` (119/119), `bun run lint`, `bun run build` e `git diff --check` após esta alteração documental; build mantém aviso de chunk principal 565 kB.
+- [ ] Publicar correção em `main`, confirmar CI e deploy Vercel, validar `/api/health` e conferir que o bundle/fluxo implantado não lê Firestore.
+- [ ] Manter Firebase Auth como identidade conforme configuração aprovada; testar cadastro/login real e decidir o processo para as identidades existentes Google-only antes de desativar Google.
+
 ## Continuação 2026-11-06 — configuração de Auth e atividade diária
 - [x] Diagnosticar cadastro Firebase real em QA: `accounts:signUp` retorna `OPERATION_NOT_ALLOWED`; nenhum usuário/registro foi criado.
 - [x] Confirmar Neon QA com role `minhas_app_runtime`; health local Neon `ok` e rota workspace sem token retorna 401.

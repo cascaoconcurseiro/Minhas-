@@ -79,12 +79,11 @@ transação PostgreSQL.
 - `GET /api/workspace`: carrega o snapshot da conta autenticada; retorna `404`
   quando ainda não há linha para a conta.
 - `POST /api/workspace`: cria o workspace inicial usando `INSERT ... ON CONFLICT DO NOTHING`, sem substituir dados existentes.
-- `POST /api/workspace/migrate`: importa uma vez o snapshot próprio legado do titular sem sobrescrever uma linha Neon existente.
 - `PUT /api/workspace`: salva com `expectedRevision`; conflito retorna `409`.
 
-Firebase é usado somente para login e emissão do ID token. O app não mantém listener,
-espelho, fallback ou gravação no Firestore. Se a conta ainda tiver um snapshot legado
-próprio, ele só é lido para importação inicial; senão o workspace nasce no Neon.
+Firebase Auth é usado somente para login e emissão do ID token. O app não faz leitura
+ou gravação no Firestore. Se a conta ainda não tiver workspace, o registro inicial
+é criado no Neon.
 Convites e lançamentos compartilhados usam tabelas Neon próprias.
 
 ---

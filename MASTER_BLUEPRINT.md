@@ -7,7 +7,7 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 - Frontend: React, TypeScript e Vite
 - Autenticação: Firebase Auth
 - Banco de dados operacional único: PostgreSQL no Neon, acessado apenas pelo backend
-- Firebase: Auth; Firestore apenas como origem de leitura única para importação de snapshots legados
+- Firebase: Auth apenas; Firestore não é usado pelo app e tem regras de acesso negadas
 - Backend: Express, publicado como função na Vercel
 - Hospedagem: Vercel Hobby, conectada ao GitHub
 
@@ -31,6 +31,7 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 | 2026-11-02 | Iniciar a leitura do workspace diretamente no Neon após Firebase Auth; consultar Firestore apenas para migração inicial e como espelho/contingência | A autoridade e a carga principal não podem depender do listener Firestore estar disponível |
 | 2026-11-02 | Usar Neon como persistência exclusiva; remover gravações, listener e contingência Firestore | Evitar dois bancos operacionais divergentes; Firebase permanece apenas como provedor de identidade |
 | 2026-11-02 | Preservar somente importação inicial do snapshot próprio e negar qualquer gravação/listagem no Firestore | Contas ainda não migradas preservam seus dados enquanto Neon segue como persistência operacional |
+| 2026-11-06 | Retirar o leitor e a rota de importação Firestore; criar workspaces novos somente no Neon e negar leitura/escrita no Firestore | Usuário solicitou Neon como destino exclusivo de dados; os workspaces atuais não contêm contas, cartões, lançamentos, metas ou investimentos |
 
 ## Regras do projeto
 - Nunca expor `DATABASE_URL` no frontend.

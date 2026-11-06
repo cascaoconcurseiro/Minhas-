@@ -1,25 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getLegacyVaultIdForEmail, getVaultIdForUid } from './workspaceIdentity';
+import { getVaultIdForUid } from './workspaceIdentity';
 
-test('workspace identity stays stable across email changes for the same Firebase UID', () => {
+test('workspace identity depends on stable Firebase UID, not mutable email', () => {
   const firebaseUid = 'firebase-user-12345678901234567890';
-  const firstEmail = 'person@example.com';
-  const changedEmail = 'new-address@example.net';
-
   assert.equal(getVaultIdForUid(firebaseUid), getVaultIdForUid(firebaseUid));
-  assert.notEqual(
-    getLegacyVaultIdForEmail(firstEmail),
-    getLegacyVaultIdForEmail(changedEmail)
-  );
   assert.equal(getVaultIdForUid(firebaseUid), `vault_uid_${firebaseUid}`);
 });
 
-test('different Firebase UIDs remain isolated even when legacy email IDs collide', () => {
-  assert.equal(
-    getLegacyVaultIdForEmail('a.b@example.com'),
-    getLegacyVaultIdForEmail('a_b@example.com')
-  );
+test('different Firebase UIDs remain isolated in Neon', () => {
   assert.notEqual(getVaultIdForUid('firebase-uid-one'), getVaultIdForUid('firebase-uid-two'));
 });
 

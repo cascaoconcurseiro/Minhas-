@@ -12,12 +12,14 @@ import {
   User,
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import {
-  getLegacyVaultIdForEmail as deriveLegacyVaultIdForEmail,
-  getVaultIdForUid as getStableVaultIdForUid,
-} from '../../shared/workspaceIdentity';
+import { getVaultIdForUid as getStableVaultIdForUid } from '../../shared/workspaceIdentity';
 
-export const firebaseApp = initializeApp(firebaseConfig);
+export const firebaseApp = initializeApp({
+  apiKey: firebaseConfig.apiKey,
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  appId: firebaseConfig.appId,
+});
 export const auth = getAuth(firebaseApp);
 
 export const AUTO_VAULT_STORAGE_KEY = 'minhas_economias_cloud_vault_id_v2';
@@ -88,12 +90,6 @@ export async function tryAutoAnonymousSignIn(): Promise<User | null> {
 
 export async function signOutFirebaseUser(): Promise<void> {
   await signOut(auth);
-}
-
-export function getLegacyVaultIdForEmail(email: string | null | undefined): string {
-  return email?.trim()
-    ? deriveLegacyVaultIdForEmail(email)
-    : getOrCreateAutoCloudVaultId();
 }
 
 export function getVaultIdForUid(uid: string | null | undefined): string {

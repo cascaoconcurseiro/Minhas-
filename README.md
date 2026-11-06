@@ -9,7 +9,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 1. **[Visão Geral e Arquitetura (`README.md`)](./README.md)** — Visão executiva, módulos do sistema, stack tecnológica, instalação e testes.
 2. **[Documentação do Banco de Dados e Persistência (`docs/DATABASE_DOCUMENTATION.md`)](./docs/DATABASE_DOCUMENTATION.md)** — Esquema Neon, tabelas, isolamento por usuário e fluxo de migração legado.
 3. **[Arquitetura Técnica, Motores de Regras e API REST (`docs/ARCHITECTURE_AND_API.md`)](./docs/ARCHITECTURE_AND_API.md)** — Especificação das rotas do servidor Express (`backend/app.ts`), motores matemáticos puros (`src/utils/*.ts`) e pipeline de CI/CD.
-4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes do modelo de identidade e dados, incluindo as regras históricas do Firestore.
+4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes do modelo de identidade, Neon e acesso negado ao Firestore legado.
 
 ---
 
@@ -125,8 +125,8 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 │   │   └── tripPdfGenerator.ts        # Gerador de relatório de viagem em PDF
 │   ├── App.tsx                        # Orquestrador de estado SSOT; persistência Neon
 │   ├── firebase.ts                    # Inicialização de Firebase Auth
-├── firebase-blueprint.json            # Blueprint legado do Firestore
-├── firestore.rules                    # Leitura do próprio snapshot para importação; bloqueia toda gravação
+├── firebase-blueprint.json            # Configuração Firebase Auth
+├── firestore.rules                    # Nega toda leitura e gravação no Firestore
 ├── security_spec.md                   # Especificação de invariantes de segurança do banco
 ├── backend/app.ts                     # Rotas Express e integração Neon
 ├── api/[...path].ts                   # Adaptador das rotas Express para Vercel Functions

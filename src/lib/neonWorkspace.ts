@@ -86,16 +86,6 @@ export function createNeonWorkspace(
   });
 }
 
-export function migrateLegacyFirestoreWorkspace(
-  payload: Record<string, unknown>,
-  sourceUpdatedAt: string | null
-): Promise<{ ok: true; vaultId: string }> {
-  return authorizedRequest('/api/workspace/migrate', {
-    method: 'POST',
-    body: JSON.stringify({ payload, sourceUpdatedAt }),
-  });
-}
-
 export function saveNeonWorkspace(
   payload: Record<string, unknown>,
   expectedRevision: number

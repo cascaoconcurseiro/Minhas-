@@ -43,7 +43,7 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 - **Backend**: Node.js + Express 4 (backend/app.ts; servidor local ou Function Vercel)
 - **Autenticação**: Firebase Auth
 - **Banco de Dados**: PostgreSQL no Neon, acessado pelo backend Express na Vercel
-- **Dados**: Neon PostgreSQL é a base operacional; Firestore é consultado uma vez apenas para migrar um snapshot antigo quando a conta ainda não existe no Neon.
+- **Dados**: Neon PostgreSQL é a única base de dados do app. Firebase Auth fornece somente autenticação; Firestore foi retirado do fluxo e suas regras negam acesso.
 - **Projeto Neon**: minhas-economias-br / production / neondb
 - **Projeto Firebase**: gen-lang-client-0890983411
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
@@ -56,7 +56,7 @@ Tabelas PostgreSQL:
 3. \`finance_family_invitations\`: convites e estado de aceite, consultáveis apenas pelo proprietário ou pelo e-mail convidado.
 4. \`finance_shared_transactions\`: registros das despesas explicitamente compartilhadas; somente participantes autorizados podem consultá-los.
 
-O workspace e o compartilhamento familiar são persistidos no Neon. Firebase Auth fornece a identidade; o backend valida o token e aplica o UID em RLS. Firestore só pode ser lido uma vez pelo titular para importar um snapshot antigo; não recebe gravações.
+O workspace e o compartilhamento familiar são persistidos no Neon. Firebase Auth fornece a identidade; o backend valida o token e aplica o UID em RLS. O app não lê nem grava Firestore.
 
 ### Campos do snapshot JSONB do workspace no Neon:
 - \`uid\` (string, obrigatório, imutável, igual ao ID do documento)
@@ -224,7 +224,7 @@ git push -u origin main`;
                   Firebase Auth
                 </p>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                  Firebase Auth autentica; Neon guarda os dados ativos. Um snapshot legado pode ser lido uma vez pelo titular para importação.
+                  Firebase Auth autentica; Neon guarda os dados. Firestore não é usado pelo app.
                 </p>
               </div>
 
@@ -236,7 +236,7 @@ git push -u origin main`;
                   • docs/DATABASE_DOCUMENTATION.md
                 </p>
                 <p className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  • firebase-blueprint.json & firestore.rules
+                  • Firebase Auth config & firestore.rules (acesso negado)
                 </p>
               </div>
             </div>

@@ -1,16 +1,22 @@
 # Handoff — Minhas Economias
 
-## Estado atual — 2026-11-06, continuação
+## Estado atual — 2026-11-06, migração Firestore → Neon
 
-Meta ainda ativa. O provedor Firebase Email/Password está desativado: a tentativa de cadastro no app local fez POST a `accounts:signUp` e a API do Firebase retornou `OPERATION_NOT_ALLOWED`; não houve criação de usuário nem escrita de workspace. O erro não foi de domínio autorizado. O Console Firebase abriu uma tela Google que exige login; BrowserOS está aguardando o titular entrar. Após a entrada, habilitar Email/Password e desabilitar o provedor Google conforme pedido do usuário, depois repetir o teste.
+Meta de conclusão ponta a ponta ainda ativa. Neon é o único banco operacional do app. Firebase Auth continua como provedor de identidade e emissão do token que o backend valida; conforme pedido anterior, esta tarefa migra a persistência, não o login.
 
-Ensaio QA isolado usou temporariamente a branch Neon `qa-auth-ui-2026-11-06` (`br-ancient-waterfall-b6kogpyf`) e role restrita `minhas_app_runtime`; health local confirmou Neon `ok` e `/api/workspace` sem token retornou 401. A criação da conta parou em `OPERATION_NOT_ALLOWED`, sem usuário ou workspace criado. Para encerrar a tentativa enquanto aguardava o login do titular, parei o servidor, removi `.env` sem ler valores e apaguei a branch; Neon agora lista somente `production`.
+Nesta sessão, removi o importador e a rota `/api/workspace/migrate`, removi a leitura Firestore de inicialização e fiz o app criar um workspace vazio no Neon quando o usuário autenticado ainda não tem um. Revisei as referências de código: nenhuma chamada/importação de Firestore permanece no fluxo do app. As regras foram publicadas no Console Firebase em modo deny-all. O Console ainda mostra documentos legados nas coleções `cloud_vaults` e `workspaces`; eles estão inacessíveis ao app e não foram copiados nem apagados, pois a propriedade/conteúdo de todos esses documentos não foi confirmada. No documento aberto, havia uma conta genérica de saldo zero, categorias e configurações; não expor dados pessoais aqui.
 
-`LoginPage` traduz `auth/operation-not-allowed` e `auth/unauthorized-domain` em mensagens de configuração, mantém erros de credenciais/conta existentes indistinguíveis e possui 4 testes unitários; correção publicada em `af357d3` (CI `42276943195` passou). `travelRules.ts` agora usa import ESM explícito `.js`, corrigindo o 500 pós-deploy; publicado em `78fd56f` (CI `42277562293` passou, health Neon 200). `bun test` passou com 120 testes em 22 arquivos; `bun run lint` e `bun run build` passaram. Build mantém aviso de chunk >500 kB. O app local exibiu a mensagem correta de configuração após reiniciar o servidor, pois Vite está configurado com `watch: null`.
+No Neon production, uma consulta agregada após limpar o cartão temporário de QA confirmou 3 workspaces, 0 contas, 0 cartões, 0 lançamentos e 0 metas/investimentos. O cartão QA foi criado pela UI, persistiu após recarga e foi removido; nenhum dado de demonstração ficou no Neon.
 
-Atividade diária: o commit `3a611de` adiciona GitHub Actions `schedule` diária às 12:23 UTC; CI `42275338896` passou e execução manual `workflow_dispatch` `42275346060` conectou ao Neon e concluiu `SELECT 1`. Ainda falta evidência da primeira execução automática (próxima janela 7/nov às 12:23 UTC). O Vercel Cron `/api/health` segue listado às 12:15 UTC, mas os logs de produção das últimas 24 horas não mostraram a chamada agendada; só apareceu uma chamada manual às 18:51 UTC.
+Alterações locais ainda não publicadas: `src/App.tsx`, remoção do legado Firestore e ajustes de testes, regras e documentação. O histórico desta sessão registra `bun test` 119/119, lint e build aprovados; build mantém aviso de chunk principal acima de 500 kB. Antes do deploy, revisar `git diff --check` e rodar a suíte novamente após atualizar este handoff/checklist.
 
-Próximo passo concreto: assim que o login do Console Firebase for concluído, habilitar Email/Password e desabilitar Google; então criar nova branch Neon QA, reiniciar o servidor com `.env` temporário, terminar cadastro/login, CRUD e restore UI→API→Neon, testar concorrência/recuperação e limpar novamente todos os recursos temporários. A cobertura responsiva/funcional dos demais módulos e a execução diária automática continuam pendentes.
+Autenticação: Email/Password foi habilitado no Console Firebase. Google continua habilitado porque as três identidades existentes são Google-only e desabilitá-lo sem conversão as bloquearia. O cadastro Firebase ainda não foi validado ponta a ponta.
+
+Atividade diária: workflow GitHub `neon-daily-activity.yml` teve execução manual bem-sucedida com `SELECT 1`; falta confirmar o primeiro evento automático previsto para 2026-11-07 12:23 UTC. O Vercel Cron diário `/api/health` continua listado, mas não houve evidência da execução programada nos logs observados.
+
+Próximo passo concreto: revisar as alterações de código/documentação, confirmar se o legado que ficou no Firestore é apenas demonstração antes de apagá-lo ou planejar importação por titular, executar testes e publicar a correção em `main`; depois validar deploy, `/api/health` e ausência de chamadas Firestore no bundle/fluxo de produção.
+
+Bloqueios pendentes: decisão segura sobre dados legados Firestore de múltiplos titulares; aceite real de cadastro/login; restore autenticado UI→API→Neon; verificação da agenda diária automática; cobertura visual desktop/mobile e testes dos demais módulos.
 
 ## Incidente de produção — 2026-11-06, resolvido
 

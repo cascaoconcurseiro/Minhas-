@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import {
   auth,
-  getLegacyVaultIdForEmail,
   getOrCreateAutoCloudVaultId,
   getVaultIdForUid,
   onAuthStateChanged,
@@ -29,7 +28,6 @@ import {
 } from './lib/firebase';
 import {
   createNeonWorkspace,
-  migrateLegacyFirestoreWorkspace,
   createNeonFamilyInvitation,
   loadNeonFamilyInvitations,
   loadNeonSharedTransactions,
@@ -708,15 +706,13 @@ export default function App() {
     window.location.reload();
   };
 
-  // Neon is the only operational data store; Firestore is read once only for legacy import.
+  // Neon is the sole financial data store; Firebase Auth supplies identity only.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
     hasLoadedRemoteOnceRef.current = false;
     isApplyingRemoteSnapshotRef.current = true;
     setWorkspaceLoadState('loading');
-
-    const legacyDocId = getLegacyVaultIdForEmail(effectiveUserEmail);
 
     setCloudSyncStatus('syncing');
 
@@ -729,32 +725,14 @@ export default function App() {
           throw error;
         }
 
-        const { readLegacyFirestoreWorkspace } = await import('./lib/legacyFirestoreMigration');
-        const migrationPayload = await readLegacyFirestoreWorkspace(legacyDocId);
-        if (migrationPayload) {
-          const sourceUpdatedAt = typeof migrationPayload.updatedAt === 'string'
-            ? migrationPayload.updatedAt
-            : null;
-          try {
-            await migrateLegacyFirestoreWorkspace(migrationPayload, sourceUpdatedAt);
-          } catch (migrationError) {
-            if (
-              !(migrationError instanceof NeonWorkspaceError) ||
-              migrationError.status !== 409
-            ) {
-              throw migrationError;
-            }
-          }
-        } else {
-          try {
-            await createNeonWorkspace(buildCloudPayload(autoVaultId));
-          } catch (createError) {
-            if (
-              !(createError instanceof NeonWorkspaceError) ||
-              createError.status !== 409
-            ) {
-              throw createError;
-            }
+        try {
+          await createNeonWorkspace(buildCloudPayload(autoVaultId));
+        } catch (createError) {
+          if (
+            !(createError instanceof NeonWorkspaceError) ||
+            createError.status !== 409
+          ) {
+            throw createError;
           }
         }
         return loadNeonWorkspace();
