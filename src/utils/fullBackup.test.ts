@@ -119,12 +119,14 @@ test('restoring a portable backup in another account strips family-share linkage
       sharedAmount: 8,
       amount: 10,
     },
+    { id: 'tx-stale-shared-field', isShared: false, sharedMemberId: 'old-member', amount: 15 },
     { id: 'tx-personal', amount: 20 },
     { id: 'tx-mirror-incoming', amount: 30 },
   ], false);
 
   assert.deepEqual(result, [
     { id: 'tx-shared', amount: 10 },
+    { id: 'tx-stale-shared-field', amount: 15 },
     { id: 'tx-personal', amount: 20 },
   ]);
 

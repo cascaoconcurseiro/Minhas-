@@ -60,7 +60,7 @@ export function prepareRestoredBackupTransactions<
   if (sameOwner) return portableTransactions;
 
   return portableTransactions.map((transaction) => {
-    if (transaction.isShared !== true) return transaction;
+    if (!FAMILY_SHARE_FIELDS.some((field) => field in transaction)) return transaction;
     const personalTransaction = { ...transaction } as T & Record<string, unknown>;
     for (const field of FAMILY_SHARE_FIELDS) delete personalTransaction[field];
     return personalTransaction;
