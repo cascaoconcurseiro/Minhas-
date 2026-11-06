@@ -32,6 +32,7 @@
 - [x] Remover comentário obsoleto sobre Cloud Vault e confirmar que os seeds de contas, cartões, lançamentos, metas, investimentos, viagens e membros familiares são vazios; categorias iniciais são defaults do produto.
 - [x] Implementar até oito novas tentativas com backoff para falhas transitórias ao salvar no Neon, usar sempre o último payload, tentar imediatamente no evento `online`, cancelar em troca de usuário e não repetir conflitos 409.
 - [x] Adicionar testes de classificação: erros de rede/408/429/5xx repetem; erros de autenticação/validação/conflito não repetem. Suíte 121/121, `bun run lint`, `bun run build` e `git diff --check` passaram.
+- [x] Publicar a correção em `main` no commit `6e2a89e`; CI `42306945924` passou e o deployment Vercel `dpl_35NmsXWDRDADTL2sDs6uJCATX3uH` ficou Ready. O bundle servido em `minhaseconomias-blue.vercel.app` é idêntico byte a byte ao build local; `/api/health` retorna Neon ok e `/api/workspace` sem token retorna 401.
 - [ ] Validar o retry com pane real UI→API→Neon em ambiente isolado; implementação e política unitária não equivalem a ensaio runtime.
 - [ ] A exportação JSON do workspace não inclui as tabelas relacionais `finance_family_invitations` e `finance_shared_transactions`; decidir/documentar backup e restore desses vínculos sem reimportar convites/compartilhamentos para outro UID.
 
