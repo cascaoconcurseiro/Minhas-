@@ -46,7 +46,8 @@ export function toAppUser(user: {
 export async function signInWithEmail(email: string, password: string): Promise<AppUser> {
   const result = await authClient.signIn.email({ email: email.trim(), password });
   if (result.error || !result.data?.user) {
-    throw new Error(result.error?.message || 'Não foi possível entrar. Verifique e-mail e senha.');
+    if (result.error) throw result.error;
+    throw new Error('Não foi possível entrar. Verifique e-mail e senha.');
   }
   return toAppUser(result.data.user);
 }
@@ -62,7 +63,8 @@ export async function registerWithEmail(
     password,
   });
   if (result.error || !result.data?.user) {
-    throw new Error(result.error?.message || 'Não foi possível criar sua conta.');
+    if (result.error) throw result.error;
+    throw new Error('Não foi possível criar sua conta.');
   }
   return toAppUser(result.data.user);
 }
