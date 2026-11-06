@@ -1550,7 +1550,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <section className="space-y-3 pt-4 border-t border-slate-200">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  2. Portabilidade & Backup Completo (JSON)
+                  2. Portabilidade & backup do workspace (JSON)
                 </label>
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
@@ -1563,7 +1563,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         Backup local e restauração
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                        O arquivo é salvo no seu dispositivo. Antes de restaurar, baixe a versão atual; depois confira o status da nuvem até o Neon confirmar a sincronização.
+                        O arquivo guarda o workspace pessoal no seu dispositivo, vinculado à conta que o exportou. Não inclui convites nem despesas espelhadas recebidas. Ao restaurar em outra conta, os marcadores de compartilhamento são removidos. Antes de restaurar, baixe a versão atual e confira a sincronização com o Neon.
                       </p>
                     </div>
                   </div>
@@ -1587,7 +1587,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
                     >
                       <Download className="h-3.5 w-3.5" />
-                      <span>Baixar Backup Completo (.JSON)</span>
+                      <span>Baixar backup do workspace (.JSON)</span>
                     </button>
 
                     <input

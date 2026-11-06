@@ -1177,7 +1177,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <Download className="h-4 w-4" />
-                Baixar Backup Completo JSON
+                Baixar backup do workspace JSON
               </button>
 
               {!confirmReset ? (

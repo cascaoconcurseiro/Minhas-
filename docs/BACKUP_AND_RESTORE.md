@@ -2,8 +2,9 @@
 
 ## O que cada cópia contém
 
-- O arquivo JSON exportado em Configurações contém o workspace pessoal do app: contas, cartões, categorias, lançamentos, metas, investimentos, viagens, membros familiares e preferências incluídas pelo exportador.
-- Esse JSON **não** é um backup integral do banco Neon. Convites e lançamentos compartilhados são armazenados em tabelas próprias do Neon e não fazem parte desse arquivo.
+- O arquivo JSON exportado em Configurações contém o workspace pessoal do app: contas, cartões, categorias, lançamentos, metas, investimentos, viagens, contatos familiares sem vínculo de convite e preferências incluídas pelo exportador.
+- Lançamentos espelhados recebidos de outra conta e contatos ligados a convites Neon são excluídos do arquivo. O formato v6 inclui o ID Neon Auth do titular; ao importar em outra conta, os marcadores de compartilhamento são removidos para impedir que dados antigos sejam enviados a relações da nova conta.
+- Esse JSON **não** é um backup integral do banco Neon. Convites e lançamentos espelhados são armazenados em tabelas próprias e não são exportados. Ao restaurar na mesma conta, convites existentes são mantidos e lançamentos compartilhados só são sincronizados novamente através de relações que continuam aceitas no Neon.
 - Firebase Auth e Firestore foram removidos do runtime. A identidade atual e os dados financeiros são armazenados no Neon; o backup JSON não substitui backup integral do PostgreSQL.
 
 ## Exportar e restaurar o workspace pelo app

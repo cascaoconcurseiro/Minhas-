@@ -19,6 +19,7 @@ export interface FullBackupDefaults {
 
 export interface FullFinanceBackup {
   version: number;
+  ownerUserId?: string;
   exportedAt?: string;
   accounts: BankAccount[];
   cards: CreditCard[];
@@ -32,6 +33,70 @@ export interface FullFinanceBackup {
   settings?: AppSettings;
 }
 
+export function getPortableBackupTransactions<T extends { id: string }>(
+  transactions: T[]
+): T[] {
+  return transactions.filter((transaction) => !transaction.id.startsWith('tx-mirror-'));
+}
+
+const FAMILY_SHARE_FIELDS = [
+  'isShared',
+  'sharedMemberId',
+  'sharedAmount',
+  'sharedPaidBy',
+  'sharedSplitMode',
+  'sharedStatus',
+  'sharedSettledDate',
+  'sharedSettledAccountId',
+  'sharedSyncId',
+  'sharedOriginEmail',
+  'sharedTargetEmail',
+] as const;
+
+export function prepareRestoredBackupTransactions<
+  T extends { id: string; isShared?: boolean }
+>(transactions: T[], sameOwner: boolean): T[] {
+  const portableTransactions = getPortableBackupTransactions(transactions);
+  if (sameOwner) return portableTransactions;
+
+  return portableTransactions.map((transaction) => {
+    if (transaction.isShared !== true) return transaction;
+    const personalTransaction = { ...transaction } as T & Record<string, unknown>;
+    for (const field of FAMILY_SHARE_FIELDS) delete personalTransaction[field];
+    return personalTransaction;
+  });
+}
+
+export function getPortableBackupFamilyMembers<T extends { direction?: string; invitationId?: string }>(
+  familyMembers: T[]
+): T[] {
+  return familyMembers.filter(
+    (member) => member.direction !== 'incoming' && !member.invitationId
+  );
+}
+
+export function mergeRestoredTransactionsWithCurrentMirrors<T extends { id: string }>(
+  currentTransactions: T[],
+  restoredTransactions: T[]
+): T[] {
+  return [
+    ...getPortableBackupTransactions(restoredTransactions),
+    ...currentTransactions.filter((transaction) => transaction.id.startsWith('tx-mirror-')),
+  ];
+}
+
+export function mergeRestoredFamilyMembersWithCurrentIncoming<T extends { direction?: string; invitationId?: string }>(
+  currentMembers: T[],
+  restoredMembers: T[]
+): T[] {
+  return [
+    ...getPortableBackupFamilyMembers(restoredMembers),
+    ...currentMembers.filter(
+      (member) => member.direction === 'incoming' || Boolean(member.invitationId)
+    ),
+  ];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
@@ -43,7 +108,16 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
     if (
       !Number.isInteger(parsed.version) ||
       (parsed.version as number) < 1 ||
-      (parsed.version as number) > 5
+      (parsed.version as number) > 6
+    ) {
+      return null;
+    }
+    if (
+      ('ownerUserId' in parsed &&
+        (typeof parsed.ownerUserId !== 'string' ||
+          parsed.ownerUserId.trim().length === 0 ||
+          parsed.ownerUserId.length > 512)) ||
+      (parsed.version === 6 && typeof parsed.ownerUserId !== 'string')
     ) {
       return null;
     }

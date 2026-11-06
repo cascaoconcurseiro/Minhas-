@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseFullFinanceBackup, resolveFullBackupOptionalState } from './fullBackup';
+import {
+  getPortableBackupFamilyMembers,
+  getPortableBackupTransactions,
+  mergeRestoredFamilyMembersWithCurrentIncoming,
+  mergeRestoredTransactionsWithCurrentMirrors,
+  parseFullFinanceBackup,
+  prepareRestoredBackupTransactions,
+  resolveFullBackupOptionalState,
+} from './fullBackup';
 import type { AppSettings, FamilyMember, InvestmentTargetMap } from '../types/finance';
 
 function validBackup() {
@@ -35,6 +43,97 @@ test('accepts a complete version 5 backup', () => {
   const result = parseFullFinanceBackup(JSON.stringify(validBackup()));
   assert.equal(result?.version, 5);
   assert.equal(result?.categories[0]?.id, 'cat-food');
+});
+
+test('accepts version 6 only when it is bound to a Neon Auth user ID', () => {
+  const backup = { ...validBackup(), version: 6, ownerUserId: 'neon-user-1' };
+  assert.equal(parseFullFinanceBackup(JSON.stringify(backup))?.ownerUserId, 'neon-user-1');
+  assert.equal(
+    parseFullFinanceBackup(JSON.stringify({ ...backup, ownerUserId: undefined })),
+    null
+  );
+});
+
+test('portable workspace backup excludes incoming shared mirrors and incoming family links', () => {
+  const transactions = getPortableBackupTransactions([
+    { id: 'tx-personal-1', amount: 10 },
+    { id: 'tx-mirror-shared-1', amount: 20 },
+  ]);
+  const familyMembers = getPortableBackupFamilyMembers([
+    { id: 'local-member', direction: 'outgoing' },
+    { id: 'incoming-member', direction: 'incoming' },
+    { id: 'linked-member', direction: 'outgoing', invitationId: 'invite-1' },
+    { id: 'local-contact' },
+  ]);
+
+  assert.deepEqual(transactions.map(({ id }) => id), ['tx-personal-1']);
+  assert.deepEqual(familyMembers.map(({ id }) => id), ['local-member', 'local-contact']);
+});
+
+test('restoring a personal backup preserves current Neon shared mirrors and incoming links', () => {
+  const transactions = mergeRestoredTransactionsWithCurrentMirrors(
+    [
+      { id: 'tx-current-personal', amount: 30 },
+      { id: 'tx-mirror-live', amount: 40 },
+    ],
+    [
+      { id: 'tx-backup-personal', amount: 10 },
+      { id: 'tx-mirror-old-backup', amount: 20 },
+    ]
+  );
+  const familyMembers = mergeRestoredFamilyMembersWithCurrentIncoming(
+    [
+      { id: 'outgoing-old', direction: 'outgoing' },
+      { id: 'incoming-live', direction: 'incoming' },
+      { id: 'linked-live', direction: 'outgoing', invitationId: 'invite-live' },
+    ],
+    [
+      { id: 'outgoing-backup', direction: 'outgoing' },
+      { id: 'linked-backup-stale', direction: 'outgoing', invitationId: 'invite-old' },
+    ]
+  );
+
+  assert.deepEqual(transactions.map(({ id }) => id), ['tx-backup-personal', 'tx-mirror-live']);
+  assert.deepEqual(familyMembers.map(({ id }) => id), ['outgoing-backup', 'incoming-live', 'linked-live']);
+});
+
+test('import sanitization does not restore incoming shared mirrors as personal transactions', () => {
+  const backup = validBackup();
+  const parsed = parseFullFinanceBackup(JSON.stringify({
+    ...backup,
+    transactions: [
+      { id: 'tx-personal-1', description: 'Pessoal' },
+      { id: 'tx-mirror-shared-1', description: 'Recebida de outra conta' },
+    ],
+  }));
+  assert.ok(parsed);
+  assert.deepEqual(getPortableBackupTransactions(parsed.transactions).map(({ id }) => id), ['tx-personal-1']);
+});
+
+test('restoring a portable backup in another account strips family-share linkage metadata', () => {
+  const result = prepareRestoredBackupTransactions([
+    {
+      id: 'tx-shared',
+      isShared: true,
+      sharedMemberId: 'old-member',
+      sharedAmount: 8,
+      amount: 10,
+    },
+    { id: 'tx-personal', amount: 20 },
+    { id: 'tx-mirror-incoming', amount: 30 },
+  ], false);
+
+  assert.deepEqual(result, [
+    { id: 'tx-shared', amount: 10 },
+    { id: 'tx-personal', amount: 20 },
+  ]);
+
+  const sameAccount = prepareRestoredBackupTransactions([
+    { id: 'tx-shared', isShared: true, sharedMemberId: 'member-1' },
+  ], true);
+  assert.deepEqual(sameAccount, [
+    { id: 'tx-shared', isShared: true, sharedMemberId: 'member-1' },
+  ]);
 });
 
 test('accepts earlier supported backup versions with optional fields omitted', () => {

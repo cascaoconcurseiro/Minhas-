@@ -124,7 +124,15 @@ import {
   reverseInstallmentAnticipation,
 } from './utils/uxEnhancementRules';
 import { compactTransactionListForStorage } from './utils/ofxParser';
-import { parseFullFinanceBackup, resolveFullBackupOptionalState } from './utils/fullBackup';
+import {
+  getPortableBackupFamilyMembers,
+  getPortableBackupTransactions,
+  mergeRestoredFamilyMembersWithCurrentIncoming,
+  mergeRestoredTransactionsWithCurrentMirrors,
+  parseFullFinanceBackup,
+  prepareRestoredBackupTransactions,
+  resolveFullBackupOptionalState,
+} from './utils/fullBackup';
 import {
   calculateDailyReminders,
   DEFAULT_REMINDER_SETTINGS,
@@ -2626,15 +2634,20 @@ export default function App() {
   };
 
   const handleExportFullBackupJson = () => {
+    if (!currentUser?.uid) {
+      showNotice('Entre na sua conta Neon Auth para exportar o backup do workspace.');
+      return;
+    }
     const payload = {
-      version: 5,
+      version: 6,
+      ownerUserId: currentUser?.uid,
       exportedAt: new Date().toISOString(),
       accounts,
       cards,
       categories,
-      transactions,
+      transactions: getPortableBackupTransactions(transactions),
       goals,
-      familyMembers,
+      familyMembers: getPortableBackupFamilyMembers(familyMembers),
       investments,
       investmentTargets,
       trips,
@@ -2649,13 +2662,14 @@ export default function App() {
     a.download = `minhas-economias-backup-${selectedMonth}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showNotice('Backup completo (.JSON) exportado com sucesso.', undefined, true);
+    showNotice('Backup do workspace (.JSON) exportado com sucesso.', undefined, true);
   };
 
   const handleImportFullBackupJson = (jsonText: string): boolean => {
     try {
       const parsed = parseFullFinanceBackup(jsonText);
       if (!parsed) return false;
+      const sameOwner = Boolean(currentUser?.uid && parsed.ownerUserId === currentUser.uid);
       const optionalState = resolveFullBackupOptionalState(parsed, {
         familyMembers: INITIAL_FAMILY_MEMBERS,
         investmentTargets: DEFAULT_INVESTMENT_TARGETS,
@@ -2666,7 +2680,10 @@ export default function App() {
         accounts: parsed.accounts,
         cards: parsed.cards,
         categories: parsed.categories,
-        transactions: parsed.transactions,
+        transactions: prepareRestoredBackupTransactions(
+          parsed.transactions,
+          sameOwner
+        ),
         goals: parsed.goals,
         investments: parsed.investments,
         trips: parsed.trips,
@@ -2674,13 +2691,26 @@ export default function App() {
       setAccounts(repaired.accounts);
       setCards(repaired.cards);
       setCategories(parsed.categories as Category[]);
-      setTransactions(repaired.transactions);
       setGoals(repaired.goals);
-      setFamilyMembers(stripLegacyMockItems(optionalState.familyMembers));
+      const restoredFamilyMembers = stripLegacyMockItems(
+        mergeRestoredFamilyMembersWithCurrentIncoming(
+          familyMembers,
+          optionalState.familyMembers
+        )
+      );
+      const restoredTransactions = mergeRestoredTransactionsWithCurrentMirrors(
+        transactions,
+        repaired.transactions
+      );
+      setTransactions(restoredTransactions);
+      setFamilyMembers(restoredFamilyMembers);
       setInvestments(repaired.investments);
       setTrips(repaired.trips);
       setInvestmentTargets(optionalState.investmentTargets);
       setSettings(optionalState.settings);
+      if (sameOwner) {
+        triggerCrossAccountSharedTxSync(restoredTransactions, restoredFamilyMembers);
+      }
       showNotice(
         'Backup carregado nesta sessão. Confira o status da nuvem para confirmar o salvamento no Neon.'
       );
