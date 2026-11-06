@@ -1,8 +1,0 @@
-{
-  "firestore": [
-    {
-      "database": "ai-studio-minhaseconomiasb-70c985b7-075c-4f08-9fdc-96a05658241f",
-      "rules": "firestore.rules"
-    }
-  ]
-}

@@ -1,6 +1,6 @@
 # Minhas Economias BR — Controle Financeiro Pessoal, Investimentos, Câmbio & Viagens
 
-Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e familiar adaptada à realidade brasileira, com controle de contas bancárias, conciliação de extratos **OFX/CSV**, faturas de cartão de crédito com efeito cascata e antecipação de parcelas, carteira de investimentos integrada ao **Google Finance / B3**, rateio familiar bilateral via PIX e gestão de viagens internacionais multi-moeda (**TravelSpend + Splitwise**). Firebase Auth cuida do login; os dados persistentes da aplicação são salvos no PostgreSQL do Neon por uma API autenticada.
+Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e familiar adaptada à realidade brasileira, com controle de contas bancárias, conciliação de extratos **OFX/CSV**, faturas de cartão de crédito com efeito cascata e antecipação de parcelas, carteira de investimentos integrada ao **Google Finance / B3**, rateio familiar bilateral via PIX e gestão de viagens internacionais multi-moeda (**TravelSpend + Splitwise**). Neon Auth cuida do login; os dados persistentes da aplicação são salvos no PostgreSQL do Neon por uma API autenticada.
 
 ---
 
@@ -9,7 +9,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 1. **[Visão Geral e Arquitetura (`README.md`)](./README.md)** — Visão executiva, módulos do sistema, stack tecnológica, instalação e testes.
 2. **[Documentação do Banco de Dados e Persistência (`docs/DATABASE_DOCUMENTATION.md`)](./docs/DATABASE_DOCUMENTATION.md)** — Esquema Neon, tabelas, isolamento por usuário e fluxo de migração legado.
 3. **[Arquitetura Técnica, Motores de Regras e API REST (`docs/ARCHITECTURE_AND_API.md`)](./docs/ARCHITECTURE_AND_API.md)** — Especificação das rotas do servidor Express (`backend/app.ts`), motores matemáticos puros (`src/utils/*.ts`) e pipeline de CI/CD.
-4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes do modelo de identidade, Neon e acesso negado ao Firestore legado.
+4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes de identidade Neon Auth, PostgreSQL e Row-Level Security.
 
 ---
 
@@ -21,7 +21,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 | **Estilização** | Tailwind CSS v4 + Lucide Icons | Design system responsivo (Light / Dark Mode) |
 | **Visualização de Dados** | Recharts + SVG Custom Charts | Gráficos comparativos de 6 meses, rosca, curvas e progresso |
 | **Backend / API** | Node.js + Express 4 (`backend/app.ts`, exposto em `/api/*`) | Proxy seguro para cotações B3/Google Finance, câmbio ao vivo, SMTP e workspace Neon |
-| **Banco de Dados & Auth** | Firebase Authentication + Neon PostgreSQL | Firebase apenas autentica; workspace, convites e lançamentos compartilhados persistem no Neon |
+| **Identidade e banco de dados** | Neon Auth + Neon PostgreSQL | Identidades, workspace, convites e lançamentos compartilhados persistem no Neon |
 | **Inteligência & Cotações** | `@google/genai` (Google Search Grounding) | Consulta de câmbio comercial ao vivo e cotações internacionais |
 | **Relatórios Executivos** | `jspdf` | Exportação de relatórios financeiros mensais e de viagens em PDF |
 | **Testes Automatizados** | `node:test` + `tsx` | Testes unitários determinísticos das regras financeiras e validações de dados |
@@ -124,9 +124,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 │   │   ├── reportPdfGenerator.ts      # Gerador de relatório mensal em PDF
 │   │   └── tripPdfGenerator.ts        # Gerador de relatório de viagem em PDF
 │   ├── App.tsx                        # Orquestrador de estado SSOT; persistência Neon
-│   ├── firebase.ts                    # Inicialização de Firebase Auth
-├── firebase-blueprint.json            # Configuração Firebase Auth
-├── firestore.rules                    # Nega toda leitura e gravação no Firestore
+│   ├── neonAuth.ts                    # Login Neon Auth e sessão
 ├── security_spec.md                   # Especificação de invariantes de segurança do banco
 ├── backend/app.ts                     # Rotas Express e integração Neon
 ├── api/[...path].ts                   # Adaptador das rotas Express para Vercel Functions
@@ -147,7 +145,7 @@ Copie o arquivo `.env.example` para `.env` e preencha as variáveis do servidor:
 ```bash
 cp .env.example .env
 ```
-`DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` habilitam a API do workspace Neon com Firebase Auth. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Nunca use prefixo `VITE_` nas credenciais do servidor.
+`DATABASE_URL` e `NEON_AUTH_JWKS_URL` habilitam a API autenticada; `VITE_NEON_AUTH_URL` aponta o cliente para Neon Auth. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Nunca use prefixo `VITE_` nas credenciais do servidor.
 
 ### 3. Executar em ambiente de desenvolvimento
 ```bash
@@ -165,6 +163,6 @@ bun run build
 
 ## Publicação e sincronização
 
-O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` nas variáveis de ambiente de produção da Vercel. O workflow GitHub `.github/workflows/neon-daily-activity.yml` usa o segredo `NEON_DATABASE_URL`, roda `SELECT 1` às 12:23 UTC diariamente e também aceita execução manual. O Vercel Cron `/api/health` segue cadastrado às 12:15 UTC; logs consultados não comprovaram uma execução automática dele.
+O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL` e `NEON_AUTH_JWKS_URL` como variáveis do servidor Vercel e `VITE_NEON_AUTH_URL` como URL pública do Neon Auth. O workflow GitHub `.github/workflows/neon-daily-activity.yml` usa o segredo `NEON_DATABASE_URL`, roda `SELECT 1` às 12:23 UTC diariamente e também aceita execução manual. O Vercel Cron `/api/health` segue cadastrado às 12:15 UTC; logs consultados não comprovaram uma execução automática dele.
 
 O Neon usa autosuspend no plano gratuito. O workflow diário GitHub executa `SELECT 1` diretamente no banco; a execução manual de 6/nov passou, e a primeira execução automática deve ser observada em 7/nov às 12:23 UTC. Uma checagem bem-sucedida acorda o compute durante a consulta, mas não o mantém ligado continuamente. O projeto tem janela de recuperação pontual de 6 horas; não há agenda de snapshots configurada.

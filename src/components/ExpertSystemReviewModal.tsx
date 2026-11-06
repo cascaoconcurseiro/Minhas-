@@ -554,7 +554,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                     title: 'Conta, Nuvem & Auditoria SSOT',
                     tab: 'cloud' as const,
                     status: 'Neon PostgreSQL',
-                    desc: 'Firebase Auth controla o acesso; o workspace e os dados familiares persistem no Neon PostgreSQL.',
+                    desc: 'Neon Auth controla o acesso; o workspace e os dados familiares persistem no Neon PostgreSQL.',
                   },
                 ].map((item) => (
                   <div

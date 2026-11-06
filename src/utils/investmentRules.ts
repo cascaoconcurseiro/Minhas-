@@ -800,7 +800,7 @@ export function applyGoogleFinanceQuotesToAssets(
 export async function fetchGoogleFinanceQuotes(
   tickers: string[],
   fetcher: typeof fetch = fetch,
-  firebaseIdToken = ''
+  authToken = ''
 ): Promise<GoogleFinanceSyncResponse> {
   const uniqueTickers = Array.from(
     new Set(tickers.map((t) => normalizeTickerSymbol(t)).filter(Boolean))
@@ -816,7 +816,7 @@ export async function fetchGoogleFinanceQuotes(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${firebaseIdToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
     body: JSON.stringify({ tickers: uniqueTickers }),
   });
@@ -852,7 +852,7 @@ export async function syncAssetsWithGoogleFinance(
   allAssets: InvestmentAsset[],
   targetSubset?: InvestmentAsset[],
   fetcher: typeof fetch = fetch,
-  firebaseIdToken = ''
+  authToken = ''
 ): Promise<GoogleFinancePortfolioSyncResult> {
   const candidates = (targetSubset ?? allAssets).filter((a) =>
     isMarketQuotedAsset(a)
@@ -870,7 +870,7 @@ export async function syncAssetsWithGoogleFinance(
   const { quotes, fetchedAt, sources } = await fetchGoogleFinanceQuotes(
     tickers,
     fetcher,
-    firebaseIdToken
+    authToken
   );
 
   const { updatedAssets, updatedCount } = applyGoogleFinanceQuotesToAssets(

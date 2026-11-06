@@ -217,10 +217,10 @@ test('formatGoogleFinanceSymbol, parseGoogleFinanceHtmlQuote, applyGoogleFinance
     portfolio,
     undefined,
     mockFetcher,
-    'test-firebase-id-token'
+    'test-neon-auth-token'
   );
 
-  assert.equal(capturedAuthHeader, 'Bearer test-firebase-id-token');
+  assert.equal(capturedAuthHeader, 'Bearer test-neon-auth-token');
   assert.equal(syncResult.updatedCount, 2);
   // Fixed income asset currentPrice remains unchanged (15000)
   assert.equal(syncResult.updatedAssets[0].currentPrice, 15000);

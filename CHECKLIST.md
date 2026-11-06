@@ -1,5 +1,19 @@
 # Checklist — Minhas Economias
 
+## Corte Firebase → Neon Auth completo — 2026-11-06
+- [x] Habilitar Neon Auth Managed Better Auth em `production`, com e-mail/senha e verificação por OTP; autorizar domínio Vercel e desligar origem localhost em produção.
+- [x] Substituir cliente, sessão, cadastro/login/logout e tokens do app pelo SDK `@neon/auth`.
+- [x] Substituir validação Identity Toolkit/Firebase na API pela verificação de JWT EdDSA com JWKS Neon Auth.
+- [x] Renomear identificadores Firebase nas tabelas e políticas RLS com `db/migrations/006_neon_auth_identity.sql`; validar em QA e aplicar à production.
+- [x] Remover SDK, arquivos de configuração e regras Firebase do repositório; substituir CSP e documentação pelo fluxo Neon.
+- [x] Configurar `VITE_NEON_AUTH_URL` e `NEON_AUTH_JWKS_URL` na Vercel production.
+- [x] Rodar `bun test` (121/121), `bun run lint`, `bun run build` e `git diff --check`; API usa testes com JWT EdDSA sintético.
+- [ ] Publicar o corte em `main` e confirmar deploy Vercel; no intervalo entre migration SQL e deploy, as rotas autenticadas podem falhar com o código antigo.
+- [ ] Validar signup, login, logout, recarga de sessão, confirmação de e-mail, CRUD e chamadas API com token Neon Auth real.
+- [ ] Remover variáveis `FIREBASE_API_KEY` e `FIREBASE_PROJECT_ID` da Vercel depois do deploy funcional.
+- [ ] Remover a branch QA `qa-neon-auth-migration-2026-11-06` após o deploy.
+- [ ] Aceitar que usuários anteriores precisam criar conta Neon Auth; senhas Firebase não são transferíveis. Os dados financeiros existentes no Neon foram mantidos.
+
 ## Migração da persistência Firestore → Neon — 2026-11-06
 - [x] Remover do app as leituras/gravações Firestore e o importador automático no primeiro carregamento; Neon passa a ser a única persistência operacional.
 - [x] Remover endpoint `/api/workspace/migrate` e respectivos testes/código legado.

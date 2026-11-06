@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { normalizeDatabaseConnectionString } from './databaseConnection.ts';
 import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
@@ -39,56 +40,27 @@ function getNeonPool(): Pool {
   return neonPool;
 }
 
-interface FirebaseUserIdentity {
+interface AuthUserIdentity {
   uid: string;
   email: string;
   email_verified?: boolean;
 }
 
-async function verifyFirebaseIdToken(idToken: string): Promise<FirebaseUserIdentity> {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const apiKey = process.env.FIREBASE_API_KEY;
-  if (!projectId) {
-    throw new Error('FIREBASE_PROJECT_ID não configurado no servidor.');
-  }
-  if (!apiKey) {
-    throw new Error('FIREBASE_API_KEY não configurada no servidor.');
-  }
+let neonAuthJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-        signal: controller.signal,
-      }
-    );
-    if (!response.ok) throw new Error('Token Firebase inválido ou expirado.');
-
-    const result = (await response.json()) as {
-      users?: Array<{
-        localId?: string;
-        email?: string;
-        emailVerified?: boolean;
-        disabled?: boolean;
-      }>;
-    };
-    const account = result.users?.[0];
-    if (!account?.localId || !account.email || account.disabled) {
-      throw new Error('Conta Firebase inválida ou desativada.');
-    }
-    return {
-      uid: account.localId,
-      email: account.email,
-      email_verified: account.emailVerified,
-    };
-  } finally {
-    clearTimeout(timeout);
+async function verifyNeonAuthToken(token: string): Promise<AuthUserIdentity> {
+  const jwksUrl = process.env.NEON_AUTH_JWKS_URL;
+  if (!jwksUrl) throw new Error('NEON_AUTH_JWKS_URL não configurada no servidor.');
+  neonAuthJwks ??= createRemoteJWKSet(new URL(jwksUrl));
+  const { payload } = await jwtVerify(token, neonAuthJwks, { algorithms: ['EdDSA'] });
+  if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
+    throw new Error('O token Neon Auth não contém uma identidade válida.');
   }
+  return {
+    uid: payload.sub,
+    email: payload.email,
+    email_verified: payload.email_verified === true || payload.emailVerified === true,
+  };
 }
 
 function getRequestWorkspacePayload(
@@ -136,21 +108,21 @@ function getRequestWorkspacePayload(
       return null;
     }
   }
-  // Identity always comes from the verified Firebase token, never from a
+  // Identity always comes from the verified Neon Auth token, never from a
   // client-provided or legacy backup UID.
   return { ...payload, uid: vaultId };
 }
 
 async function withWorkspaceRls<T>(
-  user: FirebaseUserIdentity,
+  user: AuthUserIdentity,
   operation: (client: import('pg').PoolClient, vaultId: string) => Promise<T>
 ): Promise<T> {
   const vaultId = getVaultIdForUid(user.uid);
   const client = await getNeonPool().connect();
   try {
     await client.query('BEGIN');
-    await client.query("SELECT set_config('app.firebase_uid', $1, true)", [user.uid]);
-    await client.query("SELECT set_config('app.firebase_email', $1, true)", [
+    await client.query("SELECT set_config('app.user_id', $1, true)", [user.uid]);
+    await client.query("SELECT set_config('app.user_email', $1, true)", [
       user.email.toLowerCase(),
     ]);
     const result = await operation(client, vaultId);
@@ -228,25 +200,25 @@ async function startServer() {
 
   app.use(express.json({ limit: '2mb' }));
 
-  const verifyFirebaseWorkspaceUser: RequestHandler = async (req, res, next) => {
+  const verifyNeonAuthUser: RequestHandler = async (req, res, next) => {
     const authorization = req.header('authorization') || '';
     const token = authorization.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
       : '';
     if (!token) {
-      res.status(401).json({ error: 'Autenticação Firebase obrigatória.' });
+      res.status(401).json({ error: 'Autenticação Neon Auth obrigatória.' });
       return;
     }
     try {
-      res.locals.firebaseUser = await verifyFirebaseIdToken(token);
+      res.locals.authUser = await verifyNeonAuthToken(token);
       next();
     } catch {
-      res.status(401).json({ error: 'Token Firebase inválido ou expirado.' });
+      res.status(401).json({ error: 'Token Neon Auth inválido ou expirado.' });
     }
   };
 
   const requireVerifiedFamilyEmail: RequestHandler = (_req, res, next) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     if (user.email_verified !== true) {
       res.status(403).json({ error: 'Verifique o e-mail da conta antes de usar o compartilhamento familiar.' });
       return;
@@ -254,27 +226,27 @@ async function startServer() {
     next();
   };
 
-  app.use('/api/workspace', verifyFirebaseWorkspaceUser);
-  app.use('/api/family', verifyFirebaseWorkspaceUser, requireVerifiedFamilyEmail);
-  app.use('/api/reminders/send-email', verifyFirebaseWorkspaceUser);
-  app.use('/api/fx/live-rate', verifyFirebaseWorkspaceUser);
-  app.use('/api/investments/sync-quotes', verifyFirebaseWorkspaceUser);
+  app.use('/api/workspace', verifyNeonAuthUser);
+  app.use('/api/family', verifyNeonAuthUser, requireVerifiedFamilyEmail);
+  app.use('/api/reminders/send-email', verifyNeonAuthUser);
+  app.use('/api/fx/live-rate', verifyNeonAuthUser);
+  app.use('/api/investments/sync-quotes', verifyNeonAuthUser);
 
   app.get('/api/workspace', async (_req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     const vaultId = getVaultIdForUid(user.uid);
     try {
       const workspace = await withWorkspaceRls(user, async (client, vaultId) => {
         const result = await client.query(
           `SELECT vault_id, payload, revision, updated_at
              FROM public.finance_workspaces
-            WHERE owner_firebase_uid = $1
+            WHERE owner_user_id = $1
             ORDER BY updated_at DESC
             LIMIT 2`,
           [user.uid]
         );
         if (result.rows.length > 1) {
-          throw new Error('Mais de um workspace está associado a esta identidade Firebase.');
+          throw new Error('Mais de um workspace está associado a esta identidade Neon Auth.');
         }
         return result.rows[0] ?? null;
       });
@@ -294,9 +266,9 @@ async function startServer() {
   });
 
   app.post('/api/workspace', async (req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {
-      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      res.status(403).json({ error: 'A conta Neon Auth precisa ter um e-mail.' });
       return;
     }
     const vaultId = getVaultIdForUid(user.uid);
@@ -310,13 +282,13 @@ async function startServer() {
       const created = await withWorkspaceRls(user, async (client) => {
         const existing = await client.query(
           `SELECT vault_id FROM public.finance_workspaces
-            WHERE owner_firebase_uid = $1 LIMIT 1 FOR UPDATE`,
+            WHERE owner_user_id = $1 LIMIT 1 FOR UPDATE`,
           [user.uid]
         );
         if (existing.rowCount) return null;
         const result = await client.query(
           `INSERT INTO public.finance_workspaces
-             (vault_id, owner_firebase_uid, owner_email, display_name, payload,
+             (vault_id, owner_user_id, owner_email, display_name, payload,
               revision, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5::jsonb, 1, now(), now())
            ON CONFLICT DO NOTHING
@@ -346,9 +318,9 @@ async function startServer() {
   });
 
   app.put('/api/workspace', async (req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {
-      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      res.status(403).json({ error: 'A conta Neon Auth precisa ter um e-mail.' });
       return;
     }
     const vaultId = getVaultIdForUid(user.uid);
@@ -373,7 +345,7 @@ async function startServer() {
                   display_name = $4,
                   revision = revision + 1,
                   updated_at = now()
-            WHERE owner_firebase_uid = $5
+            WHERE owner_user_id = $5
               AND revision = $6
           RETURNING revision, updated_at`,
           [
@@ -399,15 +371,15 @@ async function startServer() {
   });
 
   app.get('/api/family/invitations', async (_req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     try {
       const invitations = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
-          `SELECT invitation_id, owner_firebase_uid, owner_email, invited_email,
-                  invited_firebase_uid, owner_member_id, owner_name, owner_pix_key,
+          `SELECT invitation_id, owner_user_id, owner_email, invited_email,
+                  invited_user_id, owner_member_id, owner_name, owner_pix_key,
                   relationship, color, status, created_at, updated_at, responded_at
              FROM public.finance_family_invitations
-            WHERE owner_firebase_uid = $1 OR lower(invited_email) = lower($2)
+            WHERE owner_user_id = $1 OR lower(invited_email) = lower($2)
             ORDER BY updated_at DESC`,
           [user.uid, user.email]
         );
@@ -421,7 +393,7 @@ async function startServer() {
   });
 
   app.post('/api/family/invitations', async (req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     const invitedEmail = String(req.body?.invitedEmail || '').trim().toLowerCase();
     const ownerMemberId = String(req.body?.ownerMemberId || '').trim();
     const ownerName = String(req.body?.ownerName || '').trim().slice(0, 120);
@@ -444,10 +416,10 @@ async function startServer() {
       const invitation = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `INSERT INTO public.finance_family_invitations
-             (invitation_id, owner_firebase_uid, owner_email, invited_email,
+             (invitation_id, owner_user_id, owner_email, invited_email,
               owner_member_id, owner_name, owner_pix_key, relationship, color)
            VALUES ($1, $2, $3, $4, $5, $6, nullif($7, ''), $8, $9)
-           ON CONFLICT (owner_firebase_uid, invited_email) DO UPDATE
+           ON CONFLICT (owner_user_id, invited_email) DO UPDATE
              SET owner_member_id = EXCLUDED.owner_member_id,
                  owner_name = EXCLUDED.owner_name,
                  owner_pix_key = EXCLUDED.owner_pix_key,
@@ -457,9 +429,9 @@ async function startServer() {
                    WHEN finance_family_invitations.status = 'accepted' THEN 'accepted'
                    ELSE 'invited'
                  END,
-                 invited_firebase_uid = CASE
+                 invited_user_id = CASE
                    WHEN finance_family_invitations.status = 'accepted'
-                     THEN finance_family_invitations.invited_firebase_uid
+                     THEN finance_family_invitations.invited_user_id
                    ELSE NULL
                  END,
                  updated_at = now(),
@@ -468,8 +440,8 @@ async function startServer() {
                      THEN finance_family_invitations.responded_at
                    ELSE NULL
                  END
-           RETURNING invitation_id, owner_firebase_uid, owner_email, invited_email,
-                     invited_firebase_uid, owner_member_id, owner_name, owner_pix_key,
+           RETURNING invitation_id, owner_user_id, owner_email, invited_email,
+                     invited_user_id, owner_member_id, owner_name, owner_pix_key,
                      relationship, color, status, created_at, updated_at, responded_at`,
           [
             invitationId,
@@ -493,7 +465,7 @@ async function startServer() {
   });
 
   app.post('/api/family/invitations/:invitationId/respond', async (req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     const action = req.body?.action;
     if (!user.email || !['accepted', 'declined'].includes(action)) {
       res.status(400).json({ error: 'Resposta de convite inválida.' });
@@ -504,14 +476,14 @@ async function startServer() {
         const result = await client.query(
           `UPDATE public.finance_family_invitations
               SET status = $1,
-                  invited_firebase_uid = $2,
+                  invited_user_id = $2,
                   updated_at = now(),
                   responded_at = now()
             WHERE invitation_id = $3
               AND lower(invited_email) = lower($4)
               AND status IN ('invited', 'accepted', 'declined')
-          RETURNING invitation_id, owner_firebase_uid, owner_email, invited_email,
-                    invited_firebase_uid, owner_member_id, owner_name, owner_pix_key,
+          RETURNING invitation_id, owner_user_id, owner_email, invited_email,
+                    invited_user_id, owner_member_id, owner_name, owner_pix_key,
                     relationship, color, status, created_at, updated_at, responded_at`,
           [action, user.uid, req.params.invitationId, user.email]
         );
@@ -529,25 +501,25 @@ async function startServer() {
   });
 
   app.post('/api/family/invitations/:invitationId/revoke', async (req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     try {
       const revoked = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `UPDATE public.finance_family_invitations
               SET status = 'revoked', updated_at = now(), responded_at = now()
             WHERE invitation_id = $1
-              AND (owner_firebase_uid = $2 OR invited_firebase_uid = $2)
-          RETURNING owner_firebase_uid, invited_firebase_uid`,
+              AND (owner_user_id = $2 OR invited_user_id = $2)
+          RETURNING owner_user_id, invited_user_id`,
           [req.params.invitationId, user.uid]
         );
         const link = result.rows[0];
         if (!link) return false;
-        if (link.invited_firebase_uid) {
+        if (link.invited_user_id) {
           await client.query(
             `DELETE FROM public.finance_shared_transactions
-              WHERE (sender_firebase_uid = $1 AND recipient_firebase_uid = $2)
-                 OR (sender_firebase_uid = $2 AND recipient_firebase_uid = $1)`,
-            [link.owner_firebase_uid, link.invited_firebase_uid]
+              WHERE (sender_user_id = $1 AND recipient_user_id = $2)
+                 OR (sender_user_id = $2 AND recipient_user_id = $1)`,
+            [link.owner_user_id, link.invited_user_id]
           );
         }
         return true;
@@ -564,14 +536,14 @@ async function startServer() {
   });
 
   app.get('/api/family/shared', async (_req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     try {
       const transactions = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
-          `SELECT sender_firebase_uid, recipient_firebase_uid, shared_sync_id,
+          `SELECT sender_user_id, recipient_user_id, shared_sync_id,
                   payload, updated_at
              FROM public.finance_shared_transactions
-            WHERE recipient_firebase_uid = $1 AND recipient_hidden = false
+            WHERE recipient_user_id = $1 AND recipient_hidden = false
             ORDER BY updated_at DESC`,
           [user.uid]
         );
@@ -585,7 +557,7 @@ async function startServer() {
   });
 
   app.put('/api/family/shared', async (req, res) => {
-    const user = res.locals.firebaseUser as FirebaseUserIdentity;
+    const user = res.locals.authUser as AuthUserIdentity;
     const partnerEmail = String(req.body?.partnerEmail || '').trim().toLowerCase();
     const transactions = req.body?.transactions;
     const deletedSharedIds = Array.isArray(req.body?.deletedSharedIds)
@@ -621,23 +593,23 @@ async function startServer() {
       const result = await withWorkspaceRls(user, async (client) => {
         // Serialize with revocation, which locks this invitation before deleting shared rows.
         const linkResult = await client.query(
-          `SELECT owner_firebase_uid, owner_email, invited_email,
-                  invited_firebase_uid, owner_member_id, status
+          `SELECT owner_user_id, owner_email, invited_email,
+                  invited_user_id, owner_member_id, status
              FROM public.finance_family_invitations
             WHERE status = 'accepted'
-              AND ((owner_firebase_uid = $1 AND lower(invited_email) = lower($2))
-                OR (invited_firebase_uid = $1 AND lower(owner_email) = lower($2)))
+              AND ((owner_user_id = $1 AND lower(invited_email) = lower($2))
+                OR (invited_user_id = $1 AND lower(owner_email) = lower($2)))
             LIMIT 1
             FOR UPDATE`,
           [user.uid, partnerEmail]
         );
         const link = linkResult.rows[0];
-        if (!link || !link.invited_firebase_uid) return { forbidden: true };
+        if (!link || !link.invited_user_id) return { forbidden: true };
 
-        const ownerIsSender = link.owner_firebase_uid === user.uid;
+        const ownerIsSender = link.owner_user_id === user.uid;
         const partnerUid = ownerIsSender
-          ? String(link.invited_firebase_uid)
-          : String(link.owner_firebase_uid);
+          ? String(link.invited_user_id)
+          : String(link.owner_user_id);
         const senderEmail = user.email!.toLowerCase();
         const recipientEmail = partnerEmail;
         const recipientMemberId = ownerIsSender
@@ -665,8 +637,8 @@ async function startServer() {
                     '{sharedStatus}', to_jsonb($4::text), true
                   ),
                   updated_at = now()
-                WHERE sender_firebase_uid = $1
-                  AND recipient_firebase_uid = $2
+                WHERE sender_user_id = $1
+                  AND recipient_user_id = $2
                   AND shared_sync_id = $3`,
               [partnerUid, user.uid, sharedSyncId, sharedStatus, settledDate]
             );
@@ -716,9 +688,9 @@ async function startServer() {
           };
           await client.query(
             `INSERT INTO public.finance_shared_transactions
-               (sender_firebase_uid, recipient_firebase_uid, shared_sync_id, payload, updated_at)
+               (sender_user_id, recipient_user_id, shared_sync_id, payload, updated_at)
              VALUES ($1, $2, $3, $4::jsonb, now())
-             ON CONFLICT (sender_firebase_uid, recipient_firebase_uid, shared_sync_id)
+             ON CONFLICT (sender_user_id, recipient_user_id, shared_sync_id)
              DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
             [user.uid, partnerUid, sharedSyncId, JSON.stringify(mirror)]
           );
@@ -729,16 +701,16 @@ async function startServer() {
         if (deletedSharedIds.length > 0) {
           const deletion = await client.query(
             `DELETE FROM public.finance_shared_transactions
-              WHERE sender_firebase_uid = $1
-                AND recipient_firebase_uid = $2
+              WHERE sender_user_id = $1
+                AND recipient_user_id = $2
                 AND shared_sync_id = ANY($3::text[])`,
             [user.uid, partnerUid, deletedSharedIds]
           );
           const hidden = await client.query(
             `UPDATE public.finance_shared_transactions
                 SET recipient_hidden = true, updated_at = now()
-              WHERE sender_firebase_uid = $1
-                AND recipient_firebase_uid = $2
+              WHERE sender_user_id = $1
+                AND recipient_user_id = $2
                 AND shared_sync_id = ANY($3::text[])
                 AND recipient_hidden = false`,
             [partnerUid, user.uid, deletedSharedIds]

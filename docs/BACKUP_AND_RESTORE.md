@@ -4,11 +4,11 @@
 
 - O arquivo JSON exportado em Configurações contém o workspace pessoal do app: contas, cartões, categorias, lançamentos, metas, investimentos, viagens, membros familiares e preferências incluídas pelo exportador.
 - Esse JSON **não** é um backup integral do banco Neon. Convites e lançamentos compartilhados são armazenados em tabelas próprias do Neon e não fazem parte desse arquivo.
-- Documentos `cloud_vaults` antigos no Firestore não são lidos, atualizados nem usados como contingência. As regras do Firebase negam acesso; eles não substituem backup integral do PostgreSQL.
+- Firebase Auth e Firestore foram removidos do runtime. A identidade atual e os dados financeiros são armazenados no Neon; o backup JSON não substitui backup integral do PostgreSQL.
 
 ## Exportar e restaurar o workspace pelo app
 
-1. Entre na conta Firebase correta e abra Configurações → backup.
+1. Entre na conta Neon Auth correta e abra Configurações → backup.
 2. Exporte o JSON e guarde uma cópia fora do dispositivo. Antes de substituir dados, exporte também o estado atual.
 3. Para restaurar, selecione o arquivo JSON e confirme a substituição. O app valida versão, coleções e categorias antes de alterar o estado da sessão.
 4. Mantenha a tela aberta até o status da nuvem confirmar a gravação no Neon. Em caso de erro, não considere a restauração concluída: os dados podem estar apenas nesta sessão/localStorage; reconecte e sincronize antes de sair.

@@ -1,4 +1,4 @@
-import { auth } from './firebase';
+import { getNeonAuthToken } from './neonAuth';
 
 export interface NeonWorkspaceSnapshot {
   payload: Record<string, unknown>;
@@ -8,10 +8,10 @@ export interface NeonWorkspaceSnapshot {
 
 export interface NeonFamilyInvitation {
   invitation_id: string;
-  owner_firebase_uid: string;
+  owner_user_id: string;
   owner_email: string;
   invited_email: string;
-  invited_firebase_uid?: string | null;
+  invited_user_id?: string | null;
   owner_member_id: string;
   owner_name: string;
   owner_pix_key?: string | null;
@@ -21,8 +21,8 @@ export interface NeonFamilyInvitation {
 }
 
 export interface NeonSharedTransaction {
-  sender_firebase_uid: string;
-  recipient_firebase_uid: string;
+  sender_user_id: string;
+  recipient_user_id: string;
   shared_sync_id: string;
   payload: Record<string, unknown>;
   updated_at: string;
@@ -42,13 +42,8 @@ async function authorizedRequest<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
-  const user = auth.currentUser;
-  if (!user || user.isAnonymous) {
-    throw new NeonWorkspaceError('Entre com uma conta Firebase para sincronizar.', 401);
-  }
-
-  const send = async (forceRefresh: boolean) => {
-    const token = await user.getIdToken(forceRefresh);
+  const send = async () => {
+    const token = await getNeonAuthToken();
     return fetch(path, {
       ...init,
       headers: {
@@ -59,8 +54,8 @@ async function authorizedRequest<T>(
     });
   };
 
-  let response = await send(false);
-  if (response.status === 401) response = await send(true);
+  let response = await send();
+  if (response.status === 401) response = await send();
   const body = (await response.json().catch(() => ({}))) as {
     error?: string;
   };

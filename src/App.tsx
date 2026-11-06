@@ -15,17 +15,18 @@ import {
   X,
 } from 'lucide-react';
 import {
-  auth,
+  authClient,
   getOrCreateAutoCloudVaultId,
   getVaultIdForUid,
-  onAuthStateChanged,
   registerWithEmail,
-  refreshFirebaseUser,
+  refreshNeonAuthUser,
   resendEmailVerification,
   signInWithEmail,
-  signOutFirebaseUser,
-  User,
-} from './lib/firebase';
+  signOutNeonAuth,
+  toAppUser,
+  getNeonAuthToken,
+  AppUser,
+} from './lib/neonAuth';
 import {
   createNeonWorkspace,
   createNeonFamilyInvitation,
@@ -228,6 +229,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export default function App() {
+  const neonAuthSessionState = authClient.useSession();
+  const sessionUser = neonAuthSessionState.data?.user;
   const [selectedMonth, setSelectedMonth] = useState<string>(DEFAULT_MONTH);
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -260,8 +263,8 @@ export default function App() {
   const globalSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
-  // Firebase Cloud Auth & Automatic Real-Time Sync State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Neon Auth & Neon workspace sync state
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isVerificationActionBusy, setIsVerificationActionBusy] = useState(false);
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
@@ -287,7 +290,7 @@ export default function App() {
   const saveRetryUidRef = useRef<string | null>(null);
   const scheduleSaveRetryRef = useRef<(delayMs?: number) => void>(() => {});
 
-  // Persisted session state; Firebase Auth provides identity while Neon stores the workspace.
+  // Neon Auth and Neon PostgreSQL provide identity and workspace persistence.
   const [authSession, setAuthSession] = useState<{
     isLoggedIn: boolean;
     email: string;
@@ -494,29 +497,28 @@ export default function App() {
     );
   };
 
-  // Firebase Auth listener
+  // Neon Auth session listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setIsAuthReady(true);
-      neonWorkspaceRevisionRef.current = null;
-      hasLoadedRemoteOnceRef.current = false;
-      workspaceConflictRef.current = null;
-      setWorkspaceConflict(null);
-      setIsWorkspaceConflictOpen(false);
-      setWorkspaceConflictError(null);
-      setAuthSession(
-        user && !user.isAnonymous && user.email
-          ? {
-              isLoggedIn: true,
-              email: user.email.trim().toLowerCase(),
-              displayName: user.displayName || settingsUserNameFallback(user.email) || user.email,
-            }
-          : { isLoggedIn: false, email: '', displayName: '' }
-      );
-    });
-    return () => unsubscribe();
-  }, []);
+    const user = sessionUser ? toAppUser(sessionUser) : null;
+    setCurrentUser(user);
+    if (neonAuthSessionState.isPending) return;
+    setIsAuthReady(true);
+    neonWorkspaceRevisionRef.current = null;
+    hasLoadedRemoteOnceRef.current = false;
+    workspaceConflictRef.current = null;
+    setWorkspaceConflict(null);
+    setIsWorkspaceConflictOpen(false);
+    setWorkspaceConflictError(null);
+    setAuthSession(
+      user
+        ? {
+            isLoggedIn: true,
+            email: user.email.trim().toLowerCase(),
+            displayName: user.displayName || settingsUserNameFallback(user.email) || user.email,
+          }
+        : { isLoggedIn: false, email: '', displayName: '' }
+    );
+  }, [neonAuthSessionState.isPending, sessionUser]);
 
   // Build the authenticated workspace payload persisted by the Neon API.
   const buildCloudPayload = (targetId: string) => ({
@@ -541,13 +543,13 @@ export default function App() {
   });
 
   const queueNeonWorkspaceSave = (payload: Record<string, unknown>) => {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser || firebaseUser.isAnonymous || !firebaseUser.email) {
-      return Promise.reject(new Error('Autenticação Firebase obrigatória para Neon.'));
+    const authenticatedUser = currentUser;
+    if (!authenticatedUser?.email) {
+      return Promise.reject(new Error('Entre com sua conta Neon Auth para sincronizar.'));
     }
 
     const queuedSave = neonSaveQueueRef.current.then(async () => {
-      if (auth.currentUser?.uid !== firebaseUser.uid) {
+      if (currentUser?.uid !== authenticatedUser.uid) {
         throw new Error('A conta ativa mudou antes de salvar o workspace.');
       }
       if (workspaceConflictRef.current) {
@@ -653,7 +655,7 @@ export default function App() {
     showResultNotice = false
   ) => {
     latestNeonPayloadRef.current = payload;
-    const firebaseUid = auth.currentUser?.uid;
+    const authenticatedUid = currentUser?.uid;
     setCloudSyncStatus('syncing');
     try {
       await queueNeonWorkspaceSave(payload);
@@ -674,11 +676,11 @@ export default function App() {
 
       const canRetry =
         isRetryableWorkspaceSaveError(error) &&
-        firebaseUid &&
+        authenticatedUid &&
         !workspaceConflictRef.current;
       if (canRetry) {
         saveRetryPendingRef.current = true;
-        saveRetryUidRef.current = firebaseUid;
+        saveRetryUidRef.current = authenticatedUid;
         if (saveRetryCountRef.current < 8) {
           const attempt = saveRetryCountRef.current++;
           const delayMs = Math.min(1000 * 2 ** attempt, 30_000);
@@ -705,7 +707,7 @@ export default function App() {
     saveRetryTimerRef.current = window.setTimeout(() => {
       saveRetryTimerRef.current = null;
       const latestPayload = latestNeonPayloadRef.current;
-      const currentUid = auth.currentUser?.uid;
+      const currentUid = currentUser?.uid;
       if (
         !saveRetryPendingRef.current ||
         !navigator.onLine ||
@@ -797,7 +799,7 @@ export default function App() {
     window.location.reload();
   };
 
-  // Neon is the sole financial data store; Firebase Auth supplies identity only.
+  // Neon is the sole financial data store; Neon Auth supplies identity only.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
@@ -1176,7 +1178,16 @@ export default function App() {
   const handleRegisterEmail = async (name: string, email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim() || settingsUserNameFallback(cleanEmail) || cleanEmail.split('@')[0];
-    await registerWithEmail(cleanName, cleanEmail, pass);
+    const registeredUser = await registerWithEmail(cleanName, cleanEmail, pass);
+    let verificationSent = false;
+    if (!registeredUser.emailVerified) {
+      try {
+        await resendEmailVerification(registeredUser);
+        verificationSent = true;
+      } catch {
+        verificationSent = false;
+      }
+    }
     resetFinancialStateToCleanZero();
     hasLoadedRemoteOnceRef.current = false;
     setSettings((prev) => ({ ...prev, userName: cleanName }));
@@ -1186,7 +1197,11 @@ export default function App() {
       displayName: cleanName,
     });
     showNotice(
-      `Conta criada para ${cleanEmail}. Verifique seu e-mail para liberar o compartilhamento familiar.`,
+      registeredUser.emailVerified
+        ? `Conta criada para ${cleanEmail}.`
+        : verificationSent
+          ? `Conta criada para ${cleanEmail}. Confira o e-mail para liberar o compartilhamento familiar.`
+          : `Conta criada para ${cleanEmail}. Use Reenviar verificação na aba de autenticação para confirmar o e-mail.`,
       undefined,
       true
     );
@@ -1209,7 +1224,7 @@ export default function App() {
     if (!currentUser) return;
     setIsVerificationActionBusy(true);
     try {
-      const refreshedUser = await refreshFirebaseUser(currentUser);
+      const refreshedUser = await refreshNeonAuthUser(currentUser);
       setCurrentUser(refreshedUser);
       showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Ainda não encontramos a confirmação. Abra o link enviado e tente novamente.', undefined, true);
     } catch {
@@ -1221,7 +1236,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
-      await signOutFirebaseUser();
+      await signOutNeonAuth();
     } catch {
       // Ignore
     }
@@ -2782,7 +2797,7 @@ export default function App() {
       case 'cloud':
         return {
           title: 'Conta, Login & Nuvem',
-          subtitle: 'Firebase Auth, sincronização Neon e auditoria dos dados carregados',
+          subtitle: 'Neon Auth, sincronização Neon e auditoria dos dados carregados',
         };
     }
   }, [activeTab]);
@@ -3016,7 +3031,7 @@ export default function App() {
           scheduledEmailAttemptRef.current = { date: todayDateStr, at: Date.now() };
           void (async () => {
             try {
-              const firebaseIdToken = await currentUser.getIdToken();
+              const authToken = await currentUser.getIdToken();
               const result = await dispatchEmailReminder({
                 reminders: dailyReminders,
                 recipientEmail: targetEmail,
@@ -3026,7 +3041,7 @@ export default function App() {
                 preferredTime: remSettings.emailPreferredTime || remSettings.preferredTime || '08:00',
                 currentDateStr: todayDateStr,
                 currentTimeStr,
-                firebaseIdToken,
+                authToken,
               });
               if (result.ok) {
                 setSettings((prev) => ({
@@ -3751,7 +3766,7 @@ export default function App() {
 
               {activeTab === 'investments' && (
                 <InvestmentsTab
-                  getFirebaseIdToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
+                  getAuthToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
                   selectedMonth={selectedMonth}
                   assets={investments}
                   targetMap={investmentTargets}
@@ -3843,7 +3858,7 @@ export default function App() {
 
               {activeTab === 'trips' && (
                 <TripsTab
-                  getFirebaseIdToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
+                  getAuthToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
                   trips={trips}
                   transactions={transactions}
                   categories={categories}
@@ -4043,7 +4058,7 @@ export default function App() {
         settings={settings.reminders || DEFAULT_REMINDER_SETTINGS}
         userEmail={effectiveUserEmail}
         userName={effectiveUserDisplayName || settings.userName}
-        getFirebaseIdToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
+        getAuthToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
         onUpdateReminderSettings={(partial) =>
           setSettings((prev) => ({
             ...prev,

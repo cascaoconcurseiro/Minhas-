@@ -583,7 +583,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
         },
         currentDateStr: '2026-11-01',
         currentTimeStr: '08:30',
-        firebaseIdToken: 'test-firebase-id-token',
+        authToken: 'test-neon-auth-token',
       });
 
       assert.strictEqual(dispatched.ok, true);
@@ -593,7 +593,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
       assert.strictEqual(dispatched.smtpPort, 587);
       assert.strictEqual(dispatched.smtpUser, 'wesley.diaslima@gmail.com');
       assert.strictEqual(capturedPayloads.length, 1);
-      assert.strictEqual(capturedAuthorizationHeaders[0], 'Bearer test-firebase-id-token');
+      assert.strictEqual(capturedAuthorizationHeaders[0], 'Bearer test-neon-auth-token');
       assert.strictEqual(capturedPayloads[0].to, 'wesley.diaslima@gmail.com');
       assert.strictEqual(capturedPayloads[0].recurrence, 'monthly');
       assert.strictEqual(capturedPayloads[0].preferredTime, '08:00');
@@ -637,7 +637,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
             smtpUser: 'sender@example.com',
             smtpPass: 'example-password',
           },
-          firebaseIdToken: 'test-firebase-id-token',
+          authToken: 'test-neon-auth-token',
           isTest: true,
         }),
         /Servidor SMTP indisponível/

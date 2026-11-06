@@ -48,7 +48,7 @@ import {
 } from '../utils/investmentRules';
 
 interface InvestmentsTabProps {
-  getFirebaseIdToken: () => Promise<string>;
+  getAuthToken: () => Promise<string>;
   selectedMonth: string;
   assets: InvestmentAsset[];
   targetMap?: InvestmentTargetMap;
@@ -75,7 +75,7 @@ interface InvestmentsTabProps {
 }
 
 export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
-  getFirebaseIdToken,
+  getAuthToken,
   selectedMonth,
   assets,
   targetMap = DEFAULT_INVESTMENT_TARGETS,
@@ -170,7 +170,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
         assets,
         targetAssets,
         fetch,
-        await getFirebaseIdToken()
+        await getAuthToken()
       );
 
       if (updatedCount > 0) {
@@ -236,7 +236,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       const { quotes } = await fetchGoogleFinanceQuotes(
         [cleanTicker],
         fetch,
-        await getFirebaseIdToken()
+        await getAuthToken()
       );
       const found = quotes[0];
       if (!found) {
@@ -282,7 +282,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     try {
       const { quotes } = await fetchGoogleFinanceQuotes([
         activeOperation.asset.ticker,
-      ], fetch, await getFirebaseIdToken());
+      ], fetch, await getAuthToken());
       const found = quotes[0];
       if (found && found.priceBrl > 0) {
         setOpPriceStr(found.priceBrl.toFixed(2).replace('.', ','));

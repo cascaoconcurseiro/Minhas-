@@ -1,13 +1,13 @@
 # Master Blueprint — Minhas Economias
 
 ## Visão geral
-Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento em nuvem.
+Aplicativo web de finanças pessoais com autenticação e armazenamento no Neon.
 
 ## Stack
 - Frontend: React, TypeScript e Vite
-- Autenticação: Firebase Auth
+- Autenticação: Neon Auth (Managed Better Auth, e-mail e senha)
 - Banco de dados operacional único: PostgreSQL no Neon, acessado apenas pelo backend
-- Firebase: Auth apenas; Firestore não é usado pelo app e tem regras de acesso negadas
+- Identidades, sessões e dados financeiros ficam no projeto Neon
 - Backend: Express, publicado como função na Vercel
 - Hospedagem: Vercel Hobby, conectada ao GitHub
 
@@ -25,16 +25,13 @@ Aplicativo web de finanças pessoais com autenticação Firebase e armazenamento
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
-| 2026-11-02 | Manter Firebase Auth e mover o workspace para PostgreSQL/Neon via API Express na Vercel | Preservar os logins existentes e restringir acesso ao banco ao servidor |
-| 2026-11-04 | Identificar e localizar o workspace por uma chave estável derivada do UID Firebase, nunca pelo e-mail mutável | Evitar colisões de normalização e perda aparente de acesso quando o titular troca de e-mail |
-| 2026-11-02 | Tratar Neon como escrita principal do workspace e atualizar Firestore somente após confirmação do Neon | Evitar que uma gravação concorrente ou rejeitada pelo Neon publique um snapshot local antigo como cópia mais recente |
-| 2026-11-02 | Iniciar a leitura do workspace diretamente no Neon após Firebase Auth; consultar Firestore apenas para migração inicial e como espelho/contingência | A autoridade e a carga principal não podem depender do listener Firestore estar disponível |
-| 2026-11-02 | Usar Neon como persistência exclusiva; remover gravações, listener e contingência Firestore | Evitar dois bancos operacionais divergentes; Firebase permanece apenas como provedor de identidade |
-| 2026-11-02 | Preservar somente importação inicial do snapshot próprio e negar qualquer gravação/listagem no Firestore | Contas ainda não migradas preservam seus dados enquanto Neon segue como persistência operacional |
-| 2026-11-06 | Retirar o leitor e a rota de importação Firestore; criar workspaces novos somente no Neon e negar leitura/escrita no Firestore | Usuário solicitou Neon como destino exclusivo de dados; os workspaces atuais não contêm contas, cartões, lançamentos, metas ou investimentos |
+| 2026-11-06 | Usar Neon Auth para identidade e Neon PostgreSQL para todos os dados do app | Eliminar dependência operacional do Firebase; autenticação e dados ficam no mesmo provedor |
+| 2026-11-06 | Derivar o workspace do ID imutável do usuário Neon Auth; nunca do e-mail | Evitar colisões e preservar a identidade se o e-mail mudar |
+| 2026-11-06 | Validar JWT Neon Auth por JWKS na API e aplicar o ID autenticado nas políticas RLS | Impedir que o cliente escolha a identidade usada em consultas ou gravações |
 
 ## Regras do projeto
 - Nunca expor `DATABASE_URL` no frontend.
-- Toda operação de workspace deve validar o ID token Firebase e restringir a linha ao UID autenticado.
+- Toda operação de workspace deve validar o JWT Neon Auth e restringir a linha ao ID autenticado.
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.
-- Não enviar credenciais Neon ao frontend; o ID token Firebase identifica o titular nas rotas do backend.
+- Não enviar credenciais PostgreSQL ao frontend; o JWT Neon Auth identifica o titular nas rotas do backend.
+- Contas do provedor anterior não transferem senha; após o corte, usuários precisam criar nova conta Neon Auth.

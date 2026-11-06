@@ -9,7 +9,7 @@ import {
   User as UserIcon,
   Wallet,
 } from 'lucide-react';
-import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
+import { getAuthErrorMessage } from '../utils/authErrors';
 
 interface LoginPageProps {
   defaultEmail?: string;
@@ -53,7 +53,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         await onRegisterEmail(cleanName, email.trim(), password);
       }
     } catch (error) {
-      setErrorMsg(getFirebaseAuthErrorMessage(error));
+      setErrorMsg(getAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +126,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   Banco de Dados Neon
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Firebase Auth protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
+                  Neon Auth protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
                 </p>
               </div>
             </div>
@@ -169,6 +169,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 {mode === 'login'
                   ? 'Entre para acessar seus lançamentos e sincronizar na nuvem'
                   : 'Sua conta começa sem lançamentos. A sincronização é confirmada após o login e a conexão com o Neon.'}
+              </p>
+              <p className="pt-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+                O login foi migrado para Neon Auth. Contas e senhas do Firebase não foram transferidas; crie uma nova conta para continuar.
               </p>
             </div>
 
@@ -291,7 +294,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
-            Entre com Firebase Auth para sincronizar seu workspace no Neon PostgreSQL.
+            Entre com Neon Auth para sincronizar seu workspace no Neon PostgreSQL.
           </p>
         </div>
       </div>

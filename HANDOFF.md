@@ -1,5 +1,17 @@
 # Handoff — Minhas Economias
 
+## Retomada atual — 2026-11-06, corte completo para Neon Auth + Neon PostgreSQL
+
+O pedido atual ampliou o corte anterior: Firebase não pode mais fornecer nem a autenticação. Neon Auth Managed Better Auth foi habilitado na branch `production`; domínio `https://minhaseconomias-blue.vercel.app` autorizado; e-mail/senha ativado com cadastro e verificação OTP por e-mail compartilhado. Acesso localhost foi desativado na configuração de produção.
+
+O cliente agora usa `@neon/auth`; signup, login, logout, sessão e token Neon foram conectados à aplicação. A API passou a verificar JWT EdDSA com JWKS por `NEON_AUTH_JWKS_URL`. Removi SDK/configs Firebase e tokens/UIDs com nomes Firebase do runtime; atualizei a migration `006_neon_auth_identity.sql`, que renomeia as colunas e políticas RLS. Migration foi ensaiada em QA (`br-purple-base-b6fq6jtr`), incluindo inspeção das quatro políticas; depois aplicada em produção. O schema e as consultas do servidor agora estão alinhados. Vercel já tem `VITE_NEON_AUTH_URL` e `NEON_AUTH_JWKS_URL` como variáveis de produção; as antigas variáveis Firebase ainda devem ser removidas depois que o deploy validar.
+
+Verificações locais: `bun test` 121/121, `bun run lint`, `bun run build` e `git diff --check` passaram. Teste de API assinado com JWT EdDSA sintético cobre identidade, e-mail verificado/não verificado, isolamento, concorrência, CRUD inicial e restore. Production `/api/health` respondeu 200 com `neon=ok`; `/api/workspace` sem token respondeu 401. O deploy do código ainda está pendente; até ele terminar, os fluxos autenticados estão em janela de transição após a migration de schema.
+
+Próximo passo concreto: publicar as alterações em `main` imediatamente, confirmar deployment Vercel Ready, testar signup/login/logout/session e acesso API com uma conta de teste autorizada em Neon Auth; então remover `FIREBASE_API_KEY`/`FIREBASE_PROJECT_ID` da Vercel. A confirmação real de autenticação, verificação de e-mail e aceitação autenticada ainda não foi feita. As senhas e contas Firebase antigas não migram; a UI avisa o usuário para criar uma conta Neon Auth nova. A branch QA temporária deve ser excluída depois da confirmação do schema e do deploy.
+
+Meta ponta a ponta permanece ativa. Cobertura desktop/mobile, restore autenticado real, recuperação em pane, backup integral independente, validação visual por navegador e execução automática diária continuam pendentes conforme a seção histórica abaixo.
+
 ## Estado atual — 2026-11-06, migração Firestore → Neon
 
 Meta de conclusão ponta a ponta ainda ativa. Neon é o único banco operacional do app. Firebase Auth continua como provedor de identidade e emissão do token que o backend valida; conforme pedido anterior, esta tarefa migra a persistência, não o login.

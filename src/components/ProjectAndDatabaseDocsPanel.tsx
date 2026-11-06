@@ -41,22 +41,21 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 ## 1. Arquitetura do Projeto
 - **Frontend**: React 19 + TypeScript 7 + Vite 8 + Tailwind CSS v4 + Recharts
 - **Backend**: Node.js + Express 4 (backend/app.ts; servidor local ou Function Vercel)
-- **Autenticação**: Firebase Auth
+- **Autenticação**: Neon Auth
 - **Banco de Dados**: PostgreSQL no Neon, acessado pelo backend Express na Vercel
-- **Dados**: Neon PostgreSQL é a única base de dados do app. Firebase Auth fornece somente autenticação; Firestore foi retirado do fluxo e suas regras negam acesso.
+- **Dados e identidade**: Neon Auth e Neon PostgreSQL são os únicos serviços de autenticação e persistência do app.
 - **Projeto Neon**: minhas-economias-br / production / neondb
-- **Projeto Firebase**: gen-lang-client-0890983411
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
 - **Testes**: node:test em src/utils/*.test.ts
 
 ## 2. Esquema do Workspace e Compartilhamento Familiar no Neon
 Tabelas PostgreSQL:
-1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo UID Firebase validado no backend.
+1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo ID Neon Auth validado no backend.
 2. \`finance_workspace_migrations\`: recibo da importação legada, com hash e contagens de entidades.
 3. \`finance_family_invitations\`: convites e estado de aceite, consultáveis apenas pelo proprietário ou pelo e-mail convidado.
 4. \`finance_shared_transactions\`: registros das despesas explicitamente compartilhadas; somente participantes autorizados podem consultá-los.
 
-O workspace e o compartilhamento familiar são persistidos no Neon. Firebase Auth fornece a identidade; o backend valida o token e aplica o UID em RLS. O app não lê nem grava Firestore.
+O workspace e o compartilhamento familiar são persistidos no Neon. O backend valida o token Neon Auth e aplica o ID autenticado em RLS.
 
 ### Campos do snapshot JSONB do workspace no Neon:
 - \`uid\` (string, obrigatório, imutável, igual ao ID do documento)
@@ -128,7 +127,7 @@ git push -u origin main`;
               Documentação Oficial do Projeto, Banco de Dados & Sincronização GitHub
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Arquitetura Full-Stack, schema Neon, Firebase Auth e comandos Git
+              Arquitetura Full-Stack, schema Neon, Neon Auth e comandos Git
             </p>
           </div>
         </div>
@@ -221,10 +220,10 @@ git push -u origin main`;
                   Login e banco de dados
                 </span>
                 <p className="mt-1 font-mono font-bold text-slate-900 dark:text-white">
-                  Firebase Auth
+                  Neon Auth
                 </p>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                  Firebase Auth autentica; Neon guarda os dados. Firestore não é usado pelo app.
+                  Neon Auth e Neon PostgreSQL armazenam identidade e dados do app.
                 </p>
               </div>
 
@@ -236,7 +235,7 @@ git push -u origin main`;
                   • docs/DATABASE_DOCUMENTATION.md
                 </p>
                 <p className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  • Firebase Auth config & firestore.rules (acesso negado)
+                  • db/migrations/006_neon_auth_identity.sql (identidades Neon Auth)
                 </p>
               </div>
             </div>
@@ -255,7 +254,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-indigo-700 dark:text-indigo-400">uid</td>
                     <td className="py-2 px-3">string</td>
-                    <td className="py-2 px-3">Obrigatório • igual à chave estável derivada do UID Firebase</td>
+                    <td className="py-2 px-3">Obrigatório • igual à chave estável derivada do ID Neon Auth</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Chave do workspace definida pelo servidor a partir do UID autenticado
                     </td>

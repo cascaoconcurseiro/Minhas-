@@ -40,7 +40,7 @@ interface ReminderCenterModalProps {
   settings: ReminderSettings;
   userEmail?: string | null;
   userName?: string | null;
-  getFirebaseIdToken: () => Promise<string>;
+  getAuthToken: () => Promise<string>;
   onUpdateReminderSettings: (partial: Partial<ReminderSettings>) => void;
   onPayCardInvoice?: (cardId: string) => void;
   onMarkTransactionPaid?: (transactionId: string) => void;
@@ -55,7 +55,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
   settings,
   userEmail,
   userName,
-  getFirebaseIdToken,
+  getAuthToken,
   onUpdateReminderSettings,
   onPayCardInvoice,
   onMarkTransactionPaid,
@@ -254,7 +254,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
         preferredTime:
           settings.emailPreferredTime || settings.preferredTime || '08:00',
         isTest: true,
-        firebaseIdToken: await getFirebaseIdToken(),
+        authToken: await getAuthToken(),
       });
 
       onUpdateReminderSettings({

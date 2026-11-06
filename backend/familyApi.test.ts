@@ -1,22 +1,24 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 
 const originalConnect = Pool.prototype.connect;
 const originalFetch = globalThis.fetch;
 const oldEnv = {
   VERCEL: process.env.VERCEL,
   DATABASE_URL: process.env.DATABASE_URL,
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-  FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
+  NEON_AUTH_JWKS_URL: process.env.NEON_AUTH_JWKS_URL,
 };
+
+let authTokens: Record<string, string> = {};
 
 let invitation: {
   invitation_id?: string;
-  owner_firebase_uid: string;
+  owner_user_id: string;
   owner_email: string;
   invited_email: string;
-  invited_firebase_uid: string | null;
+  invited_user_id: string | null;
   owner_member_id: string;
   owner_name?: string;
   owner_pix_key?: string | null;
@@ -28,10 +30,10 @@ let invitation: {
   responded_at?: string | null;
 } = {
   invitation_id: 'test-invitation',
-  owner_firebase_uid: 'owner-uid',
+  owner_user_id: 'owner-uid',
   owner_email: 'owner@example.com',
   invited_email: 'member@example.com',
-  invited_firebase_uid: 'member-uid',
+  invited_user_id: 'member-uid',
   owner_member_id: 'member-1',
   status: 'accepted',
 };
@@ -56,22 +58,30 @@ function restoreEnv(name: keyof typeof oldEnv) {
 before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
-  process.env.FIREBASE_PROJECT_ID = 'test-project';
-  process.env.FIREBASE_API_KEY = 'test-api-key';
+  process.env.NEON_AUTH_JWKS_URL = 'https://neon-auth.test/jwks';
+  const { privateKey, publicKey } = await generateKeyPair('EdDSA');
+  const publicJwk = await exportJWK(publicKey);
+  publicJwk.kid = 'test-key';
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    if (String(input).includes('identitytoolkit.googleapis.com')) {
-      const authRequest = JSON.parse(String(init?.body || '{}')) as { idToken?: string };
-      const invitedUser = authRequest.idToken === 'invited-user-test-token';
-      const otherUser = authRequest.idToken === 'other-user-test-token';
-      const changedEmail = authRequest.idToken === 'owner-changed-email-test-token';
-      return new Response(JSON.stringify({ users: [{
-        localId: invitedUser ? 'member-uid' : otherUser ? 'other-uid' : 'owner-uid',
-        email: invitedUser ? 'member@example.com' : otherUser ? 'other@example.com' : changedEmail ? 'renamed@example.net' : 'owner@example.com',
-        emailVerified: authRequest.idToken !== 'unverified-test-token',
-      }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (String(input) === process.env.NEON_AUTH_JWKS_URL) {
+      return new Response(JSON.stringify({ keys: [publicJwk] }), { status: 200 });
     }
-    return originalFetch(input);
+    return originalFetch(input, init);
   }) as typeof fetch;
+  const issueToken = (sub: string, email: string, verified = true) =>
+    new SignJWT({ email, email_verified: verified })
+      .setProtectedHeader({ alg: 'EdDSA', kid: 'test-key' })
+      .setSubject(sub)
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey);
+  authTokens = {
+    owner: await issueToken('owner-uid', 'owner@example.com'),
+    unverified: await issueToken('owner-uid', 'owner@example.com', false),
+    invited: await issueToken('member-uid', 'member@example.com'),
+    other: await issueToken('other-uid', 'other@example.com'),
+    changedEmail: await issueToken('owner-uid', 'renamed@example.net'),
+  };
 
   Pool.prototype.connect = async function () {
     return {
@@ -107,24 +117,24 @@ before(async () => {
           workspaceRevision += 1;
           return { rows: [{ revision: workspaceRevision, updated_at: '2026-11-03T00:01:00.000Z' }], rowCount: 1 };
         }
-        if (normalized.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) {
+        if (normalized.startsWith('SELECT owner_user_id, owner_email, invited_email')) {
           const rows = invitation.status === 'accepted' ? [{ ...invitation }] : [];
           return { rows, rowCount: rows.length };
         }
-        if (normalized.startsWith('SELECT invitation_id, owner_firebase_uid, owner_email, invited_email')) {
+        if (normalized.startsWith('SELECT invitation_id, owner_user_id, owner_email, invited_email')) {
           const userUid = String(params[0]);
           const userEmail = String(params[1]).toLowerCase();
-          const visible = invitation.owner_firebase_uid === userUid || invitation.invited_email.toLowerCase() === userEmail;
+          const visible = invitation.owner_user_id === userUid || invitation.invited_email.toLowerCase() === userEmail;
           return { rows: visible ? [{ ...invitation }] : [], rowCount: visible ? 1 : 0 };
         }
         if (normalized.startsWith('INSERT INTO public.finance_family_invitations')) {
           invitationInsertParameters.push(params);
           invitation = {
             invitation_id: String(params[0]),
-            owner_firebase_uid: String(params[1]),
+            owner_user_id: String(params[1]),
             owner_email: String(params[2]),
             invited_email: String(params[3]),
-            invited_firebase_uid: null,
+            invited_user_id: null,
             owner_member_id: String(params[4]),
             owner_name: String(params[5]),
             owner_pix_key: params[6] ? String(params[6]) : null,
@@ -151,7 +161,7 @@ before(async () => {
           invitation = {
             ...invitation,
             status,
-            invited_firebase_uid: invitedUid,
+            invited_user_id: invitedUid,
             updated_at: '2026-11-04T00:01:00.000Z',
             responded_at: '2026-11-04T00:01:00.000Z',
           };
@@ -159,7 +169,7 @@ before(async () => {
         }
         if (normalized.startsWith('UPDATE public.finance_family_invitations')) {
           invitation = { ...invitation, status: 'revoked' };
-          return { rows: [{ owner_firebase_uid: 'owner-uid', invited_firebase_uid: 'member-uid' }], rowCount: 1 };
+          return { rows: [{ owner_user_id: 'owner-uid', invited_user_id: 'member-uid' }], rowCount: 1 };
         }
         if (normalized.startsWith('DELETE FROM public.finance_shared_transactions')) {
           shared.clear();
@@ -192,11 +202,10 @@ after(async () => {
   globalThis.fetch = originalFetch;
   restoreEnv('VERCEL');
   restoreEnv('DATABASE_URL');
-  restoreEnv('FIREBASE_PROJECT_ID');
-  restoreEnv('FIREBASE_API_KEY');
+  restoreEnv('NEON_AUTH_JWKS_URL');
 });
 
-test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', async () => {
+test('API familiar exige Neon Auth e sincroniza pelo Neon antes de revogar', async () => {
   const unauthenticated = await originalFetch(`${baseUrl}/api/family/shared`);
   assert.equal(unauthenticated.status, 401);
 
@@ -209,15 +218,15 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
 
   const sqlBeforeUnverified = sqlLog.length;
   const unverified = await originalFetch(`${baseUrl}/api/family/shared`, {
-    headers: { Authorization: 'Bearer unverified-test-token' },
+    headers: { Authorization: `Bearer ${authTokens.unverified}` },
   });
   assert.equal(unverified.status, 403);
   assert.equal(sqlLog.length, sqlBeforeUnverified, 'conta sem email verificado não deve consultar tabelas familiares');
 
-  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const headers = { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' };
   const unverifiedInvite = await originalFetch(`${baseUrl}/api/family/invitations`, {
     method: 'POST',
-    headers: { Authorization: 'Bearer unverified-test-token', 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${authTokens.unverified}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ invitedEmail: 'member@example.com', ownerMemberId: 'member-1' }),
   });
   assert.equal(unverifiedInvite.status, 403);
@@ -246,13 +255,13 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
   const createdBody = await createInvite.json() as { invitation: typeof invitation };
   assert.match(String(createdBody.invitation.invitation_id), /^[a-f0-9]{64}$/);
   assert.equal(createdBody.invitation.invited_email, 'member@example.com');
-  assert.equal(createdBody.invitation.owner_firebase_uid, 'owner-uid');
+  assert.equal(createdBody.invitation.owner_user_id, 'owner-uid');
   assert.equal(createdBody.invitation.status, 'invited');
   assert.equal(invitationInsertParameters.at(-1)?.[3], 'member@example.com');
 
   const wrongInvitee = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
     method: 'POST',
-    headers: { Authorization: 'Bearer other-user-test-token', 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${authTokens.other}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'accepted' }),
   });
   assert.equal(wrongInvitee.status, 404);
@@ -261,7 +270,7 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
   const sqlBeforeInvalidResponse = sqlLog.length;
   const invalidResponse = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
     method: 'POST',
-    headers: { Authorization: 'Bearer invited-user-test-token', 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${authTokens.invited}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'admin' }),
   });
   assert.equal(invalidResponse.status, 400);
@@ -269,15 +278,15 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
 
   const accepted = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
     method: 'POST',
-    headers: { Authorization: 'Bearer invited-user-test-token', 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${authTokens.invited}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'accepted' }),
   });
   assert.equal(accepted.status, 200);
   assert.equal(invitation.status, 'accepted');
-  assert.equal(invitation.invited_firebase_uid, 'member-uid');
+  assert.equal(invitation.invited_user_id, 'member-uid');
 
   const invitedList = await originalFetch(`${baseUrl}/api/family/invitations`, {
-    headers: { Authorization: 'Bearer invited-user-test-token' },
+    headers: { Authorization: `Bearer ${authTokens.invited}` },
   });
   assert.equal(invitedList.status, 200);
   assert.equal((await invitedList.json() as { invitations: unknown[] }).invitations.length, 1);
@@ -294,7 +303,7 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
   assert.equal(sync.status, 200, await sync.clone().text());
   assert.deepEqual(await sync.json(), { ok: true, forbidden: false, upserted: 1, settled: 0, deleted: 0 });
   assert.equal(shared.size, 1);
-  assert.match(sqlLog.find((sql) => sql.startsWith('SELECT owner_firebase_uid, owner_email, invited_email')) || '', /FOR UPDATE$/);
+  assert.match(sqlLog.find((sql) => sql.startsWith('SELECT owner_user_id, owner_email, invited_email')) || '', /FOR UPDATE$/);
 
   const revoked = await originalFetch(`${baseUrl}/api/family/invitations/test-invitation/revoke`, { method: 'POST', headers });
   assert.equal(revoked.status, 200);
@@ -305,7 +314,7 @@ test('API familiar exige Firebase e sincroniza pelo Neon antes de revogar', asyn
 
 test('API de workspace mantém leituras isoladas pelo UID autenticado', async () => {
   const ownerResponse = await originalFetch(`${baseUrl}/api/workspace`, {
-    headers: { Authorization: 'Bearer local-test-token' },
+    headers: { Authorization: `Bearer ${authTokens.owner}` },
   });
   assert.equal(ownerResponse.status, 200);
   const ownerWorkspace = await ownerResponse.json() as { revision: number; payload: { accountsJson: string } };
@@ -313,25 +322,25 @@ test('API de workspace mantém leituras isoladas pelo UID autenticado', async ()
   assert.equal(ownerWorkspace.payload.accountsJson, '[]');
 
   const renamedEmailResponse = await originalFetch(`${baseUrl}/api/workspace`, {
-    headers: { Authorization: 'Bearer owner-changed-email-test-token' },
+    headers: { Authorization: `Bearer ${authTokens.changedEmail}` },
   });
   assert.equal(renamedEmailResponse.status, 200, 'a mesma identidade UID deve localizar o workspace após troca de e-mail');
   const renamedWorkspace = await renamedEmailResponse.json() as { payload: { uid: string } };
   assert.equal(renamedWorkspace.payload.uid, 'vault_uid_owner-uid');
 
   const otherResponse = await originalFetch(`${baseUrl}/api/workspace`, {
-    headers: { Authorization: 'Bearer other-user-test-token' },
+    headers: { Authorization: `Bearer ${authTokens.other}` },
   });
   assert.equal(otherResponse.status, 404);
 
   const otherQuery = workspaceQueries.at(-1);
   assert.ok(otherQuery);
-  assert.match(otherQuery.sql, /WHERE owner_firebase_uid = \$1/);
+  assert.match(otherQuery.sql, /WHERE owner_user_id = \$1/);
   assert.equal(otherQuery.params[0], 'other-uid');
 });
 
 test('API de workspace serializa duas gravações simultâneas pela mesma revisão', async () => {
-  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const headers = { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' };
   const firstPayload = {
     uid: 'old-email-derived-id-from-client',
     updatedAt: '2026-11-03T00:01:00.000Z',
@@ -364,7 +373,7 @@ test('API de workspace serializa duas gravações simultâneas pela mesma revis�
 });
 
 test('API persiste e relê o payload completo de uma restauração de backup', async () => {
-  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const headers = { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' };
   const restoredPayload = {
     uid: 'legacy-backup-vault-id',
     updatedAt: '2026-11-04T00:00:00.000Z',
@@ -387,7 +396,7 @@ test('API persiste e relê o payload completo de uma restauração de backup', a
   assert.equal((await write.json() as { revision: number }).revision, 4);
 
   const read = await originalFetch(`${baseUrl}/api/workspace`, {
-    headers: { Authorization: 'Bearer local-test-token' },
+    headers: { Authorization: `Bearer ${authTokens.owner}` },
   });
   assert.equal(read.status, 200);
   const response = await read.json() as { revision: number; payload: Record<string, unknown> };
@@ -403,7 +412,7 @@ test('API de workspace responde 503 quando o banco fica indisponível', async ()
   try {
     const response = await originalFetch(`${baseUrl}/api/workspace`, {
       method: 'PUT',
-      headers: { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         payload: {
           uid: 'legacy-email-derived-id',
@@ -427,7 +436,7 @@ test('API cria o workspace inicial uma única vez sem sobrescrever o existente',
   workspaceExists = false;
   workspaceRevision = 0;
   workspacePayload = {};
-  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const headers = { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' };
   const payload = {
     uid: 'untrusted-legacy-id',
     updatedAt: '2026-11-04T00:00:00.000Z',
@@ -456,7 +465,7 @@ test('rota de migração legada está desativada; a autenticação permanece obr
   });
   assert.equal(unauthenticated.status, 401);
 
-  const headers = { Authorization: 'Bearer local-test-token', 'Content-Type': 'application/json' };
+  const headers = { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' };
   const retiredRoute = await originalFetch(`${baseUrl}/api/workspace/migrate`, {
     method: 'POST', headers, body: JSON.stringify({}),
   });

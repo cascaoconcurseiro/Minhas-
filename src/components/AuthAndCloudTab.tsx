@@ -29,7 +29,7 @@ import {
 } from '../types/finance';
 import { runFinancialIntegrityAudit } from '../utils/travelRules';
 import { summarizeBackendHealth } from '../utils/backendHealth';
-import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
+import { getAuthErrorMessage } from '../utils/authErrors';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
 
 interface AuthAndCloudTabProps {
@@ -213,14 +213,14 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         onUpdateSettings({ userName: cleanName });
         setAuthFeedback({
           type: 'success',
-          message: `Conta criada para ${emailInput.trim()} com Firebase Auth. O workspace será conectado ao Neon.`,
+          message: `Conta criada para ${emailInput.trim()} com Neon Auth. O workspace será conectado ao Neon.`,
         });
       }
       setPasswordInput('');
     } catch (error) {
       setAuthFeedback({
         type: 'error',
-        message: getFirebaseAuthErrorMessage(error),
+        message: getAuthErrorMessage(error),
       });
     } finally {
       setIsSubmitting(false);
@@ -288,7 +288,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               Central de Conta, Nuvem & Auditoria Local
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Firebase Auth protege o acesso. Contas, lançamentos e demais dados financeiros são persistidos no PostgreSQL do Neon.
+              Neon Auth protege o acesso. Contas, lançamentos e demais dados financeiros são persistidos no PostgreSQL do Neon.
             </p>
           </div>
 
@@ -337,7 +337,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               <strong className="font-mono text-emerald-300">{lastSyncedAt}</strong>
             </span>
             <span>
-              Autenticação: <strong>Firebase Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong>
+              Autenticação: <strong>Neon Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong>
             </span>
           </div>
         )}
