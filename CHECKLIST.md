@@ -6,7 +6,8 @@
 - [x] Corrigir cascata ao excluir parcelas compartilhadas: remover reembolso relacionado e reabrir outras despesas que estavam incluídas no acerto; cobrir `all_series` e `this_and_future` com dados sintéticos.
 - [x] Ampliar testes de API para health degradado quando Neon falha e para respostas de cotação internacional com Gemini simulado, sem egress externo.
 - [x] Rodar validação final da suíte após a extração do cascade de conta: `bun test` 174/174 em 33 arquivos; `bun run lint`, `bun run build` e `git diff --check` passaram. O build mantém o aviso do bundle principal acima de 500 kB.
-- [ ] Publicar essas alterações em `main`, aguardar CI/Vercel e fazer smoke pós-deploy.
+- [x] Publicar em `main` no commit `600c3ec`; CI `42376418227` passou e Vercel `dpl_DDCSTBKZ8cUPjap4qFWJ4pdFZ67X` ficou Ready.
+- [x] Fazer smoke no domínio principal após deploy: `/api/health` 200 com Neon `ok`/role restrita; `/api/workspace`, lembretes, FX e sincronização de ativos sem token retornam 401; bundle mostra a confirmação de exclusão de conta e não contém Firebase nem Guia Rápido.
 - [x] Confirmar atividade diária automática do Vercel Cron: `vercel crons list` mostra `/api/health` ativo (`15 12 * * *` UTC) e log de produção registra HTTP 200 às 09:23:28 BRT em 2026-11-07.
 - [ ] Confirmar execução automática GitHub `schedule` dos workflows de atividade/backup; às 10:14 BRT ainda não havia evento `schedule`, apenas `workflow_dispatch` (backup manual válido, artifact cifrado com 30 dias).
 - [ ] Resolver a divergência da arquitetura de autenticação: o pedido original foi manter Firebase Auth, enquanto pedidos posteriores podem significar migrar tudo para Neon; o código atual usa Neon Auth. Aguardando a escolha do usuário.
