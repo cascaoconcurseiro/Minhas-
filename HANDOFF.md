@@ -1,5 +1,15 @@
 # Handoff — Minhas Economias
 
+## Sessão — 2026-11-07 — validação real do fluxo familiar em produção
+
+Corrigi e publiquei os entrypoints Vercel para `POST /api/family/invitations/:invitationId/respond` e `.../revoke`; antes, esses caminhos profundos davam 404 na borda. Deploy `dpl_4pRYn2TGYwD41geXZsgW4Dr7tqv5` está Ready. CI `42419556410` passou; `bun test` 355/355 em 53 arquivos, lint, build e `git diff --check` passaram. Sem token, os dois endpoints retornaram 401 JSON; com a segunda identidade verificada, aceitar e recusar retornaram 200.
+
+O teste real usou uma conta Firebase temporária verificada por e-mail. O proprietário criou convites pela UI; a conta secundária aceitou um e recusou outro; a UI do proprietário refletiu os estados. O proprietário criou pela UI um lançamento familiar de QA por R$ 1,25 com divisão de 50%; a segunda identidade leu no endpoint Neon o registro espelhado e o rateio de R$ 0,63. Revoguei os vínculos, removi o lançamento pela UI, apaguei a linha exata do convite temporário no Neon e excluí a conta Firebase de QA. Consulta final agregada em `production`: 0 convites `invited`/`accepted`, 0 registros do lançamento QA e 0 ocorrências nos workspaces.
+
+Limite: o cadastro/verificação/login da conta de teste foi realizado por Firebase Auth REST e Gmail direcionado ao alias de QA, não pelo formulário visual do app. A limitação de isolamento de sessão no Ego Lite impediu provar login/logout e sessão recarregada pela UI com duas identidades; aceite/recusa e leitura compartilhada foram comprovados com chamadas autenticadas reais, não mocks. Restore/import/export pela UI, prova do backup automático cifrado por `schedule`, guarda externa da chave age, sweep mobile completo e CRUD/readback independente de todos os módulos seguem pendentes. A branch principal do Neon permaneceu sem dados de teste após a limpeza.
+
+Próximo passo concreto: continuar a matriz de lacunas no `CHECKLIST.md`, começando pelo restore/import/export autenticado em branch QA e confirmação do evento automático de backup `schedule`. Não marcar a meta total como concluída.
+
 ## Sessão — 2026-11-07 — correções financeiras e fluxo familiar
 
 Conferi o estado atual do checkout e preservei as alterações preexistentes. Corrigi dois defeitos reproduzíveis: `AccountsTab` agora rejeita texto de saldo inválido que era convertido silenciosamente em zero (`abc0`, `0abc` e separadores isolados); `simplifyTripDebts()` limita o BRL de cada transferência pelos saldos individuais e calcula a taxa efetiva do valor realmente transferido, evitando deslocar centavos entre participantes. Acrescentei testes DOM para os botões “Efetivar/Reverter” no painel e para indisponibilidade dos certificados Firebase durante rotação de chave antes de consultar Neon.

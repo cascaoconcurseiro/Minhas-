@@ -676,3 +676,15 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [ ] Observar execução automática do backup GitHub; última cópia verificada ainda é execução manual.
 - [ ] Resolver arquitetura de autenticação com o usuário; auditoria atual confirma Neon Auth, mas a decisão inicial foi manter Firebase Auth.
 - [ ] Concluir validação visual desktop/mobile e fluxos reais autenticados; testes DOM e APIs com mocks não substituem esses aceites.
+
+## Validação real de convites e lançamento compartilhado — 2026-11-07
+- [x] Publicar entrypoints Vercel profundos para `respond` e `revoke`; CI `42419556410` passou, deployment `dpl_4pRYn2TGYwD41geXZsgW4Dr7tqv5` Ready.
+- [x] Confirmar sem autenticação 401 JSON nos dois caminhos profundos, em vez do 404 plain text da borda.
+- [x] Criar e verificar uma identidade Firebase temporária de QA; aceitar um convite real e confirmar `accepted`/UID correspondente no readback autenticado.
+- [x] Criar outro convite e confirmar recusa autenticada (`declined`), estado correspondente na UI do proprietário e revogação posterior.
+- [x] Criar lançamento familiar pela UI (R$ 1,25; divisão 50%) e confirmar na identidade secundária o espelho lido do endpoint Neon (R$ 0,63 compartilhados; pendente).
+- [x] Remover pela UI o lançamento de QA, revogar vínculos, apagar a linha exata de convite de QA no Neon e excluir a identidade Firebase temporária.
+- [x] Consulta agregada final em produção: zero convites ativos, zero registros do lançamento QA em tabela de compartilhamento e workspaces.
+- [ ] Validar cadastro, verificação, login, logout e persistência de sessão pelo formulário visual do app com duas identidades; o teste de identidade real foi feito por Auth REST e Gmail, enquanto o isolamento de sessão UI no Ego Lite não foi possível.
+- [ ] Validar restore/import/export pela UI autenticada em branch Neon QA; comprovar o disparo automático agendado do backup cifrado e a guarda externa da chave age.
+- [ ] Completar sweep mobile e readback independente Neon para CRUD de todos os módulos; os 355 testes locais e fluxos sintéticos não substituem isso.
