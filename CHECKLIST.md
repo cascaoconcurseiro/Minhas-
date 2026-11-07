@@ -37,7 +37,7 @@
 - [x] Adicionar testes DOM para alternância login/cadastro, submissão dos callbacks e validação, associando labels a inputs; testar o parser de retorno verificado do OTP e rejeitar tokens de outro emissor JWT.
 - [x] Endurecer `neonLeastPrivilegeRole` para verificar atributos administrativos e herança de `neon_superuser`; query passou em uma branch Neon QA, removida depois. Produção ainda requer verificação pelo health atualizado.
 - [x] Rodar manualmente o workflow de atividade diária `42316121492`; log confirma `psql ... SELECT 1` no Neon com sucesso. Isso não substitui a comprovação de evento automático `schedule`.
-- [ ] Publicar as correções atuais de OTP, emissor JWT, healthcheck e testes; confirmar health atualizado e deployment Vercel Ready.
+- [x] Publicar as correções de OTP, emissor JWT, healthcheck e testes no commit `ecc81cd`; CI `42316354715` passou, Vercel `dpl_GQ8QEatczeiSQppFrNsU97daafpy` ficou Ready, e health de produção confirmou `neon=ok`/`neonLeastPrivilegeRole=true`. Bundle remoto sem Firebase nem Guia Rápido; workspace sem token retorna 401.
 - [ ] Comprovar ao menos uma execução automática diária do Vercel Cron `/api/health` ou do GitHub schedule; Vercel cron está cadastrado em `15 12 * * *`, mas logs recentes não mostraram a invocação agendada e Actions lista apenas `workflow_dispatch`.
 - [ ] Executar signup/login/sessão/OTP real por e-mail com caixa controlada; bundle contém o fluxo, mas isso não prova que CORS/cookies/endpoints funcionam em runtime.
 - [x] Revisar no Brave, em desktop de produção, a tela de acesso e a alternância para cadastro; após recarga, o conteúdo exibiu Neon Auth e Neon PostgreSQL, sem o Guia Rápido.
