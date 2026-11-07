@@ -13,8 +13,8 @@ flowchart TD
         LocalVault["Cache Local Isolado (localStorage por Vault ID)"]
     end
 
-    subgraph Identity ["Neon Identity"]
-        Auth["Neon Auth (Better Auth / Email)"]
+    subgraph Identity ["Firebase Identity"]
+        Auth["Firebase Auth (Email / Password)"]
     end
 
     subgraph Database ["Neon PostgreSQL"]
@@ -23,7 +23,7 @@ flowchart TD
 
     subgraph Backend ["Servidor Express 4 (backend/app.ts - Porta 3000 ou Function Vercel)"]
         Health["GET /api/health"]
-        WorkspaceAPI["GET/POST/PUT /api/workspace (Neon Auth JWT)"]
+        WorkspaceAPI["GET/POST/PUT /api/workspace (Firebase ID token)"]
         LiveFX["POST /api/fx/live-rate"]
         Quotes["POST /api/investments/sync-quotes"]
         SMTP["POST /api/reminders/send-email"]
@@ -72,8 +72,8 @@ Verifica a disponibilidade do servidor Express e dos serviços integrados.
 
 ### 2.2. Rotas autenticadas do workspace Neon
 
-Todas exigem `Authorization: Bearer <Neon Auth JWT>`. A API valida a assinatura
-EdDSA usando o JWKS do Neon Auth e aplica o ID verificado no contexto RLS da
+Todas exigem `Authorization: Bearer <Firebase ID token>`. A API valida o token
+com Firebase Identity Toolkit e aplica o UID verificado no contexto RLS da
 transação PostgreSQL.
 
 - `GET /api/workspace`: carrega o snapshot da conta autenticada; retorna `404`
@@ -81,7 +81,7 @@ transação PostgreSQL.
 - `POST /api/workspace`: cria o workspace inicial usando `INSERT ... ON CONFLICT DO NOTHING`, sem substituir dados existentes.
 - `PUT /api/workspace`: salva com `expectedRevision`; conflito retorna `409`.
 
-Neon Auth autentica e emite o JWT. O app não acessa Firebase nem Firestore. Se a
+Firebase Auth autentica e emite o ID token; o app não lê ou grava Firestore. Se a
 conta ainda não tiver workspace, o registro inicial é criado no Neon.
 Convites e lançamentos compartilhados usam tabelas Neon próprias.
 
@@ -144,7 +144,7 @@ Sincroniza em lote (até 20 tickers por requisição) os preços atuais de merca
 ---
 
 ### 2.5. `POST /api/reminders/send-email`
-Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige `Authorization: Bearer <Neon Auth JWT>`, restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. As credenciais podem estar incluídas nas configurações persistidas no Neon. Responde `502` se o servidor SMTP recusar a entrega.
+Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige `Authorization: Bearer <Firebase ID token>`, restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. As credenciais podem estar incluídas nas configurações persistidas no Neon. Responde `502` se o servidor SMTP recusar a entrega.
 
 - **Payload de Requisição**:
 ```json

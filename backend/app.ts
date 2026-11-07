@@ -6,7 +6,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { normalizeDatabaseConnectionString } from './databaseConnection.ts';
 import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
@@ -55,26 +54,85 @@ interface ReminderSmtpRouteDependencies {
   createTransport: typeof nodemailer.createTransport;
 }
 
-let neonAuthJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
-
-async function verifyNeonAuthToken(token: string): Promise<AuthUserIdentity> {
-  const jwksUrl = process.env.NEON_AUTH_JWKS_URL;
-  const issuer = process.env.NEON_AUTH_BASE_URL || process.env.VITE_NEON_AUTH_URL;
-  if (!jwksUrl) throw new Error('NEON_AUTH_JWKS_URL não configurada no servidor.');
-  if (!issuer) throw new Error('URL emissora do Neon Auth não configurada no servidor.');
-  neonAuthJwks ??= createRemoteJWKSet(new URL(jwksUrl));
-  const { payload } = await jwtVerify(token, neonAuthJwks, {
-    algorithms: ['EdDSA'],
-    issuer,
-  });
-  if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
-    throw new Error('O token Neon Auth não contém uma identidade válida.');
+class FirebaseAuthError extends Error {
+  constructor(message: string, readonly status: 401 | 503) {
+    super(message);
   }
-  return {
-    uid: payload.sub,
-    email: payload.email,
-    email_verified: payload.email_verified === true || payload.emailVerified === true,
-  };
+}
+
+function readFirebaseTokenClaims(idToken: string): { aud?: unknown; iss?: unknown; sub?: unknown } {
+  const parts = idToken.split('.');
+  if (parts.length !== 3) throw new FirebaseAuthError('Token Firebase inválido.', 401);
+  try {
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+      aud?: unknown;
+      iss?: unknown;
+      sub?: unknown;
+    };
+  } catch {
+    throw new FirebaseAuthError('Token Firebase inválido.', 401);
+  }
+}
+
+async function verifyFirebaseIdToken(idToken: string): Promise<AuthUserIdentity> {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const apiKey = process.env.FIREBASE_API_KEY;
+  if (!projectId || !apiKey) {
+    throw new FirebaseAuthError('Firebase Authentication não está configurado no servidor.', 503);
+  }
+  // Reject tokens issued for another Firebase project. Signature validity is
+  // confirmed by Identity Toolkit below before these claims are trusted.
+  const claims = readFirebaseTokenClaims(idToken);
+  if (claims.aud !== projectId || claims.iss !== `https://securetoken.google.com/${projectId}` ||
+      typeof claims.sub !== 'string' || !claims.sub) {
+    throw new FirebaseAuthError('Token Firebase inválido ou emitido por outro projeto.', 401);
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        signal: controller.signal,
+      }
+    );
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null) as {
+        error?: { message?: string };
+      } | null;
+      const providerMessage = failure?.error?.message || '';
+      if (response.status === 401 ||
+          (response.status === 400 && /INVALID_ID_TOKEN|TOKEN_EXPIRED|USER_NOT_FOUND|INVALID_IDP_RESPONSE/i.test(providerMessage))) {
+        throw new FirebaseAuthError('Token Firebase inválido ou expirado.', 401);
+      }
+      throw new FirebaseAuthError('Firebase Authentication está temporariamente indisponível.', 503);
+    }
+    const result = (await response.json()) as {
+      users?: Array<{
+        localId?: string;
+        email?: string;
+        emailVerified?: boolean;
+        disabled?: boolean;
+      }>;
+    };
+    const account = result.users?.[0];
+    if (!account?.localId || !account.email || account.disabled || account.localId !== claims.sub) {
+      throw new FirebaseAuthError('Conta Firebase inválida ou desativada.', 401);
+    }
+    return {
+      uid: account.localId,
+      email: account.email,
+      email_verified: account.emailVerified === true,
+    };
+  } catch (error) {
+    if (error instanceof FirebaseAuthError) throw error;
+    throw new FirebaseAuthError('Firebase Authentication está temporariamente indisponível.', 503);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function getRequestWorkspacePayload(
@@ -122,7 +180,7 @@ function getRequestWorkspacePayload(
       return null;
     }
   }
-  // Identity always comes from the verified Neon Auth token, never from a
+  // Identity always comes from the verified Firebase token, never from a
   // client-provided or legacy backup UID.
   return { ...payload, uid: vaultId };
 }
@@ -214,20 +272,23 @@ async function startServer() {
 
   app.use(express.json({ limit: '2mb' }));
 
-  const verifyNeonAuthUser: RequestHandler = async (req, res, next) => {
+  const verifyFirebaseAuthUser: RequestHandler = async (req, res, next) => {
     const authorization = req.header('authorization') || '';
     const token = authorization.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
       : '';
     if (!token) {
-      res.status(401).json({ error: 'Autenticação Neon Auth obrigatória.' });
+      res.status(401).json({ error: 'Autenticação Firebase obrigatória.' });
       return;
     }
     try {
-      res.locals.authUser = await verifyNeonAuthToken(token);
+      res.locals.authUser = await verifyFirebaseIdToken(token);
       next();
-    } catch {
-      res.status(401).json({ error: 'Token Neon Auth inválido ou expirado.' });
+    } catch (error) {
+      const status = error instanceof FirebaseAuthError ? error.status : 503;
+      res.status(status).json({
+        error: status === 401 ? 'Token Firebase inválido ou expirado.' : 'Firebase Authentication temporariamente indisponível.',
+      });
     }
   };
 
@@ -240,11 +301,11 @@ async function startServer() {
     next();
   };
 
-  app.use('/api/workspace', verifyNeonAuthUser);
-  app.use('/api/family', verifyNeonAuthUser, requireVerifiedFamilyEmail);
-  app.use('/api/reminders/send-email', verifyNeonAuthUser);
-  app.use('/api/fx/live-rate', verifyNeonAuthUser);
-  app.use('/api/investments/sync-quotes', verifyNeonAuthUser);
+  app.use('/api/workspace', verifyFirebaseAuthUser);
+  app.use('/api/family', verifyFirebaseAuthUser, requireVerifiedFamilyEmail);
+  app.use('/api/reminders/send-email', verifyFirebaseAuthUser);
+  app.use('/api/fx/live-rate', verifyFirebaseAuthUser);
+  app.use('/api/investments/sync-quotes', verifyFirebaseAuthUser);
 
   app.get('/api/workspace', async (_req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
@@ -260,7 +321,7 @@ async function startServer() {
           [user.uid]
         );
         if (result.rows.length > 1) {
-          throw new Error('Mais de um workspace está associado a esta identidade Neon Auth.');
+          throw new Error('Mais de um workspace está associado a esta identidade Firebase.');
         }
         return result.rows[0] ?? null;
       });
@@ -282,7 +343,7 @@ async function startServer() {
   app.post('/api/workspace', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {
-      res.status(403).json({ error: 'A conta Neon Auth precisa ter um e-mail.' });
+      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
       return;
     }
     const vaultId = getVaultIdForUid(user.uid);
@@ -334,7 +395,7 @@ async function startServer() {
   app.put('/api/workspace', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {
-      res.status(403).json({ error: 'A conta Neon Auth precisa ter um e-mail.' });
+      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
       return;
     }
     const vaultId = getVaultIdForUid(user.uid);
@@ -747,6 +808,9 @@ async function startServer() {
   // Readiness checks the database connection and required workspace table.
   app.get('/api/health', async (_req, res) => {
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
+    const firebaseAuthConfigured = Boolean(
+      process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY
+    );
     let neonStatus: 'ok' | 'error' = 'error';
     let neonLeastPrivilegeRole: boolean | null = null;
     try {
@@ -777,7 +841,7 @@ async function startServer() {
       // Do not expose connection strings or database errors from a public health route.
     }
 
-    const ready = neonStatus === 'ok';
+    const ready = neonStatus === 'ok' && firebaseAuthConfigured;
     res.set('Cache-Control', 'no-store');
     res.status(ready ? 200 : 503).json({
       status: ready ? 'ok' : 'degraded',
@@ -786,6 +850,7 @@ async function startServer() {
       services: {
         liveFxSearch: hasGeminiKey,
         googleFinanceSync: true,
+        firebaseAuthConfigured,
         neonConfigured: Boolean(process.env.DATABASE_URL),
         neon: neonStatus,
         neonLeastPrivilegeRole,

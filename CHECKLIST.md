@@ -1,5 +1,18 @@
 # Checklist — Minhas Economias
 
+## Continuação — 2026-11-07 — restauração Firebase Auth + Neon
+- [x] Confirmar a arquitetura da meta: Firebase Auth para identidade e Neon PostgreSQL para persistência exclusiva; manter os UIDs Firebase já associados aos workspaces.
+- [x] Substituir Neon Auth/OTP por Firebase Auth (e-mail/senha, verificação por link) no app, preservar tokens Firebase para as APIs Neon e atualizar interface, mensagens e documentação.
+- [x] Endurecer API: exigir projeto Firebase em `aud`/`iss`, UID coerente com a conta verificada e responder 503 para configuração/indisponibilidade do Firebase.
+- [x] Cobrir projeto incorreto, token inválido, usuário desativado, indisponibilidade Firebase e health degradado sem configuração.
+- [x] Configurar `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` como variáveis sensíveis de Vercel Production; manter variáveis Neon Auth antigas até smoke pós-deploy.
+- [x] Validar localmente `bun test` (173/173 em 33 arquivos), `bun run lint`, `bun run build` e `git diff --check`; aviso de chunk principal >500 kB permanece.
+- [ ] Revisar e publicar as alterações em `main`; aguardar CI e Vercel Ready.
+- [ ] Validar production `/api/health` 200, APIs autenticadas 401 sem token, bundle de login Firebase e ausência de referências Neon Auth/OTP.
+- [ ] Só após health e bundle novos confirmados, remover variáveis `NEON_AUTH_JWKS_URL` e `VITE_NEON_AUTH_URL` da Vercel Production.
+- [ ] Validar signup/login e workspace Neon com conta Firebase real, por ação local do titular; nenhum segredo ou dado real foi usado nos testes locais.
+- [ ] Retomar os aceites gerais ainda abertos: execução programada do backup, restore UI autenticado, teste visual e cobertura dos módulos, chave de restauração externa.
+
 ## Retomada local — 2026-11-07
 - [x] Testar o convite do titular na `SharedExpensesTab`: normalização de nome/e-mail e metadados locais sintéticos.
 - [x] Pedir confirmação antes de remover membro familiar; DOM tests cobrem confirmar e cancelar sem segunda conta, Neon ou API real.

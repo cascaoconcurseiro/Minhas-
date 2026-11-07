@@ -4,13 +4,13 @@
 
 - O arquivo JSON exportado em Configurações contém o workspace pessoal do app: contas, cartões, categorias, lançamentos, metas, investimentos, viagens, contatos familiares sem vínculo de convite e preferências incluídas pelo exportador.
 - A senha SMTP dos lembretes (`smtpPass`/`smtpConfig.pass`) é removida de Neon, cache local, exportação e importação. Ela permanece só na memória da sessão ativa; após recarregar ou importar, digite-a novamente. Senhas antigas encontradas no cache local são removidas no próximo boot do app.
-- Lançamentos espelhados recebidos de outra conta e contatos ligados a convites Neon são excluídos do arquivo. O formato v6 inclui o ID Neon Auth do titular; ao importar em outra conta, os marcadores de compartilhamento são removidos para impedir que dados antigos sejam enviados a relações da nova conta.
+- Lançamentos espelhados recebidos de outra conta e contatos ligados a convites Neon são excluídos do arquivo. O formato v6 inclui o UID Firebase do titular; ao importar em outra conta, os marcadores de compartilhamento são removidos para impedir que dados antigos sejam enviados a relações da nova conta.
 - Esse JSON **não** é um backup integral do banco Neon. Convites e lançamentos espelhados são armazenados em tabelas próprias e não são exportados. Ao restaurar na mesma conta, convites existentes são mantidos e lançamentos compartilhados só são sincronizados novamente através de relações que continuam aceitas no Neon.
-- Firebase Auth e Firestore foram removidos do runtime. A identidade atual e os dados financeiros são armazenados no Neon; o backup JSON não substitui backup integral do PostgreSQL.
+- Firebase Auth fornece somente a identidade; Firebase Firestore não faz parte do runtime. A identidade não é armazenada como credencial no Neon; os dados financeiros são. O backup JSON não substitui backup integral do PostgreSQL.
 
 ## Exportar e restaurar o workspace pelo app
 
-1. Entre na conta Neon Auth correta e abra Configurações → backup.
+1. Entre na conta Firebase correta e abra Configurações → backup.
 2. Exporte o JSON e guarde uma cópia fora do dispositivo. Antes de substituir dados, exporte também o estado atual.
 3. Para restaurar, selecione o arquivo JSON e confirme a substituição. O app valida versão, coleções e categorias antes de alterar o estado da sessão.
 4. Mantenha a tela aberta até o status da nuvem confirmar a gravação no Neon. Em caso de erro, não considere a restauração concluída: os dados podem estar apenas nesta sessão/localStorage; reconecte e sincronize antes de sair.

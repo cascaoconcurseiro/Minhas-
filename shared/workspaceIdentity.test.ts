@@ -2,21 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getVaultIdForUid } from './workspaceIdentity';
 
-test('workspace identity depends on stable Neon Auth user ID, not mutable email', () => {
-  const userId = 'neon-auth-user-12345678901234567890';
+test('workspace identity depends on stable Firebase UID, not mutable email', () => {
+  const userId = 'firebase-user-12345678901234567890';
   assert.equal(getVaultIdForUid(userId), getVaultIdForUid(userId));
   assert.equal(getVaultIdForUid(userId), `vault_uid_${userId}`);
 });
 
-test('different Neon Auth user IDs remain isolated in Neon', () => {
+test('different Firebase UIDs remain isolated in Neon', () => {
   assert.notEqual(getVaultIdForUid('neon-auth-id-one'), getVaultIdForUid('neon-auth-id-two'));
 });
 
-test('Neon Auth user ID identity supports the documented maximum UID length', () => {
+test('Firebase UID identity supports the documented maximum UID length', () => {
   const vaultId = getVaultIdForUid('u'.repeat(128));
   assert.equal(vaultId.length, 138);
 });
 
-test('empty Neon Auth user ID cannot produce an authenticated workspace identity', () => {
-  assert.throws(() => getVaultIdForUid('  '), /ID Neon Auth obrigatório/);
+test('empty Firebase UID cannot produce an authenticated workspace identity', () => {
+  assert.throws(() => getVaultIdForUid('  '), /UID Firebase obrigatório/);
 });

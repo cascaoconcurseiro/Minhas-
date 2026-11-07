@@ -29,7 +29,7 @@ import {
 } from '../types/finance';
 import { runFinancialIntegrityAudit } from '../utils/travelRules';
 import { summarizeBackendHealth } from '../utils/backendHealth';
-import { getAuthErrorMessage } from '../utils/authErrors';
+import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
 
 interface AuthAndCloudTabProps {
@@ -92,18 +92,20 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   const [apiHealth, setApiHealth] = useState<{
     status: 'checking' | 'ok' | 'error';
     neonStatus: 'checking' | 'ok' | 'error';
+    firebaseAuthConfigured: boolean;
     geminiConfigured: boolean;
     checkedAt: string | null;
   }>({
     status: 'checking',
     neonStatus: 'checking',
+    firebaseAuthConfigured: false,
     geminiConfigured: false,
     checkedAt: null,
   });
   const [repairFeedback, setRepairFeedback] = useState<string | null>(null);
   const cloudStatusTone = apiHealth.neonStatus === 'checking'
     ? 'checking'
-    : apiHealth.neonStatus === 'error' || cloudSyncStatus === 'error'
+    : apiHealth.neonStatus === 'error' || !apiHealth.firebaseAuthConfigured || apiHealth.status === 'error' || cloudSyncStatus === 'error'
     ? 'error'
     : cloudSyncStatus;
 
@@ -134,6 +136,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
       setApiHealth({
         status: 'error',
         neonStatus: 'error',
+        firebaseAuthConfigured: false,
         geminiConfigured: false,
         checkedAt: new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
@@ -213,14 +216,14 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
         onUpdateSettings({ userName: cleanName });
         setAuthFeedback({
           type: 'success',
-          message: `Conta criada para ${emailInput.trim()} com Neon Auth. O workspace será conectado ao Neon.`,
+          message: `Conta criada para ${emailInput.trim()} com Firebase Auth. O workspace será conectado ao Neon.`,
         });
       }
       setPasswordInput('');
     } catch (error) {
       setAuthFeedback({
         type: 'error',
-        message: getAuthErrorMessage(error),
+        message: getFirebaseAuthErrorMessage(error),
       });
     } finally {
       setIsSubmitting(false);
@@ -264,7 +267,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   : cloudStatusTone === 'syncing'
                   ? 'Sincronizando em Tempo Real...'
                   : cloudStatusTone === 'error'
-                  ? 'Neon ou sincronização indisponível'
+                  ? 'Firebase Auth, API ou Neon indisponível'
                   : 'Cofre local — aguardando sincronização'}
               </span>
               <span
@@ -288,7 +291,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               Central de Conta, Nuvem & Auditoria Local
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Neon Auth protege o acesso. Contas, lançamentos e demais dados financeiros são persistidos no PostgreSQL do Neon.
+              Firebase Auth protege o acesso. Contas, lançamentos e demais dados financeiros são persistidos no PostgreSQL do Neon.
             </p>
           </div>
 
@@ -337,7 +340,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
               <strong className="font-mono text-emerald-300">{lastSyncedAt}</strong>
             </span>
             <span>
-              Autenticação: <strong>Neon Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong>
+              Autenticação: <strong>Firebase Auth</strong> · Banco de dados: <strong>Neon PostgreSQL</strong>
             </span>
           </div>
         )}

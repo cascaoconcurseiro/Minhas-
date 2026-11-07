@@ -15,19 +15,17 @@ import {
   X,
 } from 'lucide-react';
 import {
-  authClient,
+  auth,
+  onAuthStateChanged,
   getOrCreateAutoCloudVaultId,
   getVaultIdForUid,
   registerWithEmail,
-  refreshNeonAuthUser,
+  refreshFirebaseUser,
   resendEmailVerification,
-  verifyEmailOtp,
   signInWithEmail,
-  signOutNeonAuth,
-  toAppUser,
-  getNeonAuthToken,
-  AppUser,
-} from './lib/neonAuth';
+  signOutFirebaseUser,
+  type User,
+} from './lib/firebase';
 import {
   createNeonWorkspace,
   createNeonFamilyInvitation,
@@ -95,7 +93,6 @@ import {
   sanitizeStoredWorkspaceSnapshot,
   serializeSettingsWithoutSmtpSecrets,
 } from './utils/secureSettings';
-import { preserveConfirmedEmailVerification } from './utils/authSessionVerification';
 import { isRetryableWorkspaceSaveError } from './utils/workspaceSyncRecovery';
 const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
 const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
@@ -246,8 +243,6 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export default function App() {
-  const neonAuthSessionState = authClient.useSession();
-  const sessionUser = neonAuthSessionState.data?.user;
   const [selectedMonth, setSelectedMonth] = useState<string>(DEFAULT_MONTH);
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -280,11 +275,9 @@ export default function App() {
   const globalSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
-  // Neon Auth & Neon workspace sync state
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const confirmedEmailUidRef = useRef<string | null>(null);
+  // Firebase Auth supplies identity; Neon PostgreSQL stores the workspace.
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isVerificationActionBusy, setIsVerificationActionBusy] = useState(false);
-  const [emailVerificationCode, setEmailVerificationCode] = useState('');
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
@@ -309,7 +302,7 @@ export default function App() {
   const saveRetryUidRef = useRef<string | null>(null);
   const scheduleSaveRetryRef = useRef<(delayMs?: number) => void>(() => {});
 
-  // Neon Auth and Neon PostgreSQL provide identity and workspace persistence.
+  // Firebase Auth supplies identity; the workspace and all financial data persist in Neon PostgreSQL.
   const [authSession, setAuthSession] = useState<{
     isLoggedIn: boolean;
     email: string;
@@ -532,39 +525,29 @@ export default function App() {
     );
   };
 
-  // Neon Auth session listener
+  // Firebase Auth session listener
   useEffect(() => {
-    const sessionAppUser = sessionUser ? toAppUser(sessionUser) : null;
-    if (
-      sessionAppUser &&
-      confirmedEmailUidRef.current &&
-      sessionAppUser.uid !== confirmedEmailUidRef.current
-    ) {
-      confirmedEmailUidRef.current = null;
-    }
-    const user = preserveConfirmedEmailVerification(
-      sessionAppUser,
-      confirmedEmailUidRef.current
-    );
-    setCurrentUser(user);
-    if (neonAuthSessionState.isPending) return;
-    setIsAuthReady(true);
-    neonWorkspaceRevisionRef.current = null;
-    hasLoadedRemoteOnceRef.current = false;
-    workspaceConflictRef.current = null;
-    setWorkspaceConflict(null);
-    setIsWorkspaceConflictOpen(false);
-    setWorkspaceConflictError(null);
-    setAuthSession(
-      user
-        ? {
-            isLoggedIn: true,
-            email: user.email.trim().toLowerCase(),
-            displayName: user.displayName || settingsUserNameFallback(user.email) || user.email,
-          }
-        : { isLoggedIn: false, email: '', displayName: '' }
-    );
-  }, [neonAuthSessionState.isPending, sessionUser]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsAuthReady(true);
+      neonWorkspaceRevisionRef.current = null;
+      hasLoadedRemoteOnceRef.current = false;
+      workspaceConflictRef.current = null;
+      setWorkspaceConflict(null);
+      setIsWorkspaceConflictOpen(false);
+      setWorkspaceConflictError(null);
+      setAuthSession(
+        user && !user.isAnonymous && user.email
+          ? {
+              isLoggedIn: true,
+              email: user.email.trim().toLowerCase(),
+              displayName: user.displayName || settingsUserNameFallback(user.email) || user.email,
+            }
+          : { isLoggedIn: false, email: '', displayName: '' }
+      );
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Build the authenticated workspace payload persisted by the Neon API.
   const buildCloudPayload = (targetId: string) => ({
@@ -591,7 +574,7 @@ export default function App() {
   const queueNeonWorkspaceSave = (payload: Record<string, unknown>) => {
     const authenticatedUser = currentUser;
     if (!authenticatedUser?.email) {
-      return Promise.reject(new Error('Entre com sua conta Neon Auth para sincronizar.'));
+      return Promise.reject(new Error('Entre com sua conta Firebase para sincronizar com o Neon.'));
     }
 
     const queuedSave = neonSaveQueueRef.current.then(async () => {
@@ -845,7 +828,7 @@ export default function App() {
     window.location.reload();
   };
 
-  // Neon is the sole financial data store; Neon Auth supplies identity only.
+  // Neon is the sole financial data store; Firebase Auth supplies identity only.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
@@ -1270,7 +1253,7 @@ export default function App() {
     if (!currentUser) return;
     setIsVerificationActionBusy(true);
     try {
-      const refreshedUser = await refreshNeonAuthUser(currentUser);
+      const refreshedUser = await refreshFirebaseUser(currentUser);
       setCurrentUser(refreshedUser);
       showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Ainda não encontramos a confirmação. Abra o link enviado e tente novamente.', undefined, true);
     } catch {
@@ -1280,29 +1263,9 @@ export default function App() {
     }
   };
 
-  const handleVerifyEmailCode = async () => {
-    if (!currentUser?.email || !/^\d{6}$/.test(emailVerificationCode.trim())) {
-      showNotice('Informe o código de 6 dígitos recebido por e-mail.', undefined, true);
-      return;
-    }
-    setIsVerificationActionBusy(true);
-    try {
-      const verifiedUser = await verifyEmailOtp(currentUser.email, emailVerificationCode);
-      confirmedEmailUidRef.current = verifiedUser.uid;
-      setCurrentUser(verifiedUser);
-      setEmailVerificationCode('');
-      showNotice('E-mail confirmado. Compartilhamento familiar liberado.', undefined, true);
-    } catch {
-      showNotice('Não foi possível confirmar o código. Confira os 6 dígitos ou reenvie um novo código.', undefined, true);
-    } finally {
-      setIsVerificationActionBusy(false);
-    }
-  };
-
   const handleSignOut = async () => {
-    confirmedEmailUidRef.current = null;
     try {
-      await signOutNeonAuth();
+      await signOutFirebaseUser();
     } catch {
       // Ignore
     }
@@ -2633,7 +2596,7 @@ export default function App() {
 
   const handleExportFullBackupJson = () => {
     if (!currentUser?.uid) {
-      showNotice('Entre na sua conta Neon Auth para exportar o backup do workspace.');
+      showNotice('Entre na sua conta Firebase para exportar o backup do workspace.');
       return;
     }
     const payload = {
@@ -2846,7 +2809,7 @@ export default function App() {
       case 'cloud':
         return {
           title: 'Conta, Login & Nuvem',
-          subtitle: 'Neon Auth, sincronização Neon e auditoria dos dados carregados',
+          subtitle: 'Firebase Auth, sincronização Neon e auditoria dos dados carregados',
         };
     }
   }, [activeTab]);
@@ -3194,17 +3157,6 @@ export default function App() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <span>Confirme {currentUser.email} para ativar o compartilhamento familiar. Seus dados continuam sincronizados.</span>
             <div className="flex flex-wrap gap-2">
-              <input
-                aria-label="Código de verificação do e-mail"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={emailVerificationCode}
-                onChange={(event) => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Código de 6 dígitos"
-                className="min-h-10 w-40 rounded-lg border border-amber-700 bg-white px-3 py-1.5 text-center font-mono tracking-widest text-amber-950"
-              />
-              <button type="button" disabled={isVerificationActionBusy || emailVerificationCode.trim().length !== 6} onClick={handleVerifyEmailCode} className="min-h-10 rounded-lg bg-emerald-800 px-3 py-1.5 font-semibold text-white disabled:opacity-60">Confirmar código</button>
               <button type="button" disabled={isVerificationActionBusy} onClick={handleResendVerification} className="min-h-10 rounded-lg border border-amber-700 px-3 py-1.5 font-semibold disabled:opacity-60">Reenviar e-mail</button>
               <button type="button" disabled={isVerificationActionBusy} onClick={handleRefreshEmailVerification} className="min-h-10 rounded-lg bg-amber-800 px-3 py-1.5 font-semibold text-white disabled:opacity-60">Já confirmei</button>
             </div>

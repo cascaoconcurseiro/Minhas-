@@ -2,13 +2,13 @@
 
 ## Fonte de verdade
 
-Neon Auth é o provedor de identidade e Neon PostgreSQL é o banco operacional exclusivo. O frontend chama a API Express na Vercel, que valida os JWTs Neon Auth por JWKS antes de consultar o banco. Firebase e Firestore não fazem parte do runtime.
+Firebase Auth fornece a identidade (Firebase UID) e Neon PostgreSQL é o banco operacional exclusivo. O frontend envia o ID token Firebase à API Express na Vercel; a API valida o token com Firebase Identity Toolkit antes de consultar o Neon. Firebase Auth é usado somente para autenticação: o runtime não inicializa Firestore nem persiste dados financeiros no Firebase.
 
 Os campos persistidos do workspace são validados antes de aplicar o snapshot à interface. JSON inválido, coleção que não seja array, item sem `id` ou objeto corrompido deixa a sincronização em erro e informa que os dados remotos foram preservados; o app não substitui esses campos por listas vazias e não os grava de volta automaticamente.
 
 O deploy Vercel agenda uma chamada diária a `GET /api/health` às 12:15 UTC. Essa rota consulta a tabela operacional `finance_workspaces` e não altera dados. No plano Hobby, a invocação pode ocorrer em qualquer momento dentro da hora programada; o primeiro disparo automático após a configuração ainda precisa ser observado. O workflow GitHub Actions fica disponível para execução manual de diagnóstico.
 
-Se o workspace ainda não existir no Neon, o app cria um workspace vazio diretamente no Neon. Neon Auth mantém usuários e sessões no schema `neon_auth`; o banco da aplicação guarda os workspaces e dados familiares.
+Se o workspace ainda não existir no Neon, o app cria um workspace vazio diretamente no Neon. Firebase mantém as credenciais e a sessão de autenticação; Neon guarda os workspaces e dados familiares.
 
 ## Modelo Neon
 
@@ -25,14 +25,14 @@ As migrations em `db/migrations/` são a referência do schema:
 
 ## Caminho de acesso
 
-1. Neon Auth entrega um JWT ao frontend.
-2. A API verifica a assinatura EdDSA via JWKS e extrai usuário/e-mail. Nunca confia em ID fornecido pelo corpo da requisição.
+1. Firebase Auth entrega um ID token ao frontend.
+2. A API valida o token com Identity Toolkit e obtém UID/e-mail/estado verificado; nunca confia em ID fornecido pelo corpo da requisição.
 3. Cada operação PostgreSQL define `app.user_id` e `app.user_email` dentro da transação.
 4. As políticas RLS restringem os registros ao usuário ou participante autorizado.
 5. `GET /api/workspace` lê o snapshot; `POST /api/workspace` cria uma linha inicial sem sobrescrever uma linha concorrente; `PUT /api/workspace` atualiza somente se `expectedRevision` ainda for a atual.
 6. As rotas `/api/family/*` leem e escrevem convites e despesas compartilhadas nas tabelas Neon dedicadas.
 
-`DATABASE_URL` e a credencial com privilégios de migração ficam somente no servidor. O frontend não conecta diretamente ao PostgreSQL. `VITE_NEON_AUTH_URL` é o endpoint público do provedor de identidade; `NEON_AUTH_JWKS_URL` configura a verificação JWT do backend.
+`DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` ficam no servidor. A chave Firebase também aparece na configuração pública do SDK web e não é uma senha de banco; restrinja-a às APIs Firebase necessárias. O frontend nunca conecta diretamente ao PostgreSQL nem recebe `DATABASE_URL`.
 
 ## Operação e backup
 

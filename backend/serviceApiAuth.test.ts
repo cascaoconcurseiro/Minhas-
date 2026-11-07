@@ -39,7 +39,7 @@ after(async () => {
   }
 });
 
-test('FX, cotações e lembretes exigem Neon Auth antes de validar ou chamar serviços externos', async () => {
+test('FX, cotações e lembretes exigem Firebase Auth antes de validar ou chamar serviços externos', async () => {
   const cases = [
     {
       path: '/api/fx/live-rate',

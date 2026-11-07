@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Retomada — 2026-11-07 13:50 UTC — Firebase Auth + Neon
+
+A instrução consolidada da meta mantém Firebase Auth para login e Neon PostgreSQL como único banco operacional. A Vercel production já recebeu `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` como variáveis sensíveis; os deployments existentes ainda não as usam. No código local, a migração de volta remove Neon Auth/OTP, valida `aud`/`iss`/`sub` do projeto Firebase junto à consulta autenticada Identity Toolkit, e diferencia token inválido (401) de erro/indisponibilidade do provedor (503). Os UIDs antigos dos workspaces foram preservados, nenhuma migration ou escrita Neon foi feita nesta retomada.
+
+Validação local: `bun test` 173/173 em 33 arquivos, `bun run lint`, `bun run build` e `git diff --check` passaram. O build conserva aviso de chunk principal acima de 500 kB. Agentes fizeram revisões separadas de backend, frontend e documentação/deploy; não acharam referências residuais de Neon Auth no runtime e apontaram o gate de configuração/validação de conta real. Ainda não publiquei esta alteração, nem verifiquei login real.
+
+Próximo passo concreto: revisar diff e publicar a mudança em `main`; aguardar CI e Vercel, conferir `/api/health` 200 com Neon e Firebase configurados, rotas protegidas 401 sem Bearer e bundle de login Firebase. Manter as variáveis Neon Auth antigas até esse smoke pós-deploy; então removê-las e confirmar novo deployment. Bloqueio restante de aceite: login/cadastro real e leitura do workspace com a conta Firebase controlada, sem senha fornecida no chat.
+
 ## Continuação atual — 2026-11-07 13:30 UTC
 
 As correções desta rodada foram publicadas em `main` no commit `600c3ec`. CI `42376418227` passou; deployment Vercel `dpl_DDCSTBKZ8cUPjap4qFWJ4pdFZ67X` está Ready. Smoke no domínio principal: `/api/health` responde 200 com Neon `ok`/role restrita; workspace, lembretes, FX e sync de ativos sem token retornam 401; o bundle novo contém confirmação de exclusão da conta e não contém Firebase nem Guia Rápido. `bun test` 174/174 em 33 arquivos, `bun run lint`, build e diff-check passaram; permanece aviso de chunk >500 kB. Os testes desta rodada usam dados/mocks sintéticos e não escrevem no Neon.

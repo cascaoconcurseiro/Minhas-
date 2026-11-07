@@ -45,7 +45,7 @@ test('accepts a complete version 5 backup', () => {
   assert.equal(result?.categories[0]?.id, 'cat-food');
 });
 
-test('accepts version 6 only when it is bound to a Neon Auth user ID', () => {
+test('accepts version 6 only when it is bound to the authenticated user UID', () => {
   const backup = { ...validBackup(), version: 6, ownerUserId: 'neon-user-1' };
   assert.equal(parseFullFinanceBackup(JSON.stringify(backup))?.ownerUserId, 'neon-user-1');
   assert.equal(

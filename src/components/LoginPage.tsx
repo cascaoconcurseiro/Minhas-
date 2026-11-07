@@ -9,7 +9,7 @@ import {
   User as UserIcon,
   Wallet,
 } from 'lucide-react';
-import { getAuthErrorMessage } from '../utils/authErrors';
+import { getFirebaseAuthErrorMessage } from '../utils/firebaseAuthErrors';
 
 interface LoginPageProps {
   defaultEmail?: string;
@@ -54,7 +54,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         await onRegisterEmail(cleanName, email.trim(), password);
       }
     } catch (error) {
-      setErrorMsg(getAuthErrorMessage(error));
+      setErrorMsg(getFirebaseAuthErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +127,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   Banco de Dados Neon
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Neon Auth protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
+                  Firebase Auth protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
                 </p>
               </div>
             </div>
@@ -172,7 +172,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   : 'Sua conta começa sem lançamentos. A sincronização é confirmada após o login e a conexão com o Neon.'}
               </p>
               <p className="pt-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
-                O acesso agora usa Neon Auth. Contas anteriores não foram migradas; crie uma nova conta para continuar.
+                Entre com sua conta Firebase existente ou crie uma nova. Os dados financeiros permanecem no Neon.
               </p>
             </div>
 
@@ -298,7 +298,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
-            Entre com Neon Auth para sincronizar seu workspace no Neon PostgreSQL.
+            Entre com Firebase Auth para sincronizar seu workspace no Neon PostgreSQL.
           </p>
         </div>
       </div>

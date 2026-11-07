@@ -8,9 +8,9 @@ describe('backend health summary', () => {
       summarizeBackendHealth(true, {
         status: 'ok',
         geminiConfigured: true,
-        services: { neon: 'ok' },
+        services: { neon: 'ok', firebaseAuthConfigured: true },
       }),
-      { status: 'ok', neonStatus: 'ok', geminiConfigured: true }
+      { status: 'ok', neonStatus: 'ok', firebaseAuthConfigured: true, geminiConfigured: true }
     );
   });
 
@@ -18,16 +18,16 @@ describe('backend health summary', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, {
         status: 'ok',
-        services: { neon: 'error' },
+        services: { neon: 'error', firebaseAuthConfigured: true },
       }),
-      { status: 'error', neonStatus: 'error', geminiConfigured: false }
+      { status: 'error', neonStatus: 'error', firebaseAuthConfigured: true, geminiConfigured: false }
     );
   });
 
   it('does not treat a missing Neon check as success', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, { status: 'ok', services: {} }),
-      { status: 'error', neonStatus: 'error', geminiConfigured: false }
+      { status: 'error', neonStatus: 'error', firebaseAuthConfigured: false, geminiConfigured: false }
     );
   });
 
@@ -35,9 +35,19 @@ describe('backend health summary', () => {
     assert.deepEqual(
       summarizeBackendHealth(false, {
         status: 'ok',
-        services: { neon: 'ok' },
+        services: { neon: 'ok', firebaseAuthConfigured: true },
       }),
-      { status: 'error', neonStatus: 'ok', geminiConfigured: false }
+      { status: 'error', neonStatus: 'ok', firebaseAuthConfigured: true, geminiConfigured: false }
+    );
+  });
+
+  it('reports an unavailable Firebase Auth configuration as unhealthy', () => {
+    assert.deepEqual(
+      summarizeBackendHealth(true, {
+        status: 'degraded',
+        services: { neon: 'ok', firebaseAuthConfigured: false },
+      }),
+      { status: 'error', neonStatus: 'ok', firebaseAuthConfigured: false, geminiConfigured: false }
     );
   });
 });

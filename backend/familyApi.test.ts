@@ -1,20 +1,35 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
-import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 
 const originalConnect = Pool.prototype.connect;
 const originalFetch = globalThis.fetch;
 const oldEnv = {
   VERCEL: process.env.VERCEL,
   DATABASE_URL: process.env.DATABASE_URL,
-  NEON_AUTH_BASE_URL: process.env.NEON_AUTH_BASE_URL,
-  NEON_AUTH_JWKS_URL: process.env.NEON_AUTH_JWKS_URL,
-  VITE_NEON_AUTH_URL: process.env.VITE_NEON_AUTH_URL,
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
 
 let authTokens: Record<string, string> = {};
+let firebaseAccounts: Record<string, {
+  localId: string;
+  email: string;
+  emailVerified: boolean;
+  disabled?: boolean;
+}> = {};
+let firebaseLookupStatus: number | null = null;
+
+function mockFirebaseToken(uid: string, projectId = 'firebase-test-project', nonce = 'default') {
+  const claims = Buffer.from(JSON.stringify({
+    aud: projectId,
+    iss: `https://securetoken.google.com/${projectId}`,
+    sub: uid,
+    nonce,
+  })).toString('base64url');
+  return `synthetic.${claims}.signature`;
+}
 
 let invitation: {
   invitation_id?: string;
@@ -67,17 +82,20 @@ function restoreEnv(name: keyof typeof oldEnv) {
 before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
-  delete process.env.NEON_AUTH_BASE_URL;
-  process.env.VITE_NEON_AUTH_URL = 'https://neon-auth.test';
+  process.env.FIREBASE_PROJECT_ID = 'firebase-test-project';
+  process.env.FIREBASE_API_KEY = 'firebase-test-api-key';
   delete process.env.GEMINI_API_KEY;
-  process.env.NEON_AUTH_JWKS_URL = 'https://neon-auth.test/jwks';
-  const { privateKey, publicKey } = await generateKeyPair('EdDSA');
-  const publicJwk = await exportJWK(publicKey);
-  publicJwk.kid = 'test-key';
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    if (url === process.env.NEON_AUTH_JWKS_URL) {
-      return new Response(JSON.stringify({ keys: [publicJwk] }), { status: 200 });
+    if (url.startsWith('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=')) {
+      if (firebaseLookupStatus !== null) {
+        return new Response(JSON.stringify({ error: { message: 'synthetic provider status' } }), { status: firebaseLookupStatus });
+      }
+      const body = JSON.parse(String(init?.body || '{}')) as { idToken?: string };
+      const account = body.idToken ? firebaseAccounts[body.idToken] : undefined;
+      return account
+        ? new Response(JSON.stringify({ users: [account] }), { status: 200 })
+        : new Response(JSON.stringify({ error: { message: 'INVALID_ID_TOKEN' } }), { status: 400 });
     }
     if (googleFinanceResponseHtml && url.startsWith('https://www.google.com/finance/quote/')) {
       googleFinanceRequests.push(url);
@@ -99,27 +117,22 @@ before(async () => {
     }
     return originalFetch(input, init);
   }) as typeof fetch;
-  const issueToken = (sub: string, email: string, verified = true) =>
-    new SignJWT({ email, email_verified: verified })
-      .setProtectedHeader({ alg: 'EdDSA', kid: 'test-key' })
-      .setIssuer('https://neon-auth.test')
-      .setSubject(sub)
-      .setIssuedAt()
-      .setExpirationTime('5m')
-      .sign(privateKey);
   authTokens = {
-    owner: await issueToken('owner-uid', 'owner@example.com'),
-    unverified: await issueToken('owner-uid', 'owner@example.com', false),
-    wrongIssuer: await new SignJWT({ email: 'attacker@example.com', email_verified: true })
-      .setProtectedHeader({ alg: 'EdDSA', kid: 'test-key' })
-      .setIssuer('https://another-auth.test')
-      .setSubject('attacker-uid')
-      .setIssuedAt()
-      .setExpirationTime('5m')
-      .sign(privateKey),
-    invited: await issueToken('member-uid', 'member@example.com'),
-    other: await issueToken('other-uid', 'other@example.com'),
-    changedEmail: await issueToken('owner-uid', 'renamed@example.net'),
+    owner: mockFirebaseToken('owner-uid', 'firebase-test-project', 'owner'),
+    unverified: mockFirebaseToken('owner-uid', 'firebase-test-project', 'unverified'),
+    wrongIssuer: mockFirebaseToken('owner-uid', 'another-firebase-project', 'wrong-project'),
+    invited: mockFirebaseToken('member-uid', 'firebase-test-project', 'invited'),
+    other: mockFirebaseToken('other-uid', 'firebase-test-project', 'other'),
+    changedEmail: mockFirebaseToken('owner-uid', 'firebase-test-project', 'changed-email'),
+    disabled: mockFirebaseToken('disabled-uid', 'firebase-test-project', 'disabled'),
+  };
+  firebaseAccounts = {
+    [authTokens.owner]: { localId: 'owner-uid', email: 'owner@example.com', emailVerified: true },
+    [authTokens.unverified]: { localId: 'owner-uid', email: 'owner@example.com', emailVerified: false },
+    [authTokens.invited]: { localId: 'member-uid', email: 'member@example.com', emailVerified: true },
+    [authTokens.other]: { localId: 'other-uid', email: 'other@example.com', emailVerified: true },
+    [authTokens.changedEmail]: { localId: 'owner-uid', email: 'renamed@example.net', emailVerified: true },
+    [authTokens.disabled]: { localId: 'disabled-uid', email: 'disabled@example.com', emailVerified: true, disabled: true },
   };
 
   Pool.prototype.connect = async function () {
@@ -248,13 +261,12 @@ after(async () => {
   globalThis.fetch = originalFetch;
   restoreEnv('VERCEL');
   restoreEnv('DATABASE_URL');
-  restoreEnv('NEON_AUTH_BASE_URL');
-  restoreEnv('NEON_AUTH_JWKS_URL');
-  restoreEnv('VITE_NEON_AUTH_URL');
+  restoreEnv('FIREBASE_PROJECT_ID');
+  restoreEnv('FIREBASE_API_KEY');
   restoreEnv('GEMINI_API_KEY');
 });
 
-test('API familiar exige Neon Auth e sincroniza pelo Neon antes de revogar', async () => {
+test('API familiar exige Firebase Auth e sincroniza pelo Neon antes de revogar', async () => {
   const unauthenticated = await originalFetch(`${baseUrl}/api/family/shared`);
   assert.equal(unauthenticated.status, 401);
 
@@ -268,7 +280,19 @@ test('API familiar exige Neon Auth e sincroniza pelo Neon antes de revogar', asy
   const wrongIssuer = await originalFetch(`${baseUrl}/api/family/shared`, {
     headers: { Authorization: `Bearer ${authTokens.wrongIssuer}` },
   });
-  assert.equal(wrongIssuer.status, 401, 'o token precisa pertencer ao emissor Neon Auth configurado');
+  assert.equal(wrongIssuer.status, 401, 'token ausente do Firebase deve ser rejeitado');
+
+  const disabled = await originalFetch(`${baseUrl}/api/family/shared`, {
+    headers: { Authorization: `Bearer ${authTokens.disabled}` },
+  });
+  assert.equal(disabled.status, 401, 'conta Firebase desativada deve ser rejeitada');
+
+  firebaseLookupStatus = 503;
+  const providerUnavailable = await originalFetch(`${baseUrl}/api/workspace`, {
+    headers: { Authorization: `Bearer ${authTokens.owner}` },
+  });
+  firebaseLookupStatus = null;
+  assert.equal(providerUnavailable.status, 503, 'indisponibilidade Firebase deve ser distinta de token inválido');
 
   const sqlBeforeUnverified = sqlLog.length;
   const unverified = await originalFetch(`${baseUrl}/api/family/shared`, {

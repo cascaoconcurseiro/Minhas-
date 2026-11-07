@@ -39,15 +39,15 @@ afterEach(() => {
   container = null;
 });
 
-test('login renderiza acesso Neon por e-mail e não anuncia Firebase nem dados demo', () => {
+test('login renderiza acesso Firebase por e-mail e não anuncia dados demo', () => {
   const page = renderLoginPage();
 
   assert.match(page.textContent ?? '', /Acesse sua conta/);
   assert.ok(page.querySelector('[data-testid="login-email-input"]'));
   assert.ok(page.querySelector('[data-testid="login-password-input"]'));
-  assert.match(page.textContent ?? '', /Neon Auth protege o acesso/);
+  assert.match(page.textContent ?? '', /Firebase Auth protege o acesso/);
   assert.match(page.textContent ?? '', /Neon PostgreSQL/);
-  assert.doesNotMatch(page.textContent ?? '', /Firebase Auth|Firestore|Guia Rápido|Quick Guide|dados fictícios/i);
+  assert.doesNotMatch(page.textContent ?? '', /Firestore|Guia Rápido|Quick Guide|dados fictícios/i);
   for (const label of Array.from(page.querySelectorAll('label'))) {
     assert.ok(label.htmlFor, `label "${label.textContent}" should identify its input`);
     assert.equal(document.getElementById(label.htmlFor)?.tagName, 'INPUT');

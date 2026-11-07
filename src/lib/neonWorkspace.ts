@@ -1,4 +1,4 @@
-import { getNeonAuthToken } from './neonAuth';
+import { auth } from './firebase';
 
 export interface NeonWorkspaceSnapshot {
   payload: Record<string, unknown>;
@@ -42,8 +42,13 @@ async function authorizedRequest<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
-  const send = async () => {
-    const token = await getNeonAuthToken();
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous) {
+    throw new NeonWorkspaceError('Entre com uma conta Firebase para sincronizar.', 401);
+  }
+
+  const send = async (forceRefresh: boolean) => {
+    const token = await user.getIdToken(forceRefresh);
     return fetch(path, {
       ...init,
       headers: {
@@ -54,8 +59,8 @@ async function authorizedRequest<T>(
     });
   };
 
-  let response = await send();
-  if (response.status === 401) response = await send();
+  let response = await send(false);
+  if (response.status === 401) response = await send(true);
   const body = (await response.json().catch(() => ({}))) as {
     error?: string;
   };

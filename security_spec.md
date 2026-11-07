@@ -2,19 +2,18 @@
 
 ## Identidade e banco operacional
 
-- Neon Auth autentica o usuário e emite o JWT usado pela API.
+- Firebase Auth autentica por e-mail/senha e emite o ID token usado pela API.
 - PostgreSQL no Neon é a fonte de verdade operacional para workspaces e dados familiares.
-- O navegador nunca recebe `DATABASE_URL`; as rotas verificam o JWT Neon Auth via JWKS antes de consultar o Neon.
+- O navegador nunca recebe `DATABASE_URL`; as rotas verificam o ID token Firebase antes de consultar o Neon.
 - Cada transação PostgreSQL define `app.user_id` e `app.user_email`; as políticas RLS limitam leitura e escrita ao titular ou participante permitido.
 
 ## Provedores externos
 
-- O runtime do app não usa Firebase Authentication nem Firestore.
-- Firebase não está configurado como serviço ativo; autenticação e dados do app são providos pelo Neon.
+- Firebase Auth fornece somente a identidade; Firebase Firestore e Firebase Storage não são usados pelo runtime.
 
 ## API e dados financeiros
 
-- Rotas de workspace, compartilhamento familiar, lembretes por e-mail, câmbio ao vivo e sincronização de cotações exigem JWT Neon Auth válido.
+- Rotas de workspace, compartilhamento familiar, lembretes por e-mail, câmbio ao vivo e sincronização de cotações exigem ID token Firebase válido.
 - `/api/health` permanece público e retorna apenas estado agregado, sem identificadores nem erros/credenciais do banco.
 - A criação inicial usa `ON CONFLICT DO NOTHING`; salvamentos usam revisão otimista e retornam `409` se outra gravação venceu.
 - Convites e lançamentos compartilhados residem em tabelas Neon separadas, com RLS por participante.
