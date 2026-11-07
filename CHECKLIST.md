@@ -693,6 +693,7 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Manter Firebase Auth como identidade e Neon PostgreSQL como armazenamento financeiro operacional, conforme decisão do usuário; o health de produção reporta ambos e a role restrita.
 - [x] Adicionar teste sintético de App para hidratação autenticada do Neon, bloqueio enquanto carrega, erro 503 sem overwrite/local-save e retry pelo botão.
 - [x] Confirmar `bun test`: 356 testes em 54 arquivos; `bun run lint`, `bun run build` e `git diff --check` passaram.
+- [x] Publicar commit `c8fa7c0`; CI `42421567985` passou e Vercel `dpl_DQXaUCBDVp5ZKdNyreKzHWADcqbB` ficou Ready no alias principal; health pós-deploy HTTP 200/Neon ok/Firebase Auth/role restrita.
 - [x] Confirmar a atividade diária do Neon por execução GitHub `schedule` `42397967500` em 2026-11-07; health de produção HTTP 200/Neon ok.
 - [x] Confirmar que Vercel mantém `/api/health` agendado diariamente às 12:15 UTC.
 - [ ] Confirmar execução do workflow `neon-backup.yml` por `schedule`; a mais recente verificada (`42413305298`) foi manual, apesar do cron diário estar configurado.

@@ -8,6 +8,8 @@ Estado externo rechecado: `/api/health` de produção HTTP 200, Neon `ok`, Fireb
 
 Próximo passo concreto: preparar e executar o cenário UI→API→Neon de export/import/restore em branch QA descartável com identidade temporária, readback pós-recarga e limpeza. Depois confirmar a primeira execução agendada do backup e retomar o sweep visual mobile e a persistência remota dos módulos. Não marcar “todas as funcionalidades” como concluídas.
 
+Publicação desta rodada: commit `c8fa7c0` em `main`; CI `42421567985` passou em testes, typecheck e build. Vercel `dpl_DQXaUCBDVp5ZKdNyreKzHWADcqbB` ficou Ready e recebeu o alias principal; health pós-deploy respondeu HTTP 200, Neon `ok`, Firebase Auth configurado e role Neon restrita.
+
 ## Sessão — 2026-11-07 — validação real do fluxo familiar em produção
 
 Corrigi e publiquei os entrypoints Vercel para `POST /api/family/invitations/:invitationId/respond` e `.../revoke`; antes, esses caminhos profundos davam 404 na borda. Deploy `dpl_4pRYn2TGYwD41geXZsgW4Dr7tqv5` está Ready. CI `42419556410` passou; `bun test` 355/355 em 53 arquivos, lint, build e `git diff --check` passaram. Sem token, os dois endpoints retornaram 401 JSON; com a segunda identidade verificada, aceitar e recusar retornaram 200.
