@@ -728,6 +728,46 @@ test('payCreditCardInvoice supports partial payment and createTransactionBatch p
   assert.equal(summaryRestored.transactions[0].amount, 1000);
 });
 
+test('partial card invoice settlement splits sharedAmount proportionally and reversal restores it', () => {
+  const card: CreditCard = {
+    id: 'card-shared-partial',
+    name: 'Cartão compartilhado',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+  const txs = createTransactionBatch({
+    description: 'Compra compartilhada',
+    amount: 100,
+    date: '2026-10-10',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-mercado',
+    creditCardId: card.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'single',
+    isShared: true,
+    sharedAmount: 40,
+    sharedPaidBy: 'me',
+  });
+
+  const partiallySettled = payCreditCardInvoice(
+    card, txs, '2026-10', 'acc-1', '2026-10-20', 50
+  );
+  const splitRows = partiallySettled.filter((tx) => tx.description.includes('Compra compartilhada'));
+  assert.deepEqual(splitRows.map((tx) => tx.sharedAmount).sort(), [20, 20]);
+
+  const payment = partiallySettled.find((tx) => tx.isInvoicePayment)!;
+  const restored = reverseCreditCardInvoicePayment(partiallySettled, payment.id, [card]);
+  const original = restored.updatedTransactions.find((tx) => tx.id === txs[0].id);
+  assert.equal(original?.amount, 100);
+  assert.equal(original?.sharedAmount, 40);
+});
+
 test('resolveCreditCardInvoiceMonth advances competenceMonth when purchase day is after card closingDay', () => {
   const card: CreditCard = {
     id: 'card-closing',

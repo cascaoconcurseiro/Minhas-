@@ -1,5 +1,27 @@
 # Handoff — Minhas Economias
 
+## Retomada do backup cifrado — 2026-11-07
+
+Em `b2bd9e7` foi removido o `age-inspect` inexistente no runner. O workflow de backup PostgreSQL passou em produção na execução manual GitHub Actions `42320784685`: role `minhas_backup_reader` no Neon production, connection string direta sem pooler, artifact age cifrado, retenção de 30 dias. A role tem apenas leitura, `BYPASSRLS` para as tabelas com RLS forçado e `SELECT` em sequências; não tem superuser nem privilégios de escrita/criação. O secret `NEON_BACKUP_DATABASE_URL` foi atualizado para a URL dessa role de produção.
+
+O artifact foi baixado e descriptografado fora do repositório. `pg_restore --list` reconheceu o custom dump PostgreSQL 18.6; a restauração com `--single-transaction` passou na branch QA `qa-neon-backup-20261107`. Os agregados production/QA coincidiram: 4 workspaces, 0 convites, 0 transações compartilhadas e 5 objetos públicos. A branch QA foi removida e o dump local em texto aberto foi apagado. Nenhuma escrita foi feita em production.
+
+Ainda pendentes: primeira execução automática `schedule` às 13:00 UTC; o titular precisa guardar uma cópia segura de `C:\Users\Wesley\Documents\Minhas Economias Backup\neon-backup.agekey` fora do computador e conferir que consegue acessá-la noutro dispositivo; continuam pendentes os itens de interface autenticada, mobile e cobertura de todos os módulos listados no checklist.
+
+Próximo passo concreto: depois de 13:00 UTC em 2026-11-07, verificar se o workflow `Neon — backup PostgreSQL cifrado` executou com `event=schedule` e artifact cifrado. Se falhar, corrigir apenas a automação/credencial, sem relaxar o escopo da role.
+
+## Auditoria de segurança e fluxos — 2026-11-07
+
+Nesta continuação corrigi um risco de privacidade: `smtpPass` e `smtpConfig.pass` não são mais persistidos no Neon nem no cache local, nem incluídos em backup/exportação/importação. Cache local legado é sanitizado no boot; a senha permanece na memória da sessão corrente e o formulário informa que será necessário redigitá-la após recarga/importação. Uma consulta agregada ao Neon encontrou zero dos quatro workspaces com senha SMTP persistida. Também removi um endereço de e-mail pessoal de fixtures públicos de teste.
+
+A auditoria financeira encontrou que o pagamento parcial de fatura duplicava o `sharedAmount` e o estorno não recompunha essa cota. Corrigi o rateio proporcional em centavos e acrescentei regressão. A aba de lançamentos agora confirma exclusão de item, série parcelada e pagamento de fatura; testes DOM cobrem edição, cancelamento e confirmação. Os testes de configurações cobrem upload/restore JSON sintético e cancelamento. Testes de API usam somente mocks para Gemini/Google Finance e SMTP, sem egress nem envio real.
+
+Validação local atual: `bun test` 161/161 em 32 arquivos; `bun run lint`, `bun run build` e `git diff --check` passaram. O build continua com aviso para chunk principal acima de 500 kB. Health de produção respondeu `ok`, `services.neon=ok`, `services.neonLeastPrivilegeRole=true`; as quatro rotas autenticadas retornaram 401 sem Bearer. Cabeçalhos CSP, HSTS, X-Content-Type-Options, Referrer-Policy e Permissions-Policy estão presentes. `GEMINI_API_KEY` não está configurada na Vercel, então `liveFxSearch` fica desativado; as cotações B3 usam Google Finance. A verificação visual em Brave continua pendente: a conexão da extensão substituiu a conexão ativa ao tentar abrir uma aba, e a tela desktop/mobile não foi observada nesta continuação.
+
+Removi o artifact cifrado QA `neon-backup-42320249250`; permanece o artifact cifrado de produção `neon-backup-42320784685` com expiração em 7/dez. Alterações de código/testes/documentação estão locais e ainda precisam ser commitadas/publicadas.
+
+Próximo passo concreto: após 12:23 UTC, verificar `neon-daily-activity.yml` com `event=schedule`; após 13:00 UTC verificar `neon-backup.yml` com `event=schedule`. Depois publicar as alterações locais e validar o deployment. Aceites ainda abertos: sessão real Neon Auth/OTP e CRUD, restore do arquivo pelo fluxo autenticado de interface, viewport desktop/mobile em Brave, segunda conta familiar (dispensada pelo usuário), chave `age` fora do computador e testes visuais dos módulos restantes.
+
 ## Retomada atual — 2026-11-07, Neon Auth + Neon PostgreSQL
 
 O commit `a887df7` foi publicado em `main`. CI `42317905521` passou e o Vercel deployment `dpl_GoeZ9DQEmLyer1F5nWzhsD31VRQ2` está Ready, com alias de produção. Health público retorna `status=ok`, `neon=ok` e `neonLeastPrivilegeRole=true`; `/api/workspace` sem sessão retorna 401. O bundle ativo contém `X-Force-Fetch` e o erro seguro de sessão desatualizada, sem marcadores do SDK Firebase. A varredura atual em `src`, `backend`, `api` e `shared` não encontrou SDK, chamadas ou persistência Firebase; referências em migrations antigas preservam a história da conversão do schema.
@@ -8,9 +30,9 @@ Nesta sessão foram adicionados testes DOM sintéticos para criação de lançam
 
 As coleções antigas de demonstração `cloud_vaults` e `workspaces` estão registradas como apagadas e verificadas em sessão anterior, após autorização do usuário. Esta sessão não possui conector Firebase para repetir a verificação diretamente.
 
-O projeto ainda não está pronto para aceite ponta a ponta: falta observar a execução automática diária (próxima janela 2026-11-07 12:23 UTC), validar login/OTP e CRUD com conta controlada, ensaiar restore autenticado e backup PostgreSQL independente, revisar desktop/mobile e fechar a cobertura visual/funcional dos módulos. O smoke/health de produção e os testes locais não substituem esses aceites.
+O projeto ainda não está pronto para aceite ponta a ponta: falta observar as execuções agendadas (Neon atividade às 12:23 UTC e backup PostgreSQL às 13:00 UTC de 2026-11-07), validar login/OTP e CRUD com conta controlada, completar restore pela interface autenticada, revisar desktop/mobile e fechar a cobertura visual/funcional dos módulos. O backup PostgreSQL independente já passou em execução manual e restauração em QA; isso não prova ainda o agendamento diário nem substitui os aceites de produto.
 
-Próximo passo concreto: após 12:23 UTC, verificar no workflow GitHub `neon-daily-activity.yml` a execução com `event=schedule`; depois continuar o aceite Neon Auth com conta de teste controlada e ensaiar restore/backup independente.
+Próximo passo concreto: após 12:23 UTC, verificar `neon-daily-activity.yml` com `event=schedule`; após 13:00 UTC, verificar `neon-backup.yml` com `event=schedule` e artifact cifrado. Depois retomar restore pela interface autenticada e cobertura dos módulos.
 
 O login em produção foi observado no Brave e o workspace apresentou valores financeiros zerados, indicador Neon PostgreSQL e banner de verificação familiar. A tela também mostrava o aviso antigo “Código aceito, mas a sessão ainda não refletiu a confirmação”, que motivou a correção local. Nenhuma conta, senha ou novo código foi submetido. A automação CUA parou quando a ferramenta não conseguiu identificar a URL atual da janela com confiança suficiente; viewport mobile e demais interações visuais seguem pendentes.
 

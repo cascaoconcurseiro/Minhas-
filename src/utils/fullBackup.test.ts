@@ -262,3 +262,49 @@ test('restoring a current backup uses its optional values and fills missing inve
   assert.equal(result.investmentTargets.fiis, 35);
   assert.equal(result.investmentTargets.renda_fixa_pos, 20);
 });
+
+test('backup import strips SMTP passwords from both legacy and nested settings shapes', () => {
+  const backupSecret = 'synthetic-backup-smtp-secret';
+  const backup = parseFullFinanceBackup(JSON.stringify({
+    ...validBackup(),
+    settings: {
+      theme: 'dark',
+      reminders: {
+        smtpPass: backupSecret,
+        smtpConfig: {
+          host: 'smtp.example.test',
+          port: 587,
+          user: 'user@example.test',
+          pass: backupSecret,
+        },
+      },
+    },
+  }));
+  assert.ok(backup);
+  assert.equal(backup.settings?.reminders?.smtpPass, undefined);
+  assert.equal(backup.settings?.reminders?.smtpConfig?.pass, undefined);
+  assert.doesNotMatch(JSON.stringify(backup), /synthetic-backup-smtp-secret/);
+
+  const restored = resolveFullBackupOptionalState(backup, {
+    familyMembers: [],
+    investmentTargets: {
+      renda_fixa_pos: 20,
+      renda_fixa_ipca: 20,
+      fiis: 20,
+      acoes_br: 20,
+      exterior_etf: 20,
+    } as InvestmentTargetMap,
+    settings: {
+      theme: 'light',
+      density: 'comfortable',
+      privacyMode: false,
+      showOverviewAlerts: true,
+      alertsExpandedByDefault: true,
+      budgetWarningPercent: 80,
+      userName: 'Você',
+      userPixKey: '',
+    } as AppSettings,
+  });
+  assert.equal(restored.settings.reminders?.smtpPass, undefined);
+  assert.equal(restored.settings.reminders?.smtpConfig?.pass, undefined);
+});

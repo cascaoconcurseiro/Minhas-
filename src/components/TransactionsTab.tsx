@@ -111,6 +111,21 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     }
   };
 
+  const requestTransactionDeletion = (txId: string, deleteGroup = false) => {
+    const transaction = transactions.find((tx) => tx.id === txId);
+    if (!transaction) return;
+
+    const confirmationMessage = transaction.isInvoicePayment
+      ? 'Excluir o pagamento da fatura e refazer o efeito cascata?'
+      : deleteGroup
+      ? `Excluir este lançamento e todas as parcelas da série "${transaction.description}"?`
+      : `Excluir o lançamento "${transaction.description}"?`;
+
+    if (window.confirm(confirmationMessage)) {
+      onDeleteTransaction(txId, deleteGroup);
+    }
+  };
+
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const accMap = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
   const cardMap = useMemo(() => new Map(cards.map((c) => [c.id, c.name])), [cards]);
@@ -785,7 +800,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                                 onToggleStatus={onToggleStatus}
                                 onEdit={onEditTransaction}
                                 onDuplicate={onDuplicateTransaction}
-                                onDelete={onDeleteTransaction}
+                                onDelete={requestTransactionDeletion}
                                 onOpenActionSheet={(targetTx) => setActionSheetTx(targetTx)}
                               />
                             </div>
@@ -1056,7 +1071,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                             <button
                               type="button"
                               onClick={() =>
-                                onDeleteTransaction(tx.id, Boolean(tx.installmentGroupId))
+                                requestTransactionDeletion(tx.id, Boolean(tx.installmentGroupId))
                               }
                               aria-label={`Excluir ${tx.description}`}
                               title={
@@ -1107,7 +1122,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
         onEdit={onEditTransaction}
         onToggleStatus={onToggleStatus}
         onDuplicate={onDuplicateTransaction || (() => {})}
-        onDelete={onDeleteTransaction}
+        onDelete={requestTransactionDeletion}
         onAnticipateInstallments={
           onAnticipateInstallments
             ? (groupId) => onAnticipateInstallments(groupId, 0)

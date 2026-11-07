@@ -88,6 +88,12 @@ import {
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
 import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
+import {
+  parsePersistedSettings,
+  removeSmtpPasswordsFromSettings,
+  sanitizeStoredWorkspaceSnapshot,
+  serializeSettingsWithoutSmtpSecrets,
+} from './utils/secureSettings';
 import { preserveConfirmedEmailVerification } from './utils/authSessionVerification';
 import { isRetryableWorkspaceSaveError } from './utils/workspaceSyncRecovery';
 const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
@@ -382,6 +388,22 @@ export default function App() {
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
+  useEffect(() => {
+    try {
+      const cacheKeys = Array.from({ length: localStorage.length }, (_, index) =>
+        localStorage.key(index)
+      ).filter((key): key is string => Boolean(key?.startsWith(STORAGE_KEY)));
+      for (const key of cacheKeys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const sanitized = sanitizeStoredWorkspaceSnapshot(raw);
+        if (sanitized && sanitized !== raw) localStorage.setItem(key, sanitized);
+      }
+    } catch {
+      // Continue if browser storage is unavailable; all future writes are sanitized.
+    }
+  }, []);
+
   const resetFinancialStateToCleanZero = () => {
     isApplyingRemoteSnapshotRef.current = true;
     setAccounts(INITIAL_ACCOUNTS);
@@ -562,7 +584,7 @@ export default function App() {
     investmentsJson: JSON.stringify(investments),
     investmentTargetsJson: JSON.stringify(investmentTargets),
     tripsJson: JSON.stringify(trips),
-    settingsJson: JSON.stringify(settings),
+    settingsJson: serializeSettingsWithoutSmtpSecrets(settings),
   });
 
   const queueNeonWorkspaceSave = (payload: Record<string, unknown>) => {
@@ -965,7 +987,7 @@ export default function App() {
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
         setTrips(stripLegacyMockItems(parseWorkspaceArray<Trip>(data.tripsJson, INITIAL_TRIPS, 'tripsJson')));
         setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
-        setSettings(parseWorkspaceObject(data.settingsJson, DEFAULT_SETTINGS, 'settingsJson'));
+        setSettings(parsePersistedSettings(data.settingsJson, DEFAULT_SETTINGS));
         hasLoadedRemoteOnceRef.current = true;
         isApplyingRemoteSnapshotRef.current = false;
         setWorkspaceLoadState('ready');
@@ -1134,7 +1156,7 @@ export default function App() {
             investments,
             investmentTargets,
             trips,
-            settings,
+            settings: removeSmtpPasswordsFromSettings(settings),
           })
         );
       } catch {
@@ -2665,7 +2687,7 @@ export default function App() {
       investments,
       investmentTargets,
       trips,
-      settings,
+      settings: removeSmtpPasswordsFromSettings(settings),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json;charset=utf-8;',

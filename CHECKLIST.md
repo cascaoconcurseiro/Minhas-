@@ -5,11 +5,22 @@
 - [x] Adicionar teste DOM do lançamento: rejeitar valor zero e salvar R$ 12,34 com payload validado.
 - [x] Cobrir autenticação obrigatória nos endpoints de câmbio, sincronização de cotações e lembretes; sem Bearer retornam 401 e não fazem chamadas externas.
 - [x] Corrigir cache JWT após confirmação OTP: forçar atualização da sessão, exigir UID correspondente e e-mail verificado antes de enviar JWT às APIs; impedir downgrade da UI por evento de sessão atrasado.
-- [x] Verificar localmente: `bun test` 143/143 em 29 arquivos, `bun run lint`, `bun run build` e `git diff --check` aprovados.
+- [x] Verificar localmente nesta continuação: `bun test` 161/161 em 32 arquivos, `bun run lint`, `bun run build` e `git diff --check` aprovados; build mantém alerta de bundle principal acima de 500 kB.
 - [x] Publicar alterações em `main` no commit `a887df7`; CI `42317905521` aprovado, Vercel `dpl_GoeZ9DQEmLyer1F5nWzhsD31VRQ2` Ready, health `ok`/Neon `ok`/role restrita, `/api/workspace` sem sessão 401 e bundle publicado contém o force-refresh OTP sem Firebase SDK.
+- [x] Validar o dump integral de produção com execução manual GitHub Actions `42320784685`, artifact age cifrado com 30 dias, `pg_restore --list` e restauração transacional em QA; contagens agregadas iguais, branch QA e dump aberto removidos. O segredo de backup aponta à role de produção.
+- [x] Reconfirmar agregados Neon sem dados financeiros de demonstração: 4 workspaces vazios; 0 contas, cartões, lançamentos, metas, investimentos e viagens.
+- [x] Cobrir DOM sintético do modal de configurações para exportação e importação/restauração JSON v6, confirmação, arquivo inválido e cancelamento; callback local, sem Neon.
+- [x] Cobrir fallback Gemini internacional e falha SMTP 502 com mocks, sem chamadas externas ou envio de e-mail.
+- [x] Corrigir distribuição proporcional do `sharedAmount` em pagamento parcial de fatura e recompor esse valor ao estornar.
+- [x] Pedir confirmação antes de excluir lançamento, série parcelada ou pagamento de fatura; cobrir edição, cancelamento e confirmação em teste DOM.
+- [x] Remover `smtpPass`/`smtpConfig.pass` de Neon, cache local, exportação e importação; limpar caches v6 legados no boot, mantendo a senha apenas em memória até recarga. Testes confirmam que o envio ainda recebe a credencial em sessão.
+- [x] Verificar em produção: `/api/workspace`, `/api/reminders/send-email`, `/api/fx/live-rate` e `/api/investments/sync-quotes` sem token retornam 401; os cinco cabeçalhos de segurança esperados estão presentes.
+- [x] Remover o artifact público cifrado de QA `neon-backup-42320249250`; manter somente o artifact cifrado gerado da produção.
 - [ ] Validar sessão real Neon Auth/OTP e CRUD autenticado em ambiente controlado; testes locais não cobrem esse aceite.
-- [ ] Verificar evento diário automático GitHub `schedule` após 2026-11-07 12:23 UTC; execução manual anterior não comprova agendamento.
-- [ ] Executar restore autenticado, comprovar backup PostgreSQL independente, revisar interface desktop/mobile e fechar testes dos módulos pendentes.
+- [ ] Verificar eventos automáticos GitHub `schedule` após 2026-11-07 12:23 UTC (atividade) e 13:00 UTC (backup); execuções manuais não comprovam agendamento.
+- [ ] Exercitar restore pela interface autenticada, revisar interface publicada em desktop/mobile e fechar testes dos módulos pendentes.
+- [ ] Guardar chave privada `age` fora deste computador e verificar acesso em outro dispositivo; o arquivo local fica em `C:\Users\Wesley\Documents\Minhas Economias Backup\neon-backup.agekey`.
+- [ ] Recursos live FX/Gemini estão desativados na Vercel (`GEMINI_API_KEY` não configurada); configurar uma chave aprovada ou aceitar esses recursos como indisponíveis.
 
 ## Corte Firebase → Neon Auth completo — 2026-11-06
 - [x] Habilitar Neon Auth Managed Better Auth em `production`, com e-mail/senha e verificação por OTP; autorizar domínio Vercel e desligar origem localhost em produção.
@@ -581,3 +592,13 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [ ] Confirmar execução automática do Vercel Cron; logs de 24 h não mostram a chamada agendada.
 - [ ] Confirmar execução do workflow GitHub diário `schedule` às 12:23 UTC e concluir cobertura funcional/visual dos módulos restantes.
 - [x] Publicar commit `166f9a0` em `main`; CI `42274441778` passou, deploy Vercel ficou Ready, health Neon `ok` e UI de produção mostra login por e-mail/senha.
+# Backup PostgreSQL cifrado em GitHub Actions (2026-11-07)
+- [x] Manter o repositório público e configurar somente artifacts age cifrados com retenção de 30 dias; nunca enviar dump aberto.
+- [x] Configurar a role `minhas_backup_reader` em production com leitura de tabelas/sequências e `BYPASSRLS`, sem `SUPERUSER`, escrita, `CREATEROLE`, `CREATEDB` ou `REPLICATION`.
+- [x] Substituir `NEON_BACKUP_DATABASE_URL` no GitHub por URL direta da role de produção (sem pooler).
+- [x] Rodar backup manual de production: Actions `42320784685` concluiu com sucesso e publicou artifact cifrado até 2026-12-07.
+- [x] Descriptografar cópia local, verificar catálogo com `pg_restore --list`, restaurar em QA com transação única e confirmar contagens agregadas iguais: 4 workspaces, 0 convites, 0 transações compartilhadas, 5 objetos públicos.
+- [x] Excluir branch QA e apagar o dump local descriptografado; produção permaneceu inalterada.
+- [ ] O usuário deve copiar `C:\Users\Wesley\Documents\Minhas Economias Backup\neon-backup.agekey` para cofre/offline e verificar acesso noutro dispositivo; sem essa chave, artifacts cifrados não podem ser recuperados.
+- [ ] Confirmar a primeira execução automática (`schedule`) após 13:00 UTC de 2026-11-07; a execução `42320784685` foi manual.
+- [ ] Restore via interface autenticada, CRUD familiar/relatórios, revisão visual mobile e cobertura dos módulos ainda pendentes da meta geral.

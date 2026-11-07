@@ -318,6 +318,10 @@ export interface SmtpCredentials {
   secure?: boolean;
 }
 
+export type SmtpConfigSettings = Omit<SmtpCredentials, 'pass'> & {
+  pass?: string;
+};
+
 export interface ReminderSettings {
   enabled: boolean;
   preferredTime: string; // e.g. "09:00", "12:00", "18:00"
@@ -341,7 +345,7 @@ export interface ReminderSettings {
   smtpUser?: string;
   smtpPass?: string;
   smtpSecure?: boolean;
-  smtpConfig?: SmtpCredentials;
+  smtpConfig?: SmtpConfigSettings;
 }
 
 export interface AppSettings {

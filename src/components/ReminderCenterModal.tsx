@@ -741,6 +741,9 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                           : 'Obrigatório'}
                       </span>
                     </div>
+                    <p className="text-[10px] leading-relaxed text-amber-700 dark:text-amber-300">
+                      Por segurança, a senha não é salva no Neon nem nos backups. Redigite-a após recarregar o app ou importar um backup; durante esta sessão, os envios usam a senha informada.
+                    </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div className="sm:col-span-2">

@@ -1236,6 +1236,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           Utilize seu próprio servidor SMTP (Gmail, Outlook, Zoho ou corporativo) para disparo dos lembretes.
                         </p>
+                        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                          Por segurança, a senha não é salva no Neon nem nos backups. Redigite-a após recarregar o app ou importar um backup; durante esta sessão, os envios usam a senha informada.
+                        </p>
                       </div>
                       <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
                         Envio via SMTP do Usuário

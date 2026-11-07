@@ -692,18 +692,28 @@ export function payCreditCardInvoice(
       } else {
         const paidPart = Math.round(remainingToSettle * 100) / 100;
         const unpaidRemainder = Math.round((tx.amount - paidPart) * 100) / 100;
+        const sharedPaidPart =
+          tx.sharedAmount === undefined
+            ? undefined
+            : Math.round((tx.sharedAmount * (paidPart / tx.amount)) * 100) / 100;
+        const sharedUnpaidRemainder =
+          tx.sharedAmount === undefined
+            ? undefined
+            : Math.round((tx.sharedAmount - (sharedPaidPart || 0)) * 100) / 100;
         remainingToSettle = 0;
         updatedTransactions.push({
           ...tx,
           id: `${tx.id}-paid-${Date.now()}`,
           description: `${tx.description} (Abatimento Parcial)`,
           amount: paidPart,
+          sharedAmount: sharedPaidPart,
           status: 'paid' as TransactionStatus,
           partialSplitOriginalId: tx.id,
         });
         updatedTransactions.push({
           ...tx,
           amount: unpaidRemainder,
+          sharedAmount: sharedUnpaidRemainder,
           status: 'pending' as TransactionStatus,
         });
       }
@@ -1671,6 +1681,7 @@ export function reverseCreditCardInvoicePayment(
 
   // Detect any partial split rows in this competence month for this card
   const partialSplitSums = new Map<string, number>();
+  const partialSplitSharedSums = new Map<string, number>();
   const partialSplitIdsToRemove = new Set<string>();
 
   for (const tx of transactions) {
@@ -1682,6 +1693,12 @@ export function reverseCreditCardInvoicePayment(
       const origId =
         tx.partialSplitOriginalId || tx.id.split('-paid-')[0];
       partialSplitSums.set(origId, (partialSplitSums.get(origId) || 0) + tx.amount);
+      if (tx.sharedAmount !== undefined) {
+        partialSplitSharedSums.set(
+          origId,
+          (partialSplitSharedSums.get(origId) || 0) + tx.sharedAmount
+        );
+      }
       partialSplitIdsToRemove.add(tx.id);
     }
   }
@@ -1697,11 +1714,16 @@ export function reverseCreditCardInvoicePayment(
         (targetCardId ? t.creditCardId === targetCardId : Boolean(t.creditCardId))
       ) {
         const extraFromPartial = partialSplitSums.get(t.id) || 0;
+        const extraSharedFromPartial = partialSplitSharedSums.get(t.id);
         if (t.status === 'paid' || extraFromPartial > 0) {
           restoredCardCount += 1;
           return {
             ...t,
             amount: Math.round((t.amount + extraFromPartial) * 100) / 100,
+            sharedAmount:
+              t.sharedAmount === undefined && extraSharedFromPartial === undefined
+                ? undefined
+                : Math.round(((t.sharedAmount || 0) + (extraSharedFromPartial || 0)) * 100) / 100,
             status: 'pending' as TransactionStatus,
           };
         }

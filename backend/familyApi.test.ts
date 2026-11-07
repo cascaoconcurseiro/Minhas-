@@ -53,6 +53,10 @@ let failWorkspaceUpdates = false;
 const workspaceUpdateParameters: unknown[][] = [];
 let googleFinanceResponseHtml: string | null = null;
 const googleFinanceRequests: string[] = [];
+let geminiResponsePayload: Record<string, unknown> | null = null;
+let geminiResponseStatus = 503;
+const geminiRequests: Array<{ url: string; body: string }> = [];
+let appLocals: Record<string, unknown> | null = null;
 
 function restoreEnv(name: keyof typeof oldEnv) {
   const value = oldEnv[name];
@@ -78,6 +82,20 @@ before(async () => {
     if (googleFinanceResponseHtml && url.startsWith('https://www.google.com/finance/quote/')) {
       googleFinanceRequests.push(url);
       return new Response(googleFinanceResponseHtml, { status: 200 });
+    }
+    if (url.startsWith('https://generativelanguage.googleapis.com/')) {
+      geminiRequests.push({ url, body: String(init?.body || '') });
+      return new Response(
+        JSON.stringify(geminiResponsePayload ?? { error: { message: 'Gemini blocked by test mock' } }),
+        {
+          status: geminiResponsePayload ? 200 : geminiResponseStatus,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    if (url.startsWith('https://www.google.com/finance/quote/')) {
+      googleFinanceRequests.push(url);
+      return new Response('Google Finance blocked by test mock', { status: 503 });
     }
     return originalFetch(input, init);
   }) as typeof fetch;
@@ -212,6 +230,7 @@ before(async () => {
   };
 
   const { default: app } = await import('./app.ts');
+  appLocals = app.locals as Record<string, unknown>;
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   const address = server.address();
@@ -562,6 +581,71 @@ test('FX BRL e cotações B3 autenticadas respondem usando dados locais e Google
   }
 });
 
+test('cotação de ativo internacional usa fallback Gemini com resposta sintética', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  process.env.GEMINI_API_KEY = 'synthetic-gemini-key';
+  geminiRequests.length = 0;
+  geminiResponsePayload = {
+    candidates: [{
+      content: { parts: [{ text: 'QUOTE_LINE: AAPL | 221.50 | +0.42 | Apple Inc.' }] },
+      groundingMetadata: {
+        groundingChunks: [{ web: { uri: 'https://finance.example.test/AAPL', title: 'AAPL' } }],
+      },
+    }],
+  };
+  try {
+    const response = await originalFetch(`${baseUrl}/api/investments/sync-quotes`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ tickers: ['AAPL'] }),
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    const result = await response.json() as {
+      quotes: Array<{ ticker: string; priceBrl: number; changePercent: number; name: string }>;
+      sources: Array<{ uri: string }>;
+    };
+    assert.deepEqual(result.quotes.map(({ ticker, priceBrl, changePercent }) => ({ ticker, priceBrl, changePercent })), [
+      { ticker: 'AAPL', priceBrl: 221.5, changePercent: 0.42 },
+    ]);
+    assert.equal(result.quotes[0]?.name, 'Apple Inc.');
+    assert.equal(result.sources[0]?.uri, 'https://finance.example.test/AAPL');
+    assert.equal(geminiRequests.length, 1);
+    assert.match(geminiRequests[0]?.url ?? '', /models\/gemini-3\.8-flash:generateContent/);
+    assert.match(geminiRequests[0]?.body ?? '', /AAPL/);
+  } finally {
+    geminiResponsePayload = null;
+    delete process.env.GEMINI_API_KEY;
+  }
+});
+
+test('retorna 502 quando o fallback Gemini falha para ativo internacional', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  process.env.GEMINI_API_KEY = 'synthetic-gemini-key';
+  geminiRequests.length = 0;
+  geminiResponsePayload = null;
+  geminiResponseStatus = 400;
+  try {
+    const response = await originalFetch(`${baseUrl}/api/investments/sync-quotes`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ tickers: ['AAPL'] }),
+    });
+    assert.equal(response.status, 502);
+    assert.match((await response.json() as { error: string }).error, /Não foi possível obter a cotação/);
+    assert.ok(geminiRequests.length >= 1, 'a API deve tentar o fallback Gemini pelo transporte mockado');
+    assert.ok(geminiRequests.every(({ url }) => url.startsWith('https://generativelanguage.googleapis.com/')));
+  } finally {
+    geminiResponseStatus = 503;
+    delete process.env.GEMINI_API_KEY;
+  }
+});
+
 test('lembretes autenticados rejeitam entrada inválida e SMTP privado sem entregar e-mail', async () => {
   const headers = {
     Authorization: `Bearer ${authTokens.owner}`,
@@ -589,4 +673,99 @@ test('lembretes autenticados rejeitam entrada inválida e SMTP privado sem entre
   });
   assert.equal(privateTarget.status, 400);
   assert.match((await privateTarget.json() as { error: string }).error, /servidor SMTP público/);
+});
+
+test('falha do transporte SMTP retorna 502 sem e-mail real e sem expor detalhe interno', async () => {
+  assert.ok(appLocals);
+  const previousDependencies = appLocals.reminderSmtpRouteDependencies;
+  let sendMailCalls = 0;
+  appLocals.reminderSmtpRouteDependencies = {
+    resolveTarget: async () => ({ address: '203.0.113.9', servername: 'smtp.example.test' }),
+    createTransport: () => ({
+      sendMail: async () => {
+        sendMailCalls += 1;
+        throw new Error('synthetic SMTP transport failure');
+      },
+    }),
+  };
+  try {
+    const response = await originalFetch(`${baseUrl}/api/reminders/send-email`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authTokens.owner}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: 'owner@example.com',
+        smtp: {
+          host: 'smtp.example.test',
+          port: 587,
+          user: 'owner@example.com',
+          pass: 'synthetic-only',
+        },
+      }),
+    });
+    assert.equal(response.status, 502);
+    const body = await response.json() as { error: string };
+    assert.match(body.error, /SMTP não aceitou o envio/);
+    assert.doesNotMatch(body.error, /synthetic SMTP transport failure/);
+    assert.equal(sendMailCalls, 1);
+  } finally {
+    appLocals.reminderSmtpRouteDependencies = previousDependencies;
+  }
+});
+
+test('lembrete autenticado retorna sucesso com transporte SMTP sintético', async () => {
+  assert.ok(appLocals);
+  const previousDependencies = appLocals.reminderSmtpRouteDependencies;
+  let target: { host: string; port: number } | null = null;
+  let sentMessage: { to?: string; subject?: string; text?: string } | null = null;
+  appLocals.reminderSmtpRouteDependencies = {
+    resolveTarget: async (host: string, port: number) => {
+      target = { host, port };
+      return { address: '203.0.113.10', servername: host };
+    },
+    createTransport: () => ({
+      sendMail: async (message: typeof sentMessage) => {
+        sentMessage = message;
+        return { messageId: 'synthetic-message-id' };
+      },
+    }),
+  };
+  try {
+    const response = await originalFetch(`${baseUrl}/api/reminders/send-email`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authTokens.owner}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: 'Owner@Example.com',
+        subject: 'Teste sintético',
+        textBody: 'Sem entrega externa',
+        smtp: {
+          host: 'smtp.example.test',
+          port: 587,
+          user: 'owner@example.com',
+          pass: 'synthetic-only',
+        },
+      }),
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    const result = await response.json() as { ok: boolean; sentTo: string; deliveryMode: string; smtpHost: string };
+    assert.equal(result.ok, true);
+    assert.equal(result.sentTo, 'owner@example.com');
+    assert.equal(result.deliveryMode, 'custom_smtp');
+    assert.equal(result.smtpHost, 'smtp.example.test');
+    assert.deepEqual(target, { host: 'smtp.example.test', port: 587 });
+    assert.deepEqual(sentMessage, {
+      from: '"Minhas Economias BR" <owner@example.com>',
+      to: 'owner@example.com',
+      subject: 'Teste sintético',
+      text: 'Sem entrega externa',
+      html: undefined,
+    });
+  } finally {
+    appLocals.reminderSmtpRouteDependencies = previousDependencies;
+  }
 });

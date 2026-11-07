@@ -395,7 +395,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
       ...DEFAULT_REMINDER_SETTINGS,
       enabled: true,
       emailNotificationsEnabled: true,
-      notificationEmail: 'wesley.diaslima@gmail.com',
+      notificationEmail: 'usuario@exemplo.test',
       emailPreferredTime: '08:00',
       emailRecurrence: 'weekdays',
     };
@@ -467,12 +467,12 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
           daysRemaining: 0,
         },
       ],
-      'wesley.diaslima@gmail.com',
+      'usuario@exemplo.test',
       'Wesley',
       { recurrence: 'monthly', preferredTime: '08:00' }
     );
 
-    assert.strictEqual(digest.to, 'wesley.diaslima@gmail.com');
+    assert.strictEqual(digest.to, 'usuario@exemplo.test');
     assert.strictEqual(digest.recurrence, 'monthly');
     assert.match(digest.subject, /Minhas Economias BR/);
     assert.match(digest.textBody, /Olá, Wesley!/);
@@ -534,7 +534,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
           ...DEFAULT_REMINDER_SETTINGS,
           enabled: true,
           emailNotificationsEnabled: false,
-          notificationEmail: 'wesley.diaslima@gmail.com',
+          notificationEmail: 'usuario@exemplo.test',
           emailRecurrence: 'monthly',
           emailPreferredTime: '08:00',
         },
@@ -552,7 +552,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
           ...DEFAULT_REMINDER_SETTINGS,
           enabled: true,
           emailNotificationsEnabled: true,
-          notificationEmail: 'wesley.diaslima@gmail.com',
+          notificationEmail: 'usuario@exemplo.test',
           emailRecurrence: 'monthly',
           emailPreferredTime: '08:00',
         },
@@ -571,14 +571,14 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
           ...DEFAULT_REMINDER_SETTINGS,
           enabled: true,
           emailNotificationsEnabled: true,
-          notificationEmail: 'wesley.diaslima@gmail.com',
+          notificationEmail: 'usuario@exemplo.test',
           emailRecurrence: 'monthly',
           emailPreferredTime: '08:00',
           notifyInvoiceDue: true,
           notifyPendingBills: false, // Excludes Boleto Condomínio
           smtpHost: 'smtp.gmail.com',
           smtpPort: 587,
-          smtpUser: 'wesley.diaslima@gmail.com',
+          smtpUser: 'usuario@exemplo.test',
           smtpPass: 'app-password-16chars',
         },
         currentDateStr: '2026-11-01',
@@ -591,17 +591,17 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
       assert.strictEqual(dispatched.deliveryMode, 'custom_smtp');
       assert.strictEqual(dispatched.smtpHost, 'smtp.gmail.com');
       assert.strictEqual(dispatched.smtpPort, 587);
-      assert.strictEqual(dispatched.smtpUser, 'wesley.diaslima@gmail.com');
+      assert.strictEqual(dispatched.smtpUser, 'usuario@exemplo.test');
       assert.strictEqual(capturedPayloads.length, 1);
       assert.strictEqual(capturedAuthorizationHeaders[0], 'Bearer test-neon-auth-token');
-      assert.strictEqual(capturedPayloads[0].to, 'wesley.diaslima@gmail.com');
+      assert.strictEqual(capturedPayloads[0].to, 'usuario@exemplo.test');
       assert.strictEqual(capturedPayloads[0].recurrence, 'monthly');
       assert.strictEqual(capturedPayloads[0].preferredTime, '08:00');
       assert.strictEqual(capturedPayloads[0].deliveryMode, 'custom_smtp');
       assert.deepStrictEqual(capturedPayloads[0].smtp, {
         host: 'smtp.gmail.com',
         port: 587,
-        user: 'wesley.diaslima@gmail.com',
+        user: 'usuario@exemplo.test',
         pass: 'app-password-16chars',
         secure: false,
       });
@@ -648,12 +648,12 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
         async () => {
           await dispatchEmailReminder({
             reminders: sampleReminders,
-            recipientEmail: 'wesley.diaslima@gmail.com',
+            recipientEmail: 'usuario@exemplo.test',
             settings: {
               ...DEFAULT_REMINDER_SETTINGS,
               enabled: true,
               emailNotificationsEnabled: true,
-              notificationEmail: 'wesley.diaslima@gmail.com',
+              notificationEmail: 'usuario@exemplo.test',
               smtpHost: '',
               smtpUser: '',
               smtpPass: '',

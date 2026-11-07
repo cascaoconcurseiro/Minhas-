@@ -24,6 +24,10 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+app.locals.reminderSmtpRouteDependencies = {
+  resolveTarget: resolvePublicSmtpTarget,
+  createTransport: nodemailer.createTransport,
+};
 
 let neonPool: Pool | undefined;
 
@@ -44,6 +48,11 @@ interface AuthUserIdentity {
   uid: string;
   email: string;
   email_verified?: boolean;
+}
+
+interface ReminderSmtpRouteDependencies {
+  resolveTarget: typeof resolvePublicSmtpTarget;
+  createTransport: typeof nodemailer.createTransport;
 }
 
 let neonAuthJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
@@ -1035,7 +1044,9 @@ async function startServer() {
         return;
       }
 
-      const smtpTarget = await resolvePublicSmtpTarget(smtpHost, smtpPort);
+      const smtpDependencies = app.locals
+        .reminderSmtpRouteDependencies as ReminderSmtpRouteDependencies;
+      const smtpTarget = await smtpDependencies.resolveTarget(smtpHost, smtpPort);
       if (!smtpTarget) {
         res.status(400).json({
           error: 'Use um servidor SMTP público em uma porta compatível (25, 465, 587 ou 2525).',
@@ -1046,7 +1057,7 @@ async function startServer() {
       const sentAt = new Date().toISOString();
       const deliveryMode = 'custom_smtp' as const;
 
-      const transporter = nodemailer.createTransport({
+      const transporter = smtpDependencies.createTransport({
         host: smtpTarget.address,
         port: smtpPort,
         secure: smtpPort === 465,

@@ -10,6 +10,7 @@ import type {
   Transaction,
   Trip,
 } from '../types/finance';
+import { removeSmtpPasswordsFromSettings } from './secureSettings';
 
 export interface FullBackupDefaults {
   familyMembers: FamilyMember[];
@@ -186,7 +187,13 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
       return null;
     }
 
-    return parsed as unknown as FullFinanceBackup;
+    const sanitized = { ...parsed };
+    if (isRecord(sanitized.settings)) {
+      sanitized.settings = removeSmtpPasswordsFromSettings(
+        sanitized.settings as unknown as AppSettings
+      );
+    }
+    return sanitized as unknown as FullFinanceBackup;
   } catch {
     return null;
   }
@@ -202,9 +209,9 @@ export function resolveFullBackupOptionalState(
       ...defaults.investmentTargets,
       ...(backup.investmentTargets ?? {}),
     },
-    settings: {
+    settings: removeSmtpPasswordsFromSettings({
       ...defaults.settings,
       ...(backup.settings ?? {}),
-    },
+    }),
   };
 }
