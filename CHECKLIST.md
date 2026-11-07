@@ -6,7 +6,7 @@
 - [x] Rejeitar valores monetários acima de duas casas decimais em contas e orçamentos; manter zero válido e os formatos BRL aceitos.
 - [x] Ajustar atualização PWA: buscas/filtros fora de uma edição não seguram update; formulário alterado ainda adia até ser fechado.
 - [x] Cobrir comportamento de efetivar/reverter conta pendente na visão geral e falha de atualização dos certificados Firebase antes de consultar Neon.
-- [x] Rodar `bun test`: 330 testes em 53 arquivos, sem falhas; `bun run lint`, `bun run build` e `git diff --check` passaram. CI `42389148427` também passou após publicar o hotfix.
+- [x] Expandir testes DOM sintéticos para cartões, metas/simulador, relatórios/CSV e cliente Neon; suíte atual `bun test`: 343/343 em 53 arquivos. `bun run lint` e `bun run build` passaram; CI `42413460050` passou após o commit `953429a`.
 - [x] Exercitar pela UI publicada com dados sintéticos CRUD de conta, lançamento/data, cartão, categoria/orçamento, meta, viagem e investimento; sincronização observada, todos os registros temporários removidos e estado final conferido.
 - [x] Resolver a divergência do campo de data com evento input nativo; 07/11/2026 persistiu após sincronização e recarga. `page.fill` era limitação da automação, não bug do app.
 - [x] Concluir a matriz Ego em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`; baseline, viewport e dados sintéticos estão registrados.
@@ -16,7 +16,9 @@
 - [x] Corrigir data do pagamento da fatura: corrigido para a data local da quitação; UI publicada confirmou 07/11/2026 após baixa, estorno e limpeza dos registros sintéticos.
 - [ ] Exercitar import/export sintético e operações com efeitos externos isolados (convite e cotações) sem tocar dados pessoais.
 - [ ] Validar CRUD UI→API→Neon e restore autenticado; os testes atuais locais usam DOM e mocks e não provam persistência no banco.
+- [ ] Revisar a cópia redundante do workspace em `localStorage`: é gravada após carregar Neon, mas não é lida para hidratar a UI; decidir e validar sua remoção ou finalidade para evitar duplicação financeira sem necessidade.
 - [x] Confirmar atividade diária real: workflow `Neon — verificação diária` executou por `schedule` (`42397967500`) e `SELECT 1` no Neon passou. Isso confirma consulta diária, não compute ativo o dia inteiro.
+- [x] Executar backup cifrado manualmente em GitHub Actions (`42413305298`), artifact `neon-backup-42413305298`, 20.893 bytes, retenção até 2026-12-07; isso não valida o evento diário `schedule`.
 - [ ] Confirmar evento `schedule` do backup cifrado e verificar cópia privada age fora deste computador.
 - [ ] Convite entre duas contas depende de segunda conta controlada; aceite real não foi testado conforme decisão do usuário.
 
