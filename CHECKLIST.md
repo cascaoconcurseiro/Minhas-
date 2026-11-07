@@ -6,7 +6,7 @@
 - [x] Cobrir autenticação obrigatória nos endpoints de câmbio, sincronização de cotações e lembretes; sem Bearer retornam 401 e não fazem chamadas externas.
 - [x] Corrigir cache JWT após confirmação OTP: forçar atualização da sessão, exigir UID correspondente e e-mail verificado antes de enviar JWT às APIs; impedir downgrade da UI por evento de sessão atrasado.
 - [x] Verificar localmente: `bun test` 143/143 em 29 arquivos, `bun run lint`, `bun run build` e `git diff --check` aprovados.
-- [ ] Revisar e publicar as alterações locais em `main`; confirmar CI, deployment Vercel e health Neon após publicação.
+- [x] Publicar alterações em `main` no commit `a887df7`; CI `42317905521` aprovado, Vercel `dpl_GoeZ9DQEmLyer1F5nWzhsD31VRQ2` Ready, health `ok`/Neon `ok`/role restrita, `/api/workspace` sem sessão 401 e bundle publicado contém o force-refresh OTP sem Firebase SDK.
 - [ ] Validar sessão real Neon Auth/OTP e CRUD autenticado em ambiente controlado; testes locais não cobrem esse aceite.
 - [ ] Verificar evento diário automático GitHub `schedule` após 2026-11-07 12:23 UTC; execução manual anterior não comprova agendamento.
 - [ ] Executar restore autenticado, comprovar backup PostgreSQL independente, revisar interface desktop/mobile e fechar testes dos módulos pendentes.
