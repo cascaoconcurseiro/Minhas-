@@ -788,10 +788,42 @@ async function startServer() {
     }
   });
 
-  // Readiness checks the database connection and required workspace table.
-  app.get('/api/health', async (_req, res) => {
+  // Public status is deliberately lightweight: it reports configuration only.
+  // Database availability is reported by authenticated sync operations and the
+  // protected daily readiness check below.
+  app.get('/api/status', (_req, res) => {
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
-    const firebaseAuthConfigured = Boolean(process.env.FIREBASE_PROJECT_ID);
+    const firebaseAuthConfigured = Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY);
+    const neonConfigured = Boolean(process.env.DATABASE_URL);
+    const configured = firebaseAuthConfigured && neonConfigured;
+    res.set('Cache-Control', 'no-store');
+    res.status(configured ? 200 : 503).json({
+      status: configured ? 'ok' : 'degraded',
+      environment: process.env.NODE_ENV || 'development',
+      geminiConfigured: hasGeminiKey,
+      services: {
+        liveFxSearch: hasGeminiKey,
+        googleFinanceSync: true,
+        firebaseAuthConfigured,
+        neonConfigured,
+        neon: 'not_checked',
+      },
+      checkedAt: new Date().toISOString(),
+    });
+  });
+
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>. Fail closed before
+  // opening a Neon connection when the secret is absent or does not match.
+  app.get('/api/readiness', async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || req.get('authorization') !== `Bearer ${cronSecret}`) {
+      res.set('Cache-Control', 'no-store');
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
+    const firebaseAuthConfigured = Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY);
     let neonStatus: 'ok' | 'error' = 'error';
     let neonLeastPrivilegeRole: boolean | null = null;
     try {

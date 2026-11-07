@@ -9,7 +9,9 @@ const oldEnv = {
   VERCEL: process.env.VERCEL,
   DATABASE_URL: process.env.DATABASE_URL,
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  CRON_SECRET: process.env.CRON_SECRET,
 };
 
 let authTokens: Record<string, string> = {};
@@ -97,7 +99,8 @@ before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
   process.env.FIREBASE_PROJECT_ID = 'firebase-test-project';
-  delete process.env.FIREBASE_API_KEY;
+  process.env.FIREBASE_API_KEY = 'test-web-api-key';
+  process.env.CRON_SECRET = 'local-test-cron-secret';
   delete process.env.GEMINI_API_KEY;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
@@ -107,6 +110,21 @@ before(async () => {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
       });
+    }
+    if (url.startsWith('https://identitytoolkit.googleapis.com/v1/accounts:lookup')) {
+      try {
+        const requestBody = JSON.parse(String(init?.body || '{}')) as { idToken?: unknown };
+        const idToken = typeof requestBody.idToken === 'string' ? requestBody.idToken : '';
+        const payloadSegment = idToken.split('.')[1];
+        const claims = JSON.parse(Buffer.from(payloadSegment || '', 'base64url').toString('utf8')) as { sub?: unknown };
+        if (typeof claims.sub !== 'string') return new Response(JSON.stringify({ error: { message: 'INVALID_ID_TOKEN' } }), { status: 400 });
+        return new Response(JSON.stringify({ users: [{ localId: claims.sub, validSince: '0', disabled: false }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch {
+        return new Response(JSON.stringify({ error: { message: 'INVALID_ID_TOKEN' } }), { status: 400 });
+      }
     }
     if (googleFinanceResponseHtml && url.startsWith('https://www.google.com/finance/quote/')) {
       googleFinanceRequests.push(url);
@@ -273,7 +291,9 @@ after(async () => {
   restoreEnv('VERCEL');
   restoreEnv('DATABASE_URL');
   restoreEnv('FIREBASE_PROJECT_ID');
+  restoreEnv('FIREBASE_API_KEY');
   restoreEnv('GEMINI_API_KEY');
+  restoreEnv('CRON_SECRET');
 });
 
 test('API familiar exige Firebase Auth e sincroniza pelo Neon antes de revogar', async () => {
@@ -624,7 +644,9 @@ test('rota de migração legada está desativada; a autenticação permanece obr
 });
 
 test('health reporta apenas se a conexão usa a role de runtime restrita', async () => {
-  const response = await originalFetch(`${baseUrl}/api/health`);
+  const response = await originalFetch(`${baseUrl}/api/readiness`, {
+    headers: { Authorization: 'Bearer local-test-cron-secret' },
+  });
   assert.equal(response.status, 200);
   const health = await response.json() as {
     services: { neon: string; neonLeastPrivilegeRole: boolean | null };

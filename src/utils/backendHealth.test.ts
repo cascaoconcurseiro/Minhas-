@@ -3,28 +3,28 @@ import assert from 'node:assert/strict';
 import { summarizeBackendHealth } from './backendHealth';
 
 describe('backend health summary', () => {
-  it('reports ready only when HTTP and Neon are both healthy', () => {
+  it('reports API and required service configuration without claiming a live database check', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, {
         status: 'ok',
         geminiConfigured: true,
-        services: { neon: 'ok', firebaseAuthConfigured: true },
+        services: { neon: 'not_checked', neonConfigured: true, firebaseAuthConfigured: true },
       }),
-      { status: 'ok', neonStatus: 'ok', firebaseAuthConfigured: true, geminiConfigured: true }
+      { status: 'ok', neonStatus: 'configured', firebaseAuthConfigured: true, geminiConfigured: true }
     );
   });
 
-  it('reports a failed Neon connection even if an older API says status ok', () => {
+  it('does not infer live Neon availability from public configuration status', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, {
         status: 'ok',
-        services: { neon: 'error', firebaseAuthConfigured: true },
+        services: { neon: 'error', neonConfigured: true, firebaseAuthConfigured: true },
       }),
-      { status: 'error', neonStatus: 'error', firebaseAuthConfigured: true, geminiConfigured: false }
+      { status: 'ok', neonStatus: 'configured', firebaseAuthConfigured: true, geminiConfigured: false }
     );
   });
 
-  it('does not treat a missing Neon check as success', () => {
+  it('does not treat a missing Neon configuration as success', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, { status: 'ok', services: {} }),
       { status: 'error', neonStatus: 'error', firebaseAuthConfigured: false, geminiConfigured: false }
@@ -35,9 +35,9 @@ describe('backend health summary', () => {
     assert.deepEqual(
       summarizeBackendHealth(false, {
         status: 'ok',
-        services: { neon: 'ok', firebaseAuthConfigured: true },
+        services: { neon: 'not_checked', neonConfigured: true, firebaseAuthConfigured: true },
       }),
-      { status: 'error', neonStatus: 'ok', firebaseAuthConfigured: true, geminiConfigured: false }
+      { status: 'error', neonStatus: 'configured', firebaseAuthConfigured: true, geminiConfigured: false }
     );
   });
 
@@ -45,9 +45,9 @@ describe('backend health summary', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, {
         status: 'degraded',
-        services: { neon: 'ok', firebaseAuthConfigured: false },
+        services: { neon: 'not_checked', neonConfigured: true, firebaseAuthConfigured: false },
       }),
-      { status: 'error', neonStatus: 'ok', firebaseAuthConfigured: false, geminiConfigured: false }
+      { status: 'error', neonStatus: 'configured', firebaseAuthConfigured: false, geminiConfigured: false }
     );
   });
 });

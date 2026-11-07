@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { CreateTransactionBatchInput } from '../utils/financeRules';
-import type { BankAccount, Category, CreditCard, FamilyMember } from '../types/finance';
+import type { CascadeScope, CreateTransactionBatchInput } from '../utils/financeRules';
+import type { BankAccount, Category, CreditCard, FamilyMember, Transaction } from '../types/finance';
 import { TransactionModal } from './TransactionModal';
 
 const { createRoot } = await import('react-dom/client');
@@ -13,7 +13,7 @@ let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
 function renderTransactionModal(
-  onSaveBatch: (input: CreateTransactionBatchInput) => void,
+  onSaveBatch: (input: CreateTransactionBatchInput, editingId?: string, cascadeScope?: CascadeScope) => void,
   onClose: () => void,
   options: {
     accounts?: BankAccount[];
@@ -21,6 +21,7 @@ function renderTransactionModal(
     categories?: Category[];
     familyMembers?: FamilyMember[];
     onAddFamilyMember?: (member: Omit<FamilyMember, 'id'>) => FamilyMember | void;
+    editingTransaction?: Transaction;
   } = {}
 ) {
   container = document.createElement('div');
@@ -61,7 +62,7 @@ function renderTransactionModal(
         familyMembers: options.familyMembers ?? [],
         onAddFamilyMember: options.onAddFamilyMember,
         selectedMonth: '2026-11',
-        editingTransaction: null,
+        editingTransaction: options.editingTransaction ?? null,
         defaultMode: 'expense',
       })
     );
@@ -324,6 +325,53 @@ test('credit-card purchase creates pending installments tied to the chosen card'
   assert.equal(saved[0].recurrence, 'installment');
   assert.equal(saved[0].installmentTotal, 3);
   assert.equal(saved[0].accountId, undefined);
+});
+
+test('editing an installment series passes the selected cascade scope and transaction id', async () => {
+  let saved: CreateTransactionBatchInput | undefined;
+  let savedId: string | undefined;
+  let savedScope: CascadeScope | undefined;
+  const installment: Transaction = {
+    id: 'installment-test-2',
+    description: 'Notebook sintético',
+    amount: 1000,
+    date: '2026-11-07',
+    competenceMonth: '2026-11',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'category-test',
+    creditCardId: testCard.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentGroupId: 'series-test',
+    installmentNumber: 2,
+    installmentTotal: 4,
+  };
+  const page = renderTransactionModal(
+    (input, id, scope) => {
+      saved = input;
+      savedId = id;
+      savedScope = scope;
+    },
+    () => {},
+    { cards: [testCard], editingTransaction: installment }
+  );
+
+  assert.ok(page.textContent?.includes('Escopo da Alteração na Série (2/4 meses)'));
+  await act(async () => {
+    [...page.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('Toda a série (passados e futuros)'))
+      ?.click();
+  });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
+  });
+
+  assert.equal(savedId, installment.id);
+  assert.equal(savedScope, 'all_series');
+  assert.equal(saved?.description, installment.description);
+  assert.equal(saved?.recurrence, 'installment');
+  assert.equal(saved?.installmentTotal, 4);
 });
 
 test('bank transfer rejects same source and destination, then submits both distinct accounts', async () => {

@@ -82,7 +82,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
 
   const [apiHealth, setApiHealth] = useState<{
     status: 'checking' | 'ok' | 'error';
-    neonStatus: 'checking' | 'ok' | 'error';
+    neonStatus: 'checking' | 'configured' | 'error';
     geminiConfigured: boolean;
     checkedAt: string | null;
   }>({
@@ -97,7 +97,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
   const checkBackendHealth = async (): Promise<boolean> => {
     setApiHealth((prev) => ({ ...prev, status: 'checking', neonStatus: 'checking' }));
     try {
-      const res = await fetch('/api/health', { cache: 'no-store' });
+      const res = await fetch('/api/status', { cache: 'no-store' });
       const data = await res.json().catch(() => null);
       const summary = summarizeBackendHealth(res.ok, data);
       setApiHealth({
@@ -346,10 +346,10 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                       </span>
                       <span className="font-bold text-slate-900">
                         {apiHealth.status === 'ok'
-                          ? 'API e Neon respondendo'
+                          ? 'API ativa; Neon configurado'
                           : apiHealth.status === 'checking'
                           ? 'Verificando...'
-                          : 'API/Neon indisponível'}
+                          : 'API ou configuração indisponível'}
                       </span>
                     </div>
                   </div>
@@ -409,7 +409,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
                   </div>
                   {apiHealth.neonStatus === 'checking' ? (
                     <RefreshCw className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
-                  ) : apiHealth.neonStatus === 'ok' ? (
+                  ) : apiHealth.neonStatus === 'configured' ? (
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   ) : (
                     <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />

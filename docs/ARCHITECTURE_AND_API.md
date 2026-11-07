@@ -22,7 +22,8 @@ flowchart TD
     end
 
     subgraph Backend ["Servidor Express 4 (backend/app.ts - Porta 3000 ou Function Vercel)"]
-        Health["GET /api/health"]
+        Status["GET /api/status (público, leve)"]
+        Readiness["GET /api/readiness (Bearer CRON_SECRET)"]
         WorkspaceAPI["GET/POST/PUT /api/workspace (Firebase ID token)"]
         LiveFX["POST /api/fx/live-rate"]
         Quotes["POST /api/investments/sync-quotes"]
@@ -52,8 +53,19 @@ flowchart TD
 
 ## 2. Especificação da API REST (`backend/app.ts`)
 
-### 2.1. `GET /api/health`
-Verifica a disponibilidade do servidor Express e dos serviços integrados.
+### 2.1. `GET /api/status` e `GET /api/readiness`
+
+`GET /api/status` é público e informa somente se a API e as configurações
+necessárias estão presentes. Não abre conexão nem executa consultas no Neon;
+`services.neon: "not_checked"` significa que a disponibilidade do banco não
+foi medida. O diagnóstico da interface combina esse estado com o estado real da
+última sincronização.
+
+`GET /api/readiness` verifica a conexão, a tabela operacional e os privilégios
+da role do Neon. Exige `Authorization: Bearer <CRON_SECRET>` e retorna `401`
+antes de conectar ao banco quando o segredo está ausente ou não corresponde.
+O cron diário da Vercel aponta para essa rota e envia o bearer secret configurado
+no ambiente do projeto.
 
 - **Resposta `200 OK`**:
 ```json

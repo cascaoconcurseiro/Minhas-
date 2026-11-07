@@ -201,6 +201,36 @@ test('AccountsTab updates an existing synthetic account and preserves its id', a
   assert.equal(captured.updatedAccounts[0]?.initialBalance, existingAccount.initialBalance);
 });
 
+test('AccountsTab blocks an invalid edited opening balance and allows correction', async () => {
+  const updatedAccounts: BankAccount[] = [];
+  const page = renderAccountsTab({
+    accounts: [existingAccount],
+    onUpdateAccount: (account) => updatedAccounts.push(account),
+  });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>(`[aria-label="Editar conta ${existingAccount.name}"]`)!.click();
+  });
+  const form = page.querySelector<HTMLFormElement>('[data-testid="account-create-edit-form"]');
+  const balance = page.querySelector<HTMLInputElement>('#account-form-initial-balance-input');
+  assert.ok(form && balance);
+
+  await act(async () => {
+    setInputValue(balance, '12abc');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(updatedAccounts.length, 0, 'saldo malformado não deve acionar a edição');
+  assert.match(page.textContent ?? '', /saldo inicial válido/i);
+  assert.ok(page.querySelector('[data-testid="account-create-edit-form"]'), 'formulário permanece aberto para correção');
+
+  await act(async () => {
+    setInputValue(balance, '2.345,67');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(updatedAccounts.length, 1);
+  assert.equal(updatedAccounts[0]?.id, existingAccount.id);
+  assert.equal(updatedAccounts[0]?.initialBalance, 2345.67);
+});
+
 test('AccountsTab requires confirmation before routing account deletion', async () => {
   let deletedAccountId = '';
   originalConfirm = window.confirm;

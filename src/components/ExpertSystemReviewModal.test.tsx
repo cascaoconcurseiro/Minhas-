@@ -36,7 +36,7 @@ beforeEach(() => {
   originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({
     status: 'ok',
-    services: { neon: 'ok', firebaseAuthConfigured: true },
+    services: { neon: 'not_checked', neonConfigured: true, firebaseAuthConfigured: true },
   }), { status: 200, headers: { 'content-type': 'application/json' } });
 });
 

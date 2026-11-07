@@ -64,7 +64,7 @@ test('AuthAndCloudTab reports unavailable Neon and API when health is degraded',
   globalThis.fetch = async () => new Response(JSON.stringify({
     status: 'degraded',
     geminiConfigured: false,
-    services: { neon: 'error', firebaseAuthConfigured: true },
+    services: { neon: 'not_checked', neonConfigured: false, firebaseAuthConfigured: true },
   }), { status: 503, headers: { 'Content-Type': 'application/json' } });
 
   const page = renderAuthAndCloudTab();
@@ -72,7 +72,7 @@ test('AuthAndCloudTab reports unavailable Neon and API when health is degraded',
 
   assert.match(page.textContent ?? '', /Firebase Auth, API ou Neon indisponível/);
   assert.match(page.textContent ?? '', /API indisponível/);
-  assert.match(page.textContent ?? '', /Neon indisponível/);
+  assert.match(page.textContent ?? '', /Neon não configurado/);
   assert.doesNotMatch(page.textContent ?? '', /Dados sincronizados com Neon/);
 });
 
@@ -95,7 +95,7 @@ test('AuthAndCloudTab submits email and password to the Firebase sign-in callbac
   globalThis.fetch = async () => new Response(JSON.stringify({
     status: 'ok',
     geminiConfigured: false,
-    services: { neon: 'ok', firebaseAuthConfigured: true },
+    services: { neon: 'not_checked', neonConfigured: true, firebaseAuthConfigured: true },
   }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
   let signedIn: [string, string] | null = null;

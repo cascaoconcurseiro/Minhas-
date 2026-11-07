@@ -75,7 +75,7 @@ test('ProjectAndDatabaseDocsPanel switches docs tabs, copies commands and trigge
   try {
     const page=render(<ProjectAndDatabaseDocsPanel autoVaultId="vault-test" userEmail="test@example.com" />);
     click(button('Arquitetura & Módulos',page)); assert.match(page.textContent??'',/Documentação Gerada no Projeto/);
-    click(button('API REST & Motores Puros',page)); assert.match(page.textContent??'',/\/api\/health/);
+    click(button('API REST & Motores Puros',page)); assert.match(page.textContent??'',/\/api\/readiness/);
     click(button('Sincronização GitHub',page));
     const input=page.querySelector('input'); assert.ok(input); act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')?.set?.call(input,'https://github.com/test/repo.git'); input.dispatchEvent(new Event('input',{bubbles:true})); input.dispatchEvent(new Event('change',{bubbles:true}));});
     click(button('Copiar Comandos',page)); await new Promise(r=>setTimeout(r,0));

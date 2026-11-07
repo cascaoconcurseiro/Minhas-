@@ -127,6 +127,46 @@ test('InvestmentsTab validates and creates a normalized synthetic asset', async 
   assert.equal(page.querySelector('form'), null, 'successful creation closes the form');
 });
 
+test('asset entry rejects nonpositive quantity and invalid prices without rewriting financial values', async () => {
+  let createdAsset: Omit<InvestmentAsset, 'id'> | null = null;
+  const page = renderInvestmentsTab({ onAddAsset: (asset) => { createdAsset = asset; } });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="open-new-investment-btn"]')!.click(); });
+  const form = page.querySelector<HTMLFormElement>('form');
+  const ticker = page.querySelector<HTMLInputElement>('#investment-form-ticker');
+  const name = page.querySelector<HTMLInputElement>('#investment-form-name');
+  const quantity = page.querySelector<HTMLInputElement>('#investment-form-quantity');
+  const averagePrice = page.querySelector<HTMLInputElement>('#investment-form-average-price');
+  const currentPrice = page.querySelector<HTMLInputElement>('#investment-form-current-price');
+  assert.ok(form && ticker && name && quantity && averagePrice && currentPrice);
+
+  await act(async () => {
+    setInputValue(ticker, 'syn1');
+    setInputValue(name, 'Ativo sintético');
+    setInputValue(quantity, '0');
+    setInputValue(averagePrice, '100,00');
+    setInputValue(currentPrice, '105,00');
+    form.requestSubmit();
+  });
+  assert.equal(createdAsset, null, 'quantidade zero não deve virar uma posição mínima artificial');
+  assert.match(page.textContent ?? '', /quantidade.*maior que zero/i);
+
+  await act(async () => {
+    setInputValue(quantity, '2');
+    setInputValue(averagePrice, 'inválido');
+    form.requestSubmit();
+  });
+  assert.equal(createdAsset, null, 'preço de aquisição inválido não deve virar R$ 0,01');
+  assert.match(page.textContent ?? '', /preços.*maiores que zero/i);
+
+  await act(async () => {
+    setInputValue(averagePrice, '100,00');
+    setInputValue(currentPrice, '0');
+    form.requestSubmit();
+  });
+  assert.equal(createdAsset, null, 'preço atual zero não deve virar R$ 0,01');
+  assert.match(page.textContent ?? '', /preços.*maiores que zero/i);
+});
+
 test('asset entry form labels are associated with their controls', async () => {
   const page = renderInvestmentsTab({});
   const openFormButton = page.querySelector<HTMLButtonElement>('[data-testid="open-new-investment-btn"]');

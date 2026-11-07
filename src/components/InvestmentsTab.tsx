@@ -380,9 +380,17 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       setFormError('Informe o código/ticker e o nome do ativo.');
       return;
     }
-    const qty = Math.max(0.0001, parseBRLInput(quantityStr));
-    const avg = Math.max(0.01, parseBRLInput(avgPriceStr));
-    const curr = Math.max(0.01, parseBRLInput(currPriceStr));
+    const qty = parseBRLInput(quantityStr);
+    const avg = parseBRLInput(avgPriceStr);
+    const curr = parseBRLInput(currPriceStr);
+    if (qty <= 0) {
+      setFormError('Informe uma quantidade maior que zero.');
+      return;
+    }
+    if (avg <= 0 || curr <= 0) {
+      setFormError('Informe preços médios e atuais maiores que zero.');
+      return;
+    }
     const monthlyY = Math.max(0, parseBRLInput(yieldStr));
 
     if (editingAsset) {

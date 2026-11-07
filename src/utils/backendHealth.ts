@@ -1,6 +1,6 @@
 export interface BackendHealthSummary {
   status: 'ok' | 'error';
-  neonStatus: 'ok' | 'error';
+  neonStatus: 'configured' | 'error';
   firebaseAuthConfigured: boolean;
   geminiConfigured: boolean;
 }
@@ -15,11 +15,11 @@ export function summarizeBackendHealth(
   const services = body.services && typeof body.services === 'object'
     ? body.services as Record<string, unknown>
     : {};
-  const neonStatus = services.neon === 'ok' ? 'ok' : 'error';
+  const neonStatus = services.neonConfigured === true ? 'configured' : 'error';
   const firebaseAuthConfigured = services.firebaseAuthConfigured === true;
 
   return {
-    status: httpOk && body.status === 'ok' && neonStatus === 'ok' && firebaseAuthConfigured
+    status: httpOk && body.status === 'ok' && neonStatus === 'configured' && firebaseAuthConfigured
       ? 'ok'
       : 'error',
     neonStatus,

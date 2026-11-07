@@ -1,5 +1,47 @@
 # Handoff — Minhas Economias
 
+## Estado atual — 2026-11-07 — autenticação, cron e cobertura
+
+Arquitetura vigente: **Firebase Auth identifica o usuário; Neon PostgreSQL é o único banco operacional**. O runtime importa `firebase/auth`, sem uso de Firestore. Firebase permanece no login/UID/token e na checagem de sessão; contas, lançamentos e demais dados financeiros persistem no Neon.
+
+Nesta continuação, `/api/status` informa configuração sem conectar ao Neon; `/api/readiness` requer `Authorization: Bearer CRON_SECRET` antes de abrir conexão e verifica Neon/role restrita. `vercel.json` aponta o cron para readiness e `CRON_SECRET` foi cadastrado como variável sensível em Production. O valor não está no repositório nem neste handoff. O código ainda precisa ser publicado para a rota entrar em uso.
+
+O verificador Firebase consulta estado da conta para rejeitar usuário desativado/sessão revogada; sem `FIREBASE_API_KEY` falha com 503, códigos conhecidos de token/conta retornam 401 e erro de configuração/rede/desconhecido retorna 503. Também foram corrigidos: importação CSV sem conta, validação de quantidade/preços de investimento e asserção documental do endpoint readiness. Foram ampliados testes DOM de cartões, contas, orçamento, metas/simulador e configurações. A revisão independente não encontrou blocker adicional após as correções.
+
+Validação local reproduzida nesta sessão: `bun test` **374/374 em 54 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram. A maioria dos novos testes verifica DOM/callbacks e serviços mockados; isso não prova persistência financeira remota.
+
+## Próximo passo concreto
+
+Revisar o diff e publicar em `main`; acompanhar CI/Vercel, então verificar `/api/status`, `/api/readiness` sem autorização (401) e com `CRON_SECRET` (200 se Neon disponível). Depois observar uma execução automática do readiness e uma execução `schedule` do backup, distinguindo ambas de `workflow_dispatch`.
+
+## Bloqueios para concluir a meta
+
+- Restore pela interface até Neon QA e readback após reload ainda não foram comprovados.
+- Falta CRUD/readback independente por entidade e isolamento de dois titulares em Neon QA. Convite, aceite/recusa e lançamento compartilhado foram validados anteriormente com duas identidades e limpeza, mas isso não fecha todos os casos de isolamento.
+- O backup mais recente conhecido foi iniciado manualmente; a execução `schedule` ainda não está comprovada. A chave `age` precisa de cópia externa e teste de recuperação em outro dispositivo.
+- O sweep completo mobile/acessibilidade permanece aberto; FX/Gemini ao vivo não está configurado.
+- O deployment destas alterações ainda não aconteceu.
+
+## Atualização desta sessão — auditoria de cobertura (2026-11-07)
+
+O usuário informou que a suíte mais recente passou **374/374 em 54 arquivos**, junto com build, lint e `git diff --check`. Não reexecutei esses comandos nesta auditoria; o status é evidência relatada pelo usuário. O último handoff anterior registrava 356/356, então aquele total deve ser lido como resultado histórico daquela execução. Preservei as alterações locais já presentes no checkout (base `5523008`); não editei código nem fiz chamadas de escrita à API/Neon.
+
+Revisei o roteiro e testes para três requisitos: restore UI→API→Neon, isolamento por UID e CRUD/readback de todas as entidades. Os casos atuais do frontend cobrem validações e callbacks com props/dados sintéticos; `src/utils/fullBackup.test.ts` cobre parsing/sanitização; `backend/familyApi.test.ts` exercita restore PUT→GET e leitura por UID em servidor de teste com `Pool` em memória. Isso não é a mesma evidência de uma restauração importada pela UI, gravada em branch Neon QA e relida após reload. O CHECKLIST já registra ensaio real API→Neon com UID sintético em branch QA e limpeza, mas não UI→API→Neon ponta a ponta.
+
+Há evidência real anterior de fluxos familiares com segunda identidade e limpeza (`CHECKLIST.md` em “Validação real de convites e lançamento compartilhado — 2026-11-07”). Ela não prova RLS cross-owner de workspace com dois titulares sobre Neon real. Testes de contrato conferem UID autenticado/`owner_user_id` e 404 para outro UID contra banco fake; a execução real em QA citada acima comprovou gravação/readback para um UID sintético e ausência agregada em production, mas ainda falta um ensaio integrado de isolamento de duas identidades num banco QA isolado.
+
+Os testes DOM das abas cobrem create/edit/delete e callbacks sintéticos em contas, lançamentos, cartões, categorias/orçamentos, metas, investimentos e viagens; SharedExpenses também tem cenários sintéticos. O CHECKLIST registra ciclos anteriores de create→reload→delete pela UI para subconjunto dessas entidades e fluxo familiar real, mas continua aberto o readback independente no Neon, especialmente cobertura integral módulo a módulo (incluindo categorias, relatórios/backup e operações críticas restantes). A suíte 374/374 não deve ser apresentada como CRUD remoto completo.
+
+Revisão read-only de import/export/restore no checkout atual (`main`, árvore já modificada em vários arquivos; nenhuma alteração de código nesta revisão): `src/utils/fullBackup.ts:116-221` aceita versões inteiras 1–6, exige as sete coleções como arrays de objetos e valida categorias mais estritamente que as demais entidades. `src/utils/fullBackup.test.ts` tem casos para v3/v5/v6, JSON inválido, v7, uma coleção ausente, categorias e datas inválidas; não encontrei testes específicos para v1/v2/v4 nem entidades vazias/incompletas em cada coleção. Uma transação sem `date` passa pelo parser (`fullBackup.ts:159-164`) e o reparo lhe atribui a data atual (`travelRules.ts:1638-1644`); confirmar se algum formato legado suportado realmente omite esse campo e fixar o resultado esperado, pois a data pode mudar silenciosamente.
+
+Na persistência, o callback de importação aplica estado local e retorna sucesso antes do autosave debounced (`src/App.tsx:2750-2803`, `1162-1197`); as mensagens da UI dizem corretamente que o backup foi carregado na sessão e que o Neon ainda precisa ser confirmado. O backend tem cobertura sintética de compare-and-swap 409, 503 e PUT→GET em `backend/familyApi.test.ts`; o harness App cobre 503 no carregamento inicial, mas não encontrei teste integrando restore pela UI ao save 409/503, resolução de conflito, retry e readback pós-reload. A seleção/validação/confirm/callback da UI é coberta por `SettingsModal.test.tsx` com `FileReader` e callback sintéticos; exportação verifica o callback, não o download/conteúdo final do Blob.
+
+**Erro concreto encontrado:** documentação desatualizada que ainda cita 356 testes como o total atual. Não encontrei defeito funcional concreto no código na revisão estática delimitada; não executei testes nem chamadas externas. A arquitetura Firebase Auth + Neon permanece a mesma, portanto o `MASTER_BLUEPRINT.md` não mudou.
+
+**Próximo passo concreto:** primeiro decidir/testar a semântica de campo `date` ausente e adicionar casos por versão e por entidade incompleta; depois, em Neon QA descartável, exercitar `handleImportFullBackupJson` até `saveNeonWorkspace`, cobrir save 409 e 503/retry, recarregar e confirmar GET/readback. Nenhuma escrita em production.
+
+**Bloqueios/limites:** ambiente/branch QA e duas identidades controladas precisam estar disponíveis; a contagem 374/374 foi informada pelo usuário e não reproduzida nesta revisão. A árvore de trabalho tinha modificações preexistentes; mantê-las intactas é necessário.
+
 ## Sessão — 2026-11-07 — orquestração do app e execução diária
 
 Adicionei uma suíte sintética do componente `App` em `src/App.test.tsx` com o harness isolado `src/test-utils/appOrchestrationHarness.tsx`. Ela comprova que a tela permanece bloqueada enquanto o workspace Neon carrega, só mostra dados do snapshot após sucesso e sinaliza sincronização; também prova que um 503 não cria nem salva um workspace vazio e que “Tentar novamente” recupera o carregamento. Os mocks rodam em processo separado para não interferir na suíte global. Verificação local: `bun test` **356/356 em 54 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram. Esses casos usam Firebase/Neon sintéticos, não são E2E remoto.

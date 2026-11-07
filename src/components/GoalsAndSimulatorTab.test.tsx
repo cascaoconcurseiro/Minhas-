@@ -4,6 +4,7 @@ import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import type { BankAccount, InvestmentAsset, SavingsGoal } from '../types/finance';
+import { formatBRL, simulateFixedIncomeBR } from '../utils/financeRules';
 import { GoalsAndSimulatorTab } from './GoalsAndSimulatorTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -323,4 +324,29 @@ test('simulator annual rate and CDI multiplier each recalculate the displayed es
   const higherMultiplierEstimate = page.querySelector('.text-2xl.font-bold')?.textContent;
   assert.ok(higherMultiplierEstimate);
   assert.notEqual(higherMultiplierEstimate, lowerRateEstimate);
+});
+
+test('simulator DOM displays the computed net balance, invested total, and IR rate', async () => {
+  const page = renderGoalsTab({});
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('#sim-initial')!, '10.000,00');
+    setInputValue(page.querySelector<HTMLInputElement>('#sim-monthly')!, '500,00');
+    const term = page.querySelector<HTMLSelectElement>('#sim-months')!;
+    term.value = '12';
+    term.dispatchEvent(new window.Event('change', { bubbles: true }));
+    setInputValue(page.querySelector<HTMLInputElement>('#sim-cdi-rate')!, '11,25');
+    setInputValue(page.querySelector<HTMLInputElement>('#sim-cdi-mult')!, '100');
+  });
+
+  const expected = simulateFixedIncomeBR({
+    initialAmount: 10000,
+    monthlyContribution: 500,
+    months: 12,
+    cdiAnnualRatePercent: 11.25,
+    cdiMultiplierPercent: 100,
+    isTaxExempt: false,
+  });
+  assert.equal(page.querySelector('.text-2xl.font-bold')?.textContent, formatBRL(expected.netBalanceCdi));
+  assert.ok(page.textContent?.includes(formatBRL(expected.totalInvested)));
+  assert.ok(page.textContent?.includes(`${expected.irRatePercent}% (${formatBRL(expected.irTaxAmount)})`));
 });

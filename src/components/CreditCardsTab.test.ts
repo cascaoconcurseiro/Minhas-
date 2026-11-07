@@ -205,6 +205,32 @@ test('submits edited card settings and preserves its id', async () => {
   assert.equal(page.querySelector('#card-edit-name-input'), null);
 });
 
+test('card edit rejects a nonpositive limit and keeps the form open for correction', async () => {
+  const card: CreditCard = { id: 'invalid-edit-card', name: 'Cartão sintético', brand: 'Visa', limit: 1000, closingDay: 10, dueDay: 20, defaultAccountId: 'account-1', color: '#000000' };
+  const updates: CreditCard[] = [];
+  const page = renderEmptyCardsTab(() => {}, { card, onUpdateCard: (next) => updates.push(next) });
+  await act(async () => { page.querySelector<HTMLElement>(`[data-testid="credit-card-item-${card.id}"]`)!.click(); });
+  await act(async () => { [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Editar Cartão'))!.click(); });
+
+  const form = page.querySelector<HTMLFormElement>('form');
+  const limit = page.querySelector<HTMLInputElement>('#card-edit-limit-input');
+  assert.ok(form && limit);
+  await act(async () => {
+    setInputValue(limit, '0');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+
+  assert.equal(updates.length, 0, 'limite zero não deve ser persistido');
+  assert.ok(page.querySelector('#card-edit-limit-input'), 'o usuário permanece no formulário para corrigir o valor');
+
+  await act(async () => {
+    setInputValue(limit, '1.500,00');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0]?.limit, 1500);
+});
+
 test('full invoice payment uses the selected default account', async () => {
   const card: CreditCard = { id: 'full-card', name: 'Cartão sintético', brand: 'Visa', limit: 1000, closingDay: 10, dueDay: 20, defaultAccountId: 'account-1', color: '#000000' };
   const calls: Array<[string, string, number?]> = [];

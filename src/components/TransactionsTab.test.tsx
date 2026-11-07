@@ -59,6 +59,8 @@ function renderTransactionsTab(
     onToggleStatus?: (txId: string) => void;
     onDuplicateTransaction?: (tx: Transaction) => void;
     onOpenNewTransaction?: (mode: 'expense' | 'credit_card' | 'income' | 'transfer') => void;
+    onAnticipateInstallments?: (groupId: string, discountPercent: number) => void;
+    onReverseAnticipation?: (targetIdOrGroupId: string) => void;
   } = {}
 ) {
   container = document.createElement('div');
@@ -80,6 +82,8 @@ function renderTransactionsTab(
         onDeleteTransaction,
         onOpenNewTransaction: callbacks.onOpenNewTransaction ?? (() => {}),
         onDuplicateTransaction: callbacks.onDuplicateTransaction,
+        onAnticipateInstallments: callbacks.onAnticipateInstallments,
+        onReverseAnticipation: callbacks.onReverseAnticipation,
       })
     );
   });
@@ -192,6 +196,61 @@ test('TransactionsTab identifies the full installment series before invoking gro
   await act(async () => { deleteButton.click(); });
   assert.match(confirmationMessage, /todas as parcelas da série "Notebook parcelado"/);
   assert.deepEqual(deleted, [['tx-installment-1', true]]);
+});
+
+test('TransactionsTab routes installment anticipation and reversal to the correct callbacks', async () => {
+  const groupId = 'installment-group-anticipation';
+  const currentInstallment = makeTransaction({
+    id: 'tx-installment-current',
+    description: 'Compra parcelada atual',
+    competenceMonth: '2026-11',
+    installmentGroupId: groupId,
+    installmentNumber: 1,
+    installmentTotal: 3,
+    recurrence: 'installment',
+  });
+  const futureInstallment = makeTransaction({
+    id: 'tx-installment-future',
+    description: 'Compra parcelada futura',
+    date: '2026-12-03',
+    competenceMonth: '2026-12',
+    installmentGroupId: groupId,
+    installmentNumber: 2,
+    installmentTotal: 3,
+    recurrence: 'installment',
+    status: 'pending',
+  });
+  const anticipatedInstallment = makeTransaction({
+    id: 'tx-installment-anticipated',
+    description: 'Parcela antecipada',
+    isAnticipated: true,
+    installmentGroupId: groupId,
+    installmentNumber: 2,
+    installmentTotal: 3,
+    recurrence: 'installment',
+  });
+  const anticipated: Array<[string, number]> = [];
+  const reversed: string[] = [];
+  const page = renderTransactionsTab(
+    [currentInstallment, futureInstallment, anticipatedInstallment],
+    () => {},
+    () => {},
+    undefined,
+    {
+      onAnticipateInstallments: (id, discount) => anticipated.push([id, discount]),
+      onReverseAnticipation: (id) => reversed.push(id),
+    }
+  );
+
+  const anticipationButton = page.querySelector<HTMLButtonElement>('[data-testid="ledger-anticipate-btn"]');
+  assert.ok(anticipationButton, 'deve mostrar a ação quando existem parcelas futuras pendentes');
+  await act(async () => { anticipationButton.click(); });
+  assert.deepEqual(anticipated, [[groupId, 0]]);
+
+  const reversalButton = page.querySelector<HTMLButtonElement>('[data-testid="ledger-reverse-anticipation-btn"]');
+  assert.ok(reversalButton, 'deve mostrar reversão para uma parcela antecipada');
+  await act(async () => { reversalButton.click(); });
+  assert.deepEqual(reversed, [anticipatedInstallment.id]);
 });
 
 test('TransactionsTab routes quick actions to expense, card purchase, and income modes', async () => {

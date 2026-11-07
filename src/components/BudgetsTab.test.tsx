@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { Category, CategorySpendItem } from '../types/finance';
+import type { Category, CategorySpendItem, Transaction } from '../types/finance';
 import { BudgetsTab } from './BudgetsTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -48,6 +48,7 @@ function renderBudgetsTab(
     onDeleteCategory?: (id: string) => void;
     onAddSubcategory?: (categoryId: string, name: string) => void;
     onDeleteSubcategory?: (categoryId: string, subcategoryId: string) => void;
+    transactions?: Transaction[];
   } = {}
 ) {
   container = document.createElement('div');
@@ -59,7 +60,7 @@ function renderBudgetsTab(
         selectedMonth: '2026-11',
         categories: options.categories ?? [category],
         categoryBreakdown: options.categoryBreakdown ?? [categorySpend],
-        transactions: [],
+        transactions: options.transactions ?? [],
         onUpdateCategoryBudget,
         onAddCategory: options.onAddCategory ?? (() => {}),
         onUpdateCategory: options.onUpdateCategory ?? (() => {}),
@@ -164,6 +165,22 @@ test('invalid budget input is rejected and inline edit can be canceled without s
   await act(async () => { cancelButton.click(); });
   assert.equal(page.querySelector(`[aria-label="Novo teto para ${category.name}"]`), null);
   assert.deepEqual(updates, []);
+});
+
+test('monthly budget accepts zero and rejects negative limits', async () => {
+  const updates: Array<[string, number]> = [];
+  const page = renderBudgetsTab((categoryId, amount) => updates.push([categoryId, amount]));
+  await act(async () => { page.querySelector<HTMLButtonElement>(`[aria-label="Editar teto de ${category.name}"]`)!.click(); });
+  const input = page.querySelector<HTMLInputElement>(`[aria-label="Novo teto para ${category.name}"]`);
+  const save = page.querySelector<HTMLButtonElement>(`[aria-label="Salvar teto de ${category.name}"]`);
+  assert.ok(input && save);
+
+  await act(async () => { setInputValue(input, '-1,00'); save.click(); });
+  assert.deepEqual(updates, [], 'limite negativo não deve ser enviado');
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /valor válido e não negativo/i);
+
+  await act(async () => { setInputValue(input, '0,00'); save.click(); });
+  assert.deepEqual(updates, [[category.id, 0]], 'limite zero deve continuar permitido');
 });
 
 test('category editor rejects a duplicate normalized name without calling create callback', async () => {
@@ -333,4 +350,38 @@ test('monthly budget bucket filters show only matching synthetic category rows',
   assert.match(page.textContent ?? '', /Moradia Sintética/);
   assert.match(page.textContent ?? '', /Lazer sintético/);
   assert.match(page.textContent ?? '', /Reserva sintética/);
+});
+
+test('monthly 50-30-20 diagnosis includes only income and expenses in the selected competence month', () => {
+  const transactions: Transaction[] = [
+    {
+      id: 'income-current-month', description: 'Renda do mês', amount: 1000, date: '2026-11-05',
+      competenceMonth: '2026-11', type: 'income', status: 'paid', categoryId: 'income-synthetic',
+      paymentMethod: 'pix', recurrence: 'single',
+    },
+    {
+      id: 'income-previous-month', description: 'Renda anterior', amount: 9000, date: '2026-10-05',
+      competenceMonth: '2026-10', type: 'income', status: 'paid', categoryId: 'income-synthetic',
+      paymentMethod: 'pix', recurrence: 'single',
+    },
+    {
+      id: 'expense-current-month', description: 'Moradia deste mês', amount: 100, date: '2026-11-08',
+      competenceMonth: '2026-11', type: 'expense', status: 'paid', categoryId: category.id,
+      paymentMethod: 'pix', recurrence: 'single',
+    },
+    {
+      id: 'expense-previous-month', description: 'Moradia anterior', amount: 500, date: '2026-10-08',
+      competenceMonth: '2026-10', type: 'expense', status: 'paid', categoryId: category.id,
+      paymentMethod: 'pix', recurrence: 'single',
+    },
+  ];
+  const page = renderBudgetsTab(() => {}, { transactions });
+  const diagnosis = Array.from(page.querySelectorAll('section')).find((section) =>
+    section.textContent?.includes('Diagnóstico da Regra 50-30-20 no Mês')
+  );
+  assert.ok(diagnosis);
+  const diagnosisText = (diagnosis.textContent ?? '').replace(/\u00a0/g, ' ');
+  assert.match(diagnosisText, /R\$ 1\.000,00/, 'selected-month income is included');
+  assert.match(diagnosisText, /R\$ 100,00/, 'selected-month expense is included');
+  assert.doesNotMatch(diagnosisText, /R\$ 9\.000,00|R\$ 600,00 \/ ideal/, 'previous-month totals are excluded');
 });

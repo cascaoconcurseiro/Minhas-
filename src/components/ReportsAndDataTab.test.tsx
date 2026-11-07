@@ -217,6 +217,20 @@ test('ReportsAndDataTab keeps empty or invalid CSV visible and never reports a z
   assert.match(page.textContent ?? '', /Use o formato: YYYY-MM-DD/);
 });
 
+test('ReportsAndDataTab blocks CSV import until a destination account exists', async () => {
+  let importCalls = 0;
+  const page = renderReports({ accounts: [], onImportQuickCsvLines: () => { importCalls += 1; return 1; } });
+  const submit = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Processar e Importar Linhas')) as HTMLButtonElement | undefined;
+  const form = page.querySelector<HTMLTextAreaElement>('#csv-paste-box')?.closest('form');
+  assert.ok(submit && form);
+  assert.equal(submit.disabled, true);
+  assert.match(page.textContent ?? '', /Cadastre uma conta antes de importar lançamentos/);
+
+  await act(async () => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+  assert.equal(importCalls, 0, 'submitting without an account never forwards an empty account ID');
+  assert.doesNotMatch(page.textContent ?? '', /lançamento\(s\) importado\(s\) com sucesso/);
+});
+
 test('ReportsAndDataTab reset cancellation preserves data and confirmation invokes callback once', async () => {
   let resets = 0;
   const page = renderReports({ onResetWorkspaceData: () => { resets += 1; } });

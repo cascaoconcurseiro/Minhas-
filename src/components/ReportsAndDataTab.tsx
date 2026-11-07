@@ -336,6 +336,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
   const handleRunImport = (e: React.FormEvent) => {
     e.preventDefault();
+    if (accounts.length === 0) return;
     const count = onImportQuickCsvLines(
       csvPasteText,
       importTargetAccId || accounts[0]?.id || ''
@@ -1241,12 +1242,18 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 placeholder={'Cole linhas no formato Data;Descrição;Valor\n2026-10-21;Padaria Real;-28,50\n2026-10-22;Reembolso PIX;150,00'}
                 className="w-full rounded-lg border border-slate-300 p-2.5 text-xs font-mono text-slate-900 focus:border-emerald-600 focus:outline-none"
               />
+              {accounts.length === 0 && (
+                <p role="alert" className="text-xs font-medium text-amber-700">
+                  Cadastre uma conta antes de importar lançamentos.
+                </p>
+              )}
               {importFeedback && (
                 <p className="text-xs font-medium text-emerald-700">{importFeedback}</p>
               )}
               <div className="flex justify-end">
                 <button
                   type="submit"
+                  disabled={accounts.length === 0}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   <Upload className="h-3.5 w-3.5" />

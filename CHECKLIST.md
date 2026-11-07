@@ -1,5 +1,17 @@
 # Checklist — Minhas Economias
 
+## Correções e integração de segurança — 2026-11-07
+- [x] Validar revogação/desativação Firebase no Identity Toolkit, falhar fechado sem `FIREBASE_API_KEY` e mapear erros conhecidos de conta/token para 401; erros de configuração, rede ou desconhecidos retornam 503.
+- [x] Fazer `/api/status` refletir a configuração de Auth sem conectar ao Neon e proteger `/api/readiness` com `CRON_SECRET` antes de abrir conexão.
+- [x] Atualizar `vercel.json` para o cron diário em `/api/readiness` e cadastrar `CRON_SECRET` como variável sensível na Vercel Production, sem revelar o valor.
+- [x] Corrigir importação CSV sem contas para bloquear destino vazio e não anunciar sucesso falso.
+- [x] Corrigir validação de investimento para rejeitar quantidade/preços não positivos; ampliar coberturas DOM de cartão, conta, orçamento, metas/simulador, configurações e restore.
+- [x] Executar suíte completa: `bun test` **374/374 em 54 arquivos**; `bun run lint`, `bun run build` e `git diff --check` passaram.
+- [ ] Publicar as alterações e confirmar `/api/status` público e `/api/readiness` sem/com segredo no deployment.
+- [ ] Confirmar execução automática de `/api/readiness` e primeira execução `schedule` do backup cifrado; a execução de backup mais recente conhecida foi `workflow_dispatch`.
+- [ ] Guardar a chave privada `age` fora deste computador e testar recuperação em outro dispositivo.
+- [ ] Concluir E2E de cadastro/login/logout e restore UI→API→Neon QA; fechar readback Neon por entidade e revisão mobile/acessibilidade.
+
 ## Aceleração da cobertura e correções — 2026-11-07
 - [x] Corrigir e testar a validação de saldos: rejeitar `abc0`, `0abc` e separadores soltos sem impedir zero válido ou formatos BRL válidos.
 - [x] Corrigir e testar rateio de dívidas de viagem em centavos, preservando os valores BRL individuais de cada devedor/credor.
@@ -7,6 +19,7 @@
 - [x] Ajustar atualização PWA: buscas/filtros fora de uma edição não seguram update; formulário alterado ainda adia até ser fechado.
 - [x] Cobrir comportamento de efetivar/reverter conta pendente na visão geral e falha de atualização dos certificados Firebase antes de consultar Neon.
 - [x] Expandir testes DOM sintéticos para cartões, metas/simulador, relatórios/CSV, cliente Neon e seletor acessível de Orçamentos; suíte atual `bun test`: 355/355 em 53 arquivos. `bun run lint` e `bun run build` passaram; CI `42415359477` passou após `9a218f6`.
+- [x] Fazer revisão read-only de parse/validação, persistência e UI de import/export/restore, incluindo schema antigo, campos ausentes, conflito 409 e 503; registrar lacunas de testes e manter E2E UI→API→Neon pendente. Nenhum teste foi executado nesta revisão.
 - [x] Corrigir fluxo familiar para não prometer e-mail que não é enviado; cadastro/edição aguarda confirmação Neon, falhas ficam visíveis, estados sem vínculo não aparecem como aceitos e o quick-add do lançamento encaminha e-mails à aba Compartilhado. Testes DOM sintéticos cobrem sucesso pendente, false/rejeição e cadastro local; full suite 355/355, lint/build/diff-check passaram. Publicado em `599f56b`, CI `42417735565` passou, Vercel `dpl_Gy1hmhePSL5XSSBSgxKiu1LgBAQd` ficou Ready; health Neon/role restrita OK e bundles atualizados conferidos no domínio principal.
 - [x] Exercitar pela UI publicada com dados sintéticos CRUD de conta, lançamento/data, cartão, categoria/orçamento, meta, viagem e investimento; sincronização observada, todos os registros temporários removidos e estado final conferido.
 - [x] Resolver a divergência do campo de data com evento input nativo; 07/11/2026 persistiu após sincronização e recarga. `page.fill` era limitação da automação, não bug do app.
@@ -687,7 +700,7 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Consulta agregada final em produção: zero convites ativos, zero registros do lançamento QA em tabela de compartilhamento e workspaces.
 - [ ] Validar cadastro, verificação, login, logout e persistência de sessão pelo formulário visual do app com duas identidades; o teste de identidade real foi feito por Auth REST e Gmail, enquanto o isolamento de sessão UI no Ego Lite não foi possível.
 - [ ] Validar restore/import/export pela UI autenticada em branch Neon QA; comprovar o disparo automático agendado do backup cifrado e a guarda externa da chave age.
-- [ ] Completar sweep mobile e readback independente Neon para CRUD de todos os módulos; os 356 testes locais e fluxos sintéticos não substituem isso.
+- [ ] Completar sweep mobile e readback independente Neon para CRUD de todos os módulos; a suíte sintética mais recente foi informada como 374/374 em 54 arquivos, e não substitui essa validação remota.
 
 ## Orquestração do workspace e agendamentos rechecados — 2026-11-07
 - [x] Manter Firebase Auth como identidade e Neon PostgreSQL como armazenamento financeiro operacional, conforme decisão do usuário; o health de produção reporta ambos e a role restrita.
@@ -699,3 +712,11 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [ ] Confirmar execução do workflow `neon-backup.yml` por `schedule`; a mais recente verificada (`42413305298`) foi manual, apesar do cron diário estar configurado.
 - [ ] Fazer restore/export/import pela interface em branch Neon QA isolada e confirmar por readback após recarga; suíte sintética e API mock não fecham esse requisito.
 - [ ] Fazer sweep completo da UI mobile e CRUD→Neon real dos módulos; manter os testes de componentes separados de evidência real.
+
+## Auditoria de cobertura dos testes — 2026-11-07
+- [x] Revisar o roteiro e a cobertura existente para restore UI→API→Neon, isolamento por UID e CRUD/readback das entidades; nenhuma escrita ou chamada externa foi feita nesta revisão.
+- [x] Registrar a suíte mais recente como **374/374 em 54 arquivos**, com build, lint e diff-check aprovados conforme informado pelo usuário; essa contagem não foi reexecutada aqui. As menções históricas a 356/356 continuam descrevendo a execução anterior.
+- [x] Distinguir os níveis de evidência: parser e componentes usam fixtures/callbacks sintéticos; API restore e UID usam Pool em memória em `backend/familyApi.test.ts`; há ensaio real API→Neon em branch QA de um UID sintético e fluxo familiar real com duas identidades previamente limpo.
+- [ ] Completar restore importado pela UI → save autenticado → Neon QA isolado → recarga/GET/readback independente.
+- [ ] Validar isolamento entre dois UIDs autenticados no mesmo banco Neon QA, incluindo RLS real e readback que prove ausência de acesso cruzado.
+- [ ] Fechar CRUD/readback independente por entidade e operação crítica; ciclos anteriores de UI cobrem subconjunto e não substituem a verificação completa no Neon.

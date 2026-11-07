@@ -121,6 +121,27 @@ test('SettingsModal exports the workspace backup through its callback', async ()
   assert.equal(exportCount, 1);
 });
 
+test('SettingsModal lets keyboard users focus restore and close with Escape without importing a file', () => {
+  let closeCount = 0;
+  let importCount = 0;
+  const page = renderSettings(() => {}, () => {
+    importCount += 1;
+    return true;
+  }, { onClose: () => { closeCount += 1; } });
+  const restoreButton = [...page.querySelectorAll<HTMLButtonElement>('button')]
+    .find((button) => button.textContent?.includes('Restaurar de Arquivo .JSON'));
+  assert.ok(restoreButton);
+
+  restoreButton.focus();
+  assert.equal(document.activeElement, restoreButton, 'a ação de restore é alcançável por teclado');
+  restoreButton.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape', bubbles: true,
+  }));
+
+  assert.equal(closeCount, 1, 'Escape fecha a janela de configurações');
+  assert.equal(importCount, 0, 'fechar a janela não inicia uma restauração');
+});
+
 test('SettingsModal profile fields have labels and remain keyboard-focusable', () => {
   const page = renderSettings(() => {}, () => true);
   for (const id of ['settings-profile-name', 'settings-profile-pix']) {
@@ -214,6 +235,30 @@ test('SettingsModal reports rejected JSON and does not claim restoration succeed
   assert.equal(confirmationCount, 0, 'JSON inválido é rejeitado antes da confirmação');
   assert.match(page.textContent ?? '', /Arquivo JSON inválido ou fora do padrão/);
   assert.doesNotMatch(page.textContent ?? '', /Backup carregado na sessão/);
+});
+
+test('SettingsModal rejects an unsupported backup version before confirmation or restore', async () => {
+  let confirmationCount = 0;
+  let importCount = 0;
+  window.confirm = () => { confirmationCount += 1; return true; };
+  const page = renderSettings(() => {}, () => {
+    importCount += 1;
+    return true;
+  });
+
+  await act(async () => {
+    uploadJsonFile(page, JSON.stringify({
+      version: 7,
+      ownerUserId: 'synthetic-neon-user',
+      accounts: [], cards: [], categories: [], transactions: [], goals: [], investments: [], trips: [],
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  assert.equal(confirmationCount, 0, 'um backup de versão desconhecida não chega à confirmação destrutiva');
+  assert.equal(importCount, 0, 'o callback de restauração não é chamado');
+  assert.match(page.textContent ?? '', /Arquivo JSON inválido ou fora do padrão/);
+  assert.doesNotMatch(page.textContent ?? '', /Backup restaurado na sessão/);
 });
 
 test('SettingsModal waits for asynchronous restore callback before reporting success', async () => {

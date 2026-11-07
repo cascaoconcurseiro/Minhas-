@@ -36,6 +36,14 @@ const syntheticUser: SyntheticUser = {
   isAnonymous: false,
 };
 
+let authStateUser: SyntheticUser | null = syntheticUser;
+let authStateListener: ((user: SyntheticUser | null) => void) | null = null;
+const signInCalls: Array<[string, string]> = [];
+const registerCalls: Array<[string, string, string]> = [];
+const authMock = {
+  get currentUser() { return authStateUser; },
+};
+
 const makeSnapshot = (accountName = 'Conta Neon sintética'): SyntheticSnapshot => ({
   revision: 7,
   updatedAt: '2026-11-07T12:00:00.000Z',
@@ -75,18 +83,29 @@ function afterEach(cleanup: () => void) {
 }
 
 mock.module('../lib/firebase', () => ({
-  auth: { currentUser: syntheticUser },
-  onAuthStateChanged: (_auth: unknown, callback: (user: SyntheticUser) => void) => {
-    callback(syntheticUser);
+  auth: authMock,
+  onAuthStateChanged: (_auth: unknown, callback: (user: SyntheticUser | null) => void) => {
+    authStateListener = callback;
+    callback(authStateUser);
     unsubscribeAuth = () => {};
     return unsubscribeAuth;
   },
   getOrCreateAutoCloudVaultId: () => 'vault_synthetic_app_test',
   getVaultIdForUid: (uid: string) => `vault_uid_${uid}`,
-  registerWithEmail: async () => syntheticUser,
+  registerWithEmail: async (name: string, email: string, pass: string) => {
+    registerCalls.push([name, email, pass]);
+    authStateUser = { ...syntheticUser, email, displayName: name };
+    authStateListener?.(authStateUser);
+    return authStateUser;
+  },
   refreshFirebaseUser: async (user: SyntheticUser) => user,
   resendEmailVerification: async () => {},
-  signInWithEmail: async () => syntheticUser,
+  signInWithEmail: async (email: string, pass: string) => {
+    signInCalls.push([email, pass]);
+    authStateUser = { ...syntheticUser, email };
+    authStateListener?.(authStateUser);
+    return authStateUser;
+  },
   signOutFirebaseUser: async () => {},
 }));
 
@@ -172,8 +191,74 @@ afterEach(() => {
   createCalls = 0;
   saveCalls = 0;
   unsubscribeAuth = null;
+  authStateUser = syntheticUser;
+  authStateListener = null;
+  signInCalls.length = 0;
+  registerCalls.length = 0;
   localStorage.clear();
   console.error = originalConsoleError;
+});
+
+function enterText(input: HTMLInputElement, value: string) {
+  const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+  setValue?.call(input, value);
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+
+async function submitCredentials(page: HTMLDivElement, fields: Array<[string, string]>) {
+  const form = page.querySelector('form');
+  assert.ok(form);
+  await act(async () => {
+    for (const [selector, value] of fields) {
+      const input = page.querySelector<HTMLInputElement>(selector);
+      assert.ok(input);
+      enterText(input, value);
+    }
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+test('email login through the app transitions from Firebase auth screen to Neon workspace', async () => {
+  authStateUser = null;
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Acesse sua conta/));
+  assert.ok(page.querySelector('[data-testid="login-email-input"]'));
+  assert.equal(page.querySelector('[data-testid="synthetic-overview"]'), null);
+
+  await submitCredentials(page, [
+    ['[data-testid="login-email-input"]', 'SYNTHETIC@example.test'],
+    ['[data-testid="login-password-input"]', 'senha-segura'],
+  ]);
+
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  assert.deepEqual(signInCalls, [['synthetic@example.test', 'senha-segura']]);
+  assert.equal(registerCalls.length, 0);
+  assert.equal(loadCalls, 1);
+  assert.equal(page.querySelector('[data-cloud-sync-status]')?.getAttribute('data-cloud-sync-status'), 'synced');
+});
+
+test('email registration through the app uses Firebase and then hydrates the Neon workspace', async () => {
+  authStateUser = null;
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Acesse sua conta/));
+
+  const createTab = Array.from(page.querySelectorAll('button')).find((button) =>
+    button.textContent?.includes('Criar Nova Conta')
+  );
+  assert.ok(createTab);
+  await act(async () => { createTab.click(); });
+  await submitCredentials(page, [
+    ['input[type="text"]', '  Conta QA  '],
+    ['[data-testid="login-email-input"]', 'NEW@example.test'],
+    ['[data-testid="login-password-input"]', 'senha-segura'],
+  ]);
+
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  assert.deepEqual(registerCalls, [['Conta QA', 'new@example.test', 'senha-segura']]);
+  assert.equal(signInCalls.length, 0);
+  assert.equal(loadCalls, 1);
+  assert.equal(page.querySelector('[data-cloud-sync-status]')?.getAttribute('data-cloud-sync-status'), 'synced');
 });
 
 test('auth loads the synthetic Neon snapshot before exposing synchronized workspace state', async () => {

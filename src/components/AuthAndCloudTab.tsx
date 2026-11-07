@@ -91,7 +91,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   // Real-time backend API health state
   const [apiHealth, setApiHealth] = useState<{
     status: 'checking' | 'ok' | 'error';
-    neonStatus: 'checking' | 'ok' | 'error';
+    neonStatus: 'checking' | 'configured' | 'error';
     firebaseAuthConfigured: boolean;
     geminiConfigured: boolean;
     checkedAt: string | null;
@@ -120,7 +120,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   const checkBackendHealth = async (): Promise<boolean> => {
     setApiHealth((prev) => ({ ...prev, status: 'checking', neonStatus: 'checking' }));
     try {
-      const res = await fetch('/api/health', { cache: 'no-store' });
+      const res = await fetch('/api/status', { cache: 'no-store' });
       const data = await res.json().catch(() => null);
       const summary = summarizeBackendHealth(res.ok, data);
       setApiHealth({
@@ -186,8 +186,8 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
       : 'Nenhuma inconsistência local encontrada.';
     setRepairFeedback(
       backendHealthy
-        ? `Auditoria local concluída. ${localResult} A API e o Neon responderam; confira abaixo o estado da última sincronização do workspace.`
-        : `Auditoria local concluída. ${localResult} O Neon não confirmou disponibilidade; os dados locais foram preservados e a sincronização pode estar pendente.`
+        ? `Auditoria local concluída. ${localResult} A API e a configuração do Neon estão disponíveis; confira abaixo o estado da última sincronização do workspace.`
+        : `Auditoria local concluída. ${localResult} A configuração da API ou do Neon está incompleta; os dados locais foram preservados e a sincronização pode estar pendente.`
     );
   };
 
@@ -687,7 +687,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                       {apiHealth.neonStatus === 'checking'
                         ? 'Verificando Neon...'
                         : apiHealth.neonStatus === 'error'
-                        ? 'Neon indisponível'
+                        ? 'Neon não configurado'
                         : cloudSyncStatus === 'synced'
                         ? 'Sincronizado'
                         : cloudSyncStatus === 'syncing'
@@ -700,7 +700,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                 </div>
                 {apiHealth.neonStatus === 'checking' ? (
                   <RefreshCw className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
-                ) : apiHealth.neonStatus === 'ok' ? (
+                ) : apiHealth.neonStatus === 'configured' ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                 ) : (
                   <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />

@@ -1,6 +1,7 @@
 import { createPublicKey, verify as verifySignature } from 'node:crypto';
 
 const FIREBASE_CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+const FIREBASE_ACCOUNT_LOOKUP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup';
 const MAX_CERT_CACHE_SECONDS = 6 * 60 * 60;
 const CLOCK_SKEW_SECONDS = 5 * 60;
 const MAX_UID_LENGTH = 128;
@@ -63,12 +64,15 @@ function cacheTtlSeconds(cacheControl: string | null): number {
 export function createFirebaseIdTokenVerifier(options: {
   fetchImpl?: typeof fetch;
   now?: () => number;
+  /** `null` explicitly disables account-state lookups for isolated local tests; omitted reads FIREBASE_API_KEY. */
+  apiKey?: string | null;
 } = {}) {
   // Resolve the runtime fetch when a refresh is needed. Capturing the global
   // at module import makes integration tests (and runtime fetch wrappers)
   // depend on import order.
   const fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
   const now = options.now ?? Date.now;
+  const getApiKey = () => options.apiKey === null ? '' : options.apiKey ?? process.env.FIREBASE_API_KEY ?? '';
   let certs: Record<string, string> = {};
   let certsExpiresAt = 0;
   let refreshInFlight: Promise<void> | null = null;
@@ -119,6 +123,66 @@ export function createFirebaseIdTokenVerifier(options: {
       }
     })();
     return refreshInFlight;
+  };
+
+  const checkAccountState = async (idToken: string, uid: string, authTime: number) => {
+    if (options.apiKey === null) return;
+    const apiKey = getApiKey();
+    // A configured Firebase project must not silently fall back to checking
+    // only the JWT signature: that would keep revoked/disabled sessions valid
+    // until exp. Only tests that explicitly pass apiKey:null bypass this call.
+    if (!apiKey) {
+      throw new FirebaseTokenVerificationError('A verificação de sessão Firebase não está configurada.', 503);
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetchImpl(`${FIREBASE_ACCOUNT_LOOKUP_URL}?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        let errorCode = '';
+        try {
+          const errorBody = await response.json() as unknown;
+          const message = errorBody && typeof errorBody === 'object' && !Array.isArray(errorBody)
+            ? (errorBody as { error?: { message?: unknown } }).error?.message
+            : undefined;
+          if (typeof message === 'string') errorCode = message.trim().split(/[\s:]/, 1)[0];
+        } catch {
+          // An unparseable upstream error is an availability/configuration
+          // failure; never report it as proof that the user's token is revoked.
+        }
+        if (['INVALID_ID_TOKEN', 'USER_DISABLED', 'USER_NOT_FOUND'].includes(errorCode)) {
+          throw new FirebaseTokenVerificationError('A sessão Firebase foi revogada ou não está mais ativa.', 401);
+        }
+        throw new FirebaseTokenVerificationError('Não foi possível confirmar o estado da conta Firebase.', 503);
+      }
+      const payload = await response.json() as unknown;
+      const users = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as { users?: unknown }).users
+        : undefined;
+      if (!Array.isArray(users) || users.length !== 1 || !users[0] || typeof users[0] !== 'object') {
+        throw new FirebaseTokenVerificationError('Resposta inválida do estado da conta Firebase.', 503);
+      }
+      const user = users[0] as { localId?: unknown; validSince?: unknown; disabled?: unknown };
+      const validSince = typeof user.validSince === 'string' && /^\d+$/.test(user.validSince)
+        ? Number(user.validSince)
+        : NaN;
+      if (typeof user.localId !== 'string' || typeof user.disabled !== 'boolean' || !Number.isSafeInteger(validSince)) {
+        throw new FirebaseTokenVerificationError('Resposta inválida do estado da conta Firebase.', 503);
+      }
+      if (user.localId !== uid || user.disabled || authTime < validSince) {
+        throw new FirebaseTokenVerificationError('A sessão Firebase foi revogada ou não está mais ativa.', 401);
+      }
+    } catch (error) {
+      if (error instanceof FirebaseTokenVerificationError) throw error;
+      throw new FirebaseTokenVerificationError('Não foi possível confirmar o estado da conta Firebase.', 503);
+    } finally {
+      clearTimeout(timeout);
+    }
   };
 
   return async (idToken: string, projectId: string): Promise<FirebaseIdTokenIdentity> => {
@@ -180,6 +244,8 @@ export function createFirebaseIdTokenVerifier(options: {
     ) {
       throw new FirebaseTokenVerificationError('Token Firebase inválido ou expirado.', 401);
     }
+
+    await checkAccountState(idToken, claims.sub, claims.auth_time);
 
     return {
       uid: claims.sub,

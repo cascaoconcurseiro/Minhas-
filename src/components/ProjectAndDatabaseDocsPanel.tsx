@@ -82,7 +82,8 @@ O workspace e o compartilhamento familiar são persistidos no Neon. O backend va
 - **Trip, TripExchangeLot & TripSettlement**: Gestão de viagens internacionais com carteira de câmbio (VET médio ponderado) e divisão Splitwise.
 
 ## 4. Endpoints da API Backend (backend/app.ts)
-- \`GET /api/health\`: Diagnóstico em tempo real do servidor e serviços.
+- \`GET /api/status\`: Status público e leve da API/configuração, sem consultar o Neon.
+- \`GET /api/readiness\`: Readiness diário do Neon, protegido por \`Authorization: Bearer CRON_SECRET\`.
 - \`POST /api/fx/live-rate\`: Cotação comercial ao vivo via Gemini Google Search Grounding.
 - \`POST /api/investments/sync-quotes\`: Cotações e variação diária do Google Finance / B3.
 - \`POST /api/reminders/send-email\`: Disparo autenticado de resumos via SMTP; retorna erro se a entrega falhar.
@@ -354,10 +355,10 @@ git push -u origin main`;
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <span className="inline-block rounded bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-800 dark:text-emerald-300 mr-2">
-                  GET /api/health
+                  GET /api/status (público) · /api/readiness (cron protegido)
                 </span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  Diagnóstico de Prontidão do Servidor e Integrações
+                  Status público da API e configuração; sincronização do Neon abaixo
                 </span>
               </div>
               <span className="font-mono text-[11px] text-slate-500">backend/app.ts</span>
