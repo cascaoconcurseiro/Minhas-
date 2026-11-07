@@ -38,8 +38,8 @@ interface SharedExpensesTabProps {
   accounts: BankAccount[];
   cards: CreditCardType[];
   categories: Category[];
-  onAddFamilyMember: (member: Omit<FamilyMember, 'id'>) => void;
-  onUpdateFamilyMember: (member: FamilyMember) => void;
+  onAddFamilyMember: (member: Omit<FamilyMember, 'id'>) => void | boolean | Promise<void | boolean>;
+  onUpdateFamilyMember: (member: FamilyMember) => void | boolean | Promise<void | boolean>;
   onDeleteFamilyMember: (memberId: string) => void;
   onSettleSharedTransaction: (
     txId: string,
@@ -56,7 +56,7 @@ interface SharedExpensesTabProps {
   onOpenNewSharedTransaction: (memberId?: string) => void;
   onAcceptFamilyInvite?: (member: FamilyMember) => void;
   onDeclineFamilyInvite?: (member: FamilyMember) => void;
-  onResendFamilyInvite?: (member: FamilyMember) => void;
+  onResendFamilyInvite?: (member: FamilyMember) => void | boolean | Promise<void | boolean>;
   userPixKey?: string;
 }
 
@@ -143,6 +143,8 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   const [memberColor, setMemberColor] = useState(MEMBER_COLORS[0]);
   const [memberPixKey, setMemberPixKey] = useState('');
   const [memberNotes, setMemberNotes] = useState('');
+  const [memberSaveError, setMemberSaveError] = useState<string | null>(null);
+  const [isSavingMember, setIsSavingMember] = useState(false);
 
   // WhatsApp / Invite feedback toast
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -237,6 +239,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
   // Actions
   const handleOpenAddMemberModal = () => {
+    setMemberSaveError(null);
     setEditingMember(null);
     setMemberName('');
     setMemberEmail('');
@@ -249,6 +252,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   };
 
   const handleOpenEditMemberModal = (member: FamilyMember) => {
+    setMemberSaveError(null);
     setEditingMember(member);
     setMemberName(member.name);
     setMemberEmail(member.email || '');
@@ -260,13 +264,14 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
     setShowMemberModal(true);
   };
 
-  const handleSaveMember = (e: React.FormEvent) => {
+  const handleSaveMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!memberName.trim()) return;
+    if (!memberName.trim() || isSavingMember) return;
     const cleanEmail = memberEmail.trim().toLowerCase();
+    setMemberSaveError(null);
 
     if (editingMember) {
-      onUpdateFamilyMember({
+      const updatedMember: FamilyMember = {
         ...editingMember,
         name: memberName.trim(),
         email: cleanEmail || undefined,
@@ -279,9 +284,22 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
         color: memberColor,
         pixKey: memberPixKey.trim() || undefined,
         notes: memberNotes.trim() || undefined,
-      });
+      };
+      setIsSavingMember(true);
+      try {
+        const result = await onUpdateFamilyMember(updatedMember);
+        if (result === false) {
+          setMemberSaveError('Não foi possível atualizar o vínculo familiar. Verifique a conexão e tente novamente.');
+          return;
+        }
+      } catch {
+        setMemberSaveError('Não foi possível atualizar o vínculo familiar. Verifique a conexão e tente novamente.');
+        return;
+      } finally {
+        setIsSavingMember(false);
+      }
     } else {
-      onAddFamilyMember({
+      const newMember: Omit<FamilyMember, 'id'> = {
         name: memberName.trim(),
         email: cleanEmail || undefined,
         inviteStatus: cleanEmail ? 'invited' : 'none',
@@ -291,11 +309,28 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
         color: memberColor,
         pixKey: memberPixKey.trim() || undefined,
         notes: memberNotes.trim() || undefined,
-      });
+      };
+      if (cleanEmail) {
+        setIsSavingMember(true);
+        try {
+          const result = await onAddFamilyMember(newMember);
+          if (result === false) {
+            setMemberSaveError('Não foi possível registrar o convite. Verifique a conexão e tente novamente. Nenhum e-mail foi enviado.');
+            return;
+          }
+        } catch {
+          setMemberSaveError('Não foi possível registrar o convite. Verifique a conexão e tente novamente. Nenhum e-mail foi enviado.');
+          return;
+        } finally {
+          setIsSavingMember(false);
+        }
+      } else {
+        await onAddFamilyMember(newMember);
+      }
     }
-    if (cleanEmail) {
+    if (cleanEmail && !editingMember) {
       setCopyFeedback(
-        `Convite familiar enviado na nuvem para ${cleanEmail}! Assim que ele(a) entrar na conta, verá o convite para aceitar.`
+        `Convite registrado no app para ${cleanEmail}. Nenhum e-mail foi enviado; peça à pessoa que entre no Minhas Economias com esse mesmo e-mail para ver e aceitar o convite.`
       );
       setTimeout(() => setCopyFeedback(null), 5000);
     }
@@ -533,7 +568,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             {familyMembers.length} pessoa(s)
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {familyMembers.filter((m) => Boolean(m.email)).length} com e-mail convidado e espelho ativo
+            {familyMembers.filter((m) => Boolean(m.email)).length} vinculada(s) a um e-mail
           </p>
         </div>
 
@@ -555,7 +590,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             className="w-full min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold leading-tight text-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors whitespace-normal"
           >
             <Mail className="h-3.5 w-3.5 text-indigo-600" />
-            + Convidar Familiar por E-mail
+            + Cadastrar convite familiar
           </button>
         </div>
       </section>
@@ -647,8 +682,10 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                             <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                               <Mail className="h-2.5 w-2.5" />
                               {member.inviteStatus === 'invited'
-                                ? 'Convite Enviado'
-                                : 'Conta Vinculada'}
+                                ? 'Convite registrado'
+                                : member.inviteStatus === 'accepted'
+                                  ? 'Conta Vinculada'
+                                  : 'Sem convite'}
                             </span>
                           ) : (
                             <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] text-slate-400 bg-slate-50">
@@ -664,7 +701,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                         type="button"
                         onClick={() => handleOpenEditMemberModal(member)}
                         className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
-                        title="Editar pessoa / Enviar convite por e-mail"
+                        title="Editar pessoa / cadastrar e-mail do familiar"
                       >
                         <Edit3 className="h-4 w-4" />
                       </button>
@@ -711,15 +748,23 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  onResendFamilyInvite(member);
-                                  setCopyFeedback(
-                                    `Convite reenviado na nuvem para ${member.email}!`
-                                  );
-                                  setTimeout(() => setCopyFeedback(null), 3500);
+                                  void (async () => {
+                                    try {
+                                      const result = await onResendFamilyInvite(member);
+                                      setCopyFeedback(
+                                        result === false
+                                          ? 'Não foi possível atualizar o convite no app. Nenhum e-mail foi enviado; tente novamente após conferir a conexão.'
+                                          : `Convite registrado no app para ${member.email}. Nenhum e-mail foi enviado; peça à pessoa que entre no Minhas Economias com esse mesmo e-mail para ver e aceitar o convite.`
+                                      );
+                                    } catch {
+                                      setCopyFeedback('Não foi possível atualizar o convite no app. Nenhum e-mail foi enviado; tente novamente após conferir a conexão.');
+                                    }
+                                    setTimeout(() => setCopyFeedback(null), 5000);
+                                  })();
                                 }}
                                 className="rounded border border-emerald-300 bg-white px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100"
                               >
-                                Reenviar
+                                Atualizar convite
                               </button>
                             )}
                           </>
@@ -1309,11 +1354,11 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
               <div>
                 <h3 className="text-base font-bold text-slate-900">
                   {editingMember
-                    ? 'Editar Familiar / Convite por E-mail'
-                    : 'Convidar Familiar para Conta Compartilhada'}
+                    ? 'Editar familiar / vínculo por e-mail'
+                    : 'Cadastrar familiar na conta compartilhada'}
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  Envie o convite por e-mail para habilitar o espelho de compensação automática
+                  O convite fica registrado no app; nenhum e-mail é enviado. A pessoa precisa entrar no Minhas Economias com o mesmo e-mail para ver e aceitar.
                 </p>
               </div>
               <button
@@ -1330,6 +1375,11 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
               className="flex-1 flex flex-col min-h-0 overflow-hidden"
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                {memberSaveError && (
+                  <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                    {memberSaveError}
+                  </p>
+                )}
                 <div>
                   <label htmlFor="shared-member-name" className="block text-xs font-semibold text-slate-700 mb-1">
                     Nome Completo ou Apelido:
@@ -1347,7 +1397,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
                 <div>
                   <label htmlFor="shared-member-email" className="block text-xs font-semibold text-slate-700 mb-1">
-                    E-mail da Pessoa (Para Enviar Convite da Família):
+                    E-mail da pessoa (para vincular a conta):
                   </label>
                   <input
                     type="email"
@@ -1446,9 +1496,14 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+                  disabled={isSavingMember}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:cursor-wait disabled:opacity-70"
                 >
-                  {memberEmail.trim() ? 'Salvar e Enviar Convite' : 'Salvar Pessoa'}
+                  {isSavingMember
+                    ? editingMember ? 'Atualizando vínculo...' : 'Registrando convite...'
+                    : memberEmail.trim()
+                      ? 'Salvar e registrar convite'
+                      : 'Salvar pessoa'}
                 </button>
               </div>
             </form>

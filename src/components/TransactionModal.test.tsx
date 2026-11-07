@@ -4,7 +4,7 @@ import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import type { CreateTransactionBatchInput } from '../utils/financeRules';
-import type { BankAccount, Category, CreditCard } from '../types/finance';
+import type { BankAccount, Category, CreditCard, FamilyMember } from '../types/finance';
 import { TransactionModal } from './TransactionModal';
 
 const { createRoot } = await import('react-dom/client');
@@ -15,7 +15,13 @@ let container: HTMLDivElement | null = null;
 function renderTransactionModal(
   onSaveBatch: (input: CreateTransactionBatchInput) => void,
   onClose: () => void,
-  options: { accounts?: BankAccount[]; cards?: CreditCard[]; categories?: Category[] } = {}
+  options: {
+    accounts?: BankAccount[];
+    cards?: CreditCard[];
+    categories?: Category[];
+    familyMembers?: FamilyMember[];
+    onAddFamilyMember?: (member: Omit<FamilyMember, 'id'>) => FamilyMember | void;
+  } = {}
 ) {
   container = document.createElement('div');
   document.body.append(container);
@@ -52,7 +58,8 @@ function renderTransactionModal(
         categories: options.categories ?? [category],
         categoryBreakdown: [],
         transactions: [],
-        familyMembers: [],
+        familyMembers: options.familyMembers ?? [],
+        onAddFamilyMember: options.onAddFamilyMember,
         selectedMonth: '2026-11',
         editingTransaction: null,
         defaultMode: 'expense',
@@ -154,6 +161,74 @@ test('expense category, subcategory and account selectors have associated labels
     assert.ok(field, `expected field #${id}`);
     assert.ok(Array.from(page.querySelectorAll('label')).some((label) => label.control === field), `expected an associated label for #${id}`);
   }
+});
+
+test('inline family quick-add with email stays open and routes the user to Shared tab without invoking callback', async () => {
+  const existing: FamilyMember = {
+    id: 'existing-family-test', name: 'Familiar existente', relationship: 'amigo(a)',
+    color: '#059669', inviteStatus: 'accepted',
+  };
+  let addCalls = 0;
+  let closeCalls = 0;
+  const page = renderTransactionModal(() => {}, () => { closeCalls += 1; }, {
+    familyMembers: [existing],
+    onAddFamilyMember: () => { addCalls += 1; return undefined; },
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="toggle-shared-switch"]')?.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="toggle-inline-family-member-form"]')?.click(); });
+  const name = page.querySelector<HTMLInputElement>('[data-testid="inline-family-member-name"]');
+  const email = page.querySelector<HTMLInputElement>('[data-testid="inline-family-member-email"]');
+  const submit = page.querySelector<HTMLButtonElement>('[data-testid="inline-family-member-submit"]');
+  assert.ok(name && email && submit);
+
+  await act(async () => {
+    setInputValue(name, 'Novo familiar');
+    setInputValue(email, 'novo@example.test');
+    submit.click();
+  });
+
+  assert.equal(addCalls, 0);
+  assert.match(page.querySelector('[data-testid="inline-family-member-error"]')?.textContent ?? '', /use a aba Compartilhado/i);
+  assert.equal(name.value, 'Novo familiar');
+  assert.equal(email.value, 'novo@example.test');
+  assert.ok(page.querySelector('[data-testid="inline-family-member-submit"]'), 'quick-add remains open');
+  assert.equal(page.querySelector('[data-testid="toggle-shared-switch"]')?.getAttribute('aria-checked'), 'true');
+  assert.equal(page.querySelector('[role="dialog"]') !== null, true);
+  assert.equal(closeCalls, 0);
+});
+
+test('inline family quick-add without email still adds a local contact and closes the quick-add form', async () => {
+  const existing: FamilyMember = {
+    id: 'existing-family-local-test', name: 'Familiar existente', relationship: 'amigo(a)',
+    color: '#059669', inviteStatus: 'accepted',
+  };
+  const created: FamilyMember = {
+    id: 'local-family-test', name: 'Novo familiar', relationship: 'amigo(a)',
+    color: '#3b82f6', inviteStatus: 'none',
+  };
+  const added: Array<Omit<FamilyMember, 'id'>> = [];
+  const page = renderTransactionModal(() => {}, () => {}, {
+    familyMembers: [existing],
+    onAddFamilyMember: (member) => { added.push(member); return created; },
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="toggle-shared-switch"]')?.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="toggle-inline-family-member-form"]')?.click(); });
+  const name = page.querySelector<HTMLInputElement>('[data-testid="inline-family-member-name"]');
+  const email = page.querySelector<HTMLInputElement>('[data-testid="inline-family-member-email"]');
+  const submit = page.querySelector<HTMLButtonElement>('[data-testid="inline-family-member-submit"]');
+  assert.ok(name && email && submit);
+
+  await act(async () => {
+    setInputValue(name, 'Novo familiar');
+    submit.click();
+  });
+
+  assert.ok(added[0]);
+  assert.equal(added[0].email, undefined);
+  assert.equal(added[0].inviteStatus, 'none');
+  assert.equal(page.querySelector('[role="alert"]'), null);
+  assert.equal(page.querySelector('[data-testid="inline-family-member-submit"]'), null, 'quick-add closes after local contact creation');
+  assert.equal(page.querySelector('[data-testid="toggle-shared-switch"]')?.getAttribute('aria-checked'), 'true');
 });
 
 test('transaction modal submits the date selected in the date control', async () => {

@@ -15,7 +15,7 @@ let originalClipboard: PropertyDescriptor | undefined;
 let originalWindowOpen: typeof window.open;
 
 function renderSharedExpensesTab(
-  onAddFamilyMember: (member: Omit<FamilyMember, 'id'>) => void,
+  onAddFamilyMember: (member: Omit<FamilyMember, 'id'>) => void | boolean | Promise<void | boolean>,
   options: {
     familyMembers?: FamilyMember[];
     transactions?: Transaction[];
@@ -25,7 +25,7 @@ function renderSharedExpensesTab(
     onAcceptFamilyInvite?: (member: FamilyMember) => void;
     onDeclineFamilyInvite?: (member: FamilyMember) => void;
     onResendFamilyInvite?: (member: FamilyMember) => void;
-    onUpdateFamilyMember?: (member: FamilyMember) => void;
+    onUpdateFamilyMember?: (member: FamilyMember) => void | boolean | Promise<void | boolean>;
     onReopenSharedTransaction?: (txId: string) => void;
     onSettleAllMemberInvoices?: (memberId: string, month: string, accountId: string, date: string) => void;
     onOpenNewSharedTransaction?: (memberId?: string) => void;
@@ -64,6 +64,34 @@ function renderSharedExpensesTab(
 function setInputValue(input: HTMLInputElement, value: string) {
   Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, value);
   input.dispatchEvent(new window.Event('input', { bubbles: true }));
+}
+
+async function openFamilyInviteForm(page: HTMLElement) {
+  const inviteTab = [...page.querySelectorAll('button')].find((button) =>
+    button.textContent?.includes('Pessoas & Convites por E-mail')
+  );
+  assert.ok(inviteTab);
+  await act(async () => { inviteTab.click(); });
+
+  const openInviteButton = page.querySelector<HTMLButtonElement>('[data-testid="invite-family-member-btn"]');
+  assert.ok(openInviteButton);
+  await act(async () => { openInviteButton.click(); });
+
+  const dialog = page.querySelector<HTMLElement>('[role="dialog"]');
+  const form = dialog?.querySelector<HTMLFormElement>('form');
+  const nameInput = dialog?.querySelector<HTMLInputElement>('input[placeholder^="ex: Mariana"]');
+  const emailInput = dialog?.querySelector<HTMLInputElement>('[data-testid="family-member-email-input"]');
+  assert.ok(dialog && form && nameInput && emailInput);
+  return { dialog, form, nameInput, emailInput };
+}
+
+async function submitFamilyInvite(form: HTMLFormElement, nameInput: HTMLInputElement, emailInput: HTMLInputElement) {
+  await act(async () => {
+    setInputValue(nameInput, 'Familiar de Teste');
+    setInputValue(emailInput, 'teste@exemplo.test');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
 }
 
 afterEach(() => {
@@ -257,7 +285,7 @@ test('shared settlement rejects an empty date even when the bank account is vali
 
 test('SharedExpensesTab creates a synthetic email invitation from the owner flow', async () => {
   const createdMembers: Array<Omit<FamilyMember, 'id'>> = [];
-  const page = renderSharedExpensesTab((member) => createdMembers.push(member));
+  const page = renderSharedExpensesTab((member) => { createdMembers.push(member); });
 
   const inviteTab = [...page.querySelectorAll('button')].find((button) =>
     button.textContent?.includes('Pessoas & Convites por E-mail')
@@ -274,6 +302,10 @@ test('SharedExpensesTab creates a synthetic email invitation from the owner flow
   const nameInput = dialog?.querySelector<HTMLInputElement>('input[placeholder^="ex: Mariana"]');
   const emailInput = dialog?.querySelector<HTMLInputElement>('[data-testid="family-member-email-input"]');
   assert.ok(dialog && form && nameInput && emailInput);
+  assert.match(dialog.textContent ?? '', /convite fica registrado no app/i);
+  assert.match(dialog.textContent ?? '', /nenhum e-mail é enviado/i);
+  assert.match(dialog.textContent ?? '', /precisa entrar no Minhas Economias com o mesmo e-mail/i);
+  assert.equal([...dialog.querySelectorAll('button')].some((button) => /enviar convite/i.test(button.textContent ?? '')), false);
 
   await act(async () => {
     setInputValue(nameInput, '  Familiar de Teste  ');
@@ -288,8 +320,48 @@ test('SharedExpensesTab creates a synthetic email invitation from the owner flow
   assert.equal(createdMembers[0]?.direction, 'outgoing');
   assert.match(createdMembers[0]?.invitedAt ?? '', /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(createdMembers[0]?.relationship, 'cônjuge');
-  assert.match(page.textContent ?? '', /Convite familiar enviado na nuvem/);
+  assert.match(page.textContent ?? '', /Convite registrado no app para teste@exemplo\.test/i);
+  assert.match(page.textContent ?? '', /Nenhum e-mail foi enviado/i);
+  assert.match(page.textContent ?? '', /entre no Minhas Economias com esse mesmo e-mail/i);
   assert.equal(page.querySelector('[role="dialog"]'), null, 'salvar fecha o formulário');
+});
+
+test('email invitation success closes the modal and announces only after Neon callback resolves', async () => {
+  let resolveAdd!: (result: boolean) => void;
+  const addPromise = new Promise<boolean>((resolve) => { resolveAdd = resolve; });
+  let addCalls = 0;
+  const page = renderSharedExpensesTab(() => { addCalls += 1; return addPromise; });
+  const { form, nameInput, emailInput } = await openFamilyInviteForm(page);
+
+  await submitFamilyInvite(form, nameInput, emailInput);
+  assert.equal(addCalls, 1);
+  assert.ok(page.querySelector('[role="dialog"]'), 'modal stays open while Neon is pending');
+  assert.equal(page.textContent?.includes('Convite registrado no app para teste@exemplo.test'), false);
+  assert.equal(page.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled, true);
+
+  await act(async () => { resolveAdd(true); await addPromise; });
+  assert.equal(page.querySelector('[role="dialog"]'), null);
+  assert.match(page.textContent ?? '', /Convite registrado no app para teste@exemplo\.test/i);
+});
+
+test('email invitation false result keeps the form open and shows failure without success', async () => {
+  const page = renderSharedExpensesTab(async () => false);
+  const { form, nameInput, emailInput } = await openFamilyInviteForm(page);
+
+  await submitFamilyInvite(form, nameInput, emailInput);
+  assert.ok(page.querySelector('[role="dialog"]'));
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Não foi possível registrar o convite/i);
+  assert.equal(page.textContent?.includes('Convite registrado no app para teste@exemplo.test'), false);
+});
+
+test('rejected email invitation keeps the form open and shows failure without success', async () => {
+  const page = renderSharedExpensesTab(async () => { throw new Error('simulated Neon failure'); });
+  const { form, nameInput, emailInput } = await openFamilyInviteForm(page);
+
+  await submitFamilyInvite(form, nameInput, emailInput);
+  assert.ok(page.querySelector('[role="dialog"]'));
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Não foi possível registrar o convite/i);
+  assert.equal(page.textContent?.includes('Convite registrado no app para teste@exemplo.test'), false);
 });
 
 test('SharedExpensesTab saves edits to a synthetic family member with normalized fields', async () => {
@@ -299,13 +371,14 @@ test('SharedExpensesTab saves edits to a synthetic family member with normalized
   };
   const updated: FamilyMember[] = [];
   const page = renderSharedExpensesTab(() => {}, {
-    familyMembers: [original], onUpdateFamilyMember: (member) => updated.push(member),
+    familyMembers: [original], onUpdateFamilyMember: (member) => { updated.push(member); },
   });
   const membersTab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
   assert.ok(membersTab);
   await act(async () => { membersTab.click(); });
-  const edit = page.querySelector<HTMLButtonElement>('[title="Editar pessoa / Enviar convite por e-mail"]');
+  const edit = page.querySelector<HTMLButtonElement>('[title="Editar pessoa / cadastrar e-mail do familiar"]');
   assert.ok(edit);
+  assert.doesNotMatch(edit.title, /enviar convite|reenviar/i);
   await act(async () => { edit.click(); });
   const name = page.querySelector<HTMLInputElement>('#shared-member-name');
   const notes = page.querySelector<HTMLInputElement>('#shared-member-notes');
@@ -325,6 +398,135 @@ test('SharedExpensesTab saves edits to a synthetic family member with normalized
     email: undefined, inviteStatus: 'none', invitedAt: undefined, pixKey: undefined,
   });
   assert.equal(page.querySelector('[role="dialog"]'), null);
+});
+
+test('family member with an email and no invitation is labeled Sem convite', async () => {
+  const member: FamilyMember = {
+    id: 'fam-without-invitation', name: 'Pessoa sem vínculo', relationship: 'amigo(a)', color: '#059669',
+    email: 'novo@example.test', inviteStatus: 'none', direction: 'outgoing',
+  };
+  const page = renderSharedExpensesTab(() => {}, { familyMembers: [member] });
+  const membersTab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(membersTab);
+  await act(async () => { membersTab.click(); });
+  assert.match(page.textContent ?? '', /Sem convite/);
+  assert.doesNotMatch(page.textContent ?? '', /Conta Vinculada/);
+});
+
+test('editing outgoing invite details waits for the Neon callback even when the email stays the same', async () => {
+  const original: FamilyMember = {
+    id: 'fam-same-email-update', name: 'Pessoa Original', relationship: 'amigo(a)', color: '#059669',
+    email: 'same@example.test', invitationId: 'invite-same', inviteStatus: 'invited', direction: 'outgoing',
+  };
+  let resolveUpdate!: (result: boolean) => void;
+  const updatePromise = new Promise<boolean>((resolve) => { resolveUpdate = resolve; });
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [original], onUpdateFamilyMember: () => updatePromise,
+  });
+  const membersTab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(membersTab);
+  await act(async () => { membersTab.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[title="Editar pessoa / cadastrar e-mail do familiar"]')?.click(); });
+  const name = page.querySelector<HTMLInputElement>('#shared-member-name');
+  const form = page.querySelector<HTMLFormElement>('[role="dialog"] form');
+  assert.ok(name && form);
+
+  await act(async () => {
+    setInputValue(name, 'Pessoa Editada');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+  assert.ok(page.querySelector('[role="dialog"]'));
+  assert.equal(page.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled, true);
+
+  await act(async () => { resolveUpdate(true); await updatePromise; });
+  assert.equal(page.querySelector('[role="dialog"]'), null);
+});
+
+test('changing a family email waits for the Neon callback before closing or showing success', async () => {
+  const original: FamilyMember = {
+    id: 'fam-email-change-pending', name: 'Pessoa Original', relationship: 'amigo(a)', color: '#059669',
+    email: 'original@example.test', invitationId: 'invite-original', inviteStatus: 'invited', direction: 'outgoing',
+  };
+  let resolveUpdate!: (result: boolean) => void;
+  const updatePromise = new Promise<boolean>((resolve) => { resolveUpdate = resolve; });
+  const submitted: FamilyMember[] = [];
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [original],
+    onUpdateFamilyMember: (member) => { submitted.push(member); return updatePromise; },
+  });
+  const membersTab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(membersTab);
+  await act(async () => { membersTab.click(); });
+  const edit = page.querySelector<HTMLButtonElement>('[title="Editar pessoa / cadastrar e-mail do familiar"]');
+  assert.ok(edit);
+  await act(async () => { edit.click(); });
+  const email = page.querySelector<HTMLInputElement>('#shared-member-email');
+  const form = page.querySelector<HTMLFormElement>('[role="dialog"] form');
+  assert.ok(email && form);
+
+  await act(async () => {
+    setInputValue(email, 'novo@example.test');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+  assert.equal(submitted[0]?.email, 'novo@example.test');
+  assert.ok(page.querySelector('[role="dialog"]'), 'modal remains open while revocation/creation is pending');
+  assert.equal(page.textContent?.includes('Vínculo atualizado para novo@example.test'), false);
+  assert.equal(page.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled, true);
+
+  await act(async () => { resolveUpdate(true); await updatePromise; });
+  assert.equal(page.querySelector('[role="dialog"]'), null);
+});
+
+test('email edit returning false keeps the edit form open and reports failure', async () => {
+  const original: FamilyMember = {
+    id: 'fam-email-change-false', name: 'Pessoa Original', relationship: 'amigo(a)', color: '#059669',
+    email: 'original@example.test', invitationId: 'invite-original-false', inviteStatus: 'invited', direction: 'outgoing',
+  };
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [original], onUpdateFamilyMember: async () => false,
+  });
+  const membersTab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(membersTab);
+  await act(async () => { membersTab.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[title="Editar pessoa / cadastrar e-mail do familiar"]')?.click(); });
+  const email = page.querySelector<HTMLInputElement>('#shared-member-email');
+  const form = page.querySelector<HTMLFormElement>('[role="dialog"] form');
+  assert.ok(email && form);
+  await act(async () => {
+    setInputValue(email, 'novo@example.test');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+  assert.ok(page.querySelector('[role="dialog"]'));
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Não foi possível atualizar o vínculo familiar/i);
+  assert.equal(page.textContent?.includes('Vínculo atualizado para novo@example.test'), false);
+});
+
+test('rejected email edit keeps the edit form open and reports failure', async () => {
+  const original: FamilyMember = {
+    id: 'fam-email-change-reject', name: 'Pessoa Original', relationship: 'amigo(a)', color: '#059669',
+    email: 'original@example.test', invitationId: 'invite-original-reject', inviteStatus: 'invited', direction: 'outgoing',
+  };
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [original], onUpdateFamilyMember: async () => { throw new Error('simulated Neon error'); },
+  });
+  const membersTab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(membersTab);
+  await act(async () => { membersTab.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[title="Editar pessoa / cadastrar e-mail do familiar"]')?.click(); });
+  const email = page.querySelector<HTMLInputElement>('#shared-member-email');
+  const form = page.querySelector<HTMLFormElement>('[role="dialog"] form');
+  assert.ok(email && form);
+  await act(async () => {
+    setInputValue(email, 'novo@example.test');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+  assert.ok(page.querySelector('[role="dialog"]'));
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Não foi possível atualizar o vínculo familiar/i);
+  assert.equal(page.textContent?.includes('Vínculo atualizado para novo@example.test'), false);
 });
 
 test('incoming shared invite accept and decline are routed through synthetic callbacks', async () => {
@@ -385,11 +587,34 @@ test('shared invite resend uses callback only and does not initiate external ema
   const tab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
   assert.ok(tab);
   await act(async () => { tab.click(); });
-  const resend = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Reenviar');
+  const resend = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Atualizar convite');
   assert.ok(resend);
-  await act(async () => { resend.click(); });
+  assert.doesNotMatch(resend.textContent ?? '', /reenviar|e-mail/i);
+  await act(async () => { resend.click(); await Promise.resolve(); });
   assert.equal(resent, member);
-  assert.match(page.textContent ?? '', /Convite reenviado na nuvem/);
+  assert.match(page.textContent ?? '', /Convite registrado no app para test@example\.test/i);
+  assert.match(page.textContent ?? '', /Nenhum e-mail foi enviado/i);
+  assert.match(page.textContent ?? '', /entre no Minhas Economias com esse mesmo e-mail/i);
+});
+
+test('failed async invite update never shows the registered success message', async () => {
+  const member: FamilyMember = {
+    id: 'resend-rejected-synthetic', name: 'Convidado', relationship: 'amigo(a)', color: '#059669',
+    email: 'test@example.test', inviteStatus: 'invited', direction: 'outgoing',
+  };
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [member],
+    onResendFamilyInvite: async () => { throw new Error('simulated Neon failure'); },
+  });
+  const tab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(tab);
+  await act(async () => { tab.click(); });
+  const update = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Atualizar convite');
+  assert.ok(update);
+
+  await act(async () => { update.click(); await Promise.resolve(); });
+  assert.match(page.textContent ?? '', /Não foi possível atualizar o convite no app/i);
+  assert.doesNotMatch(page.textContent ?? '', /Convite registrado no app para test@example\.test/i);
 });
 
 test('valid single shared settlement forwards transaction, account and date; received item can be reopened', async () => {

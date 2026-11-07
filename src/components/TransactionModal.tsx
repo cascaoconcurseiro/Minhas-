@@ -169,6 +169,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isAddingFamilyMember, setIsAddingFamilyMember] = useState<boolean>(false);
   const [newMemberName, setNewMemberName] = useState<string>('');
   const [newMemberEmail, setNewMemberEmail] = useState<string>('');
+  const [inlineFamilyMemberError, setInlineFamilyMemberError] = useState<string | null>(null);
   const [newMemberRelationship, setNewMemberRelationship] =
     useState<FamilyMember['relationship']>('cônjuge');
 
@@ -796,6 +797,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleInlineAddFamilyMember = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (newMemberEmail.trim()) {
+      setInlineFamilyMemberError('Para vincular ou convidar por e-mail, use a aba Compartilhado. Nenhuma pessoa foi adicionada.');
+      return;
+    }
     if (!newMemberName.trim()) return;
     if (onAddFamilyMember) {
       const colors = [
@@ -807,14 +812,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         '#8b5cf6',
       ];
       const color = colors[familyMembers.length % colors.length];
-      const cleanEmail = newMemberEmail.trim().toLowerCase();
+      setInlineFamilyMemberError(null);
       const created = onAddFamilyMember({
         name: newMemberName.trim(),
         relationship: newMemberRelationship,
         color,
-        email: cleanEmail || undefined,
-        inviteStatus: cleanEmail ? 'accepted' : 'none',
-        invitedAt: cleanEmail ? new Date().toISOString().slice(0, 10) : undefined,
+        inviteStatus: 'none',
       });
       if (created) {
         setSharedMemberId(created.id);
@@ -3439,14 +3442,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 p-3.5 space-y-3">
                             <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 dark:text-indigo-200">
                               <UserPlus className="h-4 w-4 text-indigo-600 shrink-0" />
-                              <span>Convidar e Cadastrar Familiar</span>
+                              <span>Adicionar familiar à lista</span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Cadastre o nome e o e-mail para enviar convite de conta compartilhada:
+                              Adicione um familiar sem e-mail. Para vincular uma conta por e-mail, use a aba Compartilhado.
                             </p>
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                               <input
                                 type="text"
+                                data-testid="inline-family-member-name"
                                 placeholder="Nome (ex: Mariana)"
                                 value={newMemberName}
                                 onChange={(e) =>
@@ -3456,13 +3460,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               />
                               <input
                                 type="email"
-                                placeholder="E-mail p/ convite (opcional)"
+                                data-testid="inline-family-member-email"
+                                placeholder="E-mail (use a aba Compartilhado)"
                                 value={newMemberEmail}
                                 onChange={(e) =>
                                   setNewMemberEmail(e.target.value)
                                 }
                                 className="sm:col-span-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white"
                               />
+                              {inlineFamilyMemberError && (
+                                <p role="alert" data-testid="inline-family-member-error" className="sm:col-span-12 text-xs text-rose-700">
+                                  {inlineFamilyMemberError}
+                                </p>
+                              )}
                               <select
                                 value={newMemberRelationship}
                                 onChange={(e) =>
@@ -3482,10 +3492,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               </select>
                               <button
                                 type="button"
+                                data-testid="inline-family-member-submit"
                                 onClick={handleInlineAddFamilyMember}
                                 className="sm:col-span-2 rounded-lg bg-indigo-600 text-white text-xs font-bold py-1.5 px-3 hover:bg-indigo-700 transition-colors"
                               >
-                                Convidar
+                                Adicionar
                               </button>
                             </div>
                           </div>
@@ -3543,6 +3554,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   {onAddFamilyMember && (
                                     <button
                                       type="button"
+                                      data-testid="toggle-inline-family-member-form"
                                       onClick={() =>
                                         setIsAddingFamilyMember(
                                           !isAddingFamilyMember
@@ -3619,11 +3631,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             {isAddingFamilyMember && (
                               <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 p-3 space-y-2 animate-expand-in">
                                 <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
-                                  Convidar novo familiar (com e-mail para espelhamento):
+                                  Adicionar familiar sem e-mail:
                                 </span>
                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                                   <input
                                     type="text"
+                                    data-testid="inline-family-member-name"
                                     placeholder="Nome (ex: Juliana)"
                                     value={newMemberName}
                                     onChange={(e) =>
@@ -3633,13 +3646,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   />
                                   <input
                                     type="email"
-                                    placeholder="E-mail p/ convite (opcional)"
+                                    data-testid="inline-family-member-email"
+                                    placeholder="E-mail (use a aba Compartilhado)"
                                     value={newMemberEmail}
                                     onChange={(e) =>
                                       setNewMemberEmail(e.target.value)
                                     }
                                     className="sm:col-span-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-white"
                                   />
+                                  {inlineFamilyMemberError && (
+                                    <p role="alert" data-testid="inline-family-member-error" className="sm:col-span-12 text-xs text-rose-700">
+                                      {inlineFamilyMemberError}
+                                    </p>
+                                  )}
                                   <select
                                     value={newMemberRelationship}
                                     onChange={(e) =>
@@ -3661,10 +3680,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   </select>
                                   <button
                                     type="button"
+                                    data-testid="inline-family-member-submit"
                                     onClick={handleInlineAddFamilyMember}
                                     className="sm:col-span-2 rounded-lg bg-indigo-600 text-white text-xs font-bold py-1.5 px-3 hover:bg-indigo-700 transition-colors"
                                   >
-                                    Convidar
+                                    Adicionar
                                   </button>
                                 </div>
                               </div>

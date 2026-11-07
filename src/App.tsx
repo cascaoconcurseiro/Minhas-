@@ -2069,7 +2069,7 @@ export default function App() {
         ? familyMembers.map((item) => item.id === member.id ? savedMember : item)
         : [...familyMembers, savedMember];
       setFamilyMembers(nextMembers);
-      showNotice(`Convite familiar enviado para ${member.email}.`);
+      showNotice(`Convite registrado no app para ${member.email}. Nenhum e-mail foi enviado; peça à pessoa que entre no Minhas Economias com esse mesmo e-mail para ver e aceitar o convite.`);
       triggerCrossAccountSharedTxSync(transactions, nextMembers);
       return true;
     } catch (error) {
@@ -2077,62 +2077,126 @@ export default function App() {
         'Falha ao criar convite familiar no Neon.',
         error instanceof Error ? error.message : String(error)
       );
-      setFamilyMembers((prev) =>
-        prev.map((item) => item.id === member.id ? { ...item, inviteStatus: 'none' } : item)
-      );
-      showNotice('Não foi possível enviar o convite. Os dados locais foram mantidos.');
+      showNotice('Não foi possível registrar o convite no Neon.');
       return false;
     }
   };
 
-  const handleAddFamilyMember = (newMember: Omit<FamilyMember, 'id'>): FamilyMember => {
+  const handleAddFamilyMember = (
+    newMember: Omit<FamilyMember, 'id'>
+  ): FamilyMember | undefined => {
+    if (newMember.email?.trim()) {
+      showNotice('Para vincular por e-mail, cadastre o familiar na aba Compartilhado.');
+      return undefined;
+    }
+    const created: FamilyMember = {
+      ...newMember,
+      id: `fam-${Date.now()}`,
+      inviteStatus: 'none',
+    };
+    setFamilyMembers((prev) => [...prev, created]);
+    showNotice(`"${created.name}" cadastrado(a) na família.`);
+    return created;
+  };
+
+  const handleAddFamilyMemberWithInvite = async (
+    newMember: Omit<FamilyMember, 'id'>
+  ): Promise<boolean> => {
     const created: FamilyMember = {
       ...newMember,
       id: `fam-${Date.now()}`,
       inviteStatus: newMember.email ? 'invited' : 'none',
       direction: newMember.email ? 'outgoing' : undefined,
     };
-    setFamilyMembers((prev) => [...prev, created]);
     if (created.email) {
-      void triggerCrossAccountInviteSync(created);
-    } else {
-      showNotice(`"${created.name}" cadastrado(a) na família.`);
+      return await triggerCrossAccountInviteSync(created);
     }
-    return created;
+    setFamilyMembers((prev) => [...prev, created]);
+    showNotice(`"${created.name}" cadastrado(a) na família.`);
+    return true;
   };
 
-  const handleUpdateFamilyMember = (updated: FamilyMember) => {
+  const handleUpdateFamilyMember = async (updated: FamilyMember): Promise<boolean> => {
     const previousMember = familyMembers.find((member) => member.id === updated.id);
-    const nextMembers = familyMembers.map((m) =>
-      m.id === updated.id ? updated : m
-    );
     const emailChanged =
       previousMember?.email?.trim().toLowerCase() !==
       updated.email?.trim().toLowerCase();
-    if (emailChanged && previousMember?.invitationId) {
-      void revokeNeonFamilyInvitation(previousMember.invitationId)
-        .then(() => {
-          setFamilyMembers(nextMembers);
-          if (updated.email && updated.direction !== 'incoming') {
-            void triggerCrossAccountInviteSync(updated);
-          } else {
-            triggerCrossAccountSharedTxSync(transactions, nextMembers);
-          }
-          showNotice(`Dados de "${updated.name}" atualizados.`);
-        })
-        .catch((error) => {
-          console.error('Falha ao atualizar o convite familiar:', error);
-          showNotice('Não foi possível substituir o convite anterior. Ele permanece ativo.');
-        });
-      showNotice(`Atualizando o vínculo de "${updated.name}".`);
-      return;
+    if (emailChanged) {
+      if (updated.direction === 'incoming') {
+        showNotice('O e-mail de um convite recebido só pode ser alterado por quem o enviou.');
+        return false;
+      }
+      let revokedOldInvitation = false;
+      try {
+        if (previousMember?.invitationId) {
+          await revokeNeonFamilyInvitation(previousMember.invitationId);
+          revokedOldInvitation = true;
+        }
+        let savedMember: FamilyMember = {
+          ...updated,
+          email: updated.email?.trim().toLowerCase() || undefined,
+          invitationId: undefined,
+          inviteStatus: 'none',
+        };
+        if (savedMember.email && savedMember.direction !== 'incoming') {
+          if (!effectiveUserEmail) throw new Error('Usuário sem e-mail autenticado.');
+          const { invitation } = await createNeonFamilyInvitation({
+            invitedEmail: savedMember.email,
+            ownerMemberId: savedMember.id,
+            ownerName:
+              effectiveUserDisplayName ||
+              settings.userName ||
+              effectiveUserEmail.split('@')[0],
+            ownerPixKey: settings.userPixKey,
+            relationship: savedMember.relationship,
+            color: savedMember.color,
+          });
+          savedMember = {
+            ...savedMember,
+            invitationId: invitation.invitation_id,
+            inviteStatus: invitation.status === 'accepted' ? 'accepted' : 'invited',
+          };
+        }
+        const nextMembers = familyMembers.map((member) =>
+          member.id === savedMember.id ? savedMember : member
+        );
+        setFamilyMembers(nextMembers);
+        if (savedMember.email && savedMember.direction !== 'incoming') {
+          showNotice(`Vínculo atualizado para ${savedMember.email}. O convite foi registrado no app; nenhum e-mail foi enviado. A pessoa precisa entrar com esse mesmo e-mail.`);
+        } else {
+          showNotice(`Dados de "${savedMember.name}" atualizados.`);
+        }
+        return true;
+      } catch (error) {
+        console.error('Falha ao atualizar o convite familiar no Neon:', error);
+        if (revokedOldInvitation && previousMember) {
+          const normalizedEmail = updated.email?.trim().toLowerCase() || undefined;
+          setFamilyMembers((members) => members.map((member) =>
+            member.id === previousMember.id
+              ? {
+                  ...member,
+                  email: normalizedEmail,
+                  invitationId: undefined,
+                  inviteStatus: 'none',
+                  direction: 'outgoing',
+                }
+              : member
+          ));
+        }
+        showNotice('Não foi possível atualizar o vínculo familiar no Neon.');
+        return false;
+      }
+    }
+    const nextMembers = familyMembers.map((member) =>
+      member.id === updated.id ? updated : member
+    );
+    if (updated.email && updated.direction !== 'incoming') {
+      return await triggerCrossAccountInviteSync(updated);
     }
     setFamilyMembers(nextMembers);
-    if (updated.email && updated.direction !== 'incoming') {
-      void triggerCrossAccountInviteSync(updated);
-    }
     triggerCrossAccountSharedTxSync(transactions, nextMembers);
     showNotice(`Dados de "${updated.name}" atualizados.`);
+    return true;
   };
 
   const handleAcceptFamilyInvite = (member: FamilyMember) => {
@@ -3914,7 +3978,7 @@ export default function App() {
                   cards={cards}
                   categories={categories}
                   userPixKey={settings.userPixKey}
-                  onAddFamilyMember={handleAddFamilyMember}
+                  onAddFamilyMember={handleAddFamilyMemberWithInvite}
                   onUpdateFamilyMember={handleUpdateFamilyMember}
                   onDeleteFamilyMember={handleDeleteFamilyMember}
                   onAcceptFamilyInvite={handleAcceptFamilyInvite}
