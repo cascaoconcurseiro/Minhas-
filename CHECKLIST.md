@@ -622,3 +622,12 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [ ] O usuário deve copiar `C:\Users\Wesley\Documents\Minhas Economias Backup\neon-backup.agekey` para cofre/offline e verificar acesso noutro dispositivo; sem essa chave, artifacts cifrados não podem ser recuperados.
 - [ ] Confirmar a primeira execução automática (`schedule`) após 13:00 UTC de 2026-11-07; a execução `42320784685` foi manual.
 - [ ] Restore via interface autenticada, CRUD familiar/relatórios, revisão visual mobile e cobertura dos módulos ainda pendentes da meta geral.
+
+## Continuação — 2026-11-07
+- [x] Publicar confirmação antes de remover membro familiar em `0917cdb`; CI `42376911235` passou.
+- [x] Adicionar teste DOM sintético de edição de orçamento; suíte completa passou com 178 testes em 35 arquivos, `bun run lint` e `git diff --check` passaram.
+- [x] Confirmar `/api/health` em produção: HTTP 200, Neon `ok`, role de runtime restrita.
+- [ ] Confirmar que o deployment de `0917cdb` terminou Ready e verificar bundle da remoção familiar no domínio principal.
+- [ ] Observar execução automática do backup GitHub; última cópia verificada ainda é execução manual.
+- [ ] Resolver arquitetura de autenticação com o usuário; auditoria atual confirma Neon Auth, mas a decisão inicial foi manter Firebase Auth.
+- [ ] Concluir validação visual desktop/mobile e fluxos reais autenticados; testes DOM e APIs com mocks não substituem esses aceites.
