@@ -238,26 +238,32 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
     <div className="space-y-6">
       {/* Sub-navigation between Monthly Budgets and Custom Category & Subcategory Manager */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+        <div
+          role="group"
+          aria-label="Visualização do orçamento"
+          className="flex w-full min-w-0 flex-col items-stretch gap-1 rounded-lg bg-slate-100 p-1 sm:w-auto sm:flex-row sm:items-center"
+        >
           <button
             type="button"
             onClick={() => setViewMode('budgets')}
-            className={`px-4 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+            aria-pressed={viewMode === 'budgets'}
+            className={`min-h-11 w-full min-w-0 rounded-md px-3 py-2 text-left text-xs font-semibold leading-snug transition-colors whitespace-normal ${
               viewMode === 'budgets'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+            } sm:w-auto sm:px-4 sm:text-center sm:whitespace-nowrap`}
           >
             Orçamentos Mensais & Alertas (50-30-20)
           </button>
           <button
             type="button"
             onClick={() => setViewMode('categories')}
-            className={`px-4 py-2 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+            aria-pressed={viewMode === 'categories'}
+            className={`min-h-11 w-full min-w-0 rounded-md px-3 py-2 text-left text-xs font-semibold leading-snug transition-colors whitespace-normal ${
               viewMode === 'categories'
                 ? 'bg-white text-slate-900 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+            } sm:w-auto sm:px-4 sm:text-center sm:whitespace-nowrap`}
           >
             Gerenciar Categorias & Subcategorias ({categories.length})
           </button>

@@ -89,6 +89,32 @@ afterEach(() => {
   container = null;
 });
 
+test('budget view selector wraps on mobile and announces its selected button', async () => {
+  const page = renderBudgetsTab(() => {});
+  const selector = page.querySelector<HTMLElement>(
+    '[role="group"][aria-label="Visualização do orçamento"]'
+  );
+  assert.ok(selector);
+  assert.match(selector.className, /flex-col/);
+  assert.match(selector.className, /sm:flex-row/);
+
+  const budgetButton = Array.from(page.querySelectorAll<HTMLButtonElement>('button')).find(
+    (button) => button.textContent?.includes('Orçamentos Mensais & Alertas')
+  );
+  const categoryButton = Array.from(page.querySelectorAll<HTMLButtonElement>('button')).find(
+    (button) => button.textContent?.includes('Gerenciar Categorias & Subcategorias')
+  );
+  assert.ok(budgetButton && categoryButton);
+  assert.match(budgetButton.className, /min-h-11/);
+  assert.match(budgetButton.className, /whitespace-normal/);
+  assert.equal(budgetButton.getAttribute('aria-pressed'), 'true');
+  assert.equal(categoryButton.getAttribute('aria-pressed'), 'false');
+
+  await act(async () => { categoryButton.click(); });
+  assert.equal(budgetButton.getAttribute('aria-pressed'), 'false');
+  assert.equal(categoryButton.getAttribute('aria-pressed'), 'true');
+});
+
 test('BudgetsTab edits a monthly budget and parses a Brazilian currency amount', async () => {
   const updates: Array<[string, number]> = [];
   const page = renderBudgetsTab((categoryId, amount) => updates.push([categoryId, amount]));
