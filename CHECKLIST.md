@@ -7,9 +7,9 @@
 - [x] Cobrir projeto incorreto, token inválido, usuário desativado, indisponibilidade Firebase e health degradado sem configuração.
 - [x] Configurar `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` como variáveis sensíveis de Vercel Production; manter variáveis Neon Auth antigas até smoke pós-deploy.
 - [x] Validar localmente `bun test` (173/173 em 33 arquivos), `bun run lint`, `bun run build` e `git diff --check`; aviso de chunk principal >500 kB permanece.
-- [ ] Revisar e publicar as alterações em `main`; aguardar CI e Vercel Ready.
-- [ ] Validar production `/api/health` 200, APIs autenticadas 401 sem token, bundle de login Firebase e ausência de referências Neon Auth/OTP.
-- [ ] Só após health e bundle novos confirmados, remover variáveis `NEON_AUTH_JWKS_URL` e `VITE_NEON_AUTH_URL` da Vercel Production.
+- [x] Revisar e publicar as alterações em `main` no commit `aede265`; CI `42378877771` passou e deployment Vercel `dpl_8mrRFxZutZBhKte6gN52m5kbBZfn` ficou Ready.
+- [x] Validar production `/api/health` 200 com Neon `ok`, role restrita e Firebase configurado; workspace, compartilhamento, lembretes, FX e sync de ativos retornam 401 sem token. Bundle publicado contém Firebase Auth, sem OTP/Neon Auth e sem Guia Rápido.
+- [x] Remover `NEON_AUTH_JWKS_URL` e `VITE_NEON_AUTH_URL` da Vercel Production; confirmar listagem final com apenas `DATABASE_URL` e os dois envs Firebase.
 - [ ] Validar signup/login e workspace Neon com conta Firebase real, por ação local do titular; nenhum segredo ou dado real foi usado nos testes locais.
 - [ ] Retomar os aceites gerais ainda abertos: execução programada do backup, restore UI autenticado, teste visual e cobertura dos módulos, chave de restauração externa.
 
