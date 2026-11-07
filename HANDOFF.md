@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Sessão — 2026-11-07 — orquestração do app e execução diária
+
+Adicionei uma suíte sintética do componente `App` em `src/App.test.tsx` com o harness isolado `src/test-utils/appOrchestrationHarness.tsx`. Ela comprova que a tela permanece bloqueada enquanto o workspace Neon carrega, só mostra dados do snapshot após sucesso e sinaliza sincronização; também prova que um 503 não cria nem salva um workspace vazio e que “Tentar novamente” recupera o carregamento. Os mocks rodam em processo separado para não interferir na suíte global. Verificação local: `bun test` **356/356 em 54 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram. Esses casos usam Firebase/Neon sintéticos, não são E2E remoto.
+
+Estado externo rechecado: `/api/health` de produção HTTP 200, Neon `ok`, Firebase Auth configurado e role Neon restrita; Vercel lista `/api/health` às 12:15 UTC. GitHub workflow `neon-daily-activity.yml` teve `schedule` sucesso `42397967500` em 2026-11-07 17:46 UTC. Já `neon-backup.yml` continua sem execução `schedule` visível; `42413305298` em 20:54 UTC foi `workflow_dispatch`. O backup é diário no código, mas ainda falta prova do agendador. A chave privada age também não foi comprovada fora deste computador.
+
+Próximo passo concreto: preparar e executar o cenário UI→API→Neon de export/import/restore em branch QA descartável com identidade temporária, readback pós-recarga e limpeza. Depois confirmar a primeira execução agendada do backup e retomar o sweep visual mobile e a persistência remota dos módulos. Não marcar “todas as funcionalidades” como concluídas.
+
 ## Sessão — 2026-11-07 — validação real do fluxo familiar em produção
 
 Corrigi e publiquei os entrypoints Vercel para `POST /api/family/invitations/:invitationId/respond` e `.../revoke`; antes, esses caminhos profundos davam 404 na borda. Deploy `dpl_4pRYn2TGYwD41geXZsgW4Dr7tqv5` está Ready. CI `42419556410` passou; `bun test` 355/355 em 53 arquivos, lint, build e `git diff --check` passaram. Sem token, os dois endpoints retornaram 401 JSON; com a segunda identidade verificada, aceitar e recusar retornaram 200.

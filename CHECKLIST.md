@@ -672,9 +672,9 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Confirmar health em produção HTTP 200/Neon `ok`/role restrita; rotas de workspace, lembretes, FX e investimentos sem token respondem 401.
 - [x] Publicar teste DOM sintético de edição de orçamento no commit `17b49db`; CI `42377109572` passou e o deployment Vercel `dpl_y2nKx4hGY7CZ6MomNeVSChDmq3bZ` ficou Ready.
 - [x] Inspecionar login de produção com Ego Lite em desktop e viewport 390×844: tela renderizada, campos legíveis e sem overflow horizontal aparente; Guia Rápido ausente.
-- [ ] Inspecionar o dashboard autenticado em desktop/mobile; não foi possível sem uma conta Neon Auth ativa, e o app informa que contas anteriores não foram migradas.
+- [ ] Completar inspeção visual do dashboard autenticado em desktop/mobile; Firebase Auth está ativo, houve validação parcial de UI, mas ainda não foi feito um sweep completo.
 - [ ] Observar execução automática do backup GitHub; última cópia verificada ainda é execução manual.
-- [ ] Resolver arquitetura de autenticação com o usuário; auditoria atual confirma Neon Auth, mas a decisão inicial foi manter Firebase Auth.
+- [x] Decisão de arquitetura: manter Firebase Auth para identidade e Neon PostgreSQL para dados; o health de produção confirma Firebase Auth e Neon ativos.
 - [ ] Concluir validação visual desktop/mobile e fluxos reais autenticados; testes DOM e APIs com mocks não substituem esses aceites.
 
 ## Validação real de convites e lançamento compartilhado — 2026-11-07
@@ -687,4 +687,14 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Consulta agregada final em produção: zero convites ativos, zero registros do lançamento QA em tabela de compartilhamento e workspaces.
 - [ ] Validar cadastro, verificação, login, logout e persistência de sessão pelo formulário visual do app com duas identidades; o teste de identidade real foi feito por Auth REST e Gmail, enquanto o isolamento de sessão UI no Ego Lite não foi possível.
 - [ ] Validar restore/import/export pela UI autenticada em branch Neon QA; comprovar o disparo automático agendado do backup cifrado e a guarda externa da chave age.
-- [ ] Completar sweep mobile e readback independente Neon para CRUD de todos os módulos; os 355 testes locais e fluxos sintéticos não substituem isso.
+- [ ] Completar sweep mobile e readback independente Neon para CRUD de todos os módulos; os 356 testes locais e fluxos sintéticos não substituem isso.
+
+## Orquestração do workspace e agendamentos rechecados — 2026-11-07
+- [x] Manter Firebase Auth como identidade e Neon PostgreSQL como armazenamento financeiro operacional, conforme decisão do usuário; o health de produção reporta ambos e a role restrita.
+- [x] Adicionar teste sintético de App para hidratação autenticada do Neon, bloqueio enquanto carrega, erro 503 sem overwrite/local-save e retry pelo botão.
+- [x] Confirmar `bun test`: 356 testes em 54 arquivos; `bun run lint`, `bun run build` e `git diff --check` passaram.
+- [x] Confirmar a atividade diária do Neon por execução GitHub `schedule` `42397967500` em 2026-11-07; health de produção HTTP 200/Neon ok.
+- [x] Confirmar que Vercel mantém `/api/health` agendado diariamente às 12:15 UTC.
+- [ ] Confirmar execução do workflow `neon-backup.yml` por `schedule`; a mais recente verificada (`42413305298`) foi manual, apesar do cron diário estar configurado.
+- [ ] Fazer restore/export/import pela interface em branch Neon QA isolada e confirmar por readback após recarga; suíte sintética e API mock não fecham esse requisito.
+- [ ] Fazer sweep completo da UI mobile e CRUD→Neon real dos módulos; manter os testes de componentes separados de evidência real.
