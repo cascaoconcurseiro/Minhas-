@@ -1,0 +1,91 @@
+name: Neon — backup PostgreSQL cifrado
+
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  encrypted-backup:
+    name: Dump público cifrado por recipient age
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      NEON_BACKUP_DATABASE_URL: ${{ secrets.NEON_BACKUP_DATABASE_URL }}
+      NEON_BACKUP_AGE_RECIPIENT: ${{ vars.NEON_BACKUP_AGE_RECIPIENT }}
+
+    steps:
+      - name: Instalar cliente PostgreSQL e age
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client age
+
+      - name: Validar configuração e gerar dump cifrado
+        id: backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -z "${NEON_BACKUP_DATABASE_URL:-}" ]]; then
+            echo "Configure o segredo NEON_BACKUP_DATABASE_URL."
+            exit 1
+          fi
+          if [[ -z "${NEON_BACKUP_AGE_RECIPIENT:-}" ]]; then
+            echo "Configure a variável pública NEON_BACKUP_AGE_RECIPIENT."
+            exit 1
+          fi
+          if [[ "$NEON_BACKUP_DATABASE_URL" == *-pooler.* ]]; then
+            echo "pg_dump exige o endpoint direto do Neon, sem -pooler."
+            exit 1
+          fi
+
+          server_version="$(psql "$NEON_BACKUP_DATABASE_URL" -Atqc 'SHOW server_version')"
+          server_major="${server_version%%.*}"
+          client_major="$(pg_dump --version | awk '{print $3}' | cut -d. -f1)"
+          if (( client_major < server_major )); then
+            echo "A versão do pg_dump é mais antiga que o servidor PostgreSQL."
+            exit 1
+          fi
+
+          dump_file="${RUNNER_TEMP}/neon-backup-${GITHUB_RUN_ID}.dump"
+          encrypted_file="${RUNNER_TEMP}/neon-backup-${GITHUB_RUN_ID}.dump.age"
+          trap 'rm -f "$dump_file"' EXIT
+
+          pg_dump \
+            --format=custom \
+            --schema=public \
+            --no-owner \
+            --no-privileges \
+            --dbname="$NEON_BACKUP_DATABASE_URL" \
+            --file="$dump_file"
+          test -s "$dump_file"
+
+          age \
+            --recipient "$NEON_BACKUP_AGE_RECIPIENT" \
+            --output "$encrypted_file" \
+            "$dump_file"
+          test -s "$encrypted_file"
+          age-inspect "$encrypted_file" >/dev/null
+          rm -f "$dump_file"
+
+          echo "artifact_path=$encrypted_file" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar somente o arquivo cifrado por 30 dias
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-backup-${{ github.run_id }}
+          path: ${{ steps.backup.outputs.artifact_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Limpar arquivo cifrado do runner
+        if: always()
+        shell: bash
+        run: rm -f "${RUNNER_TEMP}/neon-backup-${GITHUB_RUN_ID}.dump" "${RUNNER_TEMP}/neon-backup-${GITHUB_RUN_ID}.dump.age"

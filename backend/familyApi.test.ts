@@ -11,6 +11,7 @@ const oldEnv = {
   NEON_AUTH_BASE_URL: process.env.NEON_AUTH_BASE_URL,
   NEON_AUTH_JWKS_URL: process.env.NEON_AUTH_JWKS_URL,
   VITE_NEON_AUTH_URL: process.env.VITE_NEON_AUTH_URL,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
 
 let authTokens: Record<string, string> = {};
@@ -50,6 +51,8 @@ let workspaceOwnerUid = 'owner-uid';
 let workspaceExists = true;
 let failWorkspaceUpdates = false;
 const workspaceUpdateParameters: unknown[][] = [];
+let googleFinanceResponseHtml: string | null = null;
+const googleFinanceRequests: string[] = [];
 
 function restoreEnv(name: keyof typeof oldEnv) {
   const value = oldEnv[name];
@@ -62,13 +65,19 @@ before(async () => {
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
   delete process.env.NEON_AUTH_BASE_URL;
   process.env.VITE_NEON_AUTH_URL = 'https://neon-auth.test';
+  delete process.env.GEMINI_API_KEY;
   process.env.NEON_AUTH_JWKS_URL = 'https://neon-auth.test/jwks';
   const { privateKey, publicKey } = await generateKeyPair('EdDSA');
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = 'test-key';
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    if (String(input) === process.env.NEON_AUTH_JWKS_URL) {
+    const url = String(input);
+    if (url === process.env.NEON_AUTH_JWKS_URL) {
       return new Response(JSON.stringify({ keys: [publicJwk] }), { status: 200 });
+    }
+    if (googleFinanceResponseHtml && url.startsWith('https://www.google.com/finance/quote/')) {
+      googleFinanceRequests.push(url);
+      return new Response(googleFinanceResponseHtml, { status: 200 });
     }
     return originalFetch(input, init);
   }) as typeof fetch;
@@ -223,6 +232,7 @@ after(async () => {
   restoreEnv('NEON_AUTH_BASE_URL');
   restoreEnv('NEON_AUTH_JWKS_URL');
   restoreEnv('VITE_NEON_AUTH_URL');
+  restoreEnv('GEMINI_API_KEY');
 });
 
 test('API familiar exige Neon Auth e sincroniza pelo Neon antes de revogar', async () => {
@@ -506,4 +516,77 @@ test('health reporta apenas se a conexão usa a role de runtime restrita', async
   };
   assert.equal(health.services.neon, 'ok');
   assert.equal(health.services.neonLeastPrivilegeRole, true);
+});
+
+test('FX BRL e cotações B3 autenticadas respondem usando dados locais e Google Finance simulado', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  const fxResponse = await originalFetch(`${baseUrl}/api/fx/live-rate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ currency: 'BRL' }),
+  });
+  assert.equal(fxResponse.status, 200, await fxResponse.clone().text());
+  const fx = await fxResponse.json() as { currency: string; commercialRateBrl: number; sources: unknown[] };
+  assert.equal(fx.currency, 'BRL');
+  assert.equal(fx.commercialRateBrl, 1);
+  assert.deepEqual(fx.sources, []);
+
+  googleFinanceResponseHtml = `
+    <div data-last-price="37.82" data-currency-code="BRL" data-last-normal-market-change-percent="1.45"></div>
+    <div class="zzDege">Petróleo Brasileiro S.A. - Petrobras</div>
+  `;
+  googleFinanceRequests.length = 0;
+  try {
+    const quoteResponse = await originalFetch(`${baseUrl}/api/investments/sync-quotes`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ tickers: ['PETR4'] }),
+    });
+    assert.equal(quoteResponse.status, 200, await quoteResponse.clone().text());
+    const quoteResult = await quoteResponse.json() as {
+      quotes: Array<{ ticker: string; priceBrl: number; changePercent: number; name: string }>;
+      sources: Array<{ uri: string }>;
+    };
+    assert.deepEqual(quoteResult.quotes.map(({ ticker, priceBrl, changePercent }) => ({ ticker, priceBrl, changePercent })), [
+      { ticker: 'PETR4', priceBrl: 37.82, changePercent: 1.45 },
+    ]);
+    assert.match(quoteResult.quotes[0]?.name ?? '', /Petrobras/);
+    assert.equal(quoteResult.sources.length, 1);
+    assert.equal(googleFinanceRequests.length, 1);
+    assert.match(googleFinanceRequests[0] ?? '', /PETR4%3ABVMF/);
+  } finally {
+    googleFinanceResponseHtml = null;
+  }
+});
+
+test('lembretes autenticados rejeitam entrada inválida e SMTP privado sem entregar e-mail', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  const invalidRecipient = await originalFetch(`${baseUrl}/api/reminders/send-email`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ to: 'not-an-email' }),
+  });
+  assert.equal(invalidRecipient.status, 400);
+
+  const privateTarget = await originalFetch(`${baseUrl}/api/reminders/send-email`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      to: 'owner@example.com',
+      smtp: {
+        host: '127.0.0.1',
+        port: 587,
+        user: 'owner@example.com',
+        pass: 'synthetic-only',
+      },
+    }),
+  });
+  assert.equal(privateTarget.status, 400);
+  assert.match((await privateTarget.json() as { error: string }).error, /servidor SMTP público/);
 });
