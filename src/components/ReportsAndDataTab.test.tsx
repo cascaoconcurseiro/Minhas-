@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
+import type { BankAccount, Transaction } from '../types/finance';
 import { ReportsAndDataTab } from './ReportsAndDataTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -12,12 +13,15 @@ let container: HTMLDivElement | null = null;
 let originalAnchorClick: typeof HTMLAnchorElement.prototype.click;
 let originalCreateObjectURL: PropertyDescriptor | undefined;
 let originalRevokeObjectURL: PropertyDescriptor | undefined;
+let originalConsoleError: PropertyDescriptor | undefined;
 
 function renderReports(options: {
   onExportFullBackupJson?: () => void;
   onImportQuickCsvLines?: (lines: string, accountId: string) => number;
   onOpenReconciliation?: () => void;
   onResetWorkspaceData?: () => void;
+  accounts?: BankAccount[];
+  transactions?: Transaction[];
 } = {}) {
   container = document.createElement('div');
   document.body.append(container);
@@ -26,11 +30,11 @@ function renderReports(options: {
     root?.render(
       React.createElement(ReportsAndDataTab, {
         selectedMonth: '2026-11',
-        accounts: [{ id: 'acc-synthetic', name: 'Conta sintética', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#059669', includeInTotal: true }],
+        accounts: options.accounts ?? [{ id: 'acc-synthetic', name: 'Conta sintética', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#059669', includeInTotal: true }],
         accountBalances: [],
         cards: [],
         categories: [],
-        transactions: [],
+        transactions: options.transactions ?? [],
         investments: [],
         onExportFullBackupJson: options.onExportFullBackupJson ?? (() => {}),
         onImportQuickCsvLines: options.onImportQuickCsvLines ?? (() => 0),
@@ -52,9 +56,11 @@ afterEach(() => {
   else delete (window.URL as unknown as { createObjectURL?: unknown }).createObjectURL;
   if (originalRevokeObjectURL) Object.defineProperty(window.URL, 'revokeObjectURL', originalRevokeObjectURL);
   else delete (window.URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
+  if (originalConsoleError) Object.defineProperty(console, 'error', originalConsoleError);
   originalAnchorClick = undefined as unknown as typeof HTMLAnchorElement.prototype.click;
   originalCreateObjectURL = undefined;
   originalRevokeObjectURL = undefined;
+  originalConsoleError = undefined;
 });
 
 test('ReportsAndDataTab recalculates the visible period when a preset changes', async () => {
@@ -74,6 +80,31 @@ test('ReportsAndDataTab recalculates the visible period when a preset changes', 
   assert.ok(monthlyButton);
   await act(async () => { monthlyButton.click(); });
   assert.ok(page.textContent?.includes('Receitas (1 mês)'));
+});
+
+test('ReportsAndDataTab supports annual and custom ranges, updating the visible month count', async () => {
+  const page = renderReports();
+  const annual = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Anual (2026)'));
+  assert.ok(annual);
+  await act(async () => { annual.click(); });
+  assert.ok(page.textContent?.includes('Receitas (7 meses)'), 'annual 2026 preset covers June through December');
+
+  const custom = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Personalizado');
+  assert.ok(custom);
+  await act(async () => { custom.click(); });
+  const start = page.querySelector<HTMLInputElement>('[aria-label="Mês inicial do relatório"]');
+  const end = page.querySelector<HTMLInputElement>('[aria-label="Mês final do relatório"]');
+  assert.ok(start && end);
+  const setMonth = (input: HTMLInputElement, value: string) => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    input.dispatchEvent(new window.Event('change', { bubbles: true }));
+  };
+  await act(async () => {
+    setMonth(start, '2026-10');
+    setMonth(end, '2026-10');
+  });
+  assert.ok(page.textContent?.includes('Receitas (1 mês)'), 'matching custom endpoints produce a one-month report');
 });
 
 test('ReportsAndDataTab sends the workspace backup action to its callback', async () => {
@@ -133,6 +164,34 @@ test('ReportsAndDataTab forwards synthetic CSV text and target account, and repo
   assert.equal(csv.value, '');
 });
 
+test('ReportsAndDataTab imports pasted CSV into the account selected by the user', async () => {
+  let targetAccountId = '';
+  const accounts: BankAccount[] = [
+    { id: 'acc-synthetic', name: 'Conta sintética', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#059669', includeInTotal: true },
+    { id: 'acc-secondary', name: 'Carteira de QA', institution: 'Teste', type: 'cash', initialBalance: 0, color: '#2563eb', includeInTotal: false },
+  ];
+  const page = renderReports({ accounts, onImportQuickCsvLines: (_lines, accountId) => { targetAccountId = accountId; return 1; } });
+  const accountSelect = page.querySelector<HTMLSelectElement>('[aria-label="Conta destino da importação em lote"]');
+  const csv = page.querySelector<HTMLTextAreaElement>('#csv-paste-box');
+  assert.ok(accountSelect && csv);
+  await act(async () => {
+    accountSelect.value = 'acc-secondary';
+    accountSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  const set = (value: string) => {
+    Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set?.call(csv, value);
+    csv.dispatchEvent(new window.Event('input', { bubbles: true }));
+  };
+  await act(async () => {
+    set('2026-11-03;Compra sintética secundária;-4,25');
+    const form = csv.closest('form');
+    assert.ok(form);
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(targetAccountId, 'acc-secondary');
+  assert.match(page.textContent ?? '', /1 lançamento\(s\) importado\(s\) com sucesso/);
+});
+
 test('ReportsAndDataTab keeps empty or invalid CSV visible and never reports a zero import as success', async () => {
   let importCalls = 0;
   const page = renderReports({ onImportQuickCsvLines: () => { importCalls += 1; return 0; } });
@@ -177,9 +236,12 @@ test('ReportsAndDataTab reset cancellation preserves data and confirmation invok
   assert.equal(resets, 1);
 });
 
-test('ReportsAndDataTab downloads the CSV and invokes the PDF export action locally', async () => {
+test('ReportsAndDataTab downloads sanitized CSV data and runs PDF export without errors', async () => {
   const clicked: Array<{ filename: string; href: string }> = [];
   const blobs: Blob[] = [];
+  const errors: unknown[][] = [];
+  originalConsoleError = Object.getOwnPropertyDescriptor(console, 'error');
+  console.error = (...args: unknown[]) => { errors.push(args); };
   originalAnchorClick = HTMLAnchorElement.prototype.click;
   originalCreateObjectURL = Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL');
   originalRevokeObjectURL = Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL');
@@ -190,15 +252,34 @@ test('ReportsAndDataTab downloads the CSV and invokes the PDF export action loca
   HTMLAnchorElement.prototype.click = function click() {
     clicked.push({ filename: this.download, href: this.href });
   };
-  const page = renderReports();
+  const transaction: Transaction = {
+    id: 'tx-synthetic-export',
+    description: '=2+2',
+    amount: 8.5,
+    date: '2026-11-07',
+    competenceMonth: '2026-11',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-synthetic',
+    accountId: 'acc-synthetic',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+  };
+  const page = renderReports({ transactions: [transaction] });
   const csv = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Exportar Planilha CSV'));
   assert.ok(csv);
   await act(async () => { csv.click(); });
   assert.ok(clicked.some((link) => link.filename === 'minhas-economias-extrato-2026-11.csv'));
-  assert.ok(blobs.some((blob) => blob.type.includes('text/csv')));
+  const csvBlob = blobs.find((blob) => blob.type.includes('text/csv'));
+  assert.ok(csvBlob);
+  const csvContents = await csvBlob.text();
+  assert.match(csvContents, /Data;Competencia;Descricao;Tipo;Status/);
+  assert.ok(csvContents.includes(`"'=2+2"`), 'formula-like descriptions are neutralized in the exported CSV');
+  assert.match(csvContents, /"-8,50"/);
   const pdf = page.querySelector<HTMLButtonElement>('[aria-label="Exportar relatório financeiro do mês em PDF formatado"]');
   assert.ok(pdf);
   await act(async () => { pdf.click(); });
+  assert.deepEqual(errors, [], 'PDF action reaches the PDF generator without reporting a generation error');
   assert.equal(pdf.disabled, false, 'ação volta a ficar disponível ao concluir a geração');
   assert.match(pdf.textContent ?? '', /Exportar Relatório em PDF/);
 });
