@@ -1,10 +1,10 @@
 # Handoff — Minhas Economias
 
-## Retomada — 2026-11-07 13:53 UTC — Firebase Auth + Neon
+## Retomada — 2026-11-07 13:55 UTC — Firebase Auth + Neon
 
-A arquitetura publicada mantém Firebase Auth para identidade e Neon PostgreSQL como único banco operacional. O commit `aede265` foi enviado a `main`; CI `42378877771` passou e Vercel `dpl_8mrRFxZutZBhKte6gN52m5kbBZfn` está Ready. A API exige `aud`/`iss` do projeto Firebase, UID consistente com a conta verificada via Identity Toolkit, e distingue token inválido (401) de indisponibilidade/configuração do provedor (503). Os UIDs antigos dos workspaces foram preservados e nenhum dado Neon foi escrito.
+A arquitetura publicada mantém Firebase Auth para identidade e Neon PostgreSQL como único banco operacional. O commit `aede265` foi enviado a `main`; CI `42378877771` passou e o primeiro deployment de runtime `dpl_8mrRFxZutZBhKte6gN52m5kbBZfn` ficou Ready. Removi as variáveis antigas e o commit documental `59f0020` também passou no CI `42379078287`; o deployment mais recente, `dpl_FyZfqqhhZNfE49tHG4GvKisNpFu1`, ficou Ready com as envs limpas. A API exige `aud`/`iss` do projeto Firebase, UID consistente com a conta verificada via Identity Toolkit, e distingue token inválido (401) de indisponibilidade/configuração do provedor (503). Os UIDs antigos dos workspaces foram preservados e nenhum dado Neon foi escrito.
 
-Variáveis sensíveis `FIREBASE_PROJECT_ID`/`FIREBASE_API_KEY` foram adicionadas à Vercel production. Após o deploy, removi `NEON_AUTH_JWKS_URL`/`VITE_NEON_AUTH_URL`; lista final de variáveis contém esses dois campos Firebase e `DATABASE_URL`. Smoke no alias principal: health 200, Neon `ok`, role restrita e Firebase configurado; workspace, compartilhamento, lembretes, FX e sync de ativos 401 sem token. Bundle remoto contém Firebase Auth, sem Neon Auth/OTP e sem Guia Rápido.
+Variáveis sensíveis `FIREBASE_PROJECT_ID`/`FIREBASE_API_KEY` foram adicionadas à Vercel production. Após o primeiro deploy, removi `NEON_AUTH_JWKS_URL`/`VITE_NEON_AUTH_URL`; lista final contém apenas as duas envs Firebase e `DATABASE_URL`. Smoke repetido no alias principal depois do segundo deploy: health 200, Neon `ok`, role restrita e Firebase configurado; workspace, compartilhamento, lembretes, FX e sync de ativos 401 sem token. Bundle remoto contém Firebase Auth, sem Neon Auth/OTP e sem Guia Rápido.
 
 Validação local: `bun test` 173/173 em 33 arquivos; `bun run lint`, `bun run build` e `git diff --check` passaram. Agentes revisaram backend, frontend e docs/deploy; a auditoria de UIDs também confirmou que a migration 006 manteve valores Firebase existentes. O build ainda avisa sobre chunk acima de 500 kB.
 
