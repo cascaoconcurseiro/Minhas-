@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { AppSettings, BudgetBucket, Category, ReminderSettings } from '../types/finance';
 import { formatBRL, parseBRLInput } from '../utils/financeRules';
+import { parseFullFinanceBackup } from '../utils/fullBackup';
 import {
   DEFAULT_REMINDER_SETTINGS,
   requestBrowserNotificationPermission,
@@ -47,7 +48,7 @@ interface SettingsModalProps {
   onOpenCloudTab?: () => void;
   onSignOut?: () => Promise<void>;
   onExportFullBackupJson: () => void;
-  onImportFullBackupJson: (jsonText: string) => boolean;
+  onImportFullBackupJson: (jsonText: string) => boolean | Promise<boolean>;
   onResetWorkspaceData: () => void;
 }
 
@@ -77,6 +78,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [confirmReset, setConfirmReset] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [testNotificationSent, setTestNotificationSent] = useState(false);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,25 +117,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setImportSuccess(false);
 
     const reader = new FileReader();
+    const failImport = () => {
+      setImportSuccess(false);
+      setImportError('Não foi possível ler ou restaurar este arquivo JSON.');
+    };
     reader.onload = (event) => {
       const content = event.target?.result;
-      if (typeof content === 'string') {
-        const confirmed = window.confirm(
-          'Restaurar este arquivo substituirá os dados atuais do workspace. Se ainda não fez isso, baixe um backup atual antes de continuar. Depois da restauração, confira o status da nuvem até confirmar a sincronização com o Neon. Continuar?'
-        );
-        if (!confirmed) return;
+      if (typeof content !== 'string') return failImport();
+      const backup = parseFullFinanceBackup(content);
+      if (!backup) {
+        setImportError('Arquivo JSON inválido ou fora do padrão do Minhas Economias BR.');
+        return;
+      }
 
-        const ok = onImportFullBackupJson(content);
-        if (ok) {
+      const preview = [
+        `Contas: ${backup.accounts.length}`,
+        `cartões: ${backup.cards.length}`,
+        `categorias: ${backup.categories.length}`,
+        `lançamentos: ${backup.transactions.length}`,
+        `metas: ${backup.goals.length}`,
+        `investimentos: ${backup.investments.length}`,
+        `viagens: ${backup.trips.length}`,
+      ].join(' · ');
+      const confirmed = window.confirm(
+        `Prévia do backup (versão ${backup.version}): ${preview}. Restaurar este arquivo substituirá os dados atuais do workspace. Se ainda não fez isso, baixe um backup atual antes de continuar. Depois da restauração, confira o status da nuvem até confirmar a sincronização com o Neon. Continuar?`
+      );
+      if (!confirmed) return;
+
+      setIsImporting(true);
+      void Promise.resolve()
+        .then(() => onImportFullBackupJson(content))
+        .then((ok) => {
+          if (ok !== true) {
+            setImportError('Arquivo JSON inválido ou fora do padrão do Minhas Economias BR.');
+            return;
+          }
           setImportSuccess(true);
           setTimeout(() => setImportSuccess(false), 3500);
-        } else {
-          setImportError(
-            'Arquivo JSON inválido ou fora do padrão do Minhas Economias BR.'
-          );
-        }
-      }
+        })
+        .catch(failImport)
+        .finally(() => setIsImporting(false));
     };
+    reader.onerror = failImport;
+    reader.onabort = failImport;
     reader.readAsText(file);
     e.target.value = '';
   };
@@ -911,7 +937,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-200/80 dark:border-slate-700">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Horário Preferencial (Navegador)
                       </label>
                       <select
@@ -1149,11 +1175,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200/80 dark:border-slate-700">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="settings-reminder-email" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         E-mail Destinatário
                       </label>
                       <input
                         type="email"
+                        id="settings-reminder-email"
                         placeholder="seuemail@exemplo.com"
                         value={settings.reminders?.notificationEmail ?? userEmail ?? ''}
                         onChange={(e) =>
@@ -1170,10 +1197,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="settings-reminder-email-time" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Horário do E-mail
                       </label>
                       <select
+                        id="settings-reminder-email-time"
                         value={settings.reminders?.emailPreferredTime ?? DEFAULT_REMINDER_SETTINGS.emailPreferredTime ?? '08:00'}
                         onChange={(e) =>
                           onUpdateSettings({
@@ -1496,11 +1524,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      <label htmlFor="settings-profile-name" className="block text-xs font-semibold text-slate-700 mb-1">
                         Seu Nome de Exibição
                       </label>
                       <input
                         type="text"
+                        id="settings-profile-name"
                         value={settings.userName || ''}
                         onChange={(e) =>
                           onUpdateSettings({ userName: e.target.value })
@@ -1510,11 +1539,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      <label htmlFor="settings-profile-pix" className="block text-xs font-semibold text-slate-700 mb-1">
                         Sua Chave PIX Padrão (Reembolsos & Viagens)
                       </label>
                       <input
                         type="text"
+                        id="settings-profile-pix"
                         value={settings.userPixKey || ''}
                         onChange={(e) =>
                           onUpdateSettings({ userPixKey: e.target.value })
@@ -1579,7 +1609,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {importSuccess && (
                     <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-                      Backup carregado na sessão. Confira o status da nuvem para confirmar o Neon.
+                        Backup restaurado na sessão. Confira o status da nuvem para confirmar o Neon.
                     </div>
                   )}
 
@@ -1604,10 +1634,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
+                      disabled={isImporting}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      <span>Restaurar de Arquivo .JSON</span>
+                      <span>{isImporting ? 'Restaurando backup…' : 'Restaurar de Arquivo .JSON'}</span>
                     </button>
 
                     {!confirmReset ? (

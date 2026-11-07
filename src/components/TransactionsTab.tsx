@@ -43,7 +43,7 @@ interface TransactionsTabProps {
   requestedViewMode?: 'calendar' | 'table' | null;
   onConsumeRequestedViewMode?: () => void;
   onToggleStatus: (txId: string) => void;
-  onBatchSettleTransactions?: (txIds: string[]) => void;
+  onBatchSettleTransactions?: (txIds: string[]) => void | Promise<void>;
   onAnticipateInstallments?: (
     installmentGroupId: string,
     discountAmount: number,
@@ -291,26 +291,31 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     return { count: selectedTxIds.length, sum, pendingCount };
   }, [monthTransactions, selectedTxIds]);
 
-  const handleConfirmBatchSettle = () => {
+  const handleConfirmBatchSettle = async () => {
     if (selectedTxIds.length === 0) return;
-    if (onBatchSettleTransactions) {
-      onBatchSettleTransactions(selectedTxIds);
-    } else {
-      selectedTxIds.forEach((id) => {
+    const idsToSettle = [...selectedTxIds];
+    try {
+      if (onBatchSettleTransactions) {
+        await onBatchSettleTransactions(idsToSettle);
+      } else {
+        for (const id of idsToSettle) {
         const target = monthTransactions.find((t) => t.id === id);
         if (target && target.status === 'pending') {
-          onToggleStatus(id);
+            await onToggleStatus(id);
+          }
         }
-      });
+      }
+      setSelectedTxIds((current) => current.filter((id) => !idsToSettle.includes(id)));
+    } catch {
+      // Keep the failed selection visible so the user can retry or inspect it.
     }
-    setSelectedTxIds([]);
   };
 
   return (
     <div className="space-y-6">
       {/* Top View Mode Switcher: Extrato em Lista vs. Calendário Mensal */}
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col 2xl:flex-row 2xl:items-center 2xl:justify-between gap-4">
           <div className="w-full sm:w-auto grid grid-cols-2 sm:flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
             <button
               type="button"
@@ -343,7 +348,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="hidden sm:flex w-full 2xl:w-auto flex-wrap items-center gap-2">
             {onOpenReconciliation && (
               <button
                 type="button"

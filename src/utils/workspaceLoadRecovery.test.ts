@@ -5,10 +5,10 @@ import test from 'node:test';
 const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 
 test('blocks workspace use and offers a retry until Neon has loaded successfully', () => {
-  assert.match(appSource, /workspaceLoadState !== 'ready'/);
+  assert.match(appSource, /!isWorkspaceReadyForCurrentUser/);
   assert.match(appSource, /role="alertdialog"[\s\S]*aria-modal="true"/);
-  assert.match(appSource, /isAuthReady && isUserAuthenticated && effectiveUserEmail && workspaceLoadState !== 'ready'/);
-  assert.match(appSource, /className="contents"[\s\S]*?inert=\{Boolean\(/);
+  assert.match(appSource, /isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser/);
+  assert.match(appSource, /inert=\{Boolean\([\s\S]*?!isWorkspaceReadyForCurrentUser/);
   assert.match(appSource, /setWorkspaceLoadState\('error'\)/);
   assert.match(appSource, /Tentar novamente/);
   assert.match(appSource, /window\.addEventListener\('online', retryWhenOnline\)/);

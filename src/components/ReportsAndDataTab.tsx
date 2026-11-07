@@ -25,13 +25,13 @@ import {
   addMonthsToYearMonth,
   calculateDailyCashFlow,
   calculatePeriodReport,
-  exportTransactionsToCSV,
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
   parseBRLInput,
 } from '../utils/financeRules';
 import { generateMonthlyFinancialReportPdf } from '../utils/reportPdfGenerator';
+import { exportTransactionsToSafeCSV } from '../utils/transactionsCsv';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { MonthlyComparisonBarChart } from './MonthlyComparisonBarChart';
 
@@ -303,7 +303,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   }, [dailyFlow]);
 
   const handleDownloadCSV = () => {
-    const csvContent = exportTransactionsToCSV(transactions, categories, accounts, cards);
+    const csvContent = exportTransactionsToSafeCSV(transactions, categories, accounts, cards);
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -413,7 +413,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     <div className="space-y-6 sm:space-y-8">
       {/* Period Selector & Summary KPIs */}
       <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div className="flex flex-col gap-4 border-b border-slate-200 pb-4">
           <div>
             <h2 className="text-base font-bold text-slate-900">
               Relatórios Visuais e Análise Comparativa de Períodos
@@ -423,7 +423,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2.5">
             <button
               type="button"
               onClick={handleExportPdf}
@@ -436,7 +436,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               <span>{isExportingPdf ? 'Gerando...' : `Exportar PDF (${formatMonthYearPT(selectedMonth).split(' ')[0]})`}</span>
             </button>
 
-            <div className="flex flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 shrink-0 max-w-full">
+            <div className="flex w-full max-w-full flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 sm:w-fit">
             <button
               type="button"
               onClick={() => setPeriodPreset('monthly')}

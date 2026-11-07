@@ -1,5 +1,21 @@
 # Checklist — Minhas Economias
 
+## Aceleração da cobertura e correções — 2026-11-07
+- [x] Corrigir e testar a validação de saldos: rejeitar `abc0`, `0abc` e separadores soltos sem impedir zero válido ou formatos BRL válidos.
+- [x] Corrigir e testar rateio de dívidas de viagem em centavos, preservando os valores BRL individuais de cada devedor/credor.
+- [x] Rejeitar valores monetários acima de duas casas decimais em contas e orçamentos; manter zero válido e os formatos BRL aceitos.
+- [x] Ajustar atualização PWA: buscas/filtros fora de uma edição não seguram update; formulário alterado ainda adia até ser fechado.
+- [x] Cobrir comportamento de efetivar/reverter conta pendente na visão geral e falha de atualização dos certificados Firebase antes de consultar Neon.
+- [x] Rodar `bun test`: 329 testes em 53 arquivos, sem falhas; `bun run lint`, `bun run build` e `git diff --check` passaram.
+- [x] Exercitar pela UI publicada com dados sintéticos CRUD de conta, lançamento/data, cartão, categoria/orçamento, meta, viagem e investimento; sincronização observada, todos os registros temporários removidos e estado final conferido.
+- [x] Resolver a divergência do campo de data com evento input nativo; 07/11/2026 persistiu após sincronização e recarga. `page.fill` era limitação da automação, não bug do app.
+- [x] Concluir a matriz Ego em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`; baseline, viewport e dados sintéticos estão registrados.
+- [ ] Revalidar cortes do layout publicado após deploy da correção; inspeção Ego anterior ocorreu em viewport 1066×1132 antes deste código.
+- [ ] Exercitar import/export sintético e operações com efeitos externos isolados (convite, compra/pagamento, cotações) sem tocar dados pessoais.
+- [ ] Validar CRUD UI→API→Neon e restore autenticado; os testes atuais locais usam DOM e mocks e não provam persistência no banco.
+- [ ] Confirmar execução automática dos workflows GitHub `schedule`; chave de restauração age continua sem cópia externa comprovada.
+- [ ] Convite entre duas contas depende de segunda conta controlada; aceite real não foi testado conforme decisão do usuário.
+
 ## Continuação — 2026-11-07 — restauração Firebase Auth + Neon
 - [x] Confirmar a arquitetura da meta: Firebase Auth para identidade e Neon PostgreSQL para persistência exclusiva; manter os UIDs Firebase já associados aos workspaces.
 - [x] Substituir Neon Auth/OTP por Firebase Auth (e-mail/senha, verificação por link) no app, preservar tokens Firebase para as APIs Neon e atualizar interface, mensagens e documentação.
@@ -29,7 +45,7 @@
 - [x] Fazer smoke no domínio principal após deploy: `/api/health` 200 com Neon `ok`/role restrita; `/api/workspace`, lembretes, FX e sincronização de ativos sem token retornam 401; bundle mostra a confirmação de exclusão de conta e não contém Firebase nem Guia Rápido.
 - [x] Confirmar atividade diária automática do Vercel Cron: `vercel crons list` mostra `/api/health` ativo (`15 12 * * *` UTC) e log de produção registra HTTP 200 às 09:23:28 BRT em 2026-11-07.
 - [ ] Confirmar execução automática GitHub `schedule` dos workflows de atividade/backup; às 10:14 BRT ainda não havia evento `schedule`, apenas `workflow_dispatch` (backup manual válido, artifact cifrado com 30 dias).
-- [ ] Resolver a divergência da arquitetura de autenticação: o pedido original foi manter Firebase Auth, enquanto pedidos posteriores podem significar migrar tudo para Neon; o código atual usa Neon Auth. Aguardando a escolha do usuário.
+- [x] Resolver a divergência da arquitetura de autenticação: a decisão vigente é Firebase Auth para identidade e Neon PostgreSQL para persistência. O código, as envs Vercel e o deploy mais recente foram conferidos; não usar a pendência antiga de Neon Auth como estado atual.
 - [ ] Completar signup/login/OTP real, restore autenticado na interface, revisão visual desktop/mobile e testes das abas sem DOM coverage.
 - [ ] Copiar chave de restauração `age` para um cofre/dispositivo separado e comprovar leitura fora deste computador.
 

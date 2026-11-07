@@ -38,6 +38,49 @@ export class NeonWorkspaceError extends Error {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+/** Reject success responses that cannot prove a complete Neon workspace was read. */
+export function parseNeonWorkspaceSnapshot(value: unknown): NeonWorkspaceSnapshot {
+  if (!isRecord(value)) {
+    throw new NeonWorkspaceError('Neon retornou um workspace inválido.', 502);
+  }
+  const payload = value.payload;
+  if (!isRecord(payload)) throw new NeonWorkspaceError('Neon retornou um workspace inválido.', 502);
+
+  const requiredCollections = [
+    'accountsJson',
+    'cardsJson',
+    'categoriesJson',
+    'transactionsJson',
+    'goalsJson',
+    'investmentsJson',
+  ];
+  if (
+    requiredCollections.some((field) => payload[field] === undefined || payload[field] === null) ||
+    typeof payload.uid !== 'string' || !payload.uid.trim() ||
+    typeof payload.updatedAt !== 'string' || !payload.updatedAt.trim()
+  ) {
+    throw new NeonWorkspaceError('Neon retornou um workspace incompleto.', 502);
+  }
+
+  if (!Number.isSafeInteger(value.revision) || Number(value.revision) < 1) {
+    throw new NeonWorkspaceError('Neon retornou uma revisão de workspace inválida.', 502);
+  }
+
+  if (typeof value.updatedAt !== 'string' || !value.updatedAt.trim()) {
+    throw new NeonWorkspaceError('Neon retornou uma data de atualização inválida.', 502);
+  }
+
+  return {
+    payload,
+    revision: Number(value.revision),
+    updatedAt: value.updatedAt,
+  };
+}
+
 async function authorizedRequest<T>(
   path: string,
   init: RequestInit = {}
@@ -73,8 +116,9 @@ async function authorizedRequest<T>(
   return body as T;
 }
 
-export function loadNeonWorkspace(): Promise<NeonWorkspaceSnapshot> {
-  return authorizedRequest<NeonWorkspaceSnapshot>('/api/workspace');
+export async function loadNeonWorkspace(): Promise<NeonWorkspaceSnapshot> {
+  const response = await authorizedRequest<unknown>('/api/workspace');
+  return parseNeonWorkspaceSnapshot(response);
 }
 
 export function createNeonWorkspace(

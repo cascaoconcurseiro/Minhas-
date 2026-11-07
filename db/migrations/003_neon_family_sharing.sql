@@ -1,5 +1,6 @@
 -- Isolated family invitations and expense mirrors. Apply with the Neon owner role.
--- The API must verify Firebase identity and set app.firebase_uid/app.firebase_email.
+-- After migration 006, the API verifies Firebase identity and sets
+-- app.user_id/app.user_email for RLS.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.finance_family_invitations (

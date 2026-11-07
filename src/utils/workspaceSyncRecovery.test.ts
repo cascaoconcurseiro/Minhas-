@@ -1,12 +1,33 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isRetryableWorkspaceSaveError } from './workspaceSyncRecovery';
+import type { WorkspaceConflictState } from '../components/WorkspaceConflictModal';
+import {
+  isRetryableWorkspaceSaveError,
+  updateWorkspaceConflictLocalPayload,
+} from './workspaceSyncRecovery';
 
 test('retries network failures and transient HTTP responses', () => {
   assert.equal(isRetryableWorkspaceSaveError(new TypeError('fetch failed')), true);
   for (const status of [408, 429, 500, 503]) {
     assert.equal(isRetryableWorkspaceSaveError({ status }), true);
   }
+});
+
+test('updates the preserved local version when edits continue during a conflict', () => {
+  const initial = {
+    localPayload: { transactionsJson: '[{"id":"old"}]' },
+    remoteSnapshot: {
+      revision: 4,
+      payload: { transactionsJson: '[{"id":"remote"}]' },
+    },
+  } as unknown as WorkspaceConflictState;
+  const nextPayload = { transactionsJson: '[{"id":"old"},{"id":"new"}]' };
+
+  const updated = updateWorkspaceConflictLocalPayload(initial, nextPayload);
+
+  assert.equal(updated.localPayload, nextPayload);
+  assert.equal(updated.remoteSnapshot, initial.remoteSnapshot);
+  assert.equal(initial.localPayload.transactionsJson, '[{"id":"old"}]');
 });
 
 test('does not retry authentication, validation, revision conflicts, or invalid statuses', () => {

@@ -435,22 +435,24 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
 
                 <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="cloud-profile-name" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Seu Nome de Exibição
                     </label>
                     <input
                       type="text"
+                      id="cloud-profile-name"
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white font-semibold"
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="cloud-profile-pix" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Sua Chave PIX Padrão (para Reembolsos & Viagens)
                     </label>
                     <input
                       type="text"
+                      id="cloud-profile-pix"
                       value={pixInput}
                       onChange={(e) => setPixInput(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white font-mono"
@@ -507,13 +509,14 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                 <form onSubmit={handleEmailSubmit} className="space-y-3 text-xs">
                   {authMode === 'register' && (
                     <div>
-                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="cloud-register-name" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                         Seu Nome Completo
                       </label>
                       <div className="relative">
                         <UserIcon className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
                         <input
                           type="text"
+                          id="cloud-register-name"
                           required
                           value={nameInput}
                           onChange={(e) => setNameInput(e.target.value)}
@@ -525,13 +528,14 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   )}
 
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="cloud-auth-email" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                       E-mail
                     </label>
                     <div className="relative">
                       <Mail className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
                       <input
                         type="email"
+                        id="cloud-auth-email"
                         required
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
@@ -542,13 +546,14 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="cloud-auth-password" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Senha
                     </label>
                     <div className="relative">
                       <Lock className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
                       <input
                         type="password"
+                        id="cloud-auth-password"
                         required
                         minLength={6}
                         value={passwordInput}

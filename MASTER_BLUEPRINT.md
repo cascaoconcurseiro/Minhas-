@@ -1,13 +1,14 @@
 # Master Blueprint — Minhas Economias
 
 ## Visão geral
-Aplicativo web de finanças pessoais com autenticação e armazenamento no Neon.
+Aplicativo web de finanças pessoais e familiares; Firebase Auth fornece identidade e Neon PostgreSQL armazena os dados operacionais do app.
 
 ## Stack
 - Frontend: React, TypeScript e Vite
-- Autenticação: Neon Auth (Managed Better Auth, e-mail e senha)
+- Autenticação: Firebase Auth (e-mail e senha; verificação de e-mail por link)
 - Banco de dados operacional único: PostgreSQL no Neon, acessado apenas pelo backend
-- Identidades, sessões e dados financeiros ficam no projeto Neon
+- Firebase Auth mantém credenciais e sessões; Firebase Firestore e Storage não são usados pelo runtime
+- Workspaces, convites, lançamentos compartilhados e dados financeiros ficam no Neon
 - Backend: Express, publicado como função na Vercel
 - Hospedagem: Vercel Hobby, conectada ao GitHub
 
@@ -19,19 +20,21 @@ Aplicativo web de finanças pessoais com autenticação e armazenamento no Neon.
 ├── db/migrations/          # Migrações SQL do Neon
 ├── src/                    # Aplicação React
 ├── docs/                   # Arquitetura e plano de migração
-└── .github/workflows/      # Rotina diária planejada para o Neon
+└── .github/workflows/      # Atividade diária e backup cifrado; schedule precisa de prova de execução
 ```
 
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
-| 2026-11-06 | Usar Neon Auth para identidade e Neon PostgreSQL para todos os dados do app | Eliminar dependência operacional do Firebase; autenticação e dados ficam no mesmo provedor |
-| 2026-11-06 | Derivar o workspace do ID imutável do usuário Neon Auth; nunca do e-mail | Evitar colisões e preservar a identidade se o e-mail mudar |
-| 2026-11-06 | Validar JWT Neon Auth por JWKS na API e aplicar o ID autenticado nas políticas RLS | Impedir que o cliente escolha a identidade usada em consultas ou gravações |
+| 2026-11-07 | Usar Firebase Auth somente para identidade e Neon PostgreSQL para toda persistência operacional | Manter o login Firebase sem devolver dados financeiros ao Firestore |
+| 2026-11-07 | Derivar o workspace do UID estável Firebase, nunca do e-mail | Preservar associações UID e permitir mudança de e-mail sem trocar o titular |
+| 2026-11-07 | Validar o ID token Firebase contra o projeto esperado e aplicar o UID verificado às políticas RLS Neon | Impedir que o cliente escolha a identidade usada em consultas ou gravações |
+| 2026-11-06 (superada em 2026-11-07) | Neon Auth foi adotado temporariamente para identidade | A arquitetura foi revertida para Firebase Auth; variáveis Neon Auth foram removidas da Vercel |
 
 ## Regras do projeto
 - Nunca expor `DATABASE_URL` no frontend.
-- Toda operação de workspace deve validar o JWT Neon Auth e restringir a linha ao ID autenticado.
+- Toda operação de workspace deve validar o ID token Firebase e restringir a linha Neon ao UID autenticado.
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.
-- Não enviar credenciais PostgreSQL ao frontend; o JWT Neon Auth identifica o titular nas rotas do backend.
-- Contas do provedor anterior não transferem senha; após o corte, usuários precisam criar nova conta Neon Auth.
+- Não enviar credenciais PostgreSQL ao frontend; o ID token Firebase identifica o titular nas rotas do backend.
+- Não inicializar nem usar Firestore ou Firebase Storage no runtime.
+- A existência de `schedule` no workflow ou Vercel config não prova execução diária; exige evento automático comprovado.

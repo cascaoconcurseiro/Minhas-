@@ -102,6 +102,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function isValidBackupDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isValidBackupMonth(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return false;
+  return true;
+}
+
 export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | null {
   try {
     const parsed: unknown = JSON.parse(jsonText);
@@ -137,6 +148,20 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
         const value = parsed[key];
         return Array.isArray(value) && value.every(isRecord);
       })
+    ) {
+      return null;
+    }
+
+    // Invalid calendar dates must not be silently rewritten to today's date by
+    // the restore repair pass. Missing legacy fields remain repairable.
+    const transactions = parsed.transactions as Record<string, unknown>[];
+    if (
+      !transactions.every(
+        (transaction) =>
+          (transaction.date === undefined || isValidBackupDate(transaction.date)) &&
+          (transaction.competenceMonth === undefined ||
+            isValidBackupMonth(transaction.competenceMonth))
+      )
     ) {
       return null;
     }

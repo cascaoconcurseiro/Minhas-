@@ -70,6 +70,18 @@ test('portable workspace backup excludes incoming shared mirrors and incoming fa
   assert.deepEqual(familyMembers.map(({ id }) => id), ['local-member', 'local-contact']);
 });
 
+test('full backup export and restore preserve invoice payment linkage metadata', () => {
+  const payload = {
+    ...validBackup(),
+    transactions: [{ id: 'purchase-paid-partial', invoicePaymentId: 'tx-inv-card-2026-11-123' }],
+  };
+  const parsed = parseFullFinanceBackup(JSON.stringify(payload));
+  assert.equal(parsed?.transactions[0].invoicePaymentId, 'tx-inv-card-2026-11-123');
+
+  const restored = prepareRestoredBackupTransactions(parsed!.transactions, true);
+  assert.equal(restored[0].invoicePaymentId, 'tx-inv-card-2026-11-123');
+});
+
 test('restoring a personal backup preserves current Neon shared mirrors and incoming links', () => {
   const transactions = mergeRestoredTransactionsWithCurrentMirrors(
     [
@@ -189,6 +201,39 @@ test('rejects non-object entries in the collections sanitized by the app', () =>
     transactions: [null],
   };
   assert.equal(parseFullFinanceBackup(JSON.stringify(invalidTransaction)), null);
+});
+
+test('rejects impossible transaction dates and invalid competence months before restore', () => {
+  const backup = validBackup();
+  const tx = {
+    id: 'tx-synthetic-date',
+    description: 'Lançamento sintético',
+    amount: 12.34,
+    type: 'expense',
+    status: 'paid',
+    date: '2026-02-31',
+    competenceMonth: '2026-02',
+  };
+  assert.equal(
+    parseFullFinanceBackup(JSON.stringify({ ...backup, transactions: [tx] })),
+    null,
+    'uma data ISO com dia inexistente não deve ser aceita pelo restore'
+  );
+  assert.equal(
+    parseFullFinanceBackup(JSON.stringify({
+      ...backup,
+      transactions: [{ ...tx, date: '2026-02-28', competenceMonth: '2026-13' }],
+    })),
+    null,
+    'competência fora do calendário não deve ser aceita pelo restore'
+  );
+  assert.ok(
+    parseFullFinanceBackup(JSON.stringify({
+      ...backup,
+      transactions: [{ ...tx, date: '2026-02-28' }],
+    })),
+    'uma data válida continua sendo importada'
+  );
 });
 
 test('restoring an older backup replaces optional workspace fields with defaults instead of keeping destination data', () => {

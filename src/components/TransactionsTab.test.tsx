@@ -51,9 +51,15 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
 }
 
 function renderTransactionsTab(
-  transaction: Transaction,
+  transaction: Transaction | Transaction[],
   onEditTransaction: (tx: Transaction) => void,
-  onDeleteTransaction: (txId: string, deleteGroup?: boolean) => void
+  onDeleteTransaction: (txId: string, deleteGroup?: boolean) => void,
+  onBatchSettleTransactions?: (txIds: string[]) => void | Promise<void>,
+  callbacks: {
+    onToggleStatus?: (txId: string) => void;
+    onDuplicateTransaction?: (tx: Transaction) => void;
+    onOpenNewTransaction?: (mode: 'expense' | 'credit_card' | 'income' | 'transfer') => void;
+  } = {}
 ) {
   container = document.createElement('div');
   document.body.append(container);
@@ -62,16 +68,18 @@ function renderTransactionsTab(
     root?.render(
       React.createElement(TransactionsTab, {
         selectedMonth: '2026-11',
-        transactions: [transaction],
+        transactions: Array.isArray(transaction) ? transaction : [transaction],
         accounts: [account],
         cards: [],
         categories: [category],
         requestedViewMode: 'table',
         onConsumeRequestedViewMode: () => {},
-        onToggleStatus: () => {},
+        onToggleStatus: callbacks.onToggleStatus ?? (() => {}),
+        onBatchSettleTransactions,
         onEditTransaction,
         onDeleteTransaction,
-        onOpenNewTransaction: () => {},
+        onOpenNewTransaction: callbacks.onOpenNewTransaction ?? (() => {}),
+        onDuplicateTransaction: callbacks.onDuplicateTransaction,
       })
     );
   });
@@ -80,6 +88,35 @@ function renderTransactionsTab(
 
 beforeEach(() => {
   originalConfirm = window.confirm;
+});
+
+test('TransactionsTab preserves selected payments when batch persistence rejects', async () => {
+  const transaction = makeTransaction({ status: 'pending' });
+  let settleAttempts = 0;
+  const page = renderTransactionsTab(transaction, () => {}, () => {}, async (ids) => {
+    settleAttempts += 1;
+    assert.deepEqual(ids, [transaction.id]);
+    throw new Error('Falha sintética do Neon');
+  });
+
+  const reconcileButton = [...page.querySelectorAll('button')].find((button) =>
+    button.textContent?.includes('Modo Conferência em Lote')
+  );
+  assert.ok(reconcileButton);
+  await act(async () => { reconcileButton.click(); });
+  const checkbox = page.querySelector<HTMLInputElement>(
+    `[aria-label="Selecionar ${transaction.description}"]`
+  );
+  assert.ok(checkbox);
+  await act(async () => { checkbox.click(); });
+
+  const settleButton = page.querySelector<HTMLButtonElement>('[data-testid="batch-settle-btn"]');
+  assert.ok(settleButton);
+  await act(async () => { settleButton.click(); });
+
+  assert.equal(settleAttempts, 1);
+  assert.match(page.textContent ?? '', /Selecionados:\s*1/);
+  assert.equal(checkbox.checked, true);
 });
 
 afterEach(() => {
@@ -155,4 +192,47 @@ test('TransactionsTab identifies the full installment series before invoking gro
   await act(async () => { deleteButton.click(); });
   assert.match(confirmationMessage, /todas as parcelas da série "Notebook parcelado"/);
   assert.deepEqual(deleted, [['tx-installment-1', true]]);
+});
+
+test('TransactionsTab routes quick actions to expense, card purchase, and income modes', async () => {
+  const openedModes: string[] = [];
+  const page = renderTransactionsTab(makeTransaction(), () => {}, () => {}, undefined, {
+    onOpenNewTransaction: (mode) => openedModes.push(mode),
+  });
+  const quickAction = (label: string) => [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === label);
+
+  await act(async () => { quickAction('Lançar Despesa')?.click(); });
+  await act(async () => { quickAction('+ Compra Parcelada')?.click(); });
+  await act(async () => { quickAction('+ Receita')?.click(); });
+
+  assert.deepEqual(openedModes, ['expense', 'credit_card', 'income']);
+});
+
+test('TransactionsTab type filter shows only incomes and the row status action reaches its callback', async () => {
+  const expense = makeTransaction({ id: 'expense-filter-test', description: 'Despesa filtrável' });
+  const income: Transaction = {
+    ...makeTransaction({ id: 'income-filter-test', description: 'Receita filtrável', type: 'income' }),
+    categoryId: 'income-category-test',
+  };
+  const toggled: string[] = [];
+  let duplicated: Transaction | null = null;
+  const page = renderTransactionsTab([expense, income], () => {}, () => {}, undefined, {
+    onToggleStatus: (id) => toggled.push(id),
+    onDuplicateTransaction: (tx) => { duplicated = tx; },
+  });
+
+  assert.ok(page.querySelector('[aria-label="Editar Despesa filtrável"]'));
+  assert.ok(page.querySelector('[aria-label="Editar Receita filtrável"]'));
+  const incomesFilter = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Receitas');
+  assert.ok(incomesFilter);
+  await act(async () => { incomesFilter.click(); });
+  assert.equal(page.querySelector('[aria-label="Editar Despesa filtrável"]'), null);
+  assert.ok(page.querySelector('[aria-label="Editar Receita filtrável"]'));
+
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[aria-label="Alternar situação de Receita filtrável"]')?.click();
+    page.querySelector<HTMLButtonElement>('[aria-label="Duplicar Receita filtrável"]')?.click();
+  });
+  assert.deepEqual(toggled, [income.id]);
+  assert.equal(duplicated, income);
 });

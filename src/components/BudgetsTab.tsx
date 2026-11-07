@@ -19,6 +19,7 @@ import {
   calculate503020Rule,
   formatBRL,
   getBudgetAlerts,
+  normalizeSearchText,
   parseBRLInput,
 } from '../utils/financeRules';
 import { calculateMonthBurnRateMarker } from '../utils/uxEnhancementRules';
@@ -42,6 +43,16 @@ interface BudgetsTabProps {
   onDeleteSubcategory: (categoryId: string, subcategoryId: string) => void;
 }
 
+function parseNonNegativeBudget(raw: string): number | null {
+  if (!raw.trim()) return 0;
+  const cleaned = raw.trim().replace(/[R$\s]/g, '');
+  if (!/^[+-]?(?:\d+(?:[,.]\d{0,2})?|[,.]\d{1,2}|\d{1,3}(?:\.\d{3})+,\d{0,2}|\d{1,3}(?:,\d{3})+\.\d{0,2}|\d{1,3}(?:\.\d{3}){2,}|\d{1,3}(?:,\d{3}){2,})$/.test(cleaned)) return null;
+  const parsed = parseBRLInput(raw);
+  if (parsed < 0) return null;
+  if (parsed === 0 && !/^\+?0+(?:[.,]0+)?$/.test(cleaned)) return null;
+  return parsed;
+}
+
 export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   selectedMonth,
   categories,
@@ -57,6 +68,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   const [viewMode, setViewMode] = useState<'budgets' | 'categories'>('budgets');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editValueStr, setEditValueStr] = useState('');
+  const [budgetEditError, setBudgetEditError] = useState('');
   const [bucketFilter, setBucketFilter] = useState<'all' | BudgetBucket>('all');
   const [catTypeTab, setCatTypeTab] = useState<'expense' | 'income'>('expense');
 
@@ -70,6 +82,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   const [catColor, setCatColor] = useState<string>(CATEGORY_COLOR_PALETTE[0].hex);
   const [catIcon, setCatIcon] = useState<CategoryIconName>('home');
   const [catSubcategoriesDraft, setCatSubcategoriesDraft] = useState<string>('');
+  const [categoryFormError, setCategoryFormError] = useState('');
 
   // Inline Add Subcategory state per category card
   const [activeSubcatParentId, setActiveSubcatParentId] = useState<string | null>(null);
@@ -89,6 +102,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
 
   const openNewCategoryForm = (defaultType: 'expense' | 'income' = 'expense') => {
     setEditingFullCategory(null);
+    setCategoryFormError('');
     setCatName('');
     setCatType(defaultType);
     setCatBucket(defaultType === 'income' ? 'financial' : 'essential');
@@ -101,6 +115,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
 
   const openEditCategoryForm = (cat: Category) => {
     setEditingFullCategory(cat);
+    setCategoryFormError('');
     setCatName(cat.name);
     setCatType(cat.type);
     setCatBucket(cat.bucket);
@@ -113,9 +128,29 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
 
   const handleSaveCategoryForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!catName.trim()) return;
+    if (!catName.trim()) {
+      setCategoryFormError('Informe o nome da categoria.');
+      return;
+    }
+    const normalizedName = normalizeSearchText(catName.trim());
+    const duplicate = categories.some(
+      (category) =>
+        category.type === catType &&
+        category.id !== editingFullCategory?.id &&
+        normalizeSearchText(category.name) === normalizedName
+    );
+    if (duplicate) {
+      setCategoryFormError('Já existe uma categoria desse tipo com esse nome.');
+      return;
+    }
 
-    const parsedBudget = catType === 'expense' ? Math.max(0, parseBRLInput(catBudgetStr)) : 0;
+    const parsedBudgetValue = catType === 'expense' ? parseNonNegativeBudget(catBudgetStr) : 0;
+    if (parsedBudgetValue === null) {
+      setCategoryFormError('Informe um orçamento válido e não negativo.');
+      return;
+    }
+    const parsedBudget = parsedBudgetValue;
+    setCategoryFormError('');
 
     if (editingFullCategory) {
       const extraSubs = catSubcategoriesDraft
@@ -165,12 +200,23 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   const startEditingBudget = (item: CategorySpendItem) => {
     setEditingCatId(item.categoryId);
     setEditValueStr(item.budget.toFixed(2).replace('.', ','));
+    setBudgetEditError('');
   };
 
   const saveBudget = (categoryId: string) => {
-    const parsed = parseBRLInput(editValueStr);
-    onUpdateCategoryBudget(categoryId, Math.max(0, parsed));
+    const parsed = parseNonNegativeBudget(editValueStr);
+    if (parsed === null) {
+      setBudgetEditError('Informe um valor válido e não negativo.');
+      return;
+    }
+    onUpdateCategoryBudget(categoryId, parsed);
+    setBudgetEditError('');
     setEditingCatId(null);
+  };
+
+  const cancelBudgetEdit = () => {
+    setEditingCatId(null);
+    setBudgetEditError('');
   };
 
   const handleConfirmAddSubcategory = (categoryId: string) => {
@@ -233,6 +279,11 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
           onSubmit={handleSaveCategoryForm}
           className="rounded-xl border border-slate-300 bg-white p-6 space-y-5 shadow-sm"
         >
+          {categoryFormError && (
+            <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              {categoryFormError}
+            </p>
+          )}
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <div>
               <h3 className="text-base font-bold text-slate-900">
@@ -263,7 +314,10 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 id="cat-editor-name"
                 type="text"
                 value={catName}
-                onChange={(e) => setCatName(e.target.value)}
+                onChange={(e) => {
+                  setCatName(e.target.value);
+                  setCategoryFormError('');
+                }}
                 placeholder="Ex: Pets & Veterinário, Academia, Dividendos"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none"
               />
@@ -276,7 +330,11 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
               <select
                 id="cat-editor-type"
                 value={catType}
-                onChange={(e) => setCatType(e.target.value as 'expense' | 'income')}
+                onChange={(e) => {
+                  const nextType = e.target.value as 'expense' | 'income';
+                  setCatType(nextType);
+                  setCatBucket(nextType === 'income' ? 'financial' : 'essential');
+                }}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
               >
                 <option value="expense">Despesa (Gasto)</option>
@@ -293,7 +351,10 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                   id="cat-editor-budget"
                   type="text"
                   value={catBudgetStr}
-                  onChange={(e) => setCatBudgetStr(e.target.value)}
+                  onChange={(e) => {
+                    setCatBudgetStr(e.target.value);
+                    setCategoryFormError('');
+                  }}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono tabular-nums text-slate-900"
                 />
               </div>
@@ -687,8 +748,11 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <p className="px-6 pt-3 text-xs text-slate-500 xl:hidden" role="note">
+              Deslize horizontalmente para acessar todas as colunas e ações.
+            </p>
+            <div className="max-w-full overflow-x-auto">
+              <table className="w-full min-w-[920px] text-left border-collapse xl:min-w-0">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/40 text-xs font-semibold text-slate-500">
                     <th className="py-3 pl-6 pr-3">Categoria & Subcategorias</th>
@@ -816,7 +880,10 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                               type="text"
                               aria-label={`Novo teto para ${item.categoryName}`}
                               value={editValueStr}
-                              onChange={(e) => setEditValueStr(e.target.value)}
+                              onChange={(e) => {
+                                setEditValueStr(e.target.value);
+                                setBudgetEditError('');
+                              }}
                               className="w-28 rounded border border-emerald-600 px-2 py-1 text-right text-xs font-mono tabular-nums text-slate-900"
                             />
                           ) : (
@@ -835,15 +902,25 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                         <td className="py-3.5 pl-3 pr-6 text-right whitespace-nowrap">
                           <div className="inline-flex items-center justify-end gap-1.5">
                             {isEditing ? (
-                              <button
-                                type="button"
-                                onClick={() => saveBudget(item.categoryId)}
-                                aria-label={`Salvar teto de ${item.categoryName}`}
-                                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                                Salvar
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => saveBudget(item.categoryId)}
+                                  aria-label={`Salvar teto de ${item.categoryName}`}
+                                  className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  Salvar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelBudgetEdit}
+                                  aria-label={`Cancelar edição do teto de ${item.categoryName}`}
+                                  className="rounded border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                                >
+                                  Cancelar
+                                </button>
+                              </>
                             ) : (
                               <>
                                 <button
@@ -866,6 +943,9 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                                   </button>
                                 )}
                               </>
+                            )}
+                            {isEditing && budgetEditError && (
+                              <p role="alert" className="mt-1 text-xs text-rose-700">{budgetEditError}</p>
                             )}
                           </div>
                         </td>

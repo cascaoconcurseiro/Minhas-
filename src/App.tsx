@@ -93,7 +93,15 @@ import {
   sanitizeStoredWorkspaceSnapshot,
   serializeSettingsWithoutSmtpSecrets,
 } from './utils/secureSettings';
-import { isRetryableWorkspaceSaveError } from './utils/workspaceSyncRecovery';
+import {
+  isRetryableWorkspaceSaveError,
+  updateWorkspaceConflictLocalPayload,
+} from './utils/workspaceSyncRecovery';
+import {
+  clearWorkspaceCacheForVault,
+  isWorkspaceLoadedForUser,
+  shouldResetWorkspaceForAuthChange,
+} from './utils/workspaceSession';
 const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
 const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
 const InvestmentsTab = lazy(() => import('./components/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
@@ -292,6 +300,8 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isApplyingRemoteSnapshotRef = useRef<boolean>(false);
   const hasLoadedRemoteOnceRef = useRef<boolean>(false);
+  const authenticatedUidRef = useRef<string | null>(null);
+  const loadedWorkspaceUidRef = useRef<string | null>(null);
   const neonWorkspaceRevisionRef = useRef<number | null>(null);
   const neonSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const workspaceConflictRef = useRef<WorkspaceConflictState | null>(null);
@@ -368,6 +378,9 @@ export default function App() {
   const isUserAuthenticated = Boolean(
     currentUser && !currentUser.isAnonymous && currentUser.email
   );
+  const isWorkspaceReadyForCurrentUser =
+    workspaceLoadState === 'ready' &&
+    isWorkspaceLoadedForUser(loadedWorkspaceUidRef.current, currentUser?.uid ?? null);
 
   const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [cards, setCards] = useState<CreditCard[]>(INITIAL_CREDIT_CARDS);
@@ -528,6 +541,20 @@ export default function App() {
   // Firebase Auth session listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const previousUid = authenticatedUidRef.current;
+      const nextUid = user && !user.isAnonymous && user.email ? user.uid : null;
+      if (shouldResetWorkspaceForAuthChange(previousUid, nextUid)) {
+        if (previousUid) {
+          clearWorkspaceCacheForVault(localStorage, STORAGE_KEY, getVaultIdForUid(previousUid));
+        }
+        resetFinancialStateToCleanZero();
+        setSettings(DEFAULT_SETTINGS);
+        hasLoadedRemoteOnceRef.current = false;
+        loadedWorkspaceUidRef.current = null;
+        setWorkspaceLoadState(nextUid ? 'loading' : 'error');
+        setCloudSyncStatus(nextUid ? 'syncing' : 'local');
+      }
+      authenticatedUidRef.current = nextUid;
       setCurrentUser(user);
       setIsAuthReady(true);
       neonWorkspaceRevisionRef.current = null;
@@ -684,6 +711,12 @@ export default function App() {
     showResultNotice = false
   ) => {
     latestNeonPayloadRef.current = payload;
+    const activeConflict = workspaceConflictRef.current;
+    if (activeConflict) {
+      const updatedConflict = updateWorkspaceConflictLocalPayload(activeConflict, payload);
+      workspaceConflictRef.current = updatedConflict;
+      setWorkspaceConflict(updatedConflict);
+    }
     const authenticatedUid = currentUser?.uid;
     setCloudSyncStatus('syncing');
     try {
@@ -833,6 +866,7 @@ export default function App() {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
     hasLoadedRemoteOnceRef.current = false;
+    loadedWorkspaceUidRef.current = null;
     isApplyingRemoteSnapshotRef.current = true;
     setWorkspaceLoadState('loading');
 
@@ -973,6 +1007,7 @@ export default function App() {
         setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
         setSettings(parsePersistedSettings(data.settingsJson, DEFAULT_SETTINGS));
         hasLoadedRemoteOnceRef.current = true;
+        loadedWorkspaceUidRef.current = currentUser?.uid ?? null;
         isApplyingRemoteSnapshotRef.current = false;
         setWorkspaceLoadState('ready');
         setCloudSyncStatus('synced');
@@ -1270,11 +1305,14 @@ export default function App() {
       // Ignore
     }
     hasLoadedRemoteOnceRef.current = false;
+    loadedWorkspaceUidRef.current = null;
     resetFinancialStateToCleanZero();
-    setAuthSession((prev) => ({
-      ...prev,
+    setSettings(DEFAULT_SETTINGS);
+    setAuthSession({
       isLoggedIn: false,
-    }));
+      email: '',
+      displayName: '',
+    });
     showNotice(
       'Você saiu da sua conta. Faça login novamente quando desejar.',
       undefined,
@@ -2362,6 +2400,17 @@ export default function App() {
   };
 
   const handleDeleteAccount = (accountId: string) => {
+    const tripsUsingAccount = trips.filter((trip) =>
+      trip.linkedAccountId === accountId ||
+      trip.exchangeLots.some((lot) => lot.accountId === accountId)
+    );
+    if (tripsUsingAccount.length > 0) {
+      showNotice(
+        `Conta não removida: está vinculada às viagens ${[...new Set(tripsUsingAccount.map((trip) => trip.name))].join(', ')}. Remova ou troque esses vínculos primeiro.`
+      );
+      return;
+    }
+
     const result = applyCascadeAccountDelete(accounts, cards, transactions, accountId);
     if (!result.deletedAccount) return;
 
@@ -2545,6 +2594,13 @@ export default function App() {
       const rawDesc = parts[1].trim();
       const rawVal = parts[2].trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate) || !rawDesc) return;
+      const [year, month, day] = rawDate.split('-').map(Number);
+      const parsedDate = new Date(Date.UTC(year, month - 1, day));
+      if (
+        parsedDate.getUTCFullYear() !== year ||
+        parsedDate.getUTCMonth() !== month - 1 ||
+        parsedDate.getUTCDate() !== day
+      ) return;
 
       const isNegative = rawVal.startsWith('-');
       const amount = Math.abs(parseBRLInput(rawVal));
@@ -2987,6 +3043,8 @@ export default function App() {
   // Background daily scheduled reminder checker
   useEffect(() => {
     const checkDailySchedule = () => {
+      if (!isWorkspaceLoadedForUser(loadedWorkspaceUidRef.current, currentUser?.uid ?? null)) return;
+
       const now = new Date();
       const currentHours = String(now.getHours()).padStart(2, '0');
       const currentMinutes = String(now.getMinutes()).padStart(2, '0');
@@ -3111,7 +3169,7 @@ export default function App() {
         settings.density === 'compact' ? 'density-compact' : ''
       }`}
     >
-      {isAuthReady && isUserAuthenticated && effectiveUserEmail && workspaceLoadState !== 'ready' && (
+      {isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser && (
         <div
           role="alertdialog"
           aria-modal="true"
@@ -3149,7 +3207,7 @@ export default function App() {
       <div
         className="contents"
         inert={Boolean(
-          isAuthReady && isUserAuthenticated && effectiveUserEmail && workspaceLoadState !== 'ready'
+          isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser
         )}
       >
       {currentUser && !currentUser.isAnonymous && currentUser.email && !currentUser.emailVerified && (
@@ -3281,7 +3339,7 @@ export default function App() {
               {/* Compact Expandable Search on Desktop */}
               <div
                 data-testid="centered-global-search"
-                className="hidden lg:block relative w-44 xl:w-56 focus-within:w-64 transition-all duration-200"
+                className="hidden xl:block relative w-44 xl:w-56 focus-within:w-64 transition-all duration-200"
               >
                 <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                 <input
@@ -3321,7 +3379,7 @@ export default function App() {
                 }}
                 aria-label="Buscar lançamentos"
                 title="Buscar lançamentos"
-                className={`lg:hidden rounded-lg border p-1.5 transition-colors ${
+                className={`xl:hidden rounded-lg border p-1.5 transition-colors ${
                   isMobileSearchOpen || globalSearchQuery
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
@@ -3410,10 +3468,12 @@ export default function App() {
                 type="button"
                 data-testid="new-transaction-btn"
                 onClick={() => handleOpenNewTransaction('expense')}
+                aria-label="Novo lançamento"
+                title="Criar novo lançamento"
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
               >
                 <Plus className="h-4 w-4" />
-                <span>Novo Lançamento</span>
+                <span className="hidden xl:inline">Novo Lançamento</span>
               </button>
             </div>
           </div>

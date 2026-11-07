@@ -58,7 +58,7 @@ after(async () => {
   }
 });
 
-test('health does not label an admin-capable runtime role as least privilege', async () => {
+test('health marks an admin-capable runtime role degraded even while Neon responds', async () => {
   leastPrivilege = false;
   const response = await fetch(`${baseUrl}/api/health`);
   const body = await response.json() as {
@@ -66,8 +66,8 @@ test('health does not label an admin-capable runtime role as least privilege', a
     services: { neon: string; neonLeastPrivilegeRole: boolean | null };
   };
 
-  assert.equal(response.status, 200, 'o Neon continua acessível mesmo se a role precisar ser corrigida');
-  assert.equal(body.status, 'ok');
+  assert.equal(response.status, 503, 'a API não deve anunciar prontidão com uma role privilegiada');
+  assert.equal(body.status, 'degraded');
   assert.equal(body.services.neon, 'ok');
   assert.equal(body.services.neonLeastPrivilegeRole, false);
   assert.equal((body.services as { firebaseAuthConfigured?: boolean }).firebaseAuthConfigured, true);
@@ -131,6 +131,25 @@ test('health returns degraded 503 when Firebase Auth server configuration is mis
   } finally {
     if (projectId === undefined) delete process.env.FIREBASE_PROJECT_ID;
     else process.env.FIREBASE_PROJECT_ID = projectId;
+    if (apiKey === undefined) delete process.env.FIREBASE_API_KEY;
+    else process.env.FIREBASE_API_KEY = apiKey;
+  }
+});
+
+test('health only requires the Firebase project ID for local ID-token verification', async () => {
+  const apiKey = process.env.FIREBASE_API_KEY;
+  process.env.FIREBASE_PROJECT_ID = 'firebase-test-project';
+  delete process.env.FIREBASE_API_KEY;
+  try {
+    const response = await fetch(`${baseUrl}/api/health`);
+    const body = await response.json() as {
+      status: string;
+      services: { firebaseAuthConfigured: boolean };
+    };
+    assert.equal(response.status, 200);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.services.firebaseAuthConfigured, true);
+  } finally {
     if (apiKey === undefined) delete process.env.FIREBASE_API_KEY;
     else process.env.FIREBASE_API_KEY = apiKey;
   }

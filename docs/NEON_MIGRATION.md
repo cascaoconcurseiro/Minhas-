@@ -3,7 +3,7 @@
 ## Arquitetura atual
 
 - Firebase Auth provê login, identidade e sessões; Neon PostgreSQL armazena os dados financeiros e familiares.
-- O frontend fala com o backend Express/Vercel; o servidor valida ID tokens Firebase por Identity Toolkit e acessa PostgreSQL com `DATABASE_URL` protegida.
+- O frontend fala com o backend Express/Vercel; o servidor verifica localmente ID tokens Firebase (RS256, claims e certificados públicos rotativos em cache) e acessa PostgreSQL com `DATABASE_URL` protegida. A verificação não consulta revogação imediata; tokens emitidos podem permanecer válidos até expirar.
 - Firebase Firestore não participa do runtime nem recebe dados financeiros.
 - Quando uma conta ainda não tem linha no Neon, o app cria um workspace inicial vazio diretamente no Neon.
 

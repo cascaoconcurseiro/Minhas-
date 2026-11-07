@@ -124,18 +124,18 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const accMap = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
 
   useEffect(() => {
-    if (
-      activeCard?.defaultAccountId &&
-      accounts.some((a) => a.id === activeCard.defaultAccountId)
-    ) {
-      setPaymentAccountId(activeCard.defaultAccountId);
-    } else if (
-      (!paymentAccountId || !accounts.some((a) => a.id === paymentAccountId)) &&
-      accounts.length > 0
-    ) {
-      setPaymentAccountId(accounts[0].id);
-    }
-  }, [activeCard?.id, activeCard?.defaultAccountId, accounts, paymentAccountId]);
+    setPaymentAccountId((currentAccountId) => {
+      if (
+        activeCard?.defaultAccountId &&
+        accounts.some((a) => a.id === activeCard.defaultAccountId)
+      ) {
+        return activeCard.defaultAccountId;
+      }
+      return accounts.some((a) => a.id === currentAccountId)
+        ? currentAccountId
+        : accounts[0]?.id || '';
+    });
+  }, [activeCard?.id, activeCard?.defaultAccountId, accounts]);
 
   useEffect(() => {
     if (
@@ -858,21 +858,23 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                 <div className="lg:col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  <label htmlFor="card-edit-name-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Nome do Cartão
                   </label>
                   <input
                     type="text"
+                    id="card-edit-name-input"
                     value={editCardName}
                     onChange={(e) => setEditCardName(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  <label htmlFor="card-edit-brand-select" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Bandeira
                   </label>
                   <select
+                    id="card-edit-brand-select"
                     value={editCardBrand}
                     onChange={(e) =>
                       setEditCardBrand(e.target.value as 'Mastercard' | 'Visa' | 'Elo')
@@ -885,11 +887,12 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  <label htmlFor="card-edit-limit-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Limite Total (R$)
                   </label>
                   <input
                     type="text"
+                    id="card-edit-limit-input"
                     value={editCardLimit}
                     onChange={(e) => setEditCardLimit(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono tabular-nums text-slate-900"
@@ -897,11 +900,12 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    <label htmlFor="card-edit-closing-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
                       Dia Fecha
                     </label>
                     <input
                       type="number"
+                      id="card-edit-closing-input"
                       min={1}
                       max={31}
                       value={editCardClosing}
@@ -910,11 +914,12 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    <label htmlFor="card-edit-due-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
                       Dia Vence
                     </label>
                     <input
                       type="number"
+                      id="card-edit-due-input"
                       min={1}
                       max={31}
                       value={editCardDue}
@@ -924,10 +929,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  <label htmlFor="card-edit-default-account-select" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Conta Padrão
                   </label>
                   <select
+                    id="card-edit-default-account-select"
                     value={editCardAccount}
                     onChange={(e) => setEditCardAccount(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900"

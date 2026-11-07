@@ -654,23 +654,29 @@ export function payCreditCardInvoice(
     return transactions;
   }
 
+  const normalizedPaymentAmount = customPaymentAmount === undefined
+    ? undefined
+    : Math.round(customPaymentAmount * 100) / 100;
+
   if (
     customPaymentAmount !== undefined &&
     (!Number.isFinite(customPaymentAmount) ||
-      customPaymentAmount <= 0 ||
-      customPaymentAmount > totalPending + 0.009)
+      normalizedPaymentAmount! <= 0 ||
+      normalizedPaymentAmount! > totalPending)
   ) {
     return transactions;
   }
 
   const isPartial =
-    typeof customPaymentAmount === 'number' &&
-    customPaymentAmount > 0 &&
-    customPaymentAmount < totalPending - 0.009;
+    normalizedPaymentAmount !== undefined &&
+    normalizedPaymentAmount < totalPending;
 
-  const targetPayAmount = isPartial
-    ? Math.round(customPaymentAmount * 100) / 100
-    : totalPending;
+  const targetPayAmount = isPartial ? normalizedPaymentAmount! : totalPending;
+  let paymentTimestamp = Date.now();
+  let invoicePaymentId = `tx-inv-${card.id}-${invoiceMonth}-${paymentTimestamp}`;
+  while (transactions.some((tx) => tx.id === invoicePaymentId)) {
+    invoicePaymentId = `tx-inv-${card.id}-${invoiceMonth}-${++paymentTimestamp}`;
+  }
 
   let remainingToSettle = targetPayAmount;
   const updatedTransactions: Transaction[] = [];
@@ -683,12 +689,12 @@ export function payCreditCardInvoice(
       isCreditCardInvoicePurchase(tx)
     ) {
       if (!isPartial) {
-        updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus });
+        updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus, invoicePaymentId } as Transaction);
       } else if (remainingToSettle <= 0.001) {
         updatedTransactions.push(tx);
       } else if (tx.amount <= remainingToSettle + 0.001) {
         remainingToSettle = Math.round((remainingToSettle - tx.amount) * 100) / 100;
-        updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus });
+        updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus, invoicePaymentId } as Transaction);
       } else {
         const paidPart = Math.round(remainingToSettle * 100) / 100;
         const unpaidRemainder = Math.round((tx.amount - paidPart) * 100) / 100;
@@ -703,13 +709,14 @@ export function payCreditCardInvoice(
         remainingToSettle = 0;
         updatedTransactions.push({
           ...tx,
-          id: `${tx.id}-paid-${Date.now()}`,
+          id: `${tx.id}-paid-${paymentTimestamp}`,
           description: `${tx.description} (Abatimento Parcial)`,
           amount: paidPart,
           sharedAmount: sharedPaidPart,
           status: 'paid' as TransactionStatus,
+          invoicePaymentId,
           partialSplitOriginalId: tx.id,
-        });
+        } as Transaction);
         updatedTransactions.push({
           ...tx,
           amount: unpaidRemainder,
@@ -723,7 +730,7 @@ export function payCreditCardInvoice(
   }
 
   const invoicePaymentTx: Transaction = {
-    id: `tx-inv-${card.id}-${invoiceMonth}-${Date.now()}`,
+    id: invoicePaymentId,
     description: isPartial
       ? `Pagamento Parcial Fatura ${card.name} (${invoiceMonth})`
       : `Pagamento Fatura ${card.name} (${invoiceMonth})`,
@@ -1679,15 +1686,43 @@ export function reverseCreditCardInvoicePayment(
   const targetCardId = target.settledCardId || matchedCard?.id;
   const cardName = matchedCard?.name || 'Cartão de Crédito';
 
-  // Detect any partial split rows in this competence month for this card
+  // Restrict new-format reversals to purchases settled by this specific payment.
+  const getInvoicePaymentId = (tx: Transaction) =>
+    (tx as Transaction & { invoicePaymentId?: string }).invoicePaymentId;
+  const hasLinkedPurchases = transactions.some((tx) => getInvoicePaymentId(tx) === target.id);
+  const hasLegacyAmbiguousPayments = !hasLinkedPurchases && transactions.filter((tx) =>
+    {
+      if (!tx.isInvoicePayment || tx.id === target.id || tx.competenceMonth !== target.competenceMonth) {
+        return false;
+      }
+      if (!targetCardId) return true;
+      const paymentCard = cards.find((card) => card.id === tx.settledCardId) ||
+        cards.find((card) => tx.description.toLowerCase().includes(card.name.toLowerCase())) ||
+        cards.find((card) => tx.id.includes(card.id));
+      return (tx.settledCardId || paymentCard?.id) === targetCardId;
+    }
+  ).length > 0;
+  if (hasLegacyAmbiguousPayments) {
+    return {
+      updatedTransactions: transactions,
+      restoredCardCount: 0,
+      restoredCardName: cardName,
+      actionDescription: `Não foi possível estornar o pagamento de ${formatBRL(target.amount)} da fatura ${cardName}: existem várias baixas legadas nesta competência sem vínculo individual. Nenhum lançamento foi alterado.`,
+    };
+  }
+  const isTargetPurchase = (tx: Transaction) => hasLinkedPurchases
+    ? getInvoicePaymentId(tx) === target.id
+    : tx.competenceMonth === target.competenceMonth &&
+      (!targetCardId || tx.creditCardId === targetCardId);
+
+  // Detect partial split rows settled by this payment (legacy rows have no payment link).
   const partialSplitSums = new Map<string, number>();
   const partialSplitSharedSums = new Map<string, number>();
   const partialSplitIdsToRemove = new Set<string>();
 
   for (const tx of transactions) {
     if (
-      tx.competenceMonth === target.competenceMonth &&
-      (!targetCardId || tx.creditCardId === targetCardId) &&
+      isTargetPurchase(tx) &&
       (tx.partialSplitOriginalId || tx.id.includes('-paid-'))
     ) {
       const origId =
@@ -1710,8 +1745,7 @@ export function reverseCreditCardInvoicePayment(
     .map((t) => {
       if (
         !t.isInvoicePayment &&
-        t.competenceMonth === target.competenceMonth &&
-        (targetCardId ? t.creditCardId === targetCardId : Boolean(t.creditCardId))
+        (isTargetPurchase(t) || partialSplitSums.has(t.id))
       ) {
         const extraFromPartial = partialSplitSums.get(t.id) || 0;
         const extraSharedFromPartial = partialSplitSharedSums.get(t.id);
@@ -1895,7 +1929,7 @@ export function applyCascadeTransactionDelete(
     const rev = reverseCreditCardInvoicePayment(transactions, target.id, cards);
     return {
       updatedTransactions: rev.updatedTransactions,
-      deletedCount: 1,
+      deletedCount: rev.actionDescription.startsWith('Não foi possível estornar') ? 0 : 1,
       cascadeReopenedCount: rev.restoredCardCount,
       actionDescription: rev.actionDescription,
     };

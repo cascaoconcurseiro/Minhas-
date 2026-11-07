@@ -1,6 +1,7 @@
 -- Phase 1: preserve the existing Firestore workspace contract during cutover.
 -- Apply with the Neon owner role. The API must use a restricted role and set
--- app.firebase_uid per transaction; never expose DATABASE_URL to the browser.
+-- After migration 006, the API sets app.user_id per transaction; never expose
+-- DATABASE_URL to the browser.
 
 CREATE TABLE IF NOT EXISTS public.finance_workspaces (
   vault_id text PRIMARY KEY

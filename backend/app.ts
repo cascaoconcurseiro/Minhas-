@@ -12,6 +12,7 @@ import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
+import { FirebaseTokenVerificationError, verifyFirebaseIdTokenLocally } from './firebaseToken.ts';
 import {
   formatGoogleFinanceSymbol,
   normalizeTickerSymbol,
@@ -60,78 +61,18 @@ class FirebaseAuthError extends Error {
   }
 }
 
-function readFirebaseTokenClaims(idToken: string): { aud?: unknown; iss?: unknown; sub?: unknown } {
-  const parts = idToken.split('.');
-  if (parts.length !== 3) throw new FirebaseAuthError('Token Firebase inválido.', 401);
-  try {
-    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
-      aud?: unknown;
-      iss?: unknown;
-      sub?: unknown;
-    };
-  } catch {
-    throw new FirebaseAuthError('Token Firebase inválido.', 401);
-  }
-}
-
 async function verifyFirebaseIdToken(idToken: string): Promise<AuthUserIdentity> {
   const projectId = process.env.FIREBASE_PROJECT_ID;
-  const apiKey = process.env.FIREBASE_API_KEY;
-  if (!projectId || !apiKey) {
+  if (!projectId) {
     throw new FirebaseAuthError('Firebase Authentication não está configurado no servidor.', 503);
   }
-  // Reject tokens issued for another Firebase project. Signature validity is
-  // confirmed by Identity Toolkit below before these claims are trusted.
-  const claims = readFirebaseTokenClaims(idToken);
-  if (claims.aud !== projectId || claims.iss !== `https://securetoken.google.com/${projectId}` ||
-      typeof claims.sub !== 'string' || !claims.sub) {
-    throw new FirebaseAuthError('Token Firebase inválido ou emitido por outro projeto.', 401);
-  }
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-        signal: controller.signal,
-      }
-    );
-    if (!response.ok) {
-      const failure = await response.json().catch(() => null) as {
-        error?: { message?: string };
-      } | null;
-      const providerMessage = failure?.error?.message || '';
-      if (response.status === 401 ||
-          (response.status === 400 && /INVALID_ID_TOKEN|TOKEN_EXPIRED|USER_NOT_FOUND|INVALID_IDP_RESPONSE/i.test(providerMessage))) {
-        throw new FirebaseAuthError('Token Firebase inválido ou expirado.', 401);
-      }
-      throw new FirebaseAuthError('Firebase Authentication está temporariamente indisponível.', 503);
-    }
-    const result = (await response.json()) as {
-      users?: Array<{
-        localId?: string;
-        email?: string;
-        emailVerified?: boolean;
-        disabled?: boolean;
-      }>;
-    };
-    const account = result.users?.[0];
-    if (!account?.localId || !account.email || account.disabled || account.localId !== claims.sub) {
-      throw new FirebaseAuthError('Conta Firebase inválida ou desativada.', 401);
-    }
-    return {
-      uid: account.localId,
-      email: account.email,
-      email_verified: account.emailVerified === true,
-    };
+    return await verifyFirebaseIdTokenLocally(idToken, projectId);
   } catch (error) {
-    if (error instanceof FirebaseAuthError) throw error;
+    if (error instanceof FirebaseTokenVerificationError) {
+      throw new FirebaseAuthError(error.message, error.status);
+    }
     throw new FirebaseAuthError('Firebase Authentication está temporariamente indisponível.', 503);
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -158,9 +99,14 @@ function getRequestWorkspacePayload(
   for (const field of requiredJsonFields) {
     try {
       const parsed = JSON.parse(payload[field] as string);
-      if (['categoriesJson'].includes(field)) {
-        if (!Array.isArray(parsed)) return null;
-      } else if (!Array.isArray(parsed)) {
+      if (
+        !Array.isArray(parsed) ||
+        !parsed.every((item) =>
+          Boolean(item && typeof item === 'object' && !Array.isArray(item)) &&
+          typeof item.id === 'string' &&
+          item.id.trim().length > 0
+        )
+      ) {
         return null;
       }
     } catch {
@@ -175,7 +121,19 @@ function getRequestWorkspacePayload(
   ]) {
     if (payload[field] === undefined) continue;
     try {
-      JSON.parse(String(payload[field]));
+      const parsed = JSON.parse(String(payload[field]));
+      if (field === 'familyMembersJson' || field === 'tripsJson') {
+        if (
+          !Array.isArray(parsed) ||
+          !parsed.every((item) =>
+            Boolean(item && typeof item === 'object' && !Array.isArray(item)) &&
+            typeof item.id === 'string' &&
+            item.id.trim().length > 0
+          )
+        ) return null;
+      } else if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return null;
+      }
     } catch {
       return null;
     }
@@ -400,9 +358,10 @@ async function startServer() {
     }
     const vaultId = getVaultIdForUid(user.uid);
     const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
-    const expectedRevision = Number(req.body?.expectedRevision);
+    const expectedRevision = req.body?.expectedRevision;
     if (
       !payload ||
+      typeof expectedRevision !== 'number' ||
       !Number.isSafeInteger(expectedRevision) ||
       expectedRevision < 1
     ) {
@@ -454,7 +413,9 @@ async function startServer() {
                   invited_user_id, owner_member_id, owner_name, owner_pix_key,
                   relationship, color, status, created_at, updated_at, responded_at
              FROM public.finance_family_invitations
-            WHERE owner_user_id = $1 OR lower(invited_email) = lower($2)
+            WHERE owner_user_id = $1
+               OR (lower(invited_email) = lower($2)
+                   AND (invited_user_id IS NULL OR invited_user_id = $1))
             ORDER BY updated_at DESC`,
           [user.uid, user.email]
         );
@@ -547,7 +508,7 @@ async function startServer() {
       return;
     }
     try {
-      const invitation = await withWorkspaceRls(user, async (client) => {
+      const response = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `UPDATE public.finance_family_invitations
               SET status = $1,
@@ -556,19 +517,41 @@ async function startServer() {
                   responded_at = now()
             WHERE invitation_id = $3
               AND lower(invited_email) = lower($4)
-              AND status IN ('invited', 'accepted', 'declined')
+              AND status = 'invited'
           RETURNING invitation_id, owner_user_id, owner_email, invited_email,
                     invited_user_id, owner_member_id, owner_name, owner_pix_key,
                     relationship, color, status, created_at, updated_at, responded_at`,
           [action, user.uid, req.params.invitationId, user.email]
         );
-        return result.rows[0] ?? null;
+        if (result.rows[0]) return { invitation: result.rows[0] };
+
+        // A repeated identical response is safe and idempotent. A different
+        // action after the invitation is terminal must not silently replace it.
+        const existingResult = await client.query(
+          `SELECT invitation_id, owner_user_id, owner_email, invited_email,
+                  invited_user_id, owner_member_id, owner_name, owner_pix_key,
+                  relationship, color, status, created_at, updated_at, responded_at
+             FROM public.finance_family_invitations
+            WHERE invitation_id = $1
+              AND lower(invited_email) = lower($2)
+            LIMIT 1
+            FOR UPDATE`,
+          [req.params.invitationId, user.email]
+        );
+        const existing = existingResult.rows[0];
+        if (!existing || existing.invited_user_id !== user.uid) return { notFound: true as const };
+        if (existing.status === action) return { invitation: existing };
+        return { conflict: true as const };
       });
-      if (!invitation) {
+      if ('notFound' in response) {
         res.status(404).json({ error: 'Convite não encontrado para esta conta.' });
         return;
       }
-      res.json({ invitation });
+      if ('conflict' in response) {
+        res.status(409).json({ error: 'Este convite já recebeu uma resposta diferente.' });
+        return;
+      }
+      res.json({ invitation: response.invitation });
     } catch (error) {
       console.error('Erro ao responder convite familiar:', error);
       res.status(503).json({ error: 'Não foi possível responder ao convite.' });
@@ -808,9 +791,7 @@ async function startServer() {
   // Readiness checks the database connection and required workspace table.
   app.get('/api/health', async (_req, res) => {
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
-    const firebaseAuthConfigured = Boolean(
-      process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY
-    );
+    const firebaseAuthConfigured = Boolean(process.env.FIREBASE_PROJECT_ID);
     let neonStatus: 'ok' | 'error' = 'error';
     let neonLeastPrivilegeRole: boolean | null = null;
     try {
@@ -841,7 +822,7 @@ async function startServer() {
       // Do not expose connection strings or database errors from a public health route.
     }
 
-    const ready = neonStatus === 'ok' && firebaseAuthConfigured;
+    const ready = neonStatus === 'ok' && neonLeastPrivilegeRole === true && firebaseAuthConfigured;
     res.set('Cache-Control', 'no-store');
     res.status(ready ? 200 : 503).json({
       status: ready ? 'ok' : 'degraded',
@@ -861,9 +842,16 @@ async function startServer() {
 
   app.post('/api/fx/live-rate', async (req, res) => {
     try {
-      const rawCurrency = String(req.body?.currency || 'EUR')
-        .trim()
-        .toUpperCase();
+      const requestedCurrency = req.body?.currency ?? 'EUR';
+      if (typeof requestedCurrency !== 'string') {
+        res.status(400).json({ error: 'Informe um código de moeda válido.' });
+        return;
+      }
+      const rawCurrency = requestedCurrency.trim().toUpperCase();
+      if (!Object.hasOwn(CURRENCY_NAMES_PT, rawCurrency)) {
+        res.status(400).json({ error: 'Moeda não suportada para cotação em tempo real.' });
+        return;
+      }
 
       if (rawCurrency === 'BRL') {
         res.json({
@@ -952,21 +940,29 @@ async function startServer() {
   // Google Finance Real-Time Stock, FII & ETF Quote Synchronization
   app.post('/api/investments/sync-quotes', async (req, res) => {
     try {
-      const rawTickers: string[] = Array.isArray(req.body?.tickers)
-        ? Array.from(
-            new Set<string>(
-              (req.body.tickers as unknown[])
-                .map((t: unknown) => normalizeTickerSymbol(String(t || '')))
-                .filter(Boolean)
-            )
-          ).slice(0, 20)
-        : [];
+      const requestedTickers = req.body?.tickers;
+      if (
+        !Array.isArray(requestedTickers) ||
+        requestedTickers.length > 20 ||
+        requestedTickers.some((ticker: unknown) => typeof ticker !== 'string')
+      ) {
+        res.status(400).json({ error: 'Informe de um a 20 tickers válidos para buscar cotações.' });
+        return;
+      }
+
+      const rawTickers = Array.from(
+        new Set<string>(requestedTickers.map((ticker: string) => normalizeTickerSymbol(ticker)).filter(Boolean))
+      );
 
       if (rawTickers.length === 0) {
         res.status(400).json({
           error:
             'Informe ao menos um ticker para atualizar as cotações no Google Finance.',
         });
+        return;
+      }
+      if (rawTickers.some((ticker) => !/^[A-Z0-9.-]{1,20}$/.test(ticker))) {
+        res.status(400).json({ error: 'Um ou mais tickers contêm caracteres inválidos.' });
         return;
       }
 
@@ -993,6 +989,7 @@ async function startServer() {
       }
 
       const missingTickers = rawTickers.filter((t) => !quoteMap.has(t));
+      const missingTickerSet = new Set(missingTickers);
 
       // 2) Fallback / Complemento via Gemini Google Search Grounding para ativos no exterior ou não resolvidos diretamente
       if (missingTickers.length > 0 && process.env.GEMINI_API_KEY) {
@@ -1020,7 +1017,7 @@ async function startServer() {
           const aiQuotes = parseGoogleFinanceQuotesFromText(responseText);
 
           for (const q of aiQuotes) {
-            if (!quoteMap.has(q.ticker)) {
+            if (missingTickerSet.has(q.ticker) && !quoteMap.has(q.ticker)) {
               quoteMap.set(q.ticker, q);
             }
           }

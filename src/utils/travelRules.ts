@@ -784,8 +784,19 @@ export function simplifyTripDebts(
           ? creditor.creditBrl / creditor.creditForeign
           : defaultEffectiveRate;
 
-      const settledBrl =
+      // Preserve both participants' independently rounded BRL balances. A
+      // shared creditor rate can otherwise make the first debtor consume a
+      // cent that belongs to a later debtor (or leave a cent unassigned).
+      const rateBasedBrl =
         Math.round(settledForeign * creditorImpliedRate * 100) / 100;
+      const settledBrl = Math.min(
+        rateBasedBrl,
+        debtor.debtBrl,
+        creditor.creditBrl
+      );
+      const actualEffectiveRate = settledForeign > 0
+        ? settledBrl / settledForeign
+        : creditorImpliedRate;
 
       transfers.push({
         fromParticipantId: debtor.id,
@@ -794,8 +805,7 @@ export function simplifyTripDebts(
         toName: creditor.name,
         amountForeign: settledForeign,
         amountBrlEffective: settledBrl,
-        impliedEffectiveRate:
-          Math.round(creditorImpliedRate * 10000) / 10000,
+        impliedEffectiveRate: Math.round(actualEffectiveRate * 10000) / 10000,
       });
 
       debtor.debtForeign = Math.round((debtor.debtForeign - settledForeign) * 100) / 100;

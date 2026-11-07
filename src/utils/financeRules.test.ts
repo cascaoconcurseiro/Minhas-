@@ -125,7 +125,7 @@ test('card invoice settlement rejects invalid custom payments instead of treatin
     recurrence: 'single',
   });
 
-  for (const invalidAmount of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 100.01]) {
+  for (const invalidAmount of [0, 0.004, -1, Number.NaN, Number.POSITIVE_INFINITY, 100.01]) {
     assert.equal(
       payCreditCardInvoice(card, transactions, '2026-11', 'acc-1', '2026-11-28', invalidAmount),
       transactions
@@ -767,6 +767,110 @@ test('partial card invoice settlement splits sharedAmount proportionally and rev
   const original = restored.updatedTransactions.find((tx) => tx.id === txs[0].id);
   assert.equal(original?.amount, 100);
   assert.equal(original?.sharedAmount, 40);
+});
+
+test('reversing one of multiple partial invoice payments only reopens that payment', () => {
+  const card: CreditCard = {
+    id: 'card-multiple-partial',
+    name: 'Cartão múltiplos parciais',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+  const txs = createTransactionBatch({
+    description: 'Compra de R$ 100',
+    amount: 100,
+    date: '2026-10-10',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-mercado',
+    creditCardId: card.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'single',
+  });
+
+  const afterFirstPayment = payCreditCardInvoice(card, txs, '2026-10', 'acc-1', '2026-10-20', 30);
+  const firstPayment = afterFirstPayment.find((tx) => tx.isInvoicePayment)!;
+  const afterSecondPayment = payCreditCardInvoice(card, afterFirstPayment, '2026-10', 'acc-1', '2026-10-21', 20);
+  const secondPayment = afterSecondPayment.find((tx) => tx.isInvoicePayment)!;
+
+  const afterFirstReversal = reverseCreditCardInvoicePayment(afterSecondPayment, firstPayment.id, [card]);
+  assert.equal(calculateCreditCardSummary(card, afterFirstReversal.updatedTransactions, '2026-10').invoicePendingAmount, 80);
+  assert.ok(afterFirstReversal.updatedTransactions.some((tx) => tx.id === secondPayment.id));
+
+  const afterSecondReversal = reverseCreditCardInvoicePayment(afterFirstReversal.updatedTransactions, secondPayment.id, [card]);
+  const summary = calculateCreditCardSummary(card, afterSecondReversal.updatedTransactions, '2026-10');
+  assert.equal(summary.invoicePendingAmount, 100);
+  assert.equal(summary.transactions.length, 1);
+  assert.equal(summary.transactions[0].amount, 100);
+});
+
+test('blocks reversal of ambiguous legacy invoice payments without changing transactions', () => {
+  const card: CreditCard = {
+    id: 'card-legacy-ambiguous',
+    name: 'Cartão legado',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+  const purchase = createTransactionBatch({
+    description: 'Compra histórica', amount: 100, date: '2026-10-10',
+    competenceMonth: '2026-10', type: 'expense', status: 'pending',
+    categoryId: 'cat-mercado', creditCardId: card.id,
+    paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const firstSettlement = payCreditCardInvoice(card, purchase, '2026-10', 'acc-1', '2026-10-20', 30);
+  const firstPayment = firstSettlement.find((tx) => tx.isInvoicePayment)!;
+  const secondSettlement = payCreditCardInvoice(card, firstSettlement, '2026-10', 'acc-1', '2026-10-21', 20);
+  const secondPayment = secondSettlement.find((tx) => tx.isInvoicePayment)!;
+  const legacyTransactions = secondSettlement.map(({ invoicePaymentId: _link, ...tx }) => tx);
+
+  const result = reverseCreditCardInvoicePayment(legacyTransactions, firstPayment.id, [card]);
+  assert.equal(result.updatedTransactions, legacyTransactions);
+  assert.equal(result.restoredCardCount, 0);
+  assert.match(result.actionDescription, /várias baixas legadas/);
+  assert.equal(legacyTransactions.filter((tx) => tx.isInvoicePayment).length, 2);
+  assert.ok(legacyTransactions.some((tx) => tx.id === secondPayment.id));
+
+  const deletion = applyCascadeTransactionDelete(legacyTransactions, firstPayment.id, 'single', [card]);
+  assert.equal(deletion.updatedTransactions, legacyTransactions);
+  assert.equal(deletion.deletedCount, 0);
+  assert.match(deletion.actionDescription || '', /Nenhum lançamento foi alterado/);
+});
+
+test('keeps legacy reversal behavior when one invoice payment is unambiguous', () => {
+  const card: CreditCard = {
+    id: 'card-legacy-single',
+    name: 'Cartão legado único',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-1',
+    color: '#0f172a',
+  };
+  const purchase = createTransactionBatch({
+    description: 'Compra histórica única', amount: 100, date: '2026-10-10',
+    competenceMonth: '2026-10', type: 'expense', status: 'pending',
+    categoryId: 'cat-mercado', creditCardId: card.id,
+    paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const settled = payCreditCardInvoice(card, purchase, '2026-10', 'acc-1', '2026-10-20', 40)
+    .map(({ invoicePaymentId: _link, ...tx }) => tx);
+  const payment = settled.find((tx) => tx.isInvoicePayment)!;
+
+  const result = reverseCreditCardInvoicePayment(settled, payment.id, [card]);
+  const restored = result.updatedTransactions.find((tx) => tx.id === purchase[0].id);
+  assert.equal(result.updatedTransactions.some((tx) => tx.id === payment.id), false);
+  assert.equal(restored?.amount, 100);
+  assert.equal(restored?.status, 'pending');
 });
 
 test('resolveCreditCardInvoiceMonth advances competenceMonth when purchase day is after card closingDay', () => {

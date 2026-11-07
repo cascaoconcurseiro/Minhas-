@@ -6,6 +6,7 @@ import {
   calculateTripDashboardSummary,
   calculateTripExpenseSplit,
   calculateTripWeightedAverageRate,
+  simplifyTripDebts,
   convertSmartCurrency,
   formatForeignCurrency,
   getLatestExchangeRateInfo,
@@ -20,6 +21,40 @@ import {
 import { Trip, Transaction, TripParticipant } from '../types/finance';
 
 describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () => {
+  it('does not over-allocate BRL when two fractional settlements share the same creditor', () => {
+    const transfers = simplifyTripDebts([
+      {
+        participantId: 'debtor-a', participantName: 'Pessoa A', isMe: false, color: '#000',
+        paidForeign: 0, paidBrl: 0, consumedForeign: 0, consumedBrl: 0,
+        settledSentForeign: 0, settledReceivedForeign: 0, settledSentBrl: 0, settledReceivedBrl: 0,
+        netBalanceForeign: -0.01, netBalanceBrl: -0.01,
+      },
+      {
+        participantId: 'debtor-b', participantName: 'Pessoa B', isMe: false, color: '#111',
+        paidForeign: 0, paidBrl: 0, consumedForeign: 0, consumedBrl: 0,
+        settledSentForeign: 0, settledReceivedForeign: 0, settledSentBrl: 0, settledReceivedBrl: 0,
+        netBalanceForeign: -0.01, netBalanceBrl: -0.02,
+      },
+      {
+        participantId: 'creditor', participantName: 'Credor', isMe: true, color: '#222',
+        paidForeign: 0, paidBrl: 0, consumedForeign: 0, consumedBrl: 0,
+        settledSentForeign: 0, settledReceivedForeign: 0, settledSentBrl: 0, settledReceivedBrl: 0,
+        netBalanceForeign: 0.02, netBalanceBrl: 0.03,
+      },
+    ], 1.5);
+
+    assert.equal(transfers.length, 2);
+    assert.equal(transfers.reduce((sum, transfer) => sum + transfer.amountForeign, 0), 0.02);
+    assert.equal(transfers.reduce((sum, transfer) => sum + transfer.amountBrlEffective, 0), 0.03);
+    assert.deepEqual(
+      Object.fromEntries(transfers.map((transfer) => [transfer.fromParticipantId, transfer.amountBrlEffective])),
+      { 'debtor-a': 0.01, 'debtor-b': 0.02 }
+    );
+    assert.ok(transfers.every((transfer) =>
+      Math.round(transfer.amountForeign * transfer.impliedEffectiveRate * 100) / 100 === transfer.amountBrlEffective
+    ));
+  });
+
   it('detects explicit mock markers without deleting legitimate matching descriptions or names', () => {
     const legitimateRecords = [
       { id: 'acc-1700000000000', name: 'Nubank Principal', institution: 'Nubank', initialBalance: 0, color: '#7c3aed' },

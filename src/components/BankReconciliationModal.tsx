@@ -63,6 +63,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
   const [pasteMode, setPasteMode] = useState(false);
   const [pastedContent, setPastedContent] = useState('');
   const [successCount, setSuccessCount] = useState<number | null>(null);
+  const [parseFeedback, setParseFeedback] = useState('');
 
   // Auto-sync defaultAccountId if provided
   React.useEffect(() => {
@@ -76,6 +77,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
   const handleProcessRawText = (text: string, fileName?: string) => {
     setIsProcessing(true);
     setSuccessCount(null);
+    setParseFeedback('');
     try {
       const parsed = parseBankStatement(text);
       setStatementMeta({
@@ -92,9 +94,21 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
         selectedAccountId
       );
       setCandidates(candList);
+      if (parsed.items.length === 0) {
+        setParseFeedback(
+          parsed.skippedInvalidCount > 0
+            ? `Nenhum lançamento válido foi encontrado; ${parsed.skippedInvalidCount} linha(s) inválida(s) foram ignoradas. Confira datas e valores.`
+            : 'Nenhum lançamento foi encontrado neste extrato.'
+        );
+      } else if (parsed.skippedInvalidCount > 0) {
+        setParseFeedback(
+          `${parsed.skippedInvalidCount} linha(s) inválida(s) foram ignoradas. Revise o extrato antes de importar os lançamentos válidos.`
+        );
+      }
       setPasteMode(false);
     } catch (err) {
       console.error('Erro ao processar extrato bancário:', err);
+      setParseFeedback('Não foi possível processar este extrato. Confira o formato do arquivo e tente novamente.');
     } finally {
       setIsProcessing(false);
     }
@@ -350,6 +364,12 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                 </div>
               </div>
             </div>
+          )}
+
+          {parseFeedback && (
+            <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+              {parseFeedback}
+            </p>
           )}
 
           {/* Paste manual content box */}

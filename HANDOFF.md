@@ -1,5 +1,25 @@
 # Handoff — Minhas Economias
 
+## Sessão — 2026-11-07 — aceleração da cobertura e correções financeiras
+
+Conferi o estado atual do checkout e preservei as alterações preexistentes. Corrigi dois defeitos reproduzíveis: `AccountsTab` agora rejeita texto de saldo inválido que era convertido silenciosamente em zero (`abc0`, `0abc` e separadores isolados); `simplifyTripDebts()` limita o BRL de cada transferência pelos saldos individuais e calcula a taxa efetiva do valor realmente transferido, evitando deslocar centavos entre participantes. Acrescentei testes DOM para os botões “Efetivar/Reverter” no painel e para indisponibilidade dos certificados Firebase durante rotação de chave antes de consultar Neon.
+
+Validação desta sessão: `bun test` **329/329 em 53 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram. O build ainda avisa que o bundle de entrada tem 576,00 kB. Corrigi também valores monetários com mais de duas casas, que agora falham com mensagem de validação, e o gate do PWA para alterações em busca/filtros fora de formulários ou diálogos não bloquearem a atualização; os inputs editáveis continuam adiando o update até o editor fechar. Os testes locais são sintéticos/mocados; não demonstram escrita real no Neon.
+
+Próximo passo concreto: terminar revisão do diff, publicar correções de UI/testes e finanças, e conferir CI/deployment/layout na viewport de 1066 px.
+
+Auditoria Ego Lite encerrada em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`: pela UI publicada foram criados/editados/removidos conta, lançamento, cartão, categoria de orçamento, meta, viagem e investimento com dados sintéticos; cada limpeza sincronizou e as telas retornaram ao baseline. A conta e o lançamento auxiliares também foram removidos. Com evento input nativo, o lançamento em 07/11 persistiu após sincronização e recarga; page.fill era limitação da automação, não bug do app. A verificação ficou em viewport 1066×1132. Não houve compra/pagamento, FX/live quote, convite, importação ou exportação.
+
+Pendências materiais: CRUD UI→API→Neon e restore autenticado ainda não estão comprovados em harness real; aceite de convite com segunda conta foi dispensado pelo usuário; backup agendado GitHub ainda não tem evento `schedule` confirmado e a chave privada age não tem cópia externa verificada. A mudança local do horário do workflow de backup segue sem publicação. A revisão dos cortes de layout precisa ocorrer após o deploy da correção. Não elevar o percentual até fechar a validação pós-deploy.
+
+## Sessão — 2026-11-07 — inventário de testes funcionais sintéticos
+
+Contexto retomado: a sessão autenticada real e a persistência UI→Neon seguem pendentes; o usuário não autorizou uso de produção/dados pessoais nesta tarefa. Preservei o checkout preexistente com alterações não commitadas. Rodei `bun test` (242/242 em 44 arquivos), `bun run lint` e `bun run build`; todos passaram. O build continua avisando sobre o chunk principal de 575,80 kB. Testes são DOM sintéticos, mocks e regras locais: não são Playwright/browser real, não verificam Neon e não confirmam aceite de convite. O teste de convite cobre criação pelo proprietário; o aceite requer segunda conta e não foi simulado.
+
+Cobertura identificada: contas (criar/editar/exclusão confirmada/cancelada); lançamentos (criar/editar/excluir unitário e série); cartões (criação e formulário de edição/labels); orçamento (editar teto/cancelar e categorias); metas (cálculos); viagens/câmbio (criar/editar/excluir e regras de rateio/conversão); investimentos (criar/editar/excluir, validações e cotação simulada); compartilhamento (convite sintético, confirmação/cancelamento de remoção, liquidação); relatórios/import/export (período, CSV, backup e parsers); configurações (exportação/restauração JSON sintética e cancelamento). A profundidade difere por módulo e vários CRUDs permanecem apenas callback local.
+
+Próximo passo concreto: aprofundar os testes DOM de `CreditCardsTab`, `GoalsAndSimulatorTab`, `ReportsAndDataTab` e os fluxos persistidos de `App`/`neonWorkspace`, sempre com armazenamento e API simulados; depois fazer revisão visual desktop/mobile em ambiente controlado. Sem sessão autenticada controlável, aceite de convite com segunda conta e persistência remota continuam pendentes.
+
 ## Retomada — 2026-11-07 13:58 UTC — Firebase Auth + Neon
 
 A arquitetura publicada mantém Firebase Auth para identidade e Neon PostgreSQL como único banco operacional. O commit `aede265` foi enviado a `main`; CI `42378877771` passou e o primeiro deployment de runtime `dpl_8mrRFxZutZBhKte6gN52m5kbBZfn` ficou Ready. Removi as variáveis antigas e os commits documentais `59f0020` e `923e0ca` passaram nos CI `42379078287` e `42379235890`; o deployment atual `dpl_4CN8ERkHECZLgSew51oyvtcbEN6S` ficou Ready com as envs limpas. A API exige `aud`/`iss` do projeto Firebase, UID consistente com a conta verificada via Identity Toolkit, e distingue token inválido (401) de indisponibilidade/configuração do provedor (503). Os UIDs antigos dos workspaces foram preservados e nenhum dado Neon foi escrito.

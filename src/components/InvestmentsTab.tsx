@@ -147,6 +147,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     }
   }, [accounts, opAccountId]);
   const [opLinkBankAccount, setOpLinkBankAccount] = useState(true);
+  const [operationError, setOperationError] = useState('');
 
   const marketQuotedAssets = useMemo(
     () => assets.filter((a) => isMarketQuotedAsset(a)),
@@ -286,6 +287,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       const found = quotes[0];
       if (found && found.priceBrl > 0) {
         setOpPriceStr(found.priceBrl.toFixed(2).replace('.', ','));
+      } else {
+        throw new Error(`Nenhuma cotação válida foi retornada para ${activeOperation.asset.ticker}.`);
       }
     } catch (err: unknown) {
       setGoogleFinanceError(
@@ -423,6 +426,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     mode: 'buy' | 'sell' | 'update_quote' | 'dividend'
   ) => {
     setActiveOperation({ asset, mode });
+    setOperationError('');
+    setGoogleFinanceError(null);
     if (mode === 'dividend') {
       const estDiv =
         Math.round(
@@ -438,7 +443,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       setOpPriceStr(asset.currentPrice.toFixed(2).replace('.', ','));
     }
     setOpAccountId(accounts[0]?.id || '');
-    setOpLinkBankAccount(true);
+    setOpLinkBankAccount(accounts.length > 0);
   };
 
   const handleConfirmOperation = (e: React.FormEvent) => {
@@ -447,14 +452,35 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     const { asset, mode } = activeOperation;
 
     if (mode === 'dividend') {
-      const divAmount = Math.max(0.01, parseBRLInput(opPriceStr));
+      const divAmount = parseBRLInput(opPriceStr);
+      if (!Number.isFinite(divAmount) || divAmount <= 0) {
+        setOperationError('Informe um valor de provento maior que zero.');
+        return;
+      }
+      if (!opAccountId) {
+        setOperationError('Cadastre ou selecione uma conta para receber o provento.');
+        return;
+      }
       onRecordDividendIncome(asset, divAmount, opAccountId);
       setActiveOperation(null);
       return;
     }
 
-    const qty = Math.max(0.0001, parseBRLInput(opQtyStr));
-    const price = Math.max(0.01, parseBRLInput(opPriceStr));
+    const qty = parseBRLInput(opQtyStr);
+    const price = parseBRLInput(opPriceStr);
+    if (!Number.isFinite(price) || price <= 0 || (mode !== 'update_quote' && (!Number.isFinite(qty) || qty <= 0))) {
+      setOperationError('Informe quantidade e preço maiores que zero.');
+      return;
+    }
+    if (mode === 'sell' && qty > asset.quantity + 0.0000001) {
+      setOperationError(`A quantidade vendida não pode superar o saldo de ${asset.quantity}.`);
+      return;
+    }
+    if (opLinkBankAccount && mode !== 'update_quote' && !opAccountId) {
+      setOperationError('Selecione uma conta ou desative o registro no extrato.');
+      return;
+    }
+    setOperationError('');
     onOperateAsset(
       asset.id,
       mode,
@@ -936,7 +962,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
           )}
 
           {googleFinanceError && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-medium text-rose-800">
+            <div role="alert" data-testid="google-finance-error" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-medium text-rose-800">
               {googleFinanceError}
             </div>
           )}
@@ -1009,12 +1035,13 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-ticker" className="block text-xs font-semibold text-slate-700 mb-1">
                   Código / Ticker (B3 / Global)
                 </label>
                 <div className="flex gap-1.5">
                   <input
                     type="text"
+                    id="investment-form-ticker"
                     value={ticker}
                     onChange={(e) => setTicker(e.target.value)}
                     placeholder="Ex: PETR4, HGLG11, IVVB11"
@@ -1039,11 +1066,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-name" className="block text-xs font-semibold text-slate-700 mb-1">
                   Nome Descritivo do Ativo
                 </label>
                 <input
                   type="text"
+                  id="investment-form-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: CSHG Logística FII / Tesouro Selic"
@@ -1052,10 +1080,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-class" className="block text-xs font-semibold text-slate-700 mb-1">
                   Classe do Ativo
                 </label>
                 <select
+                  id="investment-form-class"
                   value={assetClass}
                   onChange={(e) =>
                     setAssetClass(e.target.value as InvestmentAssetClass)
@@ -1071,11 +1100,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-institution" className="block text-xs font-semibold text-slate-700 mb-1">
                   Instituição / Corretora
                 </label>
                 <input
                   type="text"
+                  id="investment-form-institution"
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
                   placeholder="Ex: XP, BTG, Itaú, NuInvest"
@@ -1084,11 +1114,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-quantity" className="block text-xs font-semibold text-slate-700 mb-1">
                   Quantidade de Cotas / Títulos
                 </label>
                 <input
                   type="text"
+                  id="investment-form-quantity"
                   value={quantityStr}
                   onChange={(e) => setQuantityStr(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
@@ -1096,11 +1127,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-average-price" className="block text-xs font-semibold text-slate-700 mb-1">
                   Preço Médio de Compra (R$)
                 </label>
                 <input
                   type="text"
+                  id="investment-form-average-price"
                   value={avgPriceStr}
                   onChange={(e) => setAvgPriceStr(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
@@ -1108,11 +1140,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-current-price" className="block text-xs font-semibold text-slate-700 mb-1">
                   Cotação / Valor Unitário Atual (R$)
                 </label>
                 <input
                   type="text"
+                  id="investment-form-current-price"
                   value={currPriceStr}
                   onChange={(e) => setCurrPriceStr(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
@@ -1120,11 +1153,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-yield" className="block text-xs font-semibold text-slate-700 mb-1">
                   Rendimento / Dividend Yield Mensal (%)
                 </label>
                 <input
                   type="text"
+                  id="investment-form-yield"
                   value={yieldStr}
                   onChange={(e) => setYieldStr(e.target.value)}
                   placeholder="Ex: 0,85"
@@ -1135,11 +1169,12 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-center">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-indexer" className="block text-xs font-semibold text-slate-700 mb-1">
                   Indexador / Rentabilidade Contratada
                 </label>
                 <input
                   type="text"
+                  id="investment-form-indexer"
                   value={indexerLabel}
                   onChange={(e) => setIndexerLabel(e.target.value)}
                   placeholder="Ex: 102% CDI, IPCA + 6,4%, DY 10% a.a."
@@ -1148,10 +1183,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="investment-form-liquidity" className="block text-xs font-semibold text-slate-700 mb-1">
                   Prazo de Liquidez (Resgate)
                 </label>
                 <select
+                  id="investment-form-liquidity"
                   value={liquidity}
                   onChange={(e) =>
                     setLiquidity(e.target.value as InvestmentLiquidity)
@@ -1203,6 +1239,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
             onSubmit={handleConfirmOperation}
             className="border-b border-emerald-200 bg-emerald-50/80 px-4 sm:px-6 py-4 space-y-3 animate-expand-in"
           >
+            {operationError && (
+              <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                {operationError}
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-emerald-950">
@@ -1243,7 +1284,10 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                     <input
                       type="text"
                       value={opQtyStr}
-                      onChange={(e) => setOpQtyStr(e.target.value)}
+                      onChange={(e) => {
+                        setOpQtyStr(e.target.value);
+                        setOperationError('');
+                      }}
                       className="w-28 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-mono tabular-nums text-slate-900"
                     />
                   </div>
@@ -1259,7 +1303,10 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                   <input
                     type="text"
                     value={opPriceStr}
-                    onChange={(e) => setOpPriceStr(e.target.value)}
+                    onChange={(e) => {
+                      setOpPriceStr(e.target.value);
+                      setOperationError('');
+                    }}
                     className="w-36 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-mono tabular-nums text-slate-900"
                   />
                   {activeOperation.mode !== 'dividend' &&

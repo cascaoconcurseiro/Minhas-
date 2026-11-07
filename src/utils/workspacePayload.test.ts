@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseWorkspaceArray, parseWorkspaceObject } from './workspacePayload';
+import { compactTransactionListForStorage } from './ofxParser';
+import type { Transaction } from '../types/finance';
 
 test('accepts empty and valid persisted workspace collections', () => {
   assert.deepEqual(parseWorkspaceArray('[]', [{ id: 'fallback' }], 'accountsJson'), []);
@@ -30,4 +32,21 @@ test('merges defaults with a valid persisted object and rejects damaged objects'
   );
   assert.throws(() => parseWorkspaceObject('{', {}, 'settingsJson'), /JSON inválido/);
   assert.throws(() => parseWorkspaceObject('[]', {}, 'settingsJson'), /objeto inválido/);
+});
+
+test('invoice payment linkage survives local cache and Neon workspace JSON serialization', () => {
+  const transaction = {
+    id: 'purchase-paid-partial',
+    amount: 30,
+    invoicePaymentId: 'tx-inv-card-2026-11-123',
+  } as Transaction;
+
+  const localCache = JSON.parse(JSON.stringify({ transactions: [transaction] }));
+  assert.equal(localCache.transactions[0].invoicePaymentId, transaction.invoicePaymentId);
+
+  const requestBody = JSON.parse(JSON.stringify({
+    transactionsJson: JSON.stringify(compactTransactionListForStorage([transaction])),
+  }));
+  const hydrated = parseWorkspaceArray<Transaction>(requestBody.transactionsJson, [], 'transactionsJson');
+  assert.equal(hydrated[0].invoicePaymentId, transaction.invoicePaymentId);
 });

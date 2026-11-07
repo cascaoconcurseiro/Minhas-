@@ -72,9 +72,12 @@ Verifica a disponibilidade do servidor Express e dos serviços integrados.
 
 ### 2.2. Rotas autenticadas do workspace Neon
 
-Todas exigem `Authorization: Bearer <Firebase ID token>`. A API valida o token
-com Firebase Identity Toolkit e aplica o UID verificado no contexto RLS da
-transação PostgreSQL.
+Todas exigem `Authorization: Bearer <Firebase ID token>`. A API valida a
+assinatura RS256 e as claims do token localmente com os certificados públicos
+rotativos do Firebase, depois aplica o UID verificado no contexto RLS da
+transação PostgreSQL. As chaves públicas são atualizadas conforme o `max-age`
+informado pelo Firebase. A validação stateless não consulta revogação; um token
+revogado ou emitido antes de desativar a conta pode ser aceito até expirar.
 
 - `GET /api/workspace`: carrega o snapshot da conta autenticada; retorna `404`
   quando ainda não há linha para a conta.

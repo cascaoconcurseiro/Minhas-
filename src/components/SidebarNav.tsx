@@ -276,7 +276,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             <button
               type="button"
               onClick={() => handleItemClick('overview')}
-              className="flex items-center gap-2.5 text-left min-w-0 group focus:outline-none"
+              className="flex items-center gap-2.5 text-left min-w-0 group focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded-lg"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-extrabold text-xs shadow-2xs shrink-0">
                 R$

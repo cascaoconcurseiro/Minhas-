@@ -54,6 +54,20 @@ const FOREIGN_CURRENCY_OPTIONS: CurrencyCode[] = [
   'JPY',
 ];
 
+// Keep the legacy blank-as-zero behavior, but distinguish a real numeric zero
+// from malformed text that parseBRLInput intentionally converts to zero.
+const isValidBalanceInput = (raw: string): boolean => {
+  if (!raw.trim()) return true;
+  const cleaned = raw.trim().replace(/[R$\s]/g, '');
+  return /^[+-]?(?:\d+(?:[,.]\d*)?|[,.]\d+|\d{1,3}(?:\.\d{3})+(?:,\d*)?|\d{1,3}(?:,\d{3})+(?:\.\d*)?)$/.test(cleaned);
+};
+
+const isValidBrlBalanceInput = (raw: string): boolean => {
+  if (!raw.trim()) return true;
+  const cleaned = raw.trim().replace(/[R$\s]/g, '');
+  return /^[+-]?(?:\d+(?:[,.]\d{0,2})?|[,.]\d{1,2}|\d{1,3}(?:\.\d{3})+,\d{0,2}|\d{1,3}(?:,\d{3})+\.\d{0,2}|\d{1,3}(?:\.\d{3}){2,}|\d{1,3}(?:,\d{3}){2,})$/.test(cleaned);
+};
+
 const INTL_ACCOUNT_PRESETS: {
   label: string;
   name: string;
@@ -199,6 +213,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   // Quick Initial Balance Adjuster state
   const [isAdjustingInitial, setIsAdjustingInitial] = useState(false);
   const [quickInitialStr, setQuickInitialStr] = useState('');
+  const [quickInitialError, setQuickInitialError] = useState('');
 
   const activeAccount =
     accounts.find((a) => a.id === selectedAccountId) || accounts[0];
@@ -358,6 +373,16 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     const isIntl = accType === 'international';
     const parsedInitialBrl = parseBRLInput(accInitialStr);
     const parsedInitialForeign = parseBRLInput(accInitialForeignStr);
+    // parseBRLInput deliberately returns 0 for malformed input; validate the
+    // text separately so malformed values cannot become real zero balances.
+    if (!isValidBrlBalanceInput(accInitialStr)) {
+      setFormError('Informe um saldo inicial válido.');
+      return;
+    }
+    if (isIntl && !isValidBalanceInput(accInitialForeignStr)) {
+      setFormError('Informe um saldo na moeda estrangeira válido, com até duas casas decimais.');
+      return;
+    }
     const effectiveCurrency: CurrencyCode = isIntl ? accCurrency : 'BRL';
     const fallbackRate =
       CURRENCY_CATALOG[effectiveCurrency]?.defaultCommercialRateBrl || 1;
@@ -626,10 +651,11 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label htmlFor="account-form-type-select" className="block text-xs font-semibold text-slate-700 mb-1">
                       Modalidade da Conta
                     </label>
                     <select
+                      id="account-form-type-select"
                       data-testid="account-form-type-select"
                       value={accType}
                       onChange={(e) => {
@@ -658,11 +684,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label htmlFor="account-form-name-input" className="block text-xs font-semibold text-slate-700 mb-1">
                       Nome da Conta / Carteira
                     </label>
                     <input
                       type="text"
+                      id="account-form-name-input"
                       data-testid="account-form-name-input"
                       value={accName}
                       onChange={(e) => setAccName(e.target.value)}
@@ -676,11 +703,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label htmlFor="account-form-institution-input" className="block text-xs font-semibold text-slate-700 mb-1">
                       Instituição Financeira
                     </label>
                     <input
                       type="text"
+                      id="account-form-institution-input"
                       value={accInstitution}
                       onChange={(e) => setAccInstitution(e.target.value)}
                       placeholder={
@@ -694,10 +722,11 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
 
                   {accType === 'international' ? (
                     <div>
-                      <label className="block text-xs font-semibold text-sky-900 mb-1">
+                      <label htmlFor="account-form-currency-select" className="block text-xs font-semibold text-sky-900 mb-1">
                         Moeda Oficial da Conta Internacional
                       </label>
                       <select
+                        id="account-form-currency-select"
                         data-testid="account-form-currency-select"
                         value={accCurrency}
                         onChange={(e) => {
@@ -715,11 +744,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      <label htmlFor="account-form-initial-balance-input" className="block text-xs font-semibold text-slate-700 mb-1">
                         Saldo Inicial de Implantação (R$)
                       </label>
                       <input
                         type="text"
+                        id="account-form-initial-balance-input"
                         value={accInitialStr}
                         onChange={(e) => setAccInitialStr(e.target.value)}
                         placeholder="0,00"
@@ -732,11 +762,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                 {accType === 'international' && (
                   <div className="rounded-xl border border-sky-200/80 bg-white p-3.5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      <label htmlFor="account-form-initial-foreign-input" className="block text-xs font-semibold text-slate-700 mb-1">
                         Saldo Inicial na Moeda ({CURRENCY_CATALOG[accCurrency].symbol} {accCurrency})
                       </label>
                       <input
                         type="text"
+                        id="account-form-initial-foreign-input"
                         data-testid="account-form-initial-foreign-input"
                         value={accInitialForeignStr}
                         onChange={(e) => setAccInitialForeignStr(e.target.value)}
@@ -924,8 +955,20 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
+                                  const tripNames = trips
+                                    .filter((trip) =>
+                                      trip.linkedAccountId === acc.id ||
+                                      trip.exchangeLots.some((lot) => lot.accountId === acc.id)
+                                    )
+                                    .map((trip) => trip.name);
+                                  if (tripNames.length > 0) {
+                                    window.alert(
+                                      `Não é possível excluir a conta enquanto estiver vinculada às viagens: ${[...new Set(tripNames)].join(', ')}. Remova ou troque o vínculo e as referências de câmbio da viagem primeiro.`
+                                    );
+                                    return;
+                                  }
                                   const confirmed = window.confirm(
-                                    `Excluir a conta "${acc.name}"? Os lançamentos serão transferidos para outra conta cadastrada quando possível. Esta ação não pode ser desfeita.`
+                                    `Excluir a conta "${acc.name}"? Cartões e lançamentos serão transferidos para outra conta cadastrada quando possível; transferências que ficarem sem origem ou destino válido poderão ser removidas. Esta ação não pode ser desfeita.`
                                   );
                                   if (confirmed) onDeleteAccount(acc.id);
                                 }}
@@ -1248,16 +1291,18 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                 <input
                   type="text"
                   value={quickInitialStr}
-                  onChange={(e) => setQuickInitialStr(e.target.value)}
+                  onChange={(e) => { setQuickInitialStr(e.target.value); setQuickInitialError(''); }}
                   className="w-32 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-mono tabular-nums text-slate-900"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    onUpdateAccountInitialBalance(
-                      activeAccount.id,
-                      parseBRLInput(quickInitialStr)
-                    );
+                    const parsedBalance = parseBRLInput(quickInitialStr);
+                    if (!isValidBrlBalanceInput(quickInitialStr)) {
+                      setQuickInitialError('Informe um saldo válido para conciliação.');
+                      return;
+                    }
+                    onUpdateAccountInitialBalance(activeAccount.id, parsedBalance);
                     setIsAdjustingInitial(false);
                   }}
                   className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -1265,6 +1310,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   Salvar Saldo
                 </button>
               </div>
+              {quickInitialError && <p role="alert" className="w-full text-right text-xs font-medium text-red-700">{quickInitialError}</p>}
             </div>
           )}
 

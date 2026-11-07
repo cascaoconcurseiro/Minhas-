@@ -2235,10 +2235,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="tx-transfer-origin-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Sai da Conta Bancária (Origem)
                     </label>
                     <select
+                      id="tx-transfer-origin-select"
                       value={accountId}
                       onChange={(e) => setAccountId(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
@@ -2253,10 +2254,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
                   {transferSubMode === 'card_bill_payment' ? (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="tx-bill-card-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Cartão de Crédito (Fatura a Quitar)
                       </label>
                       <select
+                        id="tx-bill-card-select"
                         value={billPaymentCardId}
                         onChange={(e) => {
                           const cid = e.target.value;
@@ -2277,10 +2279,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="tx-transfer-destination-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Destino (Conta ou Aporte em Ativo)
                       </label>
                       <select
+                        id="tx-transfer-destination-select"
                         value={destinationAccountId}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -2337,7 +2340,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 >
                   <div>
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <label htmlFor="tx-category-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                         Categoria Principal
                       </label>
                       {smartCategorySuggestion && categoryId === smartCategorySuggestion.categoryId && (
@@ -2356,6 +2359,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         />
                       )}
                       <select
+                        id="tx-category-select"
                         value={categoryId}
                         onChange={(e) => handleCategoryChange(e.target.value)}
                         className="w-full min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
@@ -2381,10 +2385,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
                   {availableSubcategories.length > 0 && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      <label htmlFor="tx-subcategory-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Subcategoria
                       </label>
                       <select
+                        id="tx-subcategory-select"
                         value={subcategoryId}
                         onChange={(e) => setSubcategoryId(e.target.value)}
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
@@ -2400,7 +2405,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    <label htmlFor="tx-payment-source-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       {entryMode === 'credit_card'
                         ? 'Cartão Utilizado'
                         : isTripLinked && selectedTrip
@@ -2412,6 +2417,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     {entryMode === 'credit_card' ? (
                       <div className="space-y-1.5">
                         <select
+                          id="tx-payment-source-select"
                           value={creditCardId}
                           onChange={(e) => setCreditCardId(e.target.value)}
                           className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
@@ -2487,6 +2493,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         }
                         return (
                           <select
+                            id="tx-payment-source-select"
                             value={accountId}
                             onChange={(e) => setAccountId(e.target.value)}
                             className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-sky-50/60 dark:bg-slate-900 px-2.5 py-2 text-xs font-bold text-sky-950 dark:text-white"
@@ -2506,6 +2513,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       })()
                     ) : (
                       <select
+                        id="tx-payment-source-select"
                         value={accountId}
                         onChange={(e) => {
                           const nextId = e.target.value;

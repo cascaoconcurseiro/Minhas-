@@ -130,6 +130,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
       today.getDate()
     ).padStart(2, '0')}`;
   });
+  const [settlementError, setSettlementError] = useState<string | null>(null);
 
   // Family Member form state (Add/Edit + Email Invite)
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
@@ -309,6 +310,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
     description: string,
     txId?: string
   ) => {
+    setSettlementError(null);
     setSettlementTarget({
       type,
       memberId,
@@ -321,6 +323,15 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
   const handleConfirmSettlement = () => {
     if (!settlementTarget) return;
+    if (!settleAccountId || !accounts.some((account) => account.id === settleAccountId)) {
+      setSettlementError('Cadastre ou selecione uma conta bancária válida antes de liquidar.');
+      return;
+    }
+    const parsedDate = new Date(`${settleDate}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(settleDate) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== settleDate) {
+      setSettlementError('Informe uma data válida para o acerto.');
+      return;
+    }
 
     if (settlementTarget.type === 'single' && settlementTarget.txId) {
       onSettleSharedTransaction(settlementTarget.txId, settleAccountId, settleDate);
@@ -332,6 +343,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
         settleDate
       );
     }
+    setSettlementError(null);
     setSettlementTarget(null);
   };
 
@@ -442,7 +454,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
       )}
 
       {/* Top Banner & Bilateral Compensation KPI Summary */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* KPI 1: Me Devem vs. Eu Devo */}
         <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/70 dark:bg-indigo-950/30 p-4">
           <div className="flex items-center justify-between">
@@ -1224,11 +1236,17 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
               </p>
 
               <div className="space-y-3">
+                {settlementError && (
+                  <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                    {settlementError}
+                  </p>
+                )}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="shared-settlement-account" className="block text-xs font-semibold text-slate-700 mb-1">
                     Conta Bancária para Conciliação (PIX):
                   </label>
                   <select
+                    id="shared-settlement-account"
                     value={settleAccountId}
                     onChange={(e) => setSettleAccountId(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 focus:border-emerald-600 focus:outline-none"
@@ -1242,11 +1260,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="shared-settlement-date" className="block text-xs font-semibold text-slate-700 mb-1">
                     Data do Acerto:
                   </label>
                   <input
                     type="date"
+                    id="shared-settlement-date"
                     value={settleDate}
                     onChange={(e) => setSettleDate(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 focus:border-emerald-600 focus:outline-none"
@@ -1312,11 +1331,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             >
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="shared-member-name" className="block text-xs font-semibold text-slate-700 mb-1">
                     Nome Completo ou Apelido:
                   </label>
                   <input
                     type="text"
+                    id="shared-member-name"
                     required
                     placeholder="ex: Mariana (Esposa), Lucas (Irmão)"
                     value={memberName}
@@ -1326,11 +1346,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="shared-member-email" className="block text-xs font-semibold text-slate-700 mb-1">
                     E-mail da Pessoa (Para Enviar Convite da Família):
                   </label>
                   <input
                     type="email"
+                    id="shared-member-email"
                     data-testid="family-member-email-input"
                     placeholder="colega@exemplo.com"
                     value={memberEmail}
@@ -1344,10 +1365,11 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label htmlFor="shared-member-relationship" className="block text-xs font-semibold text-slate-700 mb-1">
                       Parentesco:
                     </label>
                     <select
+                      id="shared-member-relationship"
                       value={memberRelation}
                       onChange={(e) =>
                         setMemberRelation(e.target.value as FamilyMember['relationship'])
@@ -1364,14 +1386,16 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <span className="block text-xs font-semibold text-slate-700 mb-1">
                       Cor de Destaque:
-                    </label>
+                    </span>
                     <div className="flex items-center gap-1.5 pt-1">
                       {MEMBER_COLORS.map((c) => (
                         <button
                           key={c}
                           type="button"
+                          aria-label={`Cor ${c}`}
+                          aria-pressed={memberColor === c}
                           onClick={() => setMemberColor(c)}
                           className={`h-6 w-6 rounded-full transition-transform ${
                             memberColor === c ? 'scale-110 ring-2 ring-slate-900 ring-offset-1' : ''
@@ -1384,11 +1408,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="shared-member-pix" className="block text-xs font-semibold text-slate-700 mb-1">
                     Chave PIX da Pessoa (Opcional):
                   </label>
                   <input
                     type="text"
+                    id="shared-member-pix"
                     placeholder="ex: CPF, e-mail ou celular"
                     value={memberPixKey}
                     onChange={(e) => setMemberPixKey(e.target.value)}
@@ -1397,11 +1422,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="shared-member-notes" className="block text-xs font-semibold text-slate-700 mb-1">
                     Anotações ou Regra de Divisão:
                   </label>
                   <input
                     type="text"
+                    id="shared-member-notes"
                     placeholder="ex: Dividimos compras do mercado 50/50"
                     value={memberNotes}
                     onChange={(e) => setMemberNotes(e.target.value)}

@@ -116,6 +116,7 @@ export interface Transaction {
   tags?: string[];
   isInvoicePayment?: boolean; // True when this bank expense pays off a credit card invoice
   settledCardId?: string; // CreditCard ID whose invoice was settled by this payment
+  invoicePaymentId?: string; // Invoice payment that settled this card purchase row
   partialSplitOriginalId?: string; // Original card transaction ID when split by partial invoice payment
   // Installment anticipation metadata (allows 1-click reversal of anticipated installments)
   isAnticipated?: boolean;

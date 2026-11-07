@@ -2,7 +2,7 @@
 
 ## Fonte de verdade
 
-Firebase Auth fornece a identidade (Firebase UID) e Neon PostgreSQL é o banco operacional exclusivo. O frontend envia o ID token Firebase à API Express na Vercel; a API valida o token com Firebase Identity Toolkit antes de consultar o Neon. Firebase Auth é usado somente para autenticação: o runtime não inicializa Firestore nem persiste dados financeiros no Firebase.
+Firebase Auth fornece a identidade (Firebase UID) e Neon PostgreSQL é o banco operacional exclusivo. O frontend envia o ID token Firebase à API Express na Vercel; a API verifica localmente sua assinatura RS256 e claims usando os certificados públicos rotativos do Firebase antes de consultar o Neon. Firebase Auth é usado somente para autenticação: o runtime não inicializa Firestore nem persiste dados financeiros no Firebase.
 
 Os campos persistidos do workspace são validados antes de aplicar o snapshot à interface. JSON inválido, coleção que não seja array, item sem `id` ou objeto corrompido deixa a sincronização em erro e informa que os dados remotos foram preservados; o app não substitui esses campos por listas vazias e não os grava de volta automaticamente.
 
@@ -26,13 +26,15 @@ As migrations em `db/migrations/` são a referência do schema:
 ## Caminho de acesso
 
 1. Firebase Auth entrega um ID token ao frontend.
-2. A API valida o token com Identity Toolkit e obtém UID/e-mail/estado verificado; nunca confia em ID fornecido pelo corpo da requisição.
+2. A API valida localmente a assinatura RS256 e as claims de projeto, emissor, UID, e-mail, verificação e validade do ID token usando os certificados públicos rotativos do Firebase; nunca confia em ID fornecido pelo corpo da requisição. As chaves são mantidas em cache conforme `Cache-Control` do endpoint de certificados e uma falha de atualização é fechada com 503.
 3. Cada operação PostgreSQL define `app.user_id` e `app.user_email` dentro da transação.
 4. As políticas RLS restringem os registros ao usuário ou participante autorizado.
 5. `GET /api/workspace` lê o snapshot; `POST /api/workspace` cria uma linha inicial sem sobrescrever uma linha concorrente; `PUT /api/workspace` atualiza somente se `expectedRevision` ainda for a atual.
 6. As rotas `/api/family/*` leem e escrevem convites e despesas compartilhadas nas tabelas Neon dedicadas.
 
-`DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` ficam no servidor. A chave Firebase também aparece na configuração pública do SDK web e não é uma senha de banco; restrinja-a às APIs Firebase necessárias. O frontend nunca conecta diretamente ao PostgreSQL nem recebe `DATABASE_URL`.
+`DATABASE_URL` e `FIREBASE_PROJECT_ID` ficam no servidor. O backend não exige `FIREBASE_API_KEY` nem conta de serviço para verificar tokens; a chave API Firebase aparece apenas na configuração pública do SDK web e não é uma senha de banco. O frontend nunca conecta diretamente ao PostgreSQL nem recebe `DATABASE_URL`.
+
+Como a verificação de ID tokens é stateless, este modo não consulta revogação nem desativação imediata de usuário. Tokens já emitidos continuam aceitos até expirar; o prazo normal de ID tokens Firebase é de aproximadamente uma hora. Verificação imediata de revogação exige uma checagem remota/estado administrativo e não está habilitada neste projeto.
 
 ## Operação e backup
 

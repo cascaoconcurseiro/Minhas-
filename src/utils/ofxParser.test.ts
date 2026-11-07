@@ -113,6 +113,15 @@ describe('ofxParser Unit Tests', () => {
     assert.strictEqual(parseBankAmount('1,500.50'), 1500.5);
   });
 
+  it('rejects malformed amounts and impossible dates instead of converting them to zero or today', () => {
+    assert.ok(Number.isNaN(parseBankAmount('12abc')));
+    assert.ok(Number.isNaN(parseBankAmount('1.23,45')));
+    assert.strictEqual(normalizeCsvDate('31/02/2026'), '');
+    assert.strictEqual(normalizeCsvDate('2026-13-01'), '');
+    assert.strictEqual(normalizeOfxDate('20260230'), '');
+    assert.strictEqual(normalizeOfxDate(''), '');
+  });
+
   it('extracts SGML and XML tags accurately', () => {
     const sgmlBlock = `
       <TRNTYPE>DEBIT
@@ -245,6 +254,28 @@ Data;Descrição;Valor;Identificador
     assert.strictEqual(normalizeCsvDate('25/12/2026'), '2026-12-25');
     assert.strictEqual(normalizeCsvDate('05/01/2026'), '2026-01-05');
     assert.strictEqual(normalizeCsvDate('2026-08-14'), '2026-08-14');
+  });
+
+  it('skips CSV rows with invalid date or amount rather than inventing a valid transaction', () => {
+    const result = parseBrazilianCSV('Data;Descrição;Valor\n31/02/2026;Data impossível;12,00\n05/10/2026;Valor inválido;12abc\n06/10/2026;Compra válida;-10,50');
+    assert.strictEqual(result.items.length, 1);
+    assert.strictEqual(result.items[0].description, 'Compra válida');
+    assert.strictEqual(result.items[0].date, '2026-10-06');
+    assert.strictEqual(result.items[0].amount, 10.5);
+    assert.strictEqual(result.skippedInvalidCount, 2);
+  });
+
+  it('skips OFX transactions with missing, invalid, or zero amounts', () => {
+    const result = parseOFX(`<OFX><BANKTRANLIST>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261001<TRNAMT>12abc</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261002</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261003<TRNAMT>0.00</STMTTRN>
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261004<TRNAMT>-12.34</STMTTRN>
+</BANKTRANLIST></OFX>`);
+    assert.strictEqual(result.items.length, 1);
+    assert.strictEqual(result.items[0].date, '2026-10-04');
+    assert.strictEqual(result.items[0].amount, 12.34);
+    assert.strictEqual(result.skippedInvalidCount, 3);
   });
 
   it('infers Brazilian category keywords accurately', () => {

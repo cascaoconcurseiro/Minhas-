@@ -145,7 +145,7 @@ Copie o arquivo `.env.example` para `.env` e preencha as variáveis do servidor:
 ```bash
 cp .env.example .env
 ```
-`DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` habilitam a API autenticada. A configuração pública do SDK Firebase fica em `firebase-applet-config.json`; inicializamos apenas Firebase Auth, sem SDK nem leitura/gravação no Firestore. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Nunca use prefixo `VITE_` nas credenciais do servidor.
+`DATABASE_URL` e `FIREBASE_PROJECT_ID` habilitam a API autenticada. O backend valida a assinatura RS256 dos ID tokens com os certificados públicos rotativos do Firebase e valida as claims localmente; não precisa de `FIREBASE_API_KEY` nem de uma conta de serviço. A chave API usada pelo SDK web está na configuração pública `firebase-applet-config.json`; inicializamos apenas Firebase Auth, sem leitura/gravação no Firestore. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Nunca use prefixo `VITE_` em credenciais do servidor.
 
 ### 3. Executar em ambiente de desenvolvimento
 ```bash
@@ -163,6 +163,6 @@ bun run build
 
 ## Publicação e sincronização
 
-O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` no ambiente do servidor Vercel. O workflow GitHub `.github/workflows/neon-daily-activity.yml` usa o segredo `NEON_DATABASE_URL`, roda `SELECT 1` às 12:23 UTC diariamente e também aceita execução manual. O Vercel Cron `/api/health` segue cadastrado às 12:15 UTC; logs consultados não comprovaram uma execução automática dele.
+O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL` e `FIREBASE_PROJECT_ID` no ambiente do servidor Vercel. `FIREBASE_API_KEY` é configuração pública do SDK web e não é usada pelo backend. O workflow GitHub `.github/workflows/neon-daily-activity.yml` usa o segredo `NEON_DATABASE_URL`, roda `SELECT 1` às 12:23 UTC diariamente e também aceita execução manual. O Vercel Cron `/api/health` segue cadastrado às 12:15 UTC; logs consultados não comprovaram uma execução automática dele.
 
 O Neon usa autosuspend no plano gratuito. O workflow diário GitHub executa `SELECT 1` diretamente no banco; a execução manual de 6/nov passou, e a primeira execução automática deve ser observada em 7/nov às 12:23 UTC. Uma checagem bem-sucedida acorda o compute durante a consulta, mas não o mantém ligado continuamente. O projeto tem janela de recuperação pontual de 6 horas; não há agenda de snapshots configurada.

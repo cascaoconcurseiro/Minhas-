@@ -209,6 +209,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   }, [accounts, settlementBankAccountId]);
   const [settlementRecordInBank, setSettlementRecordInBank] = useState<boolean>(true);
   const [settlementNotes, setSettlementNotes] = useState('');
+  const [settlementError, setSettlementError] = useState<string | null>(null);
   const [isChartLoading, setIsChartLoading] = useState<boolean>(false);
 
   // Active vs. Archived Trips Filtering
@@ -483,6 +484,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
   const handleOpenSettlementModal = (debt: TripDebtTransfer) => {
     setActiveSettlementDebt(debt);
+    setSettlementError(null);
     setSettlementMethod('pix_brl');
     setSettlementForeignAmountStr(debt.amountForeign.toFixed(2).replace('.', ','));
     setSettlementRateMode('effective_vet');
@@ -491,7 +493,8 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     );
     setSettlementBankAccountId(accounts[0]?.id || '');
     setSettlementRecordInBank(
-      debt.fromParticipantId === 'me' || debt.toParticipantId === 'me'
+      accounts.length > 0 &&
+      (debt.fromParticipantId === 'me' || debt.toParticipantId === 'me')
     );
     setSettlementNotes('');
   };
@@ -500,14 +503,29 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     e.preventDefault();
     if (!activeTrip || !activeSettlementDebt) return;
 
-    const foreignEq = Math.max(
-      0.01,
-      parseBRLInput(settlementForeignAmountStr) || activeSettlementDebt.amountForeign
-    );
+    const foreignEq = parseBRLInput(settlementForeignAmountStr);
+    if (!Number.isFinite(foreignEq) || foreignEq <= 0 || foreignEq > activeSettlementDebt.amountForeign + 0.009) {
+      setSettlementError(
+        `Informe um valor maior que zero e até ${formatForeignCurrency(activeSettlementDebt.amountForeign, activeTrip.currency)}.`
+      );
+      return;
+    }
     const rateUsed =
       settlementRateMode === 'effective_vet'
         ? activeSettlementDebt.impliedEffectiveRate
-        : Math.max(0.0001, parseBRLInput(settlementCustomRateStr));
+        : parseBRLInput(settlementCustomRateStr);
+    if (!Number.isFinite(rateUsed) || rateUsed <= 0) {
+      setSettlementError('Informe uma cotação válida maior que zero.');
+      return;
+    }
+    const involvesMe =
+      activeSettlementDebt.fromParticipantId === 'me' ||
+      activeSettlementDebt.toParticipantId === 'me';
+    if (settlementMethod === 'pix_brl' && settlementRecordInBank && involvesMe && !settlementBankAccountId) {
+      setSettlementError('Selecione uma conta bancária ou desative o registro automático no extrato.');
+      return;
+    }
+    setSettlementError(null);
 
     const brlSettled = Math.round(foreignEq * rateUsed * 100) / 100;
     const isSettledInBrl = settlementMethod === 'pix_brl';
@@ -526,10 +544,6 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         settlementNotes.trim() ||
         `Acerto ${activeSettlementDebt.fromName} → ${activeSettlementDebt.toName}`,
     };
-
-    const involvesMe =
-      activeSettlementDebt.fromParticipantId === 'me' ||
-      activeSettlementDebt.toParticipantId === 'me';
 
     const bankEffect =
       isSettledInBrl &&
@@ -597,11 +611,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         <form onSubmit={handleCreateTrip} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5 text-xs modal-form-scroll custom-scrollbar">
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="trip-form-name" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Nome da Viagem
               </label>
               <input
                 type="text"
+                id="trip-form-name"
                 required
                 value={tripName}
                 onChange={(e) => setTripName(e.target.value)}
@@ -612,11 +627,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="trip-form-destination" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Destino / Países
                 </label>
                 <input
                   type="text"
+                  id="trip-form-destination"
                   value={tripDestination}
                   onChange={(e) => setTripDestination(e.target.value)}
                   placeholder="Ex: Lisboa, Madri, Santiago..."
@@ -624,10 +640,11 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="trip-form-currency" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Moeda Principal da Viagem
                 </label>
                 <select
+                  id="trip-form-currency"
                   value={tripCurrency}
                   onChange={(e) => {
                     const code = e.target.value as CurrencyCode;
@@ -651,22 +668,24 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="trip-form-start-date" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Data de Ida
                 </label>
                 <input
                   type="date"
+                  id="trip-form-start-date"
                   value={tripStartDate}
                   onChange={(e) => setTripStartDate(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white"
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="trip-form-end-date" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Data de Volta
                 </label>
                 <input
                   type="date"
+                  id="trip-form-end-date"
                   value={tripEndDate}
                   onChange={(e) => setTripEndDate(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white"
@@ -676,11 +695,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="trip-form-budget" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Meu Orçamento Pessoal ({tripCurrency})
                 </label>
                 <input
                   type="text"
+                  id="trip-form-budget"
                   value={tripBudgetStr}
                   onChange={(e) => setTripBudgetStr(e.target.value)}
                   placeholder="Ex: 1500"
@@ -688,11 +708,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="trip-form-exchange-rate" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Câmbio Referência (R$ / {tripCurrency})
                 </label>
                 <input
                   type="text"
+                  id="trip-form-exchange-rate"
                   value={tripDefaultRateStr}
                   onChange={(e) => setTripDefaultRateStr(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
@@ -701,11 +722,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="trip-form-companions" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Acompanhantes da Viagem (separados por vírgula)
               </label>
               <input
                 type="text"
+                id="trip-form-companions"
                 value={tripCompanionsInput}
                 onChange={(e) => setTripCompanionsInput(e.target.value)}
                 placeholder="Opcional: nomes separados por vírgula"
@@ -2684,6 +2706,11 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
             <form onSubmit={handleConfirmSettlement} className="flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 modal-form-scroll custom-scrollbar text-xs">
+                {settlementError && (
+                  <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                    {settlementError}
+                  </p>
+                )}
                 {/* Method Selection */}
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -2750,7 +2777,10 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                       type="text"
                       required
                       value={settlementForeignAmountStr}
-                      onChange={(e) => setSettlementForeignAmountStr(e.target.value)}
+                      onChange={(e) => {
+                        setSettlementForeignAmountStr(e.target.value);
+                        setSettlementError(null);
+                      }}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -2786,7 +2816,10 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     <input
                       type="text"
                       value={settlementCustomRateStr}
-                      onChange={(e) => setSettlementCustomRateStr(e.target.value)}
+                      onChange={(e) => {
+                        setSettlementCustomRateStr(e.target.value);
+                        setSettlementError(null);
+                      }}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>

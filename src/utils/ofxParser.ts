@@ -39,6 +39,7 @@ export interface ParseStatementResult {
   totalCredits: number;
   totalDebits: number;
   netFlow: number;
+  skippedInvalidCount: number;
 }
 
 /**
@@ -49,19 +50,28 @@ export interface ParseStatementResult {
  * - 2026-10-21
  */
 export function normalizeOfxDate(dateStr: string): string {
-  if (!dateStr) {
-    return new Date().toISOString().slice(0, 10);
-  }
+  if (!dateStr) return '';
   const clean = dateStr.trim();
   const ymdMatch = clean.match(/^(\d{4})(\d{2})(\d{2})/);
   if (ymdMatch) {
     const [, year, month, day] = ymdMatch;
-    return `${year}-${month}-${day}`;
+    return isValidCalendarDate(`${year}-${month}-${day}`) ? `${year}-${month}-${day}` : '';
   }
-  if (/^\d{4}-\d{2}-\d{2}/.test(clean)) {
-    return clean.slice(0, 10);
+  const isoMatch = clean.match(/^(\d{4}-\d{2}-\d{2})(?:$|\s|T)/);
+  if (isoMatch && isValidCalendarDate(isoMatch[1])) {
+    return isoMatch[1];
   }
-  return new Date().toISOString().slice(0, 10);
+  return '';
+}
+
+function isValidCalendarDate(isoDate: string): boolean {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
 /**
@@ -69,20 +79,38 @@ export function normalizeOfxDate(dateStr: string): string {
  * Supports "-123.45", "-123,45", "1.234,56", "+500".
  */
 export function parseBankAmount(amountStr: string): number {
-  if (!amountStr) return 0;
   let clean = amountStr.trim().replace(/\s/g, '');
-  if (!clean) return 0;
+  if (!clean || !/^[+-]?[\d.,]+$/.test(clean)) return Number.NaN;
+  const sign = clean.startsWith('-') ? '-' : '';
+  clean = clean.replace(/^[+-]/, '');
+  if (!clean || !/\d/.test(clean)) return Number.NaN;
 
-  // If format is like -1.234,56 or 1.234,56 (Brazilian standard)
-  if (/\.\d{3},\d{2}$/.test(clean) || /,\d{1,2}$/.test(clean)) {
-    clean = clean.replace(/\./g, '').replace(',', '.');
-  } else if (/,\d{3}\.\d{2}$/.test(clean)) {
-    // US format with comma thousands
-    clean = clean.replace(/,/g, '');
+  const comma = clean.lastIndexOf(',');
+  const dot = clean.lastIndexOf('.');
+  if (comma >= 0 && dot >= 0) {
+    const decimalSeparator = comma > dot ? ',' : '.';
+    const groupingSeparator = decimalSeparator === ',' ? '.' : ',';
+    const [integerPart, fractionPart] = clean.split(decimalSeparator);
+    if (!fractionPart || fractionPart.length > 2 || !/^\d+$/.test(fractionPart)) return Number.NaN;
+    const groups = integerPart.split(groupingSeparator);
+    if (!/^\d{1,3}$/.test(groups[0]) || groups.slice(1).some((group) => !/^\d{3}$/.test(group))) return Number.NaN;
+    clean = `${groups.join('')}.${fractionPart}`;
+  } else if (comma >= 0 || dot >= 0) {
+    const separator = comma >= 0 ? ',' : '.';
+    const groups = clean.split(separator);
+    if (groups.some((group) => !/^\d+$/.test(group))) return Number.NaN;
+    if (groups.length > 2) {
+      if (groups.slice(1).some((group) => !/^\d{3}$/.test(group))) return Number.NaN;
+      clean = groups.join('');
+    } else if (groups[1].length === 3 && groups[0].length <= 3) {
+      clean = groups.join('');
+    } else {
+      if (groups[1].length > 2) return Number.NaN;
+      clean = `${groups[0]}.${groups[1]}`;
+    }
   }
-
-  const num = parseFloat(clean);
-  return isNaN(num) ? 0 : Math.round(num * 100) / 100;
+  const num = Number(`${sign}${clean}`);
+  return Number.isFinite(num) ? Math.round(num * 100) / 100 : Number.NaN;
 }
 
 /**
@@ -118,6 +146,7 @@ export function parseOFX(rawText: string): ParseStatementResult {
   };
 
   const items: ParsedBankStatementItem[] = [];
+  let skippedInvalidCount = 0;
   // Match each <STMTTRN> block
   const trnRegex = /<STMTTRN>([\s\S]*?)(?:<\/STMTTRN>|(?=<STMTTRN>|<\/BANKTRANLIST>|$))/gi;
   let match: RegExpExecArray | null;
@@ -128,13 +157,17 @@ export function parseOFX(rawText: string): ParseStatementResult {
 
     const trntype = extractOfxTag(trnBlock, 'TRNTYPE') || 'OTHER';
     const dtposted = extractOfxTag(trnBlock, 'DTPOSTED') || '';
-    const trnamt = extractOfxTag(trnBlock, 'TRNAMT') || '0';
+    const trnamt = extractOfxTag(trnBlock, 'TRNAMT') || '';
     const fitid = extractOfxTag(trnBlock, 'FITID');
     const memo = extractOfxTag(trnBlock, 'MEMO') || '';
     const name = extractOfxTag(trnBlock, 'NAME') || '';
 
     const parsedDate = normalizeOfxDate(dtposted);
     const amount = parseBankAmount(trnamt);
+    if (!parsedDate || !Number.isFinite(amount) || amount === 0) {
+      skippedInvalidCount += 1;
+      continue;
+    }
     const rawDescription = (name || memo || 'Lançamento Bancário').trim();
 
     const isExpense = amount < 0 || trntype.toUpperCase() === 'DEBIT';
@@ -165,6 +198,7 @@ export function parseOFX(rawText: string): ParseStatementResult {
     totalCredits: Math.round(totalCredits * 100) / 100,
     totalDebits: Math.round(totalDebits * 100) / 100,
     netFlow: Math.round((totalCredits - totalDebits) * 100) / 100,
+    skippedInvalidCount,
   };
 }
 
@@ -173,15 +207,16 @@ export function parseOFX(rawText: string): ParseStatementResult {
  */
 export function normalizeCsvDate(rawDate: string): string {
   const clean = rawDate.trim();
-  const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  const dmyMatch = clean.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (dmyMatch) {
     const [, day, month, year] = dmyMatch;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const normalized = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    return isValidCalendarDate(normalized) ? normalized : '';
   }
-  if (/^\d{4}-\d{2}-\d{2}/.test(clean)) {
-    return clean.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean) && isValidCalendarDate(clean)) {
+    return clean;
   }
-  return new Date().toISOString().slice(0, 10);
+  return '';
 }
 
 /**
@@ -201,6 +236,7 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
       totalCredits: 0,
       totalDebits: 0,
       netFlow: 0,
+      skippedInvalidCount: 0,
     };
   }
 
@@ -276,14 +312,18 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
 
   const dataRows = hasHeader ? lines.slice(1) : lines;
   const items: ParsedBankStatementItem[] = [];
+  let skippedInvalidCount = 0;
 
   dataRows.forEach((line, rowIdx) => {
     const cols = splitLine(line);
-    if (cols.length < 2) return;
+    if (cols.length < 2) {
+      skippedInvalidCount += 1;
+      return;
+    }
 
     const rawDate = cols[dateIdx] || '';
     const rawDesc = cols[descIdx] || 'Lançamento Manual';
-    const rawAmt = cols[amountIdx] || '0';
+    const rawAmt = cols[amountIdx] || '';
     const fitid = fitidIdx >= 0 ? cols[fitidIdx] : undefined;
 
     // Skip empty or summary rows
@@ -294,7 +334,10 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
 
     const parsedDate = normalizeCsvDate(rawDate);
     const parsedAmount = parseBankAmount(rawAmt);
-    if (parsedAmount === 0 && !rawDesc) return;
+    if (!parsedDate || !Number.isFinite(parsedAmount) || parsedAmount === 0) {
+      skippedInvalidCount += 1;
+      return;
+    }
 
     const rawType: 'income' | 'expense' = parsedAmount < 0 ? 'expense' : 'income';
 
@@ -321,6 +364,7 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
     totalCredits: Math.round(totalCredits * 100) / 100,
     totalDebits: Math.round(totalDebits * 100) / 100,
     netFlow: Math.round((totalCredits - totalDebits) * 100) / 100,
+    skippedInvalidCount,
   };
 }
 

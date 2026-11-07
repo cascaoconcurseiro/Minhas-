@@ -456,6 +456,17 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
           >
             Fixos Recorrentes
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('shared')}
+            className={`rounded-lg px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
+              activeFilter === 'shared'
+                ? 'bg-sky-600 text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Rateios Compartilhados
+          </button>
         </div>
 
         {/* Scrollable Content: Channel Configuration + Reminders List */}
