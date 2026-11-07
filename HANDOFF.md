@@ -12,7 +12,9 @@ Adicionei teste DOM sintético para edição de teto de orçamento em `BudgetsTa
 
 Smoke no domínio final às 13:29 UTC: `/api/health` 200, Neon `ok`, `neonLeastPrivilegeRole=true`; workspace, lembretes, FX e sync de ativos retornam 401 sem token. Bundle remoto lazy `SharedExpensesTab-DADemiNe.js` confirmou o diálogo de remoção; bundle de entrada não contém `firebase` nem `Guia Rápido`. Isso prova publicação do código, não um ensaio de remoção em conta real. O teste de orçamento é apenas local/teste sintético; a publicação desse arquivo de teste não altera o runtime do aplicativo.
 
-Pendências que mantêm a meta aberta: observar backup automático GitHub; resolver a divergência Firebase Auth versus Neon Auth (pergunta ao usuário pendente); login/OTP e CRUD real; restore pela interface autenticada; visual desktop/mobile; cobertura funcional/renderizada das abas ainda sem DOM tests; chave `age` guardada fora desta máquina. A conta familiar secundária continua dispensada pelo usuário.
+Com Ego Lite, inspecionei a tela de login de produção em desktop e viewport mobile 390×844. Em ambos, os campos e botões estavam legíveis, sem overflow horizontal aparente e sem Guia Rápido. Não abri o dashboard autenticado: a tela avisa que contas antigas não foram migradas e exige nova conta. Mantive a aba isolada do Ego Lite aberta em produção.
+
+Pendências que mantêm a meta aberta: observar backup automático GitHub; resolver a divergência Firebase Auth versus Neon Auth (pergunta ao usuário pendente); login/OTP e CRUD real; restore pela interface autenticada; revisão visual do dashboard desktop/mobile; cobertura funcional/renderizada das abas ainda sem DOM tests; chave `age` guardada fora desta máquina. A conta familiar secundária continua dispensada pelo usuário.
 
 ## Retomada do backup cifrado — 2026-11-07
 

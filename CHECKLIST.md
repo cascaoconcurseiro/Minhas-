@@ -630,6 +630,8 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Confirmar deployment de `0917cdb` Ready e verificar no domínio principal o bundle lazy da remoção familiar com a confirmação publicada.
 - [x] Confirmar health em produção HTTP 200/Neon `ok`/role restrita; rotas de workspace, lembretes, FX e investimentos sem token respondem 401.
 - [x] Publicar teste DOM sintético de edição de orçamento no commit `17b49db`; CI `42377109572` passou e o deployment Vercel `dpl_y2nKx4hGY7CZ6MomNeVSChDmq3bZ` ficou Ready.
+- [x] Inspecionar login de produção com Ego Lite em desktop e viewport 390×844: tela renderizada, campos legíveis e sem overflow horizontal aparente; Guia Rápido ausente.
+- [ ] Inspecionar o dashboard autenticado em desktop/mobile; não foi possível sem uma conta Neon Auth ativa, e o app informa que contas anteriores não foram migradas.
 - [ ] Observar execução automática do backup GitHub; última cópia verificada ainda é execução manual.
 - [ ] Resolver arquitetura de autenticação com o usuário; auditoria atual confirma Neon Auth, mas a decisão inicial foi manter Firebase Auth.
 - [ ] Concluir validação visual desktop/mobile e fluxos reais autenticados; testes DOM e APIs com mocks não substituem esses aceites.
