@@ -6,13 +6,14 @@
 - [x] Rejeitar valores monetários acima de duas casas decimais em contas e orçamentos; manter zero válido e os formatos BRL aceitos.
 - [x] Ajustar atualização PWA: buscas/filtros fora de uma edição não seguram update; formulário alterado ainda adia até ser fechado.
 - [x] Cobrir comportamento de efetivar/reverter conta pendente na visão geral e falha de atualização dos certificados Firebase antes de consultar Neon.
-- [x] Expandir testes DOM sintéticos para cartões, metas/simulador, relatórios/CSV e cliente Neon; suíte atual `bun test`: 344/344 em 53 arquivos. `bun run lint` e `bun run build` passaram; CI `42413460050` passou após o commit `953429a`.
+- [x] Expandir testes DOM sintéticos para cartões, metas/simulador, relatórios/CSV, cliente Neon e seletor acessível de Orçamentos; suíte atual `bun test`: 344/344 em 53 arquivos. `bun run lint` e `bun run build` passaram; CI `42415359477` passou após `9a218f6`.
 - [x] Exercitar pela UI publicada com dados sintéticos CRUD de conta, lançamento/data, cartão, categoria/orçamento, meta, viagem e investimento; sincronização observada, todos os registros temporários removidos e estado final conferido.
 - [x] Resolver a divergência do campo de data com evento input nativo; 07/11/2026 persistiu após sincronização e recarga. `page.fill` era limitação da automação, não bug do app.
 - [x] Concluir a matriz Ego em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`; baseline, viewport e dados sintéticos estão registrados.
 - [x] Corrigir e revalidar layout publicado em viewport 1066×1132: barra de ações em Lançamentos, botões de ação em Compartilhado e título/seletores de Relatórios cabem; tabela de Orçamentos mantém rolagem própria.
 - [x] Corrigir seletor de visão de Orçamentos para empilhar em mobile, quebrar rótulos longos e expor estado selecionado; 344 testes, lint e build locais passaram.
-- [ ] Publicar a correção de Orçamentos e revalidar 390×844/768 px no browser; a primeira inspeção encontrou botão de abas com 574 px em viewport de 390 px.
+- [x] Publicar a correção em `9a218f6` e revalidar no Ego/Vercel: em 390×844, `main` ficou 390/390 e abas empilhadas totalmente visíveis; em 768×1024, Visão Geral, Lançamentos e Orçamentos ficaram 753/753; a tabela de orçamento conserva rolagem horizontal interna prevista. Relatórios voltou a 1066×1132 e a UI mostrou “Nuvem sincronizada”.
+- [ ] Completar varredura visual mobile dos demais módulos; a validação pós-hotfix cobriu 390 px em Orçamentos e 768 px em três módulos, não todos os módulos em celular.
 - [x] Confirmar os hashes atuais de JS/CSS após remover apenas o registro antigo do service worker da origem Ego, preservando cookies, cache storage, IndexedDB, localStorage e sessão.
 - [x] Exercitar compra sintética em cartão, baixa integral e estorno da fatura; apagar compra/cartão/conta auxiliares e confirmar UI sincronizada e sem resíduos.
 - [x] Corrigir data do pagamento da fatura: corrigido para a data local da quitação; UI publicada confirmou 07/11/2026 após baixa, estorno e limpeza dos registros sintéticos.
