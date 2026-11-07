@@ -10,7 +10,8 @@
 - [x] Exercitar pela UI publicada com dados sintéticos CRUD de conta, lançamento/data, cartão, categoria/orçamento, meta, viagem e investimento; sincronização observada, todos os registros temporários removidos e estado final conferido.
 - [x] Resolver a divergência do campo de data com evento input nativo; 07/11/2026 persistiu após sincronização e recarga. `page.fill` era limitação da automação, não bug do app.
 - [x] Concluir a matriz Ego em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`; baseline, viewport e dados sintéticos estão registrados.
-- [ ] Revalidar cortes do layout publicado após deploy da correção; inspeção Ego anterior ocorreu em viewport 1066×1132 antes deste código.
+- [x] Corrigir e revalidar layout publicado em viewport 1066×1132: barra de ações em Lançamentos, botões de ação em Compartilhado e título/seletores de Relatórios cabem; tabela de Orçamentos mantém rolagem própria.
+- [x] Confirmar os hashes atuais de JS/CSS após remover apenas o registro antigo do service worker da origem Ego, preservando cookies, cache storage, IndexedDB, localStorage e sessão.
 - [ ] Exercitar import/export sintético e operações com efeitos externos isolados (convite, compra/pagamento, cotações) sem tocar dados pessoais.
 - [ ] Validar CRUD UI→API→Neon e restore autenticado; os testes atuais locais usam DOM e mocks e não provam persistência no banco.
 - [ ] Confirmar execução automática dos workflows GitHub `schedule`; chave de restauração age continua sem cópia externa comprovada.
