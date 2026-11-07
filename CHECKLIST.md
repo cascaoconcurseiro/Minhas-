@@ -6,7 +6,8 @@
 - [x] Rejeitar valores monetários acima de duas casas decimais em contas e orçamentos; manter zero válido e os formatos BRL aceitos.
 - [x] Ajustar atualização PWA: buscas/filtros fora de uma edição não seguram update; formulário alterado ainda adia até ser fechado.
 - [x] Cobrir comportamento de efetivar/reverter conta pendente na visão geral e falha de atualização dos certificados Firebase antes de consultar Neon.
-- [x] Expandir testes DOM sintéticos para cartões, metas/simulador, relatórios/CSV, cliente Neon e seletor acessível de Orçamentos; suíte atual `bun test`: 344/344 em 53 arquivos. `bun run lint` e `bun run build` passaram; CI `42415359477` passou após `9a218f6`.
+- [x] Expandir testes DOM sintéticos para cartões, metas/simulador, relatórios/CSV, cliente Neon e seletor acessível de Orçamentos; suíte atual `bun test`: 355/355 em 53 arquivos. `bun run lint` e `bun run build` passaram; CI `42415359477` passou após `9a218f6`.
+- [x] Corrigir fluxo familiar para não prometer e-mail que não é enviado; cadastro/edição aguarda confirmação Neon, falhas ficam visíveis, estados sem vínculo não aparecem como aceitos e o quick-add do lançamento encaminha e-mails à aba Compartilhado. Testes DOM sintéticos cobrem sucesso pendente, false/rejeição e cadastro local; full suite 355/355, lint/build/diff-check passaram. Publicado em `599f56b`, CI `42417735565` passou, Vercel `dpl_Gy1hmhePSL5XSSBSgxKiu1LgBAQd` ficou Ready; health Neon/role restrita OK e bundles atualizados conferidos no domínio principal.
 - [x] Exercitar pela UI publicada com dados sintéticos CRUD de conta, lançamento/data, cartão, categoria/orçamento, meta, viagem e investimento; sincronização observada, todos os registros temporários removidos e estado final conferido.
 - [x] Resolver a divergência do campo de data com evento input nativo; 07/11/2026 persistiu após sincronização e recarga. `page.fill` era limitação da automação, não bug do app.
 - [x] Concluir a matriz Ego em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`; baseline, viewport e dados sintéticos estão registrados.
@@ -23,7 +24,7 @@
 - [x] Confirmar atividade diária real: workflow `Neon — verificação diária` executou por `schedule` (`42397967500`) e `SELECT 1` no Neon passou. Isso confirma consulta diária, não compute ativo o dia inteiro.
 - [x] Executar backup cifrado manualmente em GitHub Actions (`42413305298`), artifact `neon-backup-42413305298`, 20.893 bytes, retenção até 2026-12-07; isso não valida o evento diário `schedule`.
 - [ ] Confirmar evento `schedule` do backup cifrado e verificar cópia privada age fora deste computador.
-- [ ] Convite entre duas contas depende de segunda conta controlada; aceite real não foi testado conforme decisão do usuário.
+- [ ] Testar no Ego Lite cadastro/login, convite criado/aceito/recusado e lançamento compartilhado entre duas contas, com recarga/readback independente e limpeza. O usuário confirmou que tem página e segunda conta controlada; o Ego ainda não entregou uma Page acessível e o ensaio não começou.
 
 ## Continuação — 2026-11-07 — restauração Firebase Auth + Neon
 - [x] Confirmar a arquitetura da meta: Firebase Auth para identidade e Neon PostgreSQL para persistência exclusiva; manter os UIDs Firebase já associados aos workspaces.
