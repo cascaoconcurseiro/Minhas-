@@ -1980,32 +1980,147 @@ export function applyCascadeTransactionDelete(
   }
 
   const groupId = target.installmentGroupId;
-  let deletedCount = 0;
+  const seriesTransactionsToDelete = transactions.filter((tx) =>
+    tx.id === target.id ||
+    (tx.installmentGroupId === groupId &&
+      (scope === 'all_series' ||
+        (scope === 'this_and_future' && tx.competenceMonth >= target.competenceMonth)))
+  );
+  const deletedSharedIds = new Set(
+    seriesTransactionsToDelete.filter((tx) => tx.isShared).map((tx) => tx.id)
+  );
+  const reimbursementIdsToDelete = new Set<string>();
+  const siblingSharedIdsToReopen = new Set<string>();
 
-  const updatedTransactions = transactions.filter((tx) => {
-    if (tx.id === target.id) {
-      deletedCount++;
-      return false;
-    }
-    if (tx.installmentGroupId === groupId) {
-      if (
-        scope === 'all_series' ||
-        (scope === 'this_and_future' && tx.competenceMonth >= target.competenceMonth)
-      ) {
-        deletedCount++;
-        return false;
+  if (deletedSharedIds.size > 0) {
+    for (const reimbursement of transactions) {
+      if (!reimbursement.id.startsWith('tx-reimb-')) continue;
+      const refs = reimbursement.notes?.matchAll(/\[ref:([^\]]+)\]/g);
+      const referencedIds = refs
+        ? Array.from(refs, (match) => match[1]).filter(Boolean)
+        : [];
+      const directlyLinked = referencedIds.some((id) => deletedSharedIds.has(id));
+      const fallbackLinked = seriesTransactionsToDelete.some(
+        (sharedTx) =>
+          sharedTx.isShared &&
+          !reimbursement.id.startsWith('tx-reimb-all-') &&
+          reimbursement.description.includes(`(${sharedTx.description})`) &&
+          sharedTx.sharedSettledDate === reimbursement.date
+      );
+      if (!directlyLinked && !fallbackLinked) continue;
+
+      reimbursementIdsToDelete.add(reimbursement.id);
+      for (const id of referencedIds) {
+        if (!deletedSharedIds.has(id)) siblingSharedIdsToReopen.add(id);
       }
     }
-    return true;
-  });
+  }
+
+  let deletedCount = 0;
+
+  const updatedTransactions = transactions
+    .filter((tx) => {
+      const remove =
+        seriesTransactionsToDelete.some((deletedTx) => deletedTx.id === tx.id) ||
+        reimbursementIdsToDelete.has(tx.id);
+      if (remove) deletedCount++;
+      return !remove;
+    })
+    .map((tx) => {
+      if (siblingSharedIdsToReopen.has(tx.id) && tx.isShared && tx.sharedStatus === 'received') {
+        return {
+          ...tx,
+          sharedStatus: 'pending' as const,
+          sharedSettledDate: undefined,
+          sharedSettledAccountId: undefined,
+        };
+      }
+      return tx;
+    });
 
   return {
     updatedTransactions,
     deletedCount,
+    cascadeReopenedCount: siblingSharedIdsToReopen.size,
     actionDescription:
       deletedCount > 1
         ? `Efeito Cascata: ${deletedCount} lançamentos da série "${target.description}" removidos.`
         : `Lançamento "${target.description}" removido.`,
+  };
+}
+
+export interface CascadeAccountDeleteResult {
+  updatedAccounts: BankAccount[];
+  updatedCards: CreditCard[];
+  updatedTransactions: Transaction[];
+  deletedAccount?: BankAccount;
+  deletedTransactionCount: number;
+}
+
+export function applyCascadeAccountDelete(
+  accounts: BankAccount[],
+  cards: CreditCard[],
+  transactions: Transaction[],
+  accountId: string
+): CascadeAccountDeleteResult {
+  const deletedAccount = accounts.find((account) => account.id === accountId);
+  if (!deletedAccount) {
+    return {
+      updatedAccounts: accounts,
+      updatedCards: cards,
+      updatedTransactions: transactions,
+      deletedTransactionCount: 0,
+    };
+  }
+
+  const fallback = accounts.find((account) => account.id !== accountId);
+  let deletedTransactionCount = 0;
+  const updatedTransactions = transactions
+    .filter((tx) => {
+      if (tx.type !== 'transfer') return true;
+      if (!fallback) {
+        const remove = tx.accountId === accountId || tx.destinationAccountId === accountId;
+        if (remove) deletedTransactionCount++;
+        return !remove;
+      }
+
+      const nextOrigin = tx.accountId === accountId ? fallback.id : tx.accountId;
+      const nextDestination =
+        tx.destinationAccountId === accountId ? fallback.id : tx.destinationAccountId;
+      const remove = Boolean(nextOrigin && nextDestination && nextOrigin === nextDestination);
+      if (remove) deletedTransactionCount++;
+      return !remove;
+    })
+    .map((tx) => {
+      if (tx.type === 'transfer') {
+        return {
+          ...tx,
+          accountId: tx.accountId === accountId ? fallback?.id : tx.accountId,
+          destinationAccountId:
+            tx.destinationAccountId === accountId ? fallback?.id : tx.destinationAccountId,
+        };
+      }
+
+      return {
+        ...tx,
+        accountId: tx.accountId === accountId ? fallback?.id : tx.accountId,
+        sharedSettledAccountId:
+          tx.sharedSettledAccountId === accountId
+            ? fallback?.id
+            : tx.sharedSettledAccountId,
+      };
+    });
+
+  return {
+    updatedAccounts: accounts.filter((account) => account.id !== accountId),
+    updatedCards: cards.map((card) =>
+      card.defaultAccountId === accountId
+        ? { ...card, defaultAccountId: fallback?.id ?? '' }
+        : card
+    ),
+    updatedTransactions,
+    deletedAccount,
+    deletedTransactionCount,
   };
 }
 

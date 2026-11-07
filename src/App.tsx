@@ -57,6 +57,7 @@ import {
 } from './types/finance';
 import {
   addMonthsToYearMonth,
+  applyCascadeAccountDelete,
   applyCascadeTransactionDelete,
   applyCascadeTransactionEdit,
   calculateAccountBalances,
@@ -2398,55 +2399,16 @@ export default function App() {
   };
 
   const handleDeleteAccount = (accountId: string) => {
-    const target = accounts.find((a) => a.id === accountId);
-    const fallback = accounts.find((a) => a.id !== accountId);
-    setAccounts((prev) => prev.filter((a) => a.id !== accountId));
-    setCards((prev) =>
-      prev.map((c) =>
-        c.defaultAccountId === accountId
-          ? { ...c, defaultAccountId: fallback ? fallback.id : '' }
-          : c
-      )
-    );
-    setTransactions((prev) =>
-      prev
-        .filter((tx) => {
-          if (tx.type === 'transfer') {
-            if (!fallback) {
-              return tx.accountId !== accountId && tx.destinationAccountId !== accountId;
-            }
-            const nextOrigin = tx.accountId === accountId ? fallback.id : tx.accountId;
-            const nextDest =
-              tx.destinationAccountId === accountId
-                ? fallback.id
-                : tx.destinationAccountId;
-            if (nextOrigin && nextDest && nextOrigin === nextDest) {
-              return false;
-            }
-          }
-          return true;
-        })
-        .map((tx) => {
-          let updated = tx;
-          if (updated.accountId === accountId) {
-            updated = { ...updated, accountId: fallback ? fallback.id : undefined };
-          }
-          if (updated.destinationAccountId === accountId) {
-            updated = {
-              ...updated,
-              destinationAccountId: fallback ? fallback.id : undefined,
-            };
-          }
-          if (updated.sharedSettledAccountId === accountId) {
-            updated = {
-              ...updated,
-              sharedSettledAccountId: fallback ? fallback.id : undefined,
-            };
-          }
-          return updated;
-        })
-    );
-    showNotice(`Conta ${target?.name || ''} removida.`);
+    const result = applyCascadeAccountDelete(accounts, cards, transactions, accountId);
+    if (!result.deletedAccount) return;
+
+    setAccounts(result.updatedAccounts);
+    setCards(result.updatedCards);
+    setTransactions(result.updatedTransactions);
+    const cleanupMessage = result.deletedTransactionCount > 0
+      ? ` ${result.deletedTransactionCount} transferência(s) incompatível(is) foram removidas.`
+      : '';
+    showNotice(`Conta ${result.deletedAccount.name} removida.${cleanupMessage}`);
   };
 
   const handleUpdateAccountInitialBalance = (accountId: string, newInitial: number) => {

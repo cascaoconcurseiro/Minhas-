@@ -10,6 +10,7 @@ const oldEnv = {
 
 let leastPrivilege = false;
 let roleQuery = '';
+let failNeonConnection = false;
 let baseUrl = '';
 let closeServer: () => Promise<void> = async () => undefined;
 
@@ -17,6 +18,7 @@ before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
   Pool.prototype.connect = async function () {
+    if (failNeonConnection) throw new Error('synthetic Neon connection failure');
     return {
       query: async (sql: string) => {
         const normalized = sql.replace(/\s+/g, ' ').trim();
@@ -82,4 +84,24 @@ test('health reports least privilege only after the database confirms the restri
 
   assert.equal(response.status, 200);
   assert.equal(body.services.neonLeastPrivilegeRole, true);
+});
+
+test('health returns degraded 503 when Neon connection fails', async () => {
+  failNeonConnection = true;
+  try {
+    const response = await fetch(`${baseUrl}/api/health`);
+    const body = await response.json() as {
+      status: string;
+      services: { neon: string; neonConfigured: boolean; neonLeastPrivilegeRole: boolean | null };
+    };
+
+    assert.equal(response.status, 503);
+    assert.equal(body.status, 'degraded');
+    assert.equal(body.services.neon, 'error');
+    assert.equal(body.services.neonConfigured, true);
+    assert.equal(body.services.neonLeastPrivilegeRole, null);
+    assert.doesNotMatch(JSON.stringify(body), /synthetic Neon connection failure/);
+  } finally {
+    failNeonConnection = false;
+  }
 });

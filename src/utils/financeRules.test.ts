@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addMonthsToYearMonth,
+  applyCascadeAccountDelete,
   applyCascadeTransactionDelete,
   applyCascadeTransactionEdit,
   calculate503020Rule,
@@ -974,6 +975,214 @@ test('INITIAL_CATEGORIES includes cat-aportes and cat-outros, and deleting a sha
   assert.equal(res.updatedTransactions[0].id, 'tx-sh-b');
   assert.equal(res.updatedTransactions[0].sharedStatus, 'pending');
   assert.equal(res.cascadeReopenedCount, 1);
+});
+
+test('deleting a shared installment series removes its linked reimbursement and reopens consolidated siblings', () => {
+  const sharedInstallment: Transaction = {
+    id: 'tx-sh-series-1',
+    description: 'Aluguel compartilhado (1/2)',
+    amount: 200,
+    date: '2026-10-01',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-moradia',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'installment',
+    installmentGroupId: 'grp-shared-rent',
+    isShared: true,
+    sharedPaidBy: 'me',
+    sharedAmount: 100,
+    sharedStatus: 'received',
+    sharedSettledDate: '2026-10-15',
+  };
+  const secondInstallment: Transaction = {
+    ...sharedInstallment,
+    id: 'tx-sh-series-2',
+    description: 'Aluguel compartilhado (2/2)',
+    date: '2026-11-01',
+    competenceMonth: '2026-11',
+    sharedStatus: 'pending',
+    sharedSettledDate: undefined,
+  };
+  const siblingShared: Transaction = {
+    ...sharedInstallment,
+    id: 'tx-sh-sibling',
+    description: 'Jantar compartilhado',
+    amount: 80,
+    date: '2026-10-10',
+    recurrence: 'single',
+    installmentGroupId: undefined,
+    sharedAmount: 40,
+    sharedStatus: 'received',
+  };
+  const reimbursement: Transaction = {
+    id: 'tx-reimb-all-series',
+    description: 'Acerto compensado recebido',
+    amount: 140,
+    date: '2026-10-15',
+    competenceMonth: '2026-10',
+    type: 'income',
+    status: 'paid',
+    categoryId: 'cat-rendimentos',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    notes: '[ref:tx-sh-series-1] [ref:tx-sh-sibling]',
+  };
+
+  const result = applyCascadeTransactionDelete(
+    [sharedInstallment, secondInstallment, siblingShared, reimbursement],
+    sharedInstallment.id,
+    'all_series'
+  );
+
+  assert.deepEqual(result.updatedTransactions.map((tx) => tx.id), ['tx-sh-sibling']);
+  assert.equal(result.updatedTransactions[0].sharedStatus, 'pending');
+  assert.equal(result.cascadeReopenedCount, 1);
+  assert.equal(result.deletedCount, 3);
+});
+
+test('deleting this-and-future shared installments reverses a consolidated settlement without deleting past installments', () => {
+  const pastInstallment: Transaction = {
+    id: 'tx-sh-future-1',
+    description: 'Curso compartilhado (1/2)',
+    amount: 100,
+    date: '2026-10-01',
+    competenceMonth: '2026-10',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-outros',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'installment',
+    installmentGroupId: 'grp-shared-course',
+    isShared: true,
+    sharedPaidBy: 'me',
+    sharedAmount: 50,
+    sharedStatus: 'received',
+  };
+  const futureInstallment: Transaction = {
+    ...pastInstallment,
+    id: 'tx-sh-future-2',
+    description: 'Curso compartilhado (2/2)',
+    date: '2026-11-01',
+    competenceMonth: '2026-11',
+    sharedStatus: 'received',
+    sharedSettledDate: '2026-11-15',
+  };
+  const siblingShared: Transaction = {
+    ...pastInstallment,
+    id: 'tx-sh-future-sibling',
+    description: 'Cinema compartilhado',
+    amount: 60,
+    recurrence: 'single',
+    installmentGroupId: undefined,
+    sharedAmount: 30,
+    sharedStatus: 'received',
+    sharedSettledDate: '2026-11-15',
+  };
+  const consolidatedReimbursement: Transaction = {
+    id: 'tx-reimb-all-future',
+    description: 'Acerto consolidado',
+    amount: 80,
+    date: '2026-11-15',
+    competenceMonth: '2026-11',
+    type: 'income',
+    status: 'paid',
+    categoryId: 'cat-rendimentos',
+    accountId: 'acc-1',
+    paymentMethod: 'pix',
+    recurrence: 'single',
+    notes: '[ref:tx-sh-future-2] [ref:tx-sh-future-sibling]',
+  };
+
+  const result = applyCascadeTransactionDelete(
+    [pastInstallment, futureInstallment, siblingShared, consolidatedReimbursement],
+    futureInstallment.id,
+    'this_and_future'
+  );
+
+  assert.deepEqual(result.updatedTransactions.map((tx) => tx.id), [
+    pastInstallment.id,
+    siblingShared.id,
+  ]);
+  assert.equal(result.updatedTransactions[0].sharedStatus, 'received');
+  assert.equal(result.updatedTransactions[1].sharedStatus, 'pending');
+  assert.equal(result.deletedCount, 2);
+  assert.equal(result.cascadeReopenedCount, 1);
+});
+
+test('deleting an account reassigns linked records and removes transfers that collapse to one account', () => {
+  const accounts: BankAccount[] = [
+    { id: 'acc-delete', name: 'Conta a excluir', institution: 'Banco A', type: 'checking', initialBalance: 10, currency: 'BRL', color: '#000', includeInTotal: true },
+    { id: 'acc-fallback', name: 'Conta destino', institution: 'Banco B', type: 'checking', initialBalance: 20, currency: 'BRL', color: '#000', includeInTotal: true },
+    { id: 'acc-other', name: 'Outra conta', institution: 'Banco C', type: 'checking', initialBalance: 30, currency: 'BRL', color: '#000', includeInTotal: true },
+  ];
+  const cards: CreditCard[] = [
+    { id: 'card-1', name: 'Cartão', brand: 'Visa', limit: 1000, closingDay: 10, dueDay: 20, defaultAccountId: 'acc-delete', color: '#000' },
+  ];
+  const expense: Transaction = {
+    id: 'tx-expense', description: 'Compra', amount: 25, date: '2026-11-01', competenceMonth: '2026-11',
+    type: 'expense', status: 'paid', categoryId: 'cat-outros', accountId: 'acc-delete', paymentMethod: 'pix', recurrence: 'single',
+    sharedSettledAccountId: 'acc-delete',
+  };
+  const collapseTransfer: Transaction = {
+    id: 'tx-collapse', description: 'Entre contas', amount: 5, date: '2026-11-02', competenceMonth: '2026-11',
+    type: 'transfer', status: 'paid', categoryId: 'cat-outros', accountId: 'acc-delete', destinationAccountId: 'acc-fallback', paymentMethod: 'transfer', recurrence: 'single',
+  };
+  const survivingTransfer: Transaction = {
+    ...collapseTransfer, id: 'tx-survive', accountId: 'acc-delete', destinationAccountId: 'acc-other',
+  };
+  const incomingTransfer: Transaction = {
+    ...collapseTransfer, id: 'tx-incoming', accountId: 'acc-other', destinationAccountId: 'acc-delete',
+  };
+
+  const result = applyCascadeAccountDelete(accounts, cards, [expense, collapseTransfer, survivingTransfer, incomingTransfer], 'acc-delete');
+
+  assert.deepEqual(result.updatedAccounts.map((account) => account.id), ['acc-fallback', 'acc-other']);
+  assert.equal(result.updatedCards[0]?.defaultAccountId, 'acc-fallback');
+  assert.equal(result.deletedTransactionCount, 1);
+  assert.deepEqual(result.updatedTransactions.map((tx) => tx.id), ['tx-expense', 'tx-survive', 'tx-incoming']);
+  assert.equal(result.updatedTransactions[0]?.accountId, 'acc-fallback');
+  assert.equal(result.updatedTransactions[0]?.sharedSettledAccountId, 'acc-fallback');
+  assert.equal(result.updatedTransactions[1]?.accountId, 'acc-fallback');
+  assert.equal(result.updatedTransactions[2]?.destinationAccountId, 'acc-fallback');
+});
+
+test('deleting the last account unassigns ordinary transactions and removes related transfers', () => {
+  const account: BankAccount = {
+    id: 'acc-last', name: 'Última conta', institution: 'Banco', type: 'checking', initialBalance: 0,
+    currency: 'BRL', color: '#000', includeInTotal: true,
+  };
+  const expense: Transaction = {
+    id: 'tx-last-expense', description: 'Compra', amount: 10, date: '2026-11-01', competenceMonth: '2026-11',
+    type: 'expense', status: 'paid', categoryId: 'cat-outros', accountId: account.id, paymentMethod: 'pix', recurrence: 'single',
+  };
+  const transfer: Transaction = {
+    ...expense, id: 'tx-last-transfer', type: 'transfer', destinationAccountId: 'acc-missing', paymentMethod: 'transfer',
+  };
+
+  const result = applyCascadeAccountDelete([account], [], [expense, transfer], account.id);
+
+  assert.deepEqual(result.updatedAccounts, []);
+  assert.equal(result.updatedTransactions.length, 1);
+  assert.equal(result.updatedTransactions[0]?.accountId, undefined);
+  assert.equal(result.deletedTransactionCount, 1);
+});
+
+test('deleting an unknown account does not rewrite financial records', () => {
+  const accounts: BankAccount[] = [];
+  const cards: CreditCard[] = [];
+  const transactions: Transaction[] = [];
+
+  const result = applyCascadeAccountDelete(accounts, cards, transactions, 'missing');
+
+  assert.equal(result.updatedAccounts, accounts);
+  assert.equal(result.updatedCards, cards);
+  assert.equal(result.updatedTransactions, transactions);
+  assert.equal(result.deletedAccount, undefined);
 });
 
 test('calculateSixMonthComparativeSeries builds 6-month evolution of income vs expense and financial health indicators', () => {

@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Continuação atual — 2026-11-07 13:18 UTC
+
+O último deployment publicado segue ativo, mas as alterações atuais ainda estão somente no worktree. Nesta rodada foi adicionada confirmação antes de excluir conta, extraída a cascata de exclusão de conta para regra financeira testável (com/sem substituta), corrigida a exclusão em cascata de séries parceladas compartilhadas e acrescentada cobertura de respostas da API para Neon indisponível e câmbio Gemini simulado. A validação final passou: `bun test` 174/174 em 33 arquivos, lint TypeScript, build e `git diff --check`. O build segue com o aviso do chunk principal acima de 500 kB. Os testes usam dados/mocks sintéticos e não escrevem no Neon. Próximo passo: revisar o diff, publicar em `main`, acompanhar CI/Vercel e repetir health/API sem token.
+
+Estado externo conferido às 13:17 UTC: Neon tem somente a branch `production`. O Vercel Cron `/api/health` está habilitado em `15 12 * * *` UTC; logs do Vercel registram HTTP 200 às 09:23:28 BRT (12:23 UTC) no host de deployment de produção, comprovando a atividade diária de 7/nov. GitHub Actions ainda lista somente `workflow_dispatch` para atividade e backup, sem evento `schedule` após as janelas de hoje. O backup manual `42320784685` gerou o artifact cifrado válido até 7/dez às 21:52 BRT. Verificar novamente a fila de `schedule` (pode haver atraso); não usar dispatch manual como prova.
+
+Pendências que mantêm a meta aberta: publicar e validar o patch local; observar backup automático e primeiro `schedule` GitHub; resolver a divergência Firebase Auth versus Neon Auth (pergunta ao usuário pendente); login/OTP e CRUD real; restore pela interface autenticada; visual desktop/mobile; cobertura funcional/renderizada das 8 abas ainda sem DOM tests; chave `age` guardada fora desta máquina. A conta familiar secundária continua dispensada pelo usuário.
+
 ## Retomada do backup cifrado — 2026-11-07
 
 Em `b2bd9e7` foi removido o `age-inspect` inexistente no runner. O workflow de backup PostgreSQL passou em produção na execução manual GitHub Actions `42320784685`: role `minhas_backup_reader` no Neon production, connection string direta sem pooler, artifact age cifrado, retenção de 30 dias. A role tem apenas leitura, `BYPASSRLS` para as tabelas com RLS forçado e `SELECT` em sequências; não tem superuser nem privilégios de escrita/criação. O secret `NEON_BACKUP_DATABASE_URL` foi atualizado para a URL dessa role de produção.

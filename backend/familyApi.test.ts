@@ -581,6 +581,104 @@ test('FX BRL e cotações B3 autenticadas respondem usando dados locais e Google
   }
 });
 
+test('FX não-BRL retorna cotação Gemini válida e fontes sintéticas', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  process.env.GEMINI_API_KEY = 'synthetic-gemini-key';
+  geminiRequests.length = 0;
+  geminiResponsePayload = {
+    candidates: [{
+      content: {
+        parts: [{ text: 'TAXA_COMERCIAL_BRL: 5.1234\nCotação sintética: 1 USD vale R$ 5,1234.' }],
+      },
+      groundingMetadata: {
+        groundingChunks: [{ web: { uri: 'https://rates.example.test/usd-brl', title: 'Fonte sintética' } }],
+      },
+    }],
+  };
+  try {
+    const response = await originalFetch(`${baseUrl}/api/fx/live-rate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ currency: 'USD' }),
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    const result = await response.json() as {
+      currency: string;
+      targetCurrency: string;
+      commercialRateBrl: number;
+      summaryText: string;
+      sources: Array<{ uri: string; title: string }>;
+    };
+    assert.equal(result.currency, 'USD');
+    assert.equal(result.targetCurrency, 'BRL');
+    assert.equal(result.commercialRateBrl, 5.1234);
+    assert.match(result.summaryText, /Cotação sintética/);
+    assert.deepEqual(result.sources, [{ uri: 'https://rates.example.test/usd-brl', title: 'Fonte sintética' }]);
+    assert.equal(geminiRequests.length, 1);
+    assert.match(geminiRequests[0]?.body ?? '', /1 Dólar Americano/);
+  } finally {
+    geminiResponsePayload = null;
+    delete process.env.GEMINI_API_KEY;
+  }
+});
+
+test('FX não-BRL retorna 502 quando Gemini não fornece taxa numérica', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  process.env.GEMINI_API_KEY = 'synthetic-gemini-key';
+  geminiRequests.length = 0;
+  geminiResponsePayload = {
+    candidates: [{ content: { parts: [{ text: 'A busca sintética não encontrou uma taxa válida.' }] } }],
+  };
+  try {
+    const response = await originalFetch(`${baseUrl}/api/fx/live-rate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ currency: 'EUR' }),
+    });
+    assert.equal(response.status, 502);
+    const result = await response.json() as { error: string; rawResponse: string };
+    assert.match(result.error, /Não foi possível extrair um valor numérico/);
+    assert.equal(result.rawResponse, 'A busca sintética não encontrou uma taxa válida.');
+    assert.equal(geminiRequests.length, 1);
+  } finally {
+    geminiResponsePayload = null;
+    delete process.env.GEMINI_API_KEY;
+  }
+});
+
+test('FX não-BRL retorna 500 se a chamada ao SDK Gemini falha', async () => {
+  const headers = {
+    Authorization: `Bearer ${authTokens.owner}`,
+    'Content-Type': 'application/json',
+  };
+  process.env.GEMINI_API_KEY = 'synthetic-gemini-key';
+  geminiRequests.length = 0;
+  geminiResponsePayload = null;
+  geminiResponseStatus = 400;
+  try {
+    const response = await originalFetch(`${baseUrl}/api/fx/live-rate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ currency: 'EUR' }),
+    });
+    assert.equal(response.status, 500);
+    const result = await response.json() as { error: string };
+    assert.match(result.error, /Gemini blocked by test mock/);
+    assert.ok(geminiRequests.length >= 1);
+    assert.ok(geminiRequests.every(({ url }) => url.startsWith('https://generativelanguage.googleapis.com/')));
+  } finally {
+    geminiResponseStatus = 503;
+    geminiResponsePayload = null;
+    delete process.env.GEMINI_API_KEY;
+  }
+});
+
 test('cotação de ativo internacional usa fallback Gemini com resposta sintética', async () => {
   const headers = {
     Authorization: `Bearer ${authTokens.owner}`,

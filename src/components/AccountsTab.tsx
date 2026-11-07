@@ -923,7 +923,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                             {onDeleteAccount && (
                               <button
                                 type="button"
-                                onClick={() => onDeleteAccount(acc.id)}
+                                onClick={() => {
+                                  const confirmed = window.confirm(
+                                    `Excluir a conta "${acc.name}"? Os lançamentos serão transferidos para outra conta cadastrada quando possível. Esta ação não pode ser desfeita.`
+                                  );
+                                  if (confirmed) onDeleteAccount(acc.id);
+                                }}
                                 aria-label={`Excluir conta ${acc.name}`}
                                 title="Excluir conta"
                                 className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700"

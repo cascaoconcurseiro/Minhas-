@@ -1,5 +1,18 @@
 # Checklist — Minhas Economias
 
+## Retomada local — 2026-11-07
+- [x] Proteger exclusão de conta com confirmação explícita; testes DOM cobrem confirmação e cancelamento.
+- [x] Cobrir os efeitos da exclusão de conta com e sem conta substituta: cartão padrão, lançamentos, liquidações compartilhadas e transferências que se tornam inválidas; ignorar IDs de conta inexistentes.
+- [x] Corrigir cascata ao excluir parcelas compartilhadas: remover reembolso relacionado e reabrir outras despesas que estavam incluídas no acerto; cobrir `all_series` e `this_and_future` com dados sintéticos.
+- [x] Ampliar testes de API para health degradado quando Neon falha e para respostas de cotação internacional com Gemini simulado, sem egress externo.
+- [x] Rodar validação final da suíte após a extração do cascade de conta: `bun test` 174/174 em 33 arquivos; `bun run lint`, `bun run build` e `git diff --check` passaram. O build mantém o aviso do bundle principal acima de 500 kB.
+- [ ] Publicar essas alterações em `main`, aguardar CI/Vercel e fazer smoke pós-deploy.
+- [x] Confirmar atividade diária automática do Vercel Cron: `vercel crons list` mostra `/api/health` ativo (`15 12 * * *` UTC) e log de produção registra HTTP 200 às 09:23:28 BRT em 2026-11-07.
+- [ ] Confirmar execução automática GitHub `schedule` dos workflows de atividade/backup; às 10:14 BRT ainda não havia evento `schedule`, apenas `workflow_dispatch` (backup manual válido, artifact cifrado com 30 dias).
+- [ ] Resolver a divergência da arquitetura de autenticação: o pedido original foi manter Firebase Auth, enquanto pedidos posteriores podem significar migrar tudo para Neon; o código atual usa Neon Auth. Aguardando a escolha do usuário.
+- [ ] Completar signup/login/OTP real, restore autenticado na interface, revisão visual desktop/mobile e testes das abas sem DOM coverage.
+- [ ] Copiar chave de restauração `age` para um cofre/dispositivo separado e comprovar leitura fora deste computador.
+
 ## Continuação — 2026-11-07
 - [x] Confirmar por busca em `src`, `backend`, `api` e `shared` que Neon Auth/Neon PostgreSQL são os únicos caminhos operacionais; referências Firebase restantes estão em migrations/documentação históricas.
 - [x] Adicionar teste DOM do lançamento: rejeitar valor zero e salvar R$ 12,34 com payload validado.
@@ -71,7 +84,7 @@
 - [ ] Fazer restore pela interface autenticada e validar readback no Neon, incluindo relacionamento familiar quando aplicável; o backup JSON não cobre convites/transações relacionais e os testes atuais são sintéticos.
 - [ ] Demonstrar concorrência API real com duas gravações e recuperação UI→API→Neon após indisponibilidade; testes existentes usam respostas/mocks sintéticos.
 - [ ] Preparar e executar backup PostgreSQL integral independente e restore isolado com validação das três tabelas financeiras; Neon Free/PITR de seis horas não substitui retenção externa.
-- [ ] Cobrir fluxos renderizados de cada módulo e editar/excluir/cascata; hoje há apenas um teste de componente React e smokes seletivos.
+- [ ] Cobrir fluxos renderizados de cada módulo e editar/excluir/cascata. Existem testes DOM com callbacks sintéticos para `AccountsTab`, `CreditCardsTab`, `TransactionsTab`, `SettingsModal`, `LoginPage` e `TransactionModal`, além de testes de regras/API; faltam 8 das 11 abas e validação em navegador real.
 
 Nota: itens em seções históricas abaixo registram decisões e provedores de sessões anteriores. O estado atual usa Neon Auth; tarefas concluídas não devem ser inferidas a partir de um teste Firebase antigo.
 
