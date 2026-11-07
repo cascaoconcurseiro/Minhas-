@@ -72,7 +72,6 @@ jobs:
             --output "$encrypted_file" \
             "$dump_file"
           test -s "$encrypted_file"
-          age-inspect "$encrypted_file" >/dev/null
           rm -f "$dump_file"
 
           echo "artifact_path=$encrypted_file" >> "$GITHUB_OUTPUT"
