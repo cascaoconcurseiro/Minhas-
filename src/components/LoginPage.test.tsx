@@ -1,12 +1,10 @@
-import { GlobalRegistrator } from '@happy-dom/global-registrator';
+import '../test-utils/domEnvironment';
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { LoginPage } from './LoginPage';
 
-GlobalRegistrator.register({ url: 'https://minhaseconomias.test', width: 1280, height: 800 });
-Object.assign(window, { IS_REACT_ACT_ENVIRONMENT: true });
 const { createRoot } = await import('react-dom/client');
 
 let root: Root | null = null;
