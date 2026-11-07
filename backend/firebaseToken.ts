@@ -64,7 +64,10 @@ export function createFirebaseIdTokenVerifier(options: {
   fetchImpl?: typeof fetch;
   now?: () => number;
 } = {}) {
-  const fetchImpl = options.fetchImpl ?? fetch;
+  // Resolve the runtime fetch when a refresh is needed. Capturing the global
+  // at module import makes integration tests (and runtime fetch wrappers)
+  // depend on import order.
+  const fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
   const now = options.now ?? Date.now;
   let certs: Record<string, string> = {};
   let certsExpiresAt = 0;
