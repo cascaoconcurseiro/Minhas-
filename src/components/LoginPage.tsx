@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
@@ -24,6 +24,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onSignInEmail,
   onRegisterEmail,
 }) => {
+  const inputId = useId();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
@@ -222,12 +223,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'register' && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label htmlFor={`${inputId}-name`} className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Seu Nome
                   </label>
                   <div className="relative">
                     <UserIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
+                      id={`${inputId}-name`}
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -239,12 +241,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor={`${inputId}-email`} className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   E-mail
                 </label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
+                    id={`${inputId}-email`}
                     data-testid="login-email-input"
                     type="email"
                     required
@@ -257,12 +260,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor={`${inputId}-password`} className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Senha de Acesso
                 </label>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
+                    id={`${inputId}-password`}
                     data-testid="login-password-input"
                     type="password"
                     required

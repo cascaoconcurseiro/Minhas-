@@ -8,7 +8,9 @@ const originalFetch = globalThis.fetch;
 const oldEnv = {
   VERCEL: process.env.VERCEL,
   DATABASE_URL: process.env.DATABASE_URL,
+  NEON_AUTH_BASE_URL: process.env.NEON_AUTH_BASE_URL,
   NEON_AUTH_JWKS_URL: process.env.NEON_AUTH_JWKS_URL,
+  VITE_NEON_AUTH_URL: process.env.VITE_NEON_AUTH_URL,
 };
 
 let authTokens: Record<string, string> = {};
@@ -58,6 +60,8 @@ function restoreEnv(name: keyof typeof oldEnv) {
 before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
+  delete process.env.NEON_AUTH_BASE_URL;
+  process.env.VITE_NEON_AUTH_URL = 'https://neon-auth.test';
   process.env.NEON_AUTH_JWKS_URL = 'https://neon-auth.test/jwks';
   const { privateKey, publicKey } = await generateKeyPair('EdDSA');
   const publicJwk = await exportJWK(publicKey);
@@ -71,6 +75,7 @@ before(async () => {
   const issueToken = (sub: string, email: string, verified = true) =>
     new SignJWT({ email, email_verified: verified })
       .setProtectedHeader({ alg: 'EdDSA', kid: 'test-key' })
+      .setIssuer('https://neon-auth.test')
       .setSubject(sub)
       .setIssuedAt()
       .setExpirationTime('5m')
@@ -78,6 +83,13 @@ before(async () => {
   authTokens = {
     owner: await issueToken('owner-uid', 'owner@example.com'),
     unverified: await issueToken('owner-uid', 'owner@example.com', false),
+    wrongIssuer: await new SignJWT({ email: 'attacker@example.com', email_verified: true })
+      .setProtectedHeader({ alg: 'EdDSA', kid: 'test-key' })
+      .setIssuer('https://another-auth.test')
+      .setSubject('attacker-uid')
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey),
     invited: await issueToken('member-uid', 'member@example.com'),
     other: await issueToken('other-uid', 'other@example.com'),
     changedEmail: await issueToken('owner-uid', 'renamed@example.net'),
@@ -208,7 +220,9 @@ after(async () => {
   globalThis.fetch = originalFetch;
   restoreEnv('VERCEL');
   restoreEnv('DATABASE_URL');
+  restoreEnv('NEON_AUTH_BASE_URL');
   restoreEnv('NEON_AUTH_JWKS_URL');
+  restoreEnv('VITE_NEON_AUTH_URL');
 });
 
 test('API familiar exige Neon Auth e sincroniza pelo Neon antes de revogar', async () => {
@@ -221,6 +235,11 @@ test('API familiar exige Neon Auth e sincroniza pelo Neon antes de revogar', asy
     body: JSON.stringify({ invitedEmail: 'member@example.com', ownerMemberId: 'member-1' }),
   });
   assert.equal(unauthenticatedInvite.status, 401);
+
+  const wrongIssuer = await originalFetch(`${baseUrl}/api/family/shared`, {
+    headers: { Authorization: `Bearer ${authTokens.wrongIssuer}` },
+  });
+  assert.equal(wrongIssuer.status, 401, 'o token precisa pertencer ao emissor Neon Auth configurado');
 
   const sqlBeforeUnverified = sqlLog.length;
   const unverified = await originalFetch(`${baseUrl}/api/family/shared`, {

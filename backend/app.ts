@@ -50,9 +50,14 @@ let neonAuthJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
 async function verifyNeonAuthToken(token: string): Promise<AuthUserIdentity> {
   const jwksUrl = process.env.NEON_AUTH_JWKS_URL;
+  const issuer = process.env.NEON_AUTH_BASE_URL || process.env.VITE_NEON_AUTH_URL;
   if (!jwksUrl) throw new Error('NEON_AUTH_JWKS_URL não configurada no servidor.');
+  if (!issuer) throw new Error('URL emissora do Neon Auth não configurada no servidor.');
   neonAuthJwks ??= createRemoteJWKSet(new URL(jwksUrl));
-  const { payload } = await jwtVerify(token, neonAuthJwks, { algorithms: ['EdDSA'] });
+  const { payload } = await jwtVerify(token, neonAuthJwks, {
+    algorithms: ['EdDSA'],
+    issuer,
+  });
   if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
     throw new Error('O token Neon Auth não contém uma identidade válida.');
   }
@@ -739,7 +744,19 @@ async function startServer() {
       const client = await getNeonPool().connect();
       try {
         const roleCheck = await client.query(
-          `SELECT current_user = 'minhas_app_runtime' AS is_least_privilege_role`
+          `SELECT current_user = 'minhas_app_runtime'
+              AND NOT role.rolsuper
+              AND NOT role.rolcreaterole
+              AND NOT role.rolcreatedb
+              AND NOT role.rolreplication
+              AND NOT role.rolbypassrls
+              AND NOT pg_catalog.pg_has_role(
+                current_user,
+                'neon_superuser',
+                'MEMBER'
+              ) AS is_least_privilege_role
+             FROM pg_catalog.pg_roles AS role
+            WHERE role.rolname = current_user`
         );
         neonLeastPrivilegeRole = roleCheck.rows[0]?.is_least_privilege_role === true;
         await client.query('SELECT 1 FROM public.finance_workspaces LIMIT 0');

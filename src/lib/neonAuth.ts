@@ -1,5 +1,6 @@
 import { createInternalNeonAuth } from '@neon/auth';
 import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
+import { getVerifiedAuthUser } from '../utils/verifiedAuthUser';
 
 const authUrl = import.meta.env.VITE_NEON_AUTH_URL;
 
@@ -89,11 +90,12 @@ export async function resendEmailVerification(user: AppUser): Promise<void> {
   });
 }
 
-export async function verifyEmailOtp(email: string, otp: string): Promise<void> {
-  await neonAuthPost('email-otp/verify-email', {
+export async function verifyEmailOtp(email: string, otp: string): Promise<AppUser> {
+  const response = await neonAuthPost<unknown>('email-otp/verify-email', {
     email: email.trim(),
     otp: otp.trim(),
   });
+  return toAppUser(getVerifiedAuthUser(response));
 }
 
 export async function refreshNeonAuthUser(user: AppUser): Promise<AppUser> {

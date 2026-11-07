@@ -1251,11 +1251,10 @@ export default function App() {
     }
     setIsVerificationActionBusy(true);
     try {
-      await verifyEmailOtp(currentUser.email, emailVerificationCode);
-      const refreshedUser = await refreshNeonAuthUser(currentUser);
-      setCurrentUser(refreshedUser);
+      const verifiedUser = await verifyEmailOtp(currentUser.email, emailVerificationCode);
+      setCurrentUser(verifiedUser);
       setEmailVerificationCode('');
-      showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Código aceito, mas a sessão ainda não refletiu a confirmação. Atualize novamente em instantes.', undefined, true);
+      showNotice('E-mail confirmado. Compartilhamento familiar liberado.', undefined, true);
     } catch {
       showNotice('Não foi possível confirmar o código. Confira os 6 dígitos ou reenvie um novo código.', undefined, true);
     } finally {
