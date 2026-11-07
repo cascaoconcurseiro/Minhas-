@@ -1,6 +1,10 @@
 # Checklist — Minhas Economias
 
 ## Retomada local — 2026-11-07
+- [x] Testar o convite do titular na `SharedExpensesTab`: normalização de nome/e-mail e metadados locais sintéticos.
+- [x] Pedir confirmação antes de remover membro familiar; DOM tests cobrem confirmar e cancelar sem segunda conta, Neon ou API real.
+- [x] Rodar novamente `bun test` 177/177 em 34 arquivos, `bun run lint`, `bun run build` e `git diff --check`; aviso de chunk principal >500 kB permanece.
+- [ ] Publicar a confirmação de remoção familiar e o novo teste DOM em `main`; aguardar CI/Vercel e verificar o bundle pós-deploy.
 - [x] Proteger exclusão de conta com confirmação explícita; testes DOM cobrem confirmação e cancelamento.
 - [x] Cobrir os efeitos da exclusão de conta com e sem conta substituta: cartão padrão, lançamentos, liquidações compartilhadas e transferências que se tornam inválidas; ignorar IDs de conta inexistentes.
 - [x] Corrigir cascata ao excluir parcelas compartilhadas: remover reembolso relacionado e reabrir outras despesas que estavam incluídas no acerto; cobrir `all_series` e `this_and_future` com dados sintéticos.
@@ -85,7 +89,7 @@
 - [ ] Fazer restore pela interface autenticada e validar readback no Neon, incluindo relacionamento familiar quando aplicável; o backup JSON não cobre convites/transações relacionais e os testes atuais são sintéticos.
 - [ ] Demonstrar concorrência API real com duas gravações e recuperação UI→API→Neon após indisponibilidade; testes existentes usam respostas/mocks sintéticos.
 - [ ] Preparar e executar backup PostgreSQL integral independente e restore isolado com validação das três tabelas financeiras; Neon Free/PITR de seis horas não substitui retenção externa.
-- [ ] Cobrir fluxos renderizados de cada módulo e editar/excluir/cascata. Existem testes DOM com callbacks sintéticos para `AccountsTab`, `CreditCardsTab`, `TransactionsTab`, `SettingsModal`, `LoginPage` e `TransactionModal`, além de testes de regras/API; faltam 8 das 11 abas e validação em navegador real.
+- [ ] Cobrir fluxos renderizados de cada módulo e editar/excluir/cascata. Existem testes DOM com callbacks sintéticos para `AccountsTab`, `CreditCardsTab`, `TransactionsTab`, `SharedExpensesTab`, `SettingsModal`, `LoginPage` e `TransactionModal`, além de testes de regras/API; faltam 7 das 11 abas e validação em navegador real.
 
 Nota: itens em seções históricas abaixo registram decisões e provedores de sessões anteriores. O estado atual usa Neon Auth; tarefas concluídas não devem ser inferidas a partir de um teste Firebase antigo.
 

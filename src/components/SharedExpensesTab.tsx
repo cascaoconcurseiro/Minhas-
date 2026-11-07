@@ -658,7 +658,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onDeleteFamilyMember(member.id)}
+                        onClick={() => {
+                          const confirmed = window.confirm(
+                            `Remover "${member.name}" do controle compartilhado? O convite será revogado e os lançamentos dessa pessoa deixarão de aparecer como compartilhados.`
+                          );
+                          if (confirmed) onDeleteFamilyMember(member.id);
+                        }}
                         className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
                         title="Remover pessoa"
                       >

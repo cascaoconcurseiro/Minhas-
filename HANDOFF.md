@@ -1,12 +1,14 @@
 # Handoff — Minhas Economias
 
-## Continuação atual — 2026-11-07 13:20 UTC
+## Continuação atual — 2026-11-07 13:25 UTC
 
 As correções desta rodada foram publicadas em `main` no commit `600c3ec`. CI `42376418227` passou; deployment Vercel `dpl_DDCSTBKZ8cUPjap4qFWJ4pdFZ67X` está Ready. Smoke no domínio principal: `/api/health` responde 200 com Neon `ok`/role restrita; workspace, lembretes, FX e sync de ativos sem token retornam 401; o bundle novo contém confirmação de exclusão da conta e não contém Firebase nem Guia Rápido. `bun test` 174/174 em 33 arquivos, `bun run lint`, build e diff-check passaram; permanece aviso de chunk >500 kB. Os testes desta rodada usam dados/mocks sintéticos e não escrevem no Neon.
 
 Estado externo conferido às 13:17 UTC: Neon tem somente a branch `production`. O Vercel Cron `/api/health` está habilitado em `15 12 * * *` UTC; logs do Vercel registram HTTP 200 às 09:23:28 BRT (12:23 UTC) no host de deployment de produção, comprovando a atividade diária de 7/nov. GitHub Actions ainda lista somente `workflow_dispatch` para atividade e backup, sem evento `schedule` após as janelas de hoje. O backup manual `42320784685` gerou o artifact cifrado válido até 7/dez às 21:52 BRT. Verificar novamente a fila de `schedule` (pode haver atraso); não usar dispatch manual como prova.
 
-Pendências que mantêm a meta aberta: observar backup automático GitHub; resolver a divergência Firebase Auth versus Neon Auth (pergunta ao usuário pendente); login/OTP e CRUD real; restore pela interface autenticada; visual desktop/mobile; cobertura funcional/renderizada das 8 abas ainda sem DOM tests; chave `age` guardada fora desta máquina. A conta familiar secundária continua dispensada pelo usuário.
+Continuação local ainda não publicada: a `SharedExpensesTab` agora confirma antes de remover familiar, e testes DOM sintéticos cobrem convite, confirmação e cancelamento. `bun test` 177/177 em 34 arquivos, lint, build e diff-check passaram. Revisar e publicar esse patch, então repetir smoke no Vercel.
+
+Pendências que mantêm a meta aberta: observar backup automático GitHub; resolver a divergência Firebase Auth versus Neon Auth (pergunta ao usuário pendente); login/OTP e CRUD real; restore pela interface autenticada; visual desktop/mobile; cobertura funcional/renderizada das 7 abas ainda sem DOM tests; chave `age` guardada fora desta máquina. A conta familiar secundária continua dispensada pelo usuário.
 
 ## Retomada do backup cifrado — 2026-11-07
 
