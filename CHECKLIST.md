@@ -16,6 +16,8 @@
 - [x] Remover `smtpPass`/`smtpConfig.pass` de Neon, cache local, exportação e importação; limpar caches v6 legados no boot, mantendo a senha apenas em memória até recarga. Testes confirmam que o envio ainda recebe a credencial em sessão.
 - [x] Verificar em produção: `/api/workspace`, `/api/reminders/send-email`, `/api/fx/live-rate` e `/api/investments/sync-quotes` sem token retornam 401; os cinco cabeçalhos de segurança esperados estão presentes.
 - [x] Remover o artifact público cifrado de QA `neon-backup-42320249250`; manter somente o artifact cifrado gerado da produção.
+- [x] Publicar as correções de segurança, finanças, UI e testes no commit `be9fed4`; CI `42322323802` passou e Vercel `dpl_AV4EZmVhVtNsiCFVQv628FYUbUHU` ficou Ready no domínio principal.
+- [x] Confirmar após o deploy health `ok`/Neon `ok`/role restrita, quatro APIs sem token retornando 401, bundle sem Firebase/Guia Rápido e chunks de configurações/lembretes contendo aviso de senha SMTP não persistida.
 - [ ] Validar sessão real Neon Auth/OTP e CRUD autenticado em ambiente controlado; testes locais não cobrem esse aceite.
 - [ ] Verificar eventos automáticos GitHub `schedule` após 2026-11-07 12:23 UTC (atividade) e 13:00 UTC (backup); execuções manuais não comprovam agendamento.
 - [ ] Exercitar restore pela interface autenticada, revisar interface publicada em desktop/mobile e fechar testes dos módulos pendentes.
