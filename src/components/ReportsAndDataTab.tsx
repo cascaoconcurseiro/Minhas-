@@ -423,7 +423,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             </p>
           </div>
 
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2.5">
+          <div className="flex w-full min-w-0 flex-col items-start gap-2.5">
             <button
               type="button"
               onClick={handleExportPdf}
@@ -436,11 +436,11 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               <span>{isExportingPdf ? 'Gerando...' : `Exportar PDF (${formatMonthYearPT(selectedMonth).split(' ')[0]})`}</span>
             </button>
 
-            <div className="flex w-full max-w-full flex-wrap items-center gap-1 rounded-lg bg-slate-100 p-1 sm:w-fit">
+            <div className="grid w-full min-w-0 grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 sm:grid-cols-3 xl:flex xl:flex-wrap">
             <button
               type="button"
               onClick={() => setPeriodPreset('monthly')}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'monthly'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -451,7 +451,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('quarterly')}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'quarterly'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -462,7 +462,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('semiannual')}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'semiannual'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -473,7 +473,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('annual')}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'annual'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -484,7 +484,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('custom')}
-              className={`px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'custom'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'

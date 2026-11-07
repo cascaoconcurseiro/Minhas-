@@ -348,7 +348,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             </button>
           </div>
 
-          <div className="hidden sm:flex w-full 2xl:w-auto flex-wrap items-center gap-2">
+          <div className="hidden sm:grid w-full min-w-0 grid-cols-2 2xl:flex 2xl:w-auto 2xl:flex-wrap items-center gap-2">
             {onOpenReconciliation && (
               <button
                 type="button"
