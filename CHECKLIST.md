@@ -12,7 +12,9 @@
 - [x] Concluir a matriz Ego em `C:\Users\Wesley\Documents\Codex\2026-11-07\minhas-economias-site-test\outputs\ego-ui-audit\01-live-results.md`; baseline, viewport e dados sintéticos estão registrados.
 - [x] Corrigir e revalidar layout publicado em viewport 1066×1132: barra de ações em Lançamentos, botões de ação em Compartilhado e título/seletores de Relatórios cabem; tabela de Orçamentos mantém rolagem própria.
 - [x] Confirmar os hashes atuais de JS/CSS após remover apenas o registro antigo do service worker da origem Ego, preservando cookies, cache storage, IndexedDB, localStorage e sessão.
-- [ ] Exercitar import/export sintético e operações com efeitos externos isolados (convite, compra/pagamento, cotações) sem tocar dados pessoais.
+- [x] Exercitar compra sintética em cartão, baixa integral e estorno da fatura; apagar compra/cartão/conta auxiliares e confirmar UI sincronizada e sem resíduos.
+- [ ] Corrigir data do pagamento da fatura: teste visual indicou vencimento futuro (28/11) apesar da quitação em 07/11. Correção local usa a data atual local; falta publicar e revalidar pela UI.
+- [ ] Exercitar import/export sintético e operações com efeitos externos isolados (convite e cotações) sem tocar dados pessoais.
 - [ ] Validar CRUD UI→API→Neon e restore autenticado; os testes atuais locais usam DOM e mocks e não provam persistência no banco.
 - [ ] Confirmar execução automática dos workflows GitHub `schedule`; chave de restauração age continua sem cópia externa comprovada.
 - [ ] Convite entre duas contas depende de segunda conta controlada; aceite real não foi testado conforme decisão do usuário.

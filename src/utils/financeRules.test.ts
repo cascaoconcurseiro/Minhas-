@@ -17,6 +17,7 @@ import {
   createTransactionBatch,
   extractAvailableTransactionTags,
   getBudgetAlerts,
+  getLocalDateISO,
   getEffectiveExpenseAmountForUser,
   normalizeSearchText,
   normalizeTransactionTag,
@@ -41,6 +42,10 @@ test('parseBRLInput parses Brazilian and standard decimal strings accurately', (
   assert.equal(parseBRLInput('250,50'), 250.5);
   assert.equal(parseBRLInput('1200.75'), 1200.75);
   assert.equal(parseBRLInput(''), 0);
+});
+
+test('card invoice payment dates use the local calendar date, not the card due date', () => {
+  assert.equal(getLocalDateISO(new Date(2026, 10, 7, 23, 30)), '2026-11-07');
 });
 
 test('card invoice settlement uses the same eligible purchases as its summary', () => {

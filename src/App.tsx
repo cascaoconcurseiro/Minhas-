@@ -66,6 +66,7 @@ import {
   CreateTransactionBatchInput,
   createTransactionBatch,
   formatBRL,
+  getLocalDateISO,
   formatMonthYearPT,
   parseBRLInput,
   payCreditCardInvoice,
@@ -1700,7 +1701,7 @@ export default function App() {
     const effectiveAccountId =
       paymentAccountId || card.defaultAccountId || accounts[0]?.id || '';
     const prevSnapshot = [...transactions];
-    const paymentDate = `${selectedMonth}-${String(card.dueDay).padStart(2, '0')}`;
+    const paymentDate = getLocalDateISO();
     const updated = payCreditCardInvoice(
       card,
       transactions,
