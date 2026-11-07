@@ -16,7 +16,8 @@
 - [x] Corrigir data do pagamento da fatura: corrigido para a data local da quitação; UI publicada confirmou 07/11/2026 após baixa, estorno e limpeza dos registros sintéticos.
 - [ ] Exercitar import/export sintético e operações com efeitos externos isolados (convite e cotações) sem tocar dados pessoais.
 - [ ] Validar CRUD UI→API→Neon e restore autenticado; os testes atuais locais usam DOM e mocks e não provam persistência no banco.
-- [ ] Confirmar execução automática dos workflows GitHub `schedule`; chave de restauração age continua sem cópia externa comprovada.
+- [x] Confirmar atividade diária real: workflow `Neon — verificação diária` executou por `schedule` (`42397967500`) e `SELECT 1` no Neon passou. Isso confirma consulta diária, não compute ativo o dia inteiro.
+- [ ] Confirmar evento `schedule` do backup cifrado e verificar cópia privada age fora deste computador.
 - [ ] Convite entre duas contas depende de segunda conta controlada; aceite real não foi testado conforme decisão do usuário.
 
 ## Continuação — 2026-11-07 — restauração Firebase Auth + Neon
