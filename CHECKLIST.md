@@ -1,5 +1,16 @@
 # Checklist — Minhas Economias
 
+## Continuação — 2026-11-07
+- [x] Confirmar por busca em `src`, `backend`, `api` e `shared` que Neon Auth/Neon PostgreSQL são os únicos caminhos operacionais; referências Firebase restantes estão em migrations/documentação históricas.
+- [x] Adicionar teste DOM do lançamento: rejeitar valor zero e salvar R$ 12,34 com payload validado.
+- [x] Cobrir autenticação obrigatória nos endpoints de câmbio, sincronização de cotações e lembretes; sem Bearer retornam 401 e não fazem chamadas externas.
+- [x] Corrigir cache JWT após confirmação OTP: forçar atualização da sessão, exigir UID correspondente e e-mail verificado antes de enviar JWT às APIs; impedir downgrade da UI por evento de sessão atrasado.
+- [x] Verificar localmente: `bun test` 143/143 em 29 arquivos, `bun run lint`, `bun run build` e `git diff --check` aprovados.
+- [ ] Revisar e publicar as alterações locais em `main`; confirmar CI, deployment Vercel e health Neon após publicação.
+- [ ] Validar sessão real Neon Auth/OTP e CRUD autenticado em ambiente controlado; testes locais não cobrem esse aceite.
+- [ ] Verificar evento diário automático GitHub `schedule` após 2026-11-07 12:23 UTC; execução manual anterior não comprova agendamento.
+- [ ] Executar restore autenticado, comprovar backup PostgreSQL independente, revisar interface desktop/mobile e fechar testes dos módulos pendentes.
+
 ## Corte Firebase → Neon Auth completo — 2026-11-06
 - [x] Habilitar Neon Auth Managed Better Auth em `production`, com e-mail/senha e verificação por OTP; autorizar domínio Vercel e desligar origem localhost em produção.
 - [x] Substituir cliente, sessão, cadastro/login/logout e tokens do app pelo SDK `@neon/auth`.

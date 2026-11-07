@@ -1,5 +1,9 @@
 import { createInternalNeonAuth } from '@neon/auth';
 import { BetterAuthReactAdapter } from '@neon/auth/react/adapters';
+import {
+  forceNeonAuthSessionFetchOptions,
+  getVerifiedSessionCredentials,
+} from '../utils/authSessionVerification';
 import { getVerifiedAuthUser } from '../utils/verifiedAuthUser';
 
 const authUrl = import.meta.env.VITE_NEON_AUTH_URL;
@@ -12,6 +16,7 @@ const neonAuth = createInternalNeonAuth(authUrl, {
   adapter: BetterAuthReactAdapter(),
 });
 export const authClient = neonAuth.adapter;
+let pendingVerifiedEmailUserId: string | null = null;
 
 async function neonAuthPost<T>(path: string, body: Record<string, string>): Promise<T> {
   const baseUrl = authUrl.endsWith('/') ? authUrl : `${authUrl}/`;
@@ -36,6 +41,19 @@ export interface AppUser {
 }
 
 export async function getNeonAuthToken(): Promise<string> {
+  if (pendingVerifiedEmailUserId) {
+    const expectedUserId = pendingVerifiedEmailUserId;
+    const freshSession = await authClient.getSession(
+      forceNeonAuthSessionFetchOptions()
+    );
+    if (freshSession.error) {
+      throw new Error('Não foi possível atualizar a sessão após confirmar o e-mail.');
+    }
+    const credentials = getVerifiedSessionCredentials(freshSession, expectedUserId);
+    pendingVerifiedEmailUserId = null;
+    return credentials.token;
+  }
+
   const token = await neonAuth.getJWTToken();
   if (!token) throw new Error('Sessão Neon Auth inválida. Entre novamente.');
   return token;
@@ -63,6 +81,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
     if (result.error) throw result.error;
     throw new Error('Não foi possível entrar. Verifique e-mail e senha.');
   }
+  pendingVerifiedEmailUserId = null;
   return toAppUser(result.data.user);
 }
 
@@ -80,6 +99,7 @@ export async function registerWithEmail(
     if (result.error) throw result.error;
     throw new Error('Não foi possível criar sua conta.');
   }
+  pendingVerifiedEmailUserId = null;
   return toAppUser(result.data.user);
 }
 
@@ -95,13 +115,39 @@ export async function verifyEmailOtp(email: string, otp: string): Promise<AppUse
     email: email.trim(),
     otp: otp.trim(),
   });
-  return toAppUser(getVerifiedAuthUser(response));
+  const verifiedAuthUser = getVerifiedAuthUser(response);
+  if (verifiedAuthUser.email.trim().toLowerCase() !== email.trim().toLowerCase()) {
+    throw new Error('O código foi confirmado para uma identidade diferente.');
+  }
+
+  pendingVerifiedEmailUserId = verifiedAuthUser.id;
+  try {
+    const freshSession = await authClient.getSession(
+      forceNeonAuthSessionFetchOptions()
+    );
+    if (freshSession.error) {
+      throw new Error('Não foi possível atualizar a sessão após confirmar o e-mail.');
+    }
+    const credentials = getVerifiedSessionCredentials(
+      freshSession,
+      verifiedAuthUser.id
+    );
+    pendingVerifiedEmailUserId = null;
+    return toAppUser(credentials.user);
+  } catch {
+    // OTP response is authoritative for UI state. Keep the marker so that the
+    // next protected API request force-refreshes and never sends a cached JWT.
+    return toAppUser(verifiedAuthUser);
+  }
 }
 
 export async function refreshNeonAuthUser(user: AppUser): Promise<AppUser> {
-  const result = await authClient.getSession();
-  if (result.error || !result.data?.user) {
+  const result = await authClient.getSession(forceNeonAuthSessionFetchOptions());
+  if (result.error || !result.data?.user || result.data.user.id !== user.uid) {
     throw new Error('Não foi possível atualizar a sessão Neon Auth.');
+  }
+  if (pendingVerifiedEmailUserId === user.uid && result.data.user.emailVerified) {
+    pendingVerifiedEmailUserId = null;
   }
   return toAppUser(result.data.user);
 }
@@ -109,6 +155,7 @@ export async function refreshNeonAuthUser(user: AppUser): Promise<AppUser> {
 export async function signOutNeonAuth(): Promise<void> {
   const result = await authClient.signOut();
   if (result.error) throw new Error(result.error.message || 'Não foi possível encerrar a sessão.');
+  pendingVerifiedEmailUserId = null;
 }
 
 export function getOrCreateAutoCloudVaultId(): string {

@@ -88,6 +88,7 @@ import {
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
 import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
+import { preserveConfirmedEmailVerification } from './utils/authSessionVerification';
 import { isRetryableWorkspaceSaveError } from './utils/workspaceSyncRecovery';
 const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
 const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
@@ -274,6 +275,7 @@ export default function App() {
 
   // Neon Auth & Neon workspace sync state
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const confirmedEmailUidRef = useRef<string | null>(null);
   const [isVerificationActionBusy, setIsVerificationActionBusy] = useState(false);
   const [emailVerificationCode, setEmailVerificationCode] = useState('');
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
@@ -509,7 +511,18 @@ export default function App() {
 
   // Neon Auth session listener
   useEffect(() => {
-    const user = sessionUser ? toAppUser(sessionUser) : null;
+    const sessionAppUser = sessionUser ? toAppUser(sessionUser) : null;
+    if (
+      sessionAppUser &&
+      confirmedEmailUidRef.current &&
+      sessionAppUser.uid !== confirmedEmailUidRef.current
+    ) {
+      confirmedEmailUidRef.current = null;
+    }
+    const user = preserveConfirmedEmailVerification(
+      sessionAppUser,
+      confirmedEmailUidRef.current
+    );
     setCurrentUser(user);
     if (neonAuthSessionState.isPending) return;
     setIsAuthReady(true);
@@ -1252,6 +1265,7 @@ export default function App() {
     setIsVerificationActionBusy(true);
     try {
       const verifiedUser = await verifyEmailOtp(currentUser.email, emailVerificationCode);
+      confirmedEmailUidRef.current = verifiedUser.uid;
       setCurrentUser(verifiedUser);
       setEmailVerificationCode('');
       showNotice('E-mail confirmado. Compartilhamento familiar liberado.', undefined, true);
@@ -1263,6 +1277,7 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    confirmedEmailUidRef.current = null;
     try {
       await signOutNeonAuth();
     } catch {
