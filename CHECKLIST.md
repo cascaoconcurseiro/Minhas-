@@ -627,7 +627,9 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Publicar confirmação antes de remover membro familiar em `0917cdb`; CI `42376911235` passou.
 - [x] Adicionar teste DOM sintético de edição de orçamento; suíte completa passou com 178 testes em 35 arquivos, `bun run lint` e `git diff --check` passaram.
 - [x] Confirmar `/api/health` em produção: HTTP 200, Neon `ok`, role de runtime restrita.
-- [ ] Confirmar que o deployment de `0917cdb` terminou Ready e verificar bundle da remoção familiar no domínio principal.
+- [x] Confirmar deployment de `0917cdb` Ready e verificar no domínio principal o bundle lazy da remoção familiar com a confirmação publicada.
+- [x] Confirmar health em produção HTTP 200/Neon `ok`/role restrita; rotas de workspace, lembretes, FX e investimentos sem token respondem 401.
+- [x] Publicar teste DOM sintético de edição de orçamento no commit `17b49db`; CI `42377109572` passou e o deployment Vercel `dpl_y2nKx4hGY7CZ6MomNeVSChDmq3bZ` ficou Ready.
 - [ ] Observar execução automática do backup GitHub; última cópia verificada ainda é execução manual.
 - [ ] Resolver arquitetura de autenticação com o usuário; auditoria atual confirma Neon Auth, mas a decisão inicial foi manter Firebase Auth.
 - [ ] Concluir validação visual desktop/mobile e fluxos reais autenticados; testes DOM e APIs com mocks não substituem esses aceites.

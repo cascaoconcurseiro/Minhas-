@@ -1,14 +1,16 @@
 # Handoff — Minhas Economias
 
-## Continuação atual — 2026-11-07 13:28 UTC
+## Continuação atual — 2026-11-07 13:30 UTC
 
 As correções desta rodada foram publicadas em `main` no commit `600c3ec`. CI `42376418227` passou; deployment Vercel `dpl_DDCSTBKZ8cUPjap4qFWJ4pdFZ67X` está Ready. Smoke no domínio principal: `/api/health` responde 200 com Neon `ok`/role restrita; workspace, lembretes, FX e sync de ativos sem token retornam 401; o bundle novo contém confirmação de exclusão da conta e não contém Firebase nem Guia Rápido. `bun test` 174/174 em 33 arquivos, `bun run lint`, build e diff-check passaram; permanece aviso de chunk >500 kB. Os testes desta rodada usam dados/mocks sintéticos e não escrevem no Neon.
 
 Estado externo conferido às 13:17 UTC: Neon tem somente a branch `production`. O Vercel Cron `/api/health` está habilitado em `15 12 * * *` UTC; logs do Vercel registram HTTP 200 às 09:23:28 BRT (12:23 UTC) no host de deployment de produção, comprovando a atividade diária de 7/nov. GitHub Actions ainda lista somente `workflow_dispatch` para atividade e backup, sem evento `schedule` após as janelas de hoje. O backup manual `42320784685` gerou o artifact cifrado válido até 7/dez às 21:52 BRT. Verificar novamente a fila de `schedule` (pode haver atraso); não usar dispatch manual como prova.
 
-O commit `0917cdb` (`fix: confirm family member removal`) está em `origin/main`; CI `42376911235` passou. Seu deployment de produção `dpl_2bsJXcbJ6qrUpePRbuKsTZDVqpwG` ainda estava Building na consulta das 13:26 UTC, embora o domínio principal respondesse `/api/health` 200, Neon `ok` e role restrita. A confirmar quando ficar Ready; não declarei o bundle novo publicado ainda.
+O commit `0917cdb` (`fix: confirm family member removal`) está em `origin/main`; CI `42376911235` passou e o deployment `dpl_2bsJXcbJ6qrUpePRbuKsTZDVqpwG` ficou Ready. Em seguida publiquei o teste DOM sintético de edição de orçamento no commit `17b49db`; CI `42377109572` passou e o deployment final `dpl_y2nKx4hGY7CZ6MomNeVSChDmq3bZ` também ficou Ready, associado a `minhaseconomias-blue.vercel.app`.
 
-Adicionei teste DOM sintético para edição de teto de orçamento em `BudgetsTab`; suíte completa atual: 178/178 em 35 arquivos; teste focal, lint e diff-check passaram. O arquivo do teste ainda está local e sem commit. A validação cobre somente o callback local e parse BRL; não atinge persistência/API/Neon. Próximo passo concreto: aguardar o deployment de `0917cdb`, verificar a string da confirmação familiar no bundle servido, depois registrar o teste de orçamento em commit separado ou junto ao próximo patch.
+Adicionei teste DOM sintético para edição de teto de orçamento em `BudgetsTab`; suíte completa: 178/178 em 35 arquivos; teste focal, lint e diff-check passaram. A validação cobre somente o callback local e parse BRL; não atinge persistência/API/Neon.
+
+Smoke no domínio final às 13:29 UTC: `/api/health` 200, Neon `ok`, `neonLeastPrivilegeRole=true`; workspace, lembretes, FX e sync de ativos retornam 401 sem token. Bundle remoto lazy `SharedExpensesTab-DADemiNe.js` confirmou o diálogo de remoção; bundle de entrada não contém `firebase` nem `Guia Rápido`. Isso prova publicação do código, não um ensaio de remoção em conta real. O teste de orçamento é apenas local/teste sintético; a publicação desse arquivo de teste não altera o runtime do aplicativo.
 
 Pendências que mantêm a meta aberta: observar backup automático GitHub; resolver a divergência Firebase Auth versus Neon Auth (pergunta ao usuário pendente); login/OTP e CRUD real; restore pela interface autenticada; visual desktop/mobile; cobertura funcional/renderizada das abas ainda sem DOM tests; chave `age` guardada fora desta máquina. A conta familiar secundária continua dispensada pelo usuário.
 
