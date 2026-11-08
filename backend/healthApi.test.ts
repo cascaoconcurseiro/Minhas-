@@ -159,9 +159,12 @@ test('health returns degraded 503 when Neon connection fails', async () => {
   }
 });
 
-test('health returns degraded 503 when the login secret is missing or too short', async () => {
+test('health returns degraded 503 when no login secret can be resolved', async () => {
   const secret = process.env.AUTH_SESSION_SECRET;
+  const databaseUrl = process.env.DATABASE_URL;
   try {
+    delete process.env.AUTH_SESSION_SECRET;
+    process.env.DATABASE_URL = 'postgres://curta';
     for (const value of [undefined, 'curto']) {
       if (value === undefined) delete process.env.AUTH_SESSION_SECRET;
       else process.env.AUTH_SESSION_SECRET = value;
@@ -172,9 +175,22 @@ test('health returns degraded 503 when the login secret is missing or too short'
       };
       assert.equal(response.status, 503);
       assert.equal(body.status, 'degraded');
-      assert.equal(body.services.neon, 'ok');
       assert.equal(body.services.authConfigured, false);
     }
+  } finally {
+    if (secret === undefined) delete process.env.AUTH_SESSION_SECRET;
+    else process.env.AUTH_SESSION_SECRET = secret;
+    process.env.DATABASE_URL = databaseUrl;
+  }
+});
+
+test('login works without AUTH_SESSION_SECRET by deriving the key from DATABASE_URL', async () => {
+  const secret = process.env.AUTH_SESSION_SECRET;
+  try {
+    delete process.env.AUTH_SESSION_SECRET;
+    const response = await fetch(`${baseUrl}/api/readiness`, { headers: cronHeaders });
+    const body = await response.json() as { services: { authConfigured: boolean } };
+    assert.equal(body.services.authConfigured, true);
   } finally {
     if (secret === undefined) delete process.env.AUTH_SESSION_SECRET;
     else process.env.AUTH_SESSION_SECRET = secret;

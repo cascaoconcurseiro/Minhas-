@@ -5,6 +5,7 @@ const MAX_TOKEN_LENGTH = 4096;
 const SCRYPT_KEY_LENGTH = 64;
 const SCRYPT_COST = 16384;
 const MIN_SECRET_LENGTH = 32;
+const MIN_DERIVED_SOURCE_LENGTH = 40;
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 200;
 
@@ -21,15 +22,28 @@ export interface SessionIdentity {
   name: string;
 }
 
+/**
+ * Session signing key. Prefer a dedicated AUTH_SESSION_SECRET; otherwise derive a
+ * domain-separated key from the server-only DATABASE_URL so production works
+ * without extra configuration. Neither value ever reaches the browser.
+ */
+function resolveSecret(): string | null {
+  const dedicated = process.env.AUTH_SESSION_SECRET ?? '';
+  if (dedicated.length >= MIN_SECRET_LENGTH) return dedicated;
+  const databaseUrl = process.env.DATABASE_URL ?? '';
+  if (databaseUrl.length >= MIN_DERIVED_SOURCE_LENGTH) {
+    return createHmac('sha256', databaseUrl).update('minhas-economias:auth-session:v1').digest('hex');
+  }
+  return null;
+}
+
 export function isAuthConfigured(): boolean {
-  return (process.env.AUTH_SESSION_SECRET ?? '').length >= MIN_SECRET_LENGTH;
+  return resolveSecret() !== null;
 }
 
 function getSecret(): string {
-  const secret = process.env.AUTH_SESSION_SECRET ?? '';
-  if (secret.length < MIN_SECRET_LENGTH) {
-    throw new SessionTokenError('Autenticação não está configurada no servidor.', 503);
-  }
+  const secret = resolveSecret();
+  if (!secret) throw new SessionTokenError('Autenticação não está configurada no servidor.', 503);
   return secret;
 }
 
