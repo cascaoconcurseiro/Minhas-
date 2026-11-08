@@ -1,4 +1,4 @@
-import { auth } from './firebase';
+import { auth } from './authClient';
 
 export interface NeonWorkspaceSnapshot {
   payload: Record<string, unknown>;
@@ -87,7 +87,7 @@ async function authorizedRequest<T>(
 ): Promise<T> {
   const user = auth.currentUser;
   if (!user || user.isAnonymous) {
-    throw new NeonWorkspaceError('Entre com uma conta Firebase para sincronizar.', 401);
+    throw new NeonWorkspaceError('Entre na sua conta para sincronizar.', 401);
   }
 
   const send = async (forceRefresh: boolean) => {

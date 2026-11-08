@@ -1,5 +1,17 @@
 # Checklist — Minhas Economias
 
+## Gate de liberação para produção — estado atual
+- [x] Publicar o código de integração readiness/status no commit `0e080c7`; CI `42425025978` passou e Vercel deployment `minhaseconomias-ggrb646vu` ficou Ready.
+- [x] Verificar o smoke público: `/api/status` retornou 200 com Auth/Neon configurados e `neon: not_checked`; `/api/readiness` sem autorização retornou 401.
+- [x] Cadastrar `CRON_SECRET` como variável sensível em Production; não foi lido nem exposto.
+- [ ] Validar `/api/readiness` autenticado (200/Neon ok/role restrita) e observar execução agendada do cron; `vercel env run` não disponibilizou o valor sensível localmente, por isso o GET autenticado ainda não foi provado.
+- [ ] Comprovar execução automática `schedule` do backup cifrado; as execuções conhecidas continuam `workflow_dispatch`.
+- [ ] Implementar e testar formatação automática nos campos monetários BRL e internacionais: `1000` → `1.000,00` ao finalizar, `1,5` → `1,50`, moeda selecionada e casas JPY/CLP, com cursor/colagem/apagar corretos.
+- [ ] Validar cadastro/login/logout e reload com sessão de QA, mais CRUD → reload/readback Neon para cada entidade e isolamento entre titulares.
+- [ ] Validar restore/import/export pela UI em branch Neon QA descartável, com readback independente e limpeza.
+- [ ] Concluir revisão visual/accessibilidade em desktop e mobile; guardar a chave privada `age` fora deste computador e comprovar recuperação em outro dispositivo.
+- [ ] Reexecutar suite, lint, build e smoke final após a máscara; publicar a versão final e registrar a evidência em CI/Vercel.
+
 ## Correções e integração de segurança — 2026-11-07
 - [x] Validar revogação/desativação Firebase no Identity Toolkit, falhar fechado sem `FIREBASE_API_KEY` e mapear erros conhecidos de conta/token para 401; erros de configuração, rede ou desconhecidos retornam 503.
 - [x] Fazer `/api/status` refletir a configuração de Auth sem conectar ao Neon e proteger `/api/readiness` com `CRON_SECRET` antes de abrir conexão.
@@ -7,9 +19,15 @@
 - [x] Corrigir importação CSV sem contas para bloquear destino vazio e não anunciar sucesso falso.
 - [x] Corrigir validação de investimento para rejeitar quantidade/preços não positivos; ampliar coberturas DOM de cartão, conta, orçamento, metas/simulador, configurações e restore.
 - [x] Executar suíte completa: `bun test` **374/374 em 54 arquivos**; `bun run lint`, `bun run build` e `git diff --check` passaram.
-- [ ] Publicar as alterações e confirmar `/api/status` público e `/api/readiness` sem/com segredo no deployment.
+- [x] Fazer triagem read-only de regressões após correções de CSV, investimentos e Firebase Auth, separando casos reproduzíveis em harness de verificações operacionais somente leitura; sem executar testes ou acessar produção.
+- [ ] Cobrir lote CSV misto com linhas rejeitadas, sinal `R$ -...` e remoção/alteração da conta destino enquanto a tela permanece montada; verificar callback/estado apenas em harness sem persistência.
+- [ ] Decidir e testar precisão de quantidade fracionária, preço zero/sem cotação e entrada inválida de rendimento em investimentos.
+- [ ] Validar em QA, com leituras somente: Firebase API key presente mas inválida, latência/indisponibilidade do Identity Toolkit e grants efetivos da role runtime; presença de variáveis em `/api/status`/`/api/readiness` não prova que a API key autentica.
+- [x] Publicar as alterações no commit `0e080c7`; CI passou, deployment ficou Ready e smoke confirmou `/api/status` 200 e `/api/readiness` sem autorização 401.
+- [ ] Confirmar `/api/readiness` autenticado com o segredo sensível e observar o próximo cron; a CLI local não forneceu o valor de Production.
 - [ ] Confirmar execução automática de `/api/readiness` e primeira execução `schedule` do backup cifrado; a execução de backup mais recente conhecida foi `workflow_dispatch`.
 - [ ] Guardar a chave privada `age` fora deste computador e testar recuperação em outro dispositivo.
+- [ ] Aplicar a formatação automática monetária BRL/internacional em todos os campos editáveis e validar cursor, colagem, separadores e precisão por moeda.
 - [ ] Concluir E2E de cadastro/login/logout e restore UI→API→Neon QA; fechar readback Neon por entidade e revisão mobile/acessibilidade.
 
 ## Aceleração da cobertura e correções — 2026-11-07
@@ -720,3 +738,12 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [ ] Completar restore importado pela UI → save autenticado → Neon QA isolado → recarga/GET/readback independente.
 - [ ] Validar isolamento entre dois UIDs autenticados no mesmo banco Neon QA, incluindo RLS real e readback que prove ausência de acesso cruzado.
 - [ ] Fechar CRUD/readback independente por entidade e operação crítica; ciclos anteriores de UI cobrem subconjunto e não substituem a verificação completa no Neon.
+
+## Login próprio no Neon — 2026-11-08
+- [x] Remover Firebase (código, dependência, config) e criar login próprio (`authSession.ts`, `/api/auth/*`, `authClient.ts`).
+- [x] Corrigir CSV: sinal em `R$ -34,90`, `34,90-`, `(34,90)` e manter linhas rejeitadas na caixa.
+- [x] 377 testes, tsc e build passando; login e recarga validados no navegador (banco simulado).
+- [ ] Rodar migration 008 no Neon de produção.
+- [ ] Cadastrar `AUTH_SESSION_SECRET` na Vercel e remover `FIREBASE_*`.
+- [ ] Publicar e testar cadastro/login em produção.
+- [ ] Implementar verificação de e-mail (libera compartilhamento familiar).

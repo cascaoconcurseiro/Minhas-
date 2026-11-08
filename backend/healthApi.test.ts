@@ -6,8 +6,7 @@ const originalConnect = Pool.prototype.connect;
 const oldEnv = {
   VERCEL: process.env.VERCEL,
   DATABASE_URL: process.env.DATABASE_URL,
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-  FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
+  AUTH_SESSION_SECRET: process.env.AUTH_SESSION_SECRET,
   CRON_SECRET: process.env.CRON_SECRET,
 };
 
@@ -21,8 +20,7 @@ let closeServer: () => Promise<void> = async () => undefined;
 before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
-  process.env.FIREBASE_PROJECT_ID = 'firebase-test-project';
-  process.env.FIREBASE_API_KEY = 'firebase-test-api-key';
+  process.env.AUTH_SESSION_SECRET = 'test-session-secret-with-more-than-32-chars';
   process.env.CRON_SECRET = 'local-test-cron-secret';
   Pool.prototype.connect = async function () {
     connectCalls += 1;
@@ -70,13 +68,13 @@ test('public status reports configuration without connecting to Neon', async () 
   const response = await fetch(`${baseUrl}/api/status`);
   const body = await response.json() as {
     status: string;
-    services: { neon: string; neonConfigured: boolean; firebaseAuthConfigured: boolean };
+    services: { neon: string; neonConfigured: boolean; authConfigured: boolean };
   };
   assert.equal(response.status, 200);
   assert.equal(body.status, 'ok');
   assert.equal(body.services.neonConfigured, true);
   assert.equal(body.services.neon, 'not_checked');
-  assert.equal(body.services.firebaseAuthConfigured, true);
+  assert.equal(body.services.authConfigured, true);
   assert.equal(connectCalls, before, 'status público não deve abrir conexão com Neon');
   failNeonConnection = false;
 });
@@ -118,7 +116,7 @@ test('health marks an admin-capable runtime role degraded even while Neon respon
   assert.equal(body.status, 'degraded');
   assert.equal(body.services.neon, 'ok');
   assert.equal(body.services.neonLeastPrivilegeRole, false);
-  assert.equal((body.services as { firebaseAuthConfigured?: boolean }).firebaseAuthConfigured, true);
+  assert.equal((body.services as { authConfigured?: boolean }).authConfigured, true);
   assert.match(roleQuery, /rolsuper/);
   assert.match(roleQuery, /rolcreaterole/);
   assert.match(roleQuery, /rolcreatedb/);
@@ -132,12 +130,12 @@ test('health reports least privilege only after the database confirms the restri
   leastPrivilege = true;
   const response = await fetch(`${baseUrl}/api/readiness`, { headers: cronHeaders });
   const body = await response.json() as {
-    services: { neonLeastPrivilegeRole: boolean | null; firebaseAuthConfigured: boolean };
+    services: { neonLeastPrivilegeRole: boolean | null; authConfigured: boolean };
   };
 
   assert.equal(response.status, 200);
   assert.equal(body.services.neonLeastPrivilegeRole, true);
-  assert.equal(body.services.firebaseAuthConfigured, true);
+  assert.equal(body.services.authConfigured, true);
 });
 
 test('health returns degraded 503 when Neon connection fails', async () => {
@@ -146,7 +144,7 @@ test('health returns degraded 503 when Neon connection fails', async () => {
     const response = await fetch(`${baseUrl}/api/readiness`, { headers: cronHeaders });
     const body = await response.json() as {
       status: string;
-      services: { neon: string; neonConfigured: boolean; neonLeastPrivilegeRole: boolean | null; firebaseAuthConfigured: boolean };
+      services: { neon: string; neonConfigured: boolean; neonLeastPrivilegeRole: boolean | null; authConfigured: boolean };
     };
 
     assert.equal(response.status, 503);
@@ -154,51 +152,31 @@ test('health returns degraded 503 when Neon connection fails', async () => {
     assert.equal(body.services.neon, 'error');
     assert.equal(body.services.neonConfigured, true);
     assert.equal(body.services.neonLeastPrivilegeRole, null);
-    assert.equal(body.services.firebaseAuthConfigured, true);
+    assert.equal(body.services.authConfigured, true);
     assert.doesNotMatch(JSON.stringify(body), /synthetic Neon connection failure/);
   } finally {
     failNeonConnection = false;
   }
 });
 
-test('health returns degraded 503 when Firebase Auth server configuration is missing', async () => {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const apiKey = process.env.FIREBASE_API_KEY;
-  delete process.env.FIREBASE_PROJECT_ID;
-  delete process.env.FIREBASE_API_KEY;
+test('health returns degraded 503 when the login secret is missing or too short', async () => {
+  const secret = process.env.AUTH_SESSION_SECRET;
   try {
-    const response = await fetch(`${baseUrl}/api/readiness`, { headers: cronHeaders });
-    const body = await response.json() as {
-      status: string;
-      services: { neon: string; firebaseAuthConfigured: boolean };
-    };
-    assert.equal(response.status, 503);
-    assert.equal(body.status, 'degraded');
-    assert.equal(body.services.neon, 'ok');
-    assert.equal(body.services.firebaseAuthConfigured, false);
+    for (const value of [undefined, 'curto']) {
+      if (value === undefined) delete process.env.AUTH_SESSION_SECRET;
+      else process.env.AUTH_SESSION_SECRET = value;
+      const response = await fetch(`${baseUrl}/api/readiness`, { headers: cronHeaders });
+      const body = await response.json() as {
+        status: string;
+        services: { neon: string; authConfigured: boolean };
+      };
+      assert.equal(response.status, 503);
+      assert.equal(body.status, 'degraded');
+      assert.equal(body.services.neon, 'ok');
+      assert.equal(body.services.authConfigured, false);
+    }
   } finally {
-    if (projectId === undefined) delete process.env.FIREBASE_PROJECT_ID;
-    else process.env.FIREBASE_PROJECT_ID = projectId;
-    if (apiKey === undefined) delete process.env.FIREBASE_API_KEY;
-    else process.env.FIREBASE_API_KEY = apiKey;
-  }
-});
-
-test('readiness requires both Firebase project ID and API key for account-state verification', async () => {
-  const apiKey = process.env.FIREBASE_API_KEY;
-  process.env.FIREBASE_PROJECT_ID = 'firebase-test-project';
-  delete process.env.FIREBASE_API_KEY;
-  try {
-    const response = await fetch(`${baseUrl}/api/readiness`, { headers: cronHeaders });
-    const body = await response.json() as {
-      status: string;
-      services: { firebaseAuthConfigured: boolean };
-    };
-    assert.equal(response.status, 503);
-    assert.equal(body.status, 'degraded');
-    assert.equal(body.services.firebaseAuthConfigured, false);
-  } finally {
-    if (apiKey === undefined) delete process.env.FIREBASE_API_KEY;
-    else process.env.FIREBASE_API_KEY = apiKey;
+    if (secret === undefined) delete process.env.AUTH_SESSION_SECRET;
+    else process.env.AUTH_SESSION_SECRET = secret;
   }
 });

@@ -88,7 +88,7 @@ const getSyncStatusConfig = (
         badgeBg: 'bg-sky-50/80 border-sky-200 dark:bg-sky-950/40 dark:border-sky-800',
         Icon: RefreshCw,
         iconClass: 'animate-spin text-sky-600 dark:text-sky-400',
-        tooltip: 'Firebase Auth ativa; salvando seus dados financeiros no Neon PostgreSQL.',
+        tooltip: 'Login ativo; salvando seus dados financeiros no Neon PostgreSQL.',
       };
     case 'error':
       return {

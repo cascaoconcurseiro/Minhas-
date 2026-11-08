@@ -39,13 +39,13 @@ afterEach(() => {
   container = null;
 });
 
-test('login renderiza acesso Firebase por e-mail e não anuncia dados demo', () => {
+test('login renderiza acesso por e-mail e não anuncia dados demo', () => {
   const page = renderLoginPage();
 
   assert.match(page.textContent ?? '', /Acesse sua conta/);
   assert.ok(page.querySelector('[data-testid="login-email-input"]'));
   assert.ok(page.querySelector('[data-testid="login-password-input"]'));
-  assert.match(page.textContent ?? '', /Firebase Auth protege o acesso/);
+  assert.match(page.textContent ?? '', /O login protege o acesso/);
   assert.match(page.textContent ?? '', /Neon PostgreSQL/);
   assert.doesNotMatch(page.textContent ?? '', /Firestore|Guia Rápido|Quick Guide|dados fictícios/i);
   for (const label of Array.from(page.querySelectorAll('label'))) {

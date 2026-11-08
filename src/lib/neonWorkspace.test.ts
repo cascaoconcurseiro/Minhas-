@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {auth} from './firebase';
+import {auth} from './authClient';
 import {
   createNeonWorkspace,
   loadNeonWorkspace,

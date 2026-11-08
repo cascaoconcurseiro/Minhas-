@@ -41,21 +41,21 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 ## 1. Arquitetura do Projeto
 - **Frontend**: React 19 + TypeScript 7 + Vite 8 + Tailwind CSS v4 + Recharts
 - **Backend**: Node.js + Express 4 (backend/app.ts; servidor local ou Function Vercel)
-- **Autenticação**: Firebase Auth (e-mail e senha)
+- **Autenticação**: Login próprio no Neon (e-mail e senha, hash scrypt)
 - **Banco de Dados**: PostgreSQL no Neon, acessado pelo backend Express na Vercel
-- **Dados e identidade**: Firebase Auth fornece UID e token; o Neon PostgreSQL é a única persistência operacional do app.
+- **Dados e identidade**: O login próprio emite UID e sessão assinada; o Neon PostgreSQL é a única persistência operacional do app.
 - **Projeto Neon**: minhas-economias-br / production / neondb
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
 - **Testes**: node:test em src/utils/*.test.ts
 
 ## 2. Esquema do Workspace e Compartilhamento Familiar no Neon
 Tabelas PostgreSQL:
-1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo UID Firebase validado no backend.
+1. \`finance_workspaces\`: um snapshot JSONB por cofre, protegido pelo UID validado no backend.
 2. \`finance_workspace_migrations\`: recibo da importação legada, com hash e contagens de entidades.
 3. \`finance_family_invitations\`: convites e estado de aceite, consultáveis apenas pelo proprietário ou pelo e-mail convidado.
 4. \`finance_shared_transactions\`: registros das despesas explicitamente compartilhadas; somente participantes autorizados podem consultá-los.
 
-O workspace e o compartilhamento familiar são persistidos no Neon. O backend valida o token Firebase e aplica o UID autenticado em RLS.
+O workspace e o compartilhamento familiar são persistidos no Neon. O backend valida a sessão assinada e aplica o UID autenticado em RLS.
 
 ### Campos do snapshot JSONB do workspace no Neon:
 - \`uid\` (string, obrigatório, imutável, igual ao ID do documento)
@@ -128,7 +128,7 @@ git push -u origin main`;
               Documentação Oficial do Projeto, Banco de Dados & Sincronização GitHub
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Arquitetura Full-Stack, schema Neon, Firebase Auth e comandos Git
+              Arquitetura Full-Stack, schema Neon, login próprio e comandos Git
             </p>
           </div>
         </div>
@@ -221,10 +221,10 @@ git push -u origin main`;
                   Login e banco de dados
                 </span>
                 <p className="mt-1 font-mono font-bold text-slate-900 dark:text-white">
-                  Firebase Auth
+                  Login próprio
                 </p>
                 <p className="text-[11px] text-slate-600 dark:text-slate-300">
-                  Firebase Auth armazena a identidade; Neon PostgreSQL armazena os dados do app.
+                  A tabela app_users armazena a identidade; Neon PostgreSQL armazena os dados do app.
                 </p>
               </div>
 
@@ -236,7 +236,7 @@ git push -u origin main`;
                   • docs/DATABASE_DOCUMENTATION.md
                 </p>
                 <p className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  • db/migrations/006_neon_auth_identity.sql (normaliza nomes; a identidade atual usa UID Firebase)
+                  • db/migrations/006_neon_auth_identity.sql (normaliza nomes; a identidade usa o id de app_users)
                 </p>
               </div>
             </div>
@@ -255,7 +255,7 @@ git push -u origin main`;
                   <tr>
                     <td className="py-2 px-3 font-bold text-indigo-700 dark:text-indigo-400">uid</td>
                     <td className="py-2 px-3">string</td>
-                    <td className="py-2 px-3">Obrigatório • igual à chave estável derivada do UID Firebase</td>
+                    <td className="py-2 px-3">Obrigatório • igual à chave estável derivada do UID do usuário</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
                       Chave do workspace definida pelo servidor a partir do UID autenticado
                     </td>

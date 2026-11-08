@@ -82,7 +82,7 @@ function afterEach(cleanup: () => void) {
   cleanups.push(cleanup);
 }
 
-mock.module('../lib/firebase', () => ({
+mock.module('../lib/authClient', () => ({
   auth: authMock,
   onAuthStateChanged: (_auth: unknown, callback: (user: SyntheticUser | null) => void) => {
     authStateListener = callback;
@@ -90,6 +90,7 @@ mock.module('../lib/firebase', () => ({
     unsubscribeAuth = () => {};
     return unsubscribeAuth;
   },
+  getAuthErrorMessage: () => 'Falha sintética de autenticação.',
   getOrCreateAutoCloudVaultId: () => 'vault_synthetic_app_test',
   getVaultIdForUid: (uid: string) => `vault_uid_${uid}`,
   registerWithEmail: async (name: string, email: string, pass: string) => {
@@ -98,7 +99,7 @@ mock.module('../lib/firebase', () => ({
     authStateListener?.(authStateUser);
     return authStateUser;
   },
-  refreshFirebaseUser: async (user: SyntheticUser) => user,
+  refreshAuthUser: async (user: SyntheticUser) => user,
   resendEmailVerification: async () => {},
   signInWithEmail: async (email: string, pass: string) => {
     signInCalls.push([email, pass]);
@@ -106,7 +107,7 @@ mock.module('../lib/firebase', () => ({
     authStateListener?.(authStateUser);
     return authStateUser;
   },
-  signOutFirebaseUser: async () => {},
+  signOutUser: async () => {},
 }));
 
 mock.module('../lib/neonWorkspace', () => ({

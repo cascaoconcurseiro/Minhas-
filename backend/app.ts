@@ -12,7 +12,19 @@ import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
-import { FirebaseTokenVerificationError, verifyFirebaseIdTokenLocally } from './firebaseToken.ts';
+import {
+  createAttemptLimiter,
+  hashPassword,
+  isAuthConfigured,
+  isValidEmail,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  SessionTokenError,
+  signSessionToken,
+  verifyPassword,
+  verifySessionToken,
+} from './authSession.ts';
+import { randomUUID } from 'node:crypto';
 import {
   formatGoogleFinanceSymbol,
   normalizeTickerSymbol,
@@ -55,25 +67,9 @@ interface ReminderSmtpRouteDependencies {
   createTransport: typeof nodemailer.createTransport;
 }
 
-class FirebaseAuthError extends Error {
-  constructor(message: string, readonly status: 401 | 503) {
-    super(message);
-  }
-}
-
-async function verifyFirebaseIdToken(idToken: string): Promise<AuthUserIdentity> {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  if (!projectId) {
-    throw new FirebaseAuthError('Firebase Authentication não está configurado no servidor.', 503);
-  }
-  try {
-    return await verifyFirebaseIdTokenLocally(idToken, projectId);
-  } catch (error) {
-    if (error instanceof FirebaseTokenVerificationError) {
-      throw new FirebaseAuthError(error.message, error.status);
-    }
-    throw new FirebaseAuthError('Firebase Authentication está temporariamente indisponível.', 503);
-  }
+function verifyAuthToken(token: string): AuthUserIdentity {
+  const identity = verifySessionToken(token);
+  return { uid: identity.uid, email: identity.email, email_verified: identity.email_verified };
 }
 
 function getRequestWorkspacePayload(
@@ -138,7 +134,7 @@ function getRequestWorkspacePayload(
       return null;
     }
   }
-  // Identity always comes from the verified Firebase token, never from a
+  // Identity always comes from the verified session token, never from a
   // client-provided or legacy backup UID.
   return { ...payload, uid: vaultId };
 }
@@ -230,25 +226,158 @@ async function startServer() {
 
   app.use(express.json({ limit: '2mb' }));
 
-  const verifyFirebaseAuthUser: RequestHandler = async (req, res, next) => {
+  const verifyAuthUser: RequestHandler = (req, res, next) => {
     const authorization = req.header('authorization') || '';
     const token = authorization.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
       : '';
     if (!token) {
-      res.status(401).json({ error: 'Autenticação Firebase obrigatória.' });
+      res.status(401).json({ error: 'Autenticação obrigatória.' });
       return;
     }
     try {
-      res.locals.authUser = await verifyFirebaseIdToken(token);
+      res.locals.authUser = verifyAuthToken(token);
       next();
     } catch (error) {
-      const status = error instanceof FirebaseAuthError ? error.status : 503;
+      const status = error instanceof SessionTokenError ? error.status : 503;
       res.status(status).json({
-        error: status === 401 ? 'Token Firebase inválido ou expirado.' : 'Firebase Authentication temporariamente indisponível.',
+        error: status === 401 ? 'Sessão inválida ou expirada. Entre novamente.' : 'Autenticação indisponível no servidor.',
       });
     }
   };
+
+  const loginLimiter = createAttemptLimiter(8, 15 * 60 * 1000);
+  const registerLimiter = createAttemptLimiter(10, 60 * 60 * 1000);
+
+  const readCredentials = (body: unknown) => {
+    const data = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+    return {
+      email: typeof data.email === 'string' ? data.email.trim().toLowerCase() : '',
+      password: typeof data.password === 'string' ? data.password : '',
+      name: typeof data.name === 'string' ? data.name.trim().slice(0, 80) : '',
+    };
+  };
+
+  const sendSession = (
+    res: import('express').Response,
+    status: number,
+    user: { id: string; email: string; display_name: string; email_verified: boolean }
+  ) => {
+    const token = signSessionToken({
+      uid: user.id,
+      email: user.email,
+      email_verified: user.email_verified,
+      name: user.display_name,
+    });
+    res.set('Cache-Control', 'no-store');
+    res.status(status).json({
+      token,
+      user: {
+        uid: user.id,
+        email: user.email,
+        displayName: user.display_name,
+        emailVerified: user.email_verified,
+      },
+    });
+  };
+
+  app.post('/api/auth/register', async (req, res) => {
+    if (!isAuthConfigured()) {
+      res.status(503).json({ error: 'Autenticação não está configurada no servidor.' });
+      return;
+    }
+    const { email, password, name } = readCredentials(req.body);
+    const limitKey = req.ip || 'unknown';
+    if (registerLimiter.isBlocked(limitKey)) {
+      res.status(429).json({ error: 'Muitas tentativas. Aguarde um pouco e tente novamente.' });
+      return;
+    }
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: 'Informe um endereço de e-mail válido.' });
+      return;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+      res.status(400).json({ error: `A senha deve ter entre ${MIN_PASSWORD_LENGTH} e ${MAX_PASSWORD_LENGTH} caracteres.` });
+      return;
+    }
+    registerLimiter.recordFailure(limitKey);
+    try {
+      const id = `usr_${randomUUID().replace(/-/g, '')}`;
+      const displayName = name || email.split('@')[0];
+      const passwordHash = await hashPassword(password);
+      const result = await getNeonPool().query(
+        `INSERT INTO public.app_users (id, email, password_hash, display_name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO NOTHING
+         RETURNING id, email, display_name, email_verified`,
+        [id, email, passwordHash, displayName]
+      );
+      if (!result.rowCount) {
+        res.status(409).json({ error: 'Este e-mail já possui cadastro. Entre com a sua senha.' });
+        return;
+      }
+      sendSession(res, 201, result.rows[0]);
+    } catch (error) {
+      console.error('Erro ao cadastrar usuário no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível criar a conta agora. Tente novamente.' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    if (!isAuthConfigured()) {
+      res.status(503).json({ error: 'Autenticação não está configurada no servidor.' });
+      return;
+    }
+    const { email, password } = readCredentials(req.body);
+    const limitKey = `${req.ip || 'unknown'}|${email}`;
+    if (loginLimiter.isBlocked(limitKey)) {
+      res.status(429).json({ error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
+      return;
+    }
+    if (!isValidEmail(email) || !password || password.length > MAX_PASSWORD_LENGTH) {
+      res.status(400).json({ error: 'Informe e-mail e senha válidos.' });
+      return;
+    }
+    try {
+      const result = await getNeonPool().query(
+        `SELECT id, email, password_hash, display_name, email_verified
+           FROM public.app_users WHERE email = $1 LIMIT 1`,
+        [email]
+      );
+      const row = result.rows[0] as
+        | { id: string; email: string; password_hash: string; display_name: string; email_verified: boolean }
+        | undefined;
+      const valid = await verifyPassword(password, row?.password_hash);
+      if (!row || !valid) {
+        loginLimiter.recordFailure(limitKey);
+        res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+        return;
+      }
+      loginLimiter.reset(limitKey);
+      sendSession(res, 200, row);
+    } catch (error) {
+      console.error('Erro ao autenticar usuário no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível entrar agora. Tente novamente.' });
+    }
+  });
+
+  app.get('/api/auth/me', verifyAuthUser, async (_req, res) => {
+    const user = res.locals.authUser as AuthUserIdentity;
+    try {
+      const result = await getNeonPool().query(
+        `SELECT id, email, display_name, email_verified FROM public.app_users WHERE id = $1 LIMIT 1`,
+        [user.uid]
+      );
+      if (!result.rowCount) {
+        res.status(401).json({ error: 'Conta não encontrada. Entre novamente.' });
+        return;
+      }
+      sendSession(res, 200, result.rows[0]);
+    } catch (error) {
+      console.error('Erro ao validar sessão no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível validar a sessão agora.' });
+    }
+  });
 
   const requireVerifiedFamilyEmail: RequestHandler = (_req, res, next) => {
     const user = res.locals.authUser as AuthUserIdentity;
@@ -259,11 +388,11 @@ async function startServer() {
     next();
   };
 
-  app.use('/api/workspace', verifyFirebaseAuthUser);
-  app.use('/api/family', verifyFirebaseAuthUser, requireVerifiedFamilyEmail);
-  app.use('/api/reminders/send-email', verifyFirebaseAuthUser);
-  app.use('/api/fx/live-rate', verifyFirebaseAuthUser);
-  app.use('/api/investments/sync-quotes', verifyFirebaseAuthUser);
+  app.use('/api/workspace', verifyAuthUser);
+  app.use('/api/family', verifyAuthUser, requireVerifiedFamilyEmail);
+  app.use('/api/reminders/send-email', verifyAuthUser);
+  app.use('/api/fx/live-rate', verifyAuthUser);
+  app.use('/api/investments/sync-quotes', verifyAuthUser);
 
   app.get('/api/workspace', async (_req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
@@ -279,7 +408,7 @@ async function startServer() {
           [user.uid]
         );
         if (result.rows.length > 1) {
-          throw new Error('Mais de um workspace está associado a esta identidade Firebase.');
+          throw new Error('Mais de um workspace está associado a esta identidade.');
         }
         return result.rows[0] ?? null;
       });
@@ -301,7 +430,7 @@ async function startServer() {
   app.post('/api/workspace', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {
-      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      res.status(403).json({ error: 'A conta precisa ter um e-mail.' });
       return;
     }
     const vaultId = getVaultIdForUid(user.uid);
@@ -353,7 +482,7 @@ async function startServer() {
   app.put('/api/workspace', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {
-      res.status(403).json({ error: 'A conta Firebase precisa ter um e-mail.' });
+      res.status(403).json({ error: 'A conta precisa ter um e-mail.' });
       return;
     }
     const vaultId = getVaultIdForUid(user.uid);
@@ -793,9 +922,9 @@ async function startServer() {
   // protected daily readiness check below.
   app.get('/api/status', (_req, res) => {
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
-    const firebaseAuthConfigured = Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY);
+    const authConfigured = isAuthConfigured();
     const neonConfigured = Boolean(process.env.DATABASE_URL);
-    const configured = firebaseAuthConfigured && neonConfigured;
+    const configured = authConfigured && neonConfigured;
     res.set('Cache-Control', 'no-store');
     res.status(configured ? 200 : 503).json({
       status: configured ? 'ok' : 'degraded',
@@ -804,7 +933,7 @@ async function startServer() {
       services: {
         liveFxSearch: hasGeminiKey,
         googleFinanceSync: true,
-        firebaseAuthConfigured,
+        authConfigured,
         neonConfigured,
         neon: 'not_checked',
       },
@@ -823,7 +952,7 @@ async function startServer() {
     }
 
     const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
-    const firebaseAuthConfigured = Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY);
+    const authConfigured = isAuthConfigured();
     let neonStatus: 'ok' | 'error' = 'error';
     let neonLeastPrivilegeRole: boolean | null = null;
     try {
@@ -854,7 +983,7 @@ async function startServer() {
       // Do not expose connection strings or database errors from a public health route.
     }
 
-    const ready = neonStatus === 'ok' && neonLeastPrivilegeRole === true && firebaseAuthConfigured;
+    const ready = neonStatus === 'ok' && neonLeastPrivilegeRole === true && authConfigured;
     res.set('Cache-Control', 'no-store');
     res.status(ready ? 200 : 503).json({
       status: ready ? 'ok' : 'degraded',
@@ -863,7 +992,7 @@ async function startServer() {
       services: {
         liveFxSearch: hasGeminiKey,
         googleFinanceSync: true,
-        firebaseAuthConfigured,
+        authConfigured,
         neonConfigured: Boolean(process.env.DATABASE_URL),
         neon: neonStatus,
         neonLeastPrivilegeRole,

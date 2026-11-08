@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
   Bell,
   CheckCircle2,
@@ -20,12 +21,12 @@ import {
   getOrCreateAutoCloudVaultId,
   getVaultIdForUid,
   registerWithEmail,
-  refreshFirebaseUser,
+  refreshAuthUser,
   resendEmailVerification,
   signInWithEmail,
-  signOutFirebaseUser,
+  signOutUser,
   type User,
-} from './lib/firebase';
+} from './lib/authClient';
 import {
   createNeonWorkspace,
   createNeonFamilyInvitation,
@@ -68,7 +69,6 @@ import {
   formatBRL,
   getLocalDateISO,
   formatMonthYearPT,
-  parseBRLInput,
   payCreditCardInvoice,
   toggleTransactionStatusWithCascade,
 } from './utils/financeRules';
@@ -284,7 +284,7 @@ export default function App() {
   const globalSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
-  // Firebase Auth supplies identity; Neon PostgreSQL stores the workspace.
+  // Own Neon login supplies identity; Neon PostgreSQL stores the workspace.
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isVerificationActionBusy, setIsVerificationActionBusy] = useState(false);
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
@@ -313,7 +313,7 @@ export default function App() {
   const saveRetryUidRef = useRef<string | null>(null);
   const scheduleSaveRetryRef = useRef<(delayMs?: number) => void>(() => {});
 
-  // Firebase Auth supplies identity; the workspace and all financial data persist in Neon PostgreSQL.
+  // Own Neon login supplies identity; the workspace and all financial data persist in Neon PostgreSQL.
   const [authSession, setAuthSession] = useState<{
     isLoggedIn: boolean;
     email: string;
@@ -539,7 +539,7 @@ export default function App() {
     );
   };
 
-  // Firebase Auth session listener
+  // Auth session listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       const previousUid = authenticatedUidRef.current;
@@ -602,7 +602,7 @@ export default function App() {
   const queueNeonWorkspaceSave = (payload: Record<string, unknown>) => {
     const authenticatedUser = currentUser;
     if (!authenticatedUser?.email) {
-      return Promise.reject(new Error('Entre com sua conta Firebase para sincronizar com o Neon.'));
+      return Promise.reject(new Error('Entre na sua conta para sincronizar com o Neon.'));
     }
 
     const queuedSave = neonSaveQueueRef.current.then(async () => {
@@ -862,7 +862,7 @@ export default function App() {
     window.location.reload();
   };
 
-  // Neon is the sole financial data store; Firebase Auth supplies identity only.
+  // Neon is the sole financial data store; the own Neon login supplies identity only.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
 
@@ -1289,7 +1289,7 @@ export default function App() {
     if (!currentUser) return;
     setIsVerificationActionBusy(true);
     try {
-      const refreshedUser = await refreshFirebaseUser(currentUser);
+      const refreshedUser = await refreshAuthUser(currentUser);
       setCurrentUser(refreshedUser);
       showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Ainda não encontramos a confirmação. Abra o link enviado e tente novamente.', undefined, true);
     } catch {
@@ -1301,7 +1301,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
-      await signOutFirebaseUser();
+      await signOutUser();
     } catch {
       // Ignore
     }
@@ -2646,46 +2646,20 @@ export default function App() {
   };
 
   const handleImportQuickCsvLines = (linesText: string, targetAccountId: string): number => {
-    const lines = linesText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
-
-    const imported: Transaction[] = [];
-    lines.forEach((line, idx) => {
-      const parts = line.split(';');
-      if (parts.length < 3) return;
-      const rawDate = parts[0].trim();
-      const rawDesc = parts[1].trim();
-      const rawVal = parts[2].trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate) || !rawDesc) return;
-      const [year, month, day] = rawDate.split('-').map(Number);
-      const parsedDate = new Date(Date.UTC(year, month - 1, day));
-      if (
-        parsedDate.getUTCFullYear() !== year ||
-        parsedDate.getUTCMonth() !== month - 1 ||
-        parsedDate.getUTCDate() !== day
-      ) return;
-
-      const isNegative = rawVal.startsWith('-');
-      const amount = Math.abs(parseBRLInput(rawVal));
-      if (amount <= 0) return;
-
-      imported.push({
-        id: `tx-imp-${Date.now()}-${idx}`,
-        description: rawDesc,
-        amount,
-        date: rawDate,
-        competenceMonth: rawDate.slice(0, 7),
-        type: isNegative ? 'expense' : 'income',
-        status: 'paid',
-        categoryId: isNegative ? 'cat-mercado' : 'cat-freela',
-        accountId: targetAccountId,
-        paymentMethod: 'pix',
-        recurrence: 'single',
-        notes: 'Importado manualmente via lote CSV',
-      });
-    });
+    const imported: Transaction[] = parseQuickCsvLines(linesText).valid.map((row, idx) => ({
+      id: `tx-imp-${Date.now()}-${idx}`,
+      description: row.description,
+      amount: row.amount,
+      date: row.date,
+      competenceMonth: row.date.slice(0, 7),
+      type: row.isNegative ? 'expense' : 'income',
+      status: 'paid',
+      categoryId: row.isNegative ? 'cat-mercado' : 'cat-freela',
+      accountId: targetAccountId,
+      paymentMethod: 'pix',
+      recurrence: 'single',
+      notes: 'Importado manualmente via lote CSV',
+    }));
 
     if (imported.length > 0) {
       showNotice(`${imported.length} lançamento(s) importado(s) via lote CSV.`);
@@ -2717,7 +2691,7 @@ export default function App() {
 
   const handleExportFullBackupJson = () => {
     if (!currentUser?.uid) {
-      showNotice('Entre na sua conta Firebase para exportar o backup do workspace.');
+      showNotice('Entre na sua conta para exportar o backup do workspace.');
       return;
     }
     const payload = {
@@ -2930,7 +2904,7 @@ export default function App() {
       case 'cloud':
         return {
           title: 'Conta, Login & Nuvem',
-          subtitle: 'Firebase Auth, sincronização Neon e auditoria dos dados carregados',
+          subtitle: 'Login e sincronização Neon e auditoria dos dados carregados',
         };
     }
   }, [activeTab]);

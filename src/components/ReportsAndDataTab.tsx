@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { parseQuickCsvLines } from '../utils/quickCsvImport';
 import {
   BarChart3,
   Download,
@@ -342,8 +343,16 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
       importTargetAccId || accounts[0]?.id || ''
     );
     if (count > 0) {
-      setImportFeedback(`${count} lançamento(s) importado(s) com sucesso para o extrato!`);
-      setCsvPasteText('');
+      const { rejected } = parseQuickCsvLines(csvPasteText);
+      if (rejected.length > 0) {
+        setImportFeedback(
+          `${count} lançamento(s) importado(s). ${rejected.length} linha(s) com erro foram mantidas na caixa para correção (formato: YYYY-MM-DD;Descrição;Valor).`
+        );
+        setCsvPasteText(rejected.join('\n'));
+      } else {
+        setImportFeedback(`${count} lançamento(s) importado(s) com sucesso para o extrato!`);
+        setCsvPasteText('');
+      }
     } else {
       setImportFeedback(
         'Use o formato: YYYY-MM-DD;Descrição;Valor (ex: 2026-10-22;Padaria Real;-34,90)'

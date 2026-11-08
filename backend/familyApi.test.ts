@@ -1,6 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, sign } from 'node:crypto';
+import { signSessionToken } from './authSession.ts';
 import { Pool } from 'pg';
 
 const originalConnect = Pool.prototype.connect;
@@ -8,17 +8,13 @@ const originalFetch = globalThis.fetch;
 const oldEnv = {
   VERCEL: process.env.VERCEL,
   DATABASE_URL: process.env.DATABASE_URL,
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-  FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
+  AUTH_SESSION_SECRET: process.env.AUTH_SESSION_SECRET,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   CRON_SECRET: process.env.CRON_SECRET,
 };
 
 let authTokens: Record<string, string> = {};
-const firebaseSigningKey = generateKeyPairSync('rsa', { modulusLength: 2048 });
-const firebasePublicKey = firebaseSigningKey.publicKey.export({ type: 'spki', format: 'pem' }).toString();
-
-function mockFirebaseToken(uid: string, projectId = 'firebase-test-project', nonce = 'default', kid = 'test-firebase-key') {
+function mockAuthToken(uid: string, nonce = 'default') {
   const emailByNonce: Record<string, string> = {
     invitedUppercase: 'Member@Example.com',
     changedEmail: 'renamed@example.net',
@@ -29,21 +25,12 @@ function mockFirebaseToken(uid: string, projectId = 'firebase-test-project', non
     'recreated-member-uid': 'member@example.com',
     'other-uid': 'other@example.com',
   };
-  const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid, typ: 'JWT' })).toString('base64url');
-  const claims = Buffer.from(JSON.stringify({
-    aud: projectId,
-    iss: `https://securetoken.google.com/${projectId}`,
-    sub: uid,
-    user_id: uid,
+  return signSessionToken({
+    uid,
     email: emailByNonce[nonce] || emailByUid[uid] || `${uid}@example.com`,
     email_verified: nonce !== 'unverified',
-    iat: Math.floor(Date.now() / 1000) - 60,
-    exp: Math.floor(Date.now() / 1000) + 3600,
-    auth_time: Math.floor(Date.now() / 1000) - 120,
-  })).toString('base64url');
-  const signedContent = `${header}.${claims}`;
-  const signature = sign('RSA-SHA256', Buffer.from(signedContent), firebaseSigningKey.privateKey).toString('base64url');
-  return `${signedContent}.${signature}`;
+    name: uid,
+  });
 }
 
 let invitation: {
@@ -82,7 +69,6 @@ let workspaceExists = true;
 let failWorkspaceUpdates = false;
 const workspaceUpdateParameters: unknown[][] = [];
 let googleFinanceResponseHtml: string | null = null;
-let failFirebaseCertRefresh = false;
 const googleFinanceRequests: string[] = [];
 let geminiResponsePayload: Record<string, unknown> | null = null;
 let geminiResponseStatus = 503;
@@ -98,34 +84,11 @@ function restoreEnv(name: keyof typeof oldEnv) {
 before(async () => {
   process.env.VERCEL = '1';
   process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/test';
-  process.env.FIREBASE_PROJECT_ID = 'firebase-test-project';
-  process.env.FIREBASE_API_KEY = 'test-web-api-key';
+  process.env.AUTH_SESSION_SECRET = 'test-session-secret-with-more-than-32-chars';
   process.env.CRON_SECRET = 'local-test-cron-secret';
   delete process.env.GEMINI_API_KEY;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    if (url === 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com') {
-      if (failFirebaseCertRefresh) return new Response('synthetic cert service unavailable', { status: 503 });
-      return new Response(JSON.stringify({ 'test-firebase-key': firebasePublicKey }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
-      });
-    }
-    if (url.startsWith('https://identitytoolkit.googleapis.com/v1/accounts:lookup')) {
-      try {
-        const requestBody = JSON.parse(String(init?.body || '{}')) as { idToken?: unknown };
-        const idToken = typeof requestBody.idToken === 'string' ? requestBody.idToken : '';
-        const payloadSegment = idToken.split('.')[1];
-        const claims = JSON.parse(Buffer.from(payloadSegment || '', 'base64url').toString('utf8')) as { sub?: unknown };
-        if (typeof claims.sub !== 'string') return new Response(JSON.stringify({ error: { message: 'INVALID_ID_TOKEN' } }), { status: 400 });
-        return new Response(JSON.stringify({ users: [{ localId: claims.sub, validSince: '0', disabled: false }] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      } catch {
-        return new Response(JSON.stringify({ error: { message: 'INVALID_ID_TOKEN' } }), { status: 400 });
-      }
-    }
     if (googleFinanceResponseHtml && url.startsWith('https://www.google.com/finance/quote/')) {
       googleFinanceRequests.push(url);
       return new Response(googleFinanceResponseHtml, { status: 200 });
@@ -147,14 +110,13 @@ before(async () => {
     return originalFetch(input, init);
   }) as typeof fetch;
   authTokens = {
-    owner: mockFirebaseToken('owner-uid', 'firebase-test-project', 'owner'),
-    unverified: mockFirebaseToken('owner-uid', 'firebase-test-project', 'unverified'),
-    wrongIssuer: mockFirebaseToken('owner-uid', 'another-firebase-project', 'wrong-project'),
-    invited: mockFirebaseToken('member-uid', 'firebase-test-project', 'invited'),
-    invitedUppercase: mockFirebaseToken('member-uid', 'firebase-test-project', 'invited-uppercase'),
-    invitedRecreated: mockFirebaseToken('recreated-member-uid', 'firebase-test-project', 'invited-recreated'),
-    other: mockFirebaseToken('other-uid', 'firebase-test-project', 'other'),
-    changedEmail: mockFirebaseToken('owner-uid', 'firebase-test-project', 'changed-email'),
+    owner: mockAuthToken('owner-uid', 'owner'),
+    unverified: mockAuthToken('owner-uid', 'unverified'),
+    invited: mockAuthToken('member-uid', 'invited'),
+    invitedUppercase: mockAuthToken('member-uid', 'invited-uppercase'),
+    invitedRecreated: mockAuthToken('recreated-member-uid', 'invited-recreated'),
+    other: mockAuthToken('other-uid', 'other'),
+    changedEmail: mockAuthToken('owner-uid', 'changed-email'),
   };
 
   Pool.prototype.connect = async function () {
@@ -290,13 +252,12 @@ after(async () => {
   globalThis.fetch = originalFetch;
   restoreEnv('VERCEL');
   restoreEnv('DATABASE_URL');
-  restoreEnv('FIREBASE_PROJECT_ID');
-  restoreEnv('FIREBASE_API_KEY');
+  restoreEnv('AUTH_SESSION_SECRET');
   restoreEnv('GEMINI_API_KEY');
   restoreEnv('CRON_SECRET');
 });
 
-test('API familiar exige Firebase Auth e sincroniza pelo Neon antes de revogar', async () => {
+test('API familiar exige login e sincroniza pelo Neon antes de revogar', async () => {
   const unauthenticated = await originalFetch(`${baseUrl}/api/family/shared`);
   assert.equal(unauthenticated.status, 401);
 
@@ -306,11 +267,6 @@ test('API familiar exige Firebase Auth e sincroniza pelo Neon antes de revogar',
     body: JSON.stringify({ invitedEmail: 'member@example.com', ownerMemberId: 'member-1' }),
   });
   assert.equal(unauthenticatedInvite.status, 401);
-
-  const wrongIssuer = await originalFetch(`${baseUrl}/api/family/shared`, {
-    headers: { Authorization: `Bearer ${authTokens.wrongIssuer}` },
-  });
-  assert.equal(wrongIssuer.status, 401, 'token ausente do Firebase deve ser rejeitado');
 
   const sqlBeforeUnverified = sqlLog.length;
   const unverified = await originalFetch(`${baseUrl}/api/family/shared`, {
@@ -1028,23 +984,5 @@ test('lembrete autenticado retorna sucesso com transporte SMTP sintético', asyn
     });
   } finally {
     appLocals.reminderSmtpRouteDependencies = previousDependencies;
-  }
-});
-
-test('falha ao atualizar certificados Firebase retorna 503 sem entrar na rota Neon', async () => {
-  const token = mockFirebaseToken('owner-uid', 'firebase-test-project', 'key-rotation', 'rotated-test-key');
-  const queryCountBefore = sqlLog.length;
-  failFirebaseCertRefresh = true;
-  try {
-    const response = await originalFetch(`${baseUrl}/api/workspace`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    assert.equal(response.status, 503, 'indisponibilidade do provedor de chaves não deve ser tratada como token inválido');
-    assert.deepEqual(await response.json(), {
-      error: 'Firebase Authentication temporariamente indisponível.',
-    });
-    assert.equal(sqlLog.length, queryCountBefore, 'a rota protegida não deve consultar Neon sem validar a assinatura');
-  } finally {
-    failFirebaseCertRefresh = false;
   }
 });

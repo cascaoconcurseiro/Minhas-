@@ -9,7 +9,7 @@ import {
 
 const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
 
-test('resets in-memory workspace at sign-out and when Firebase changes account UID', () => {
+test('resets in-memory workspace at sign-out and when User changes account UID', () => {
   assert.equal(shouldResetWorkspaceForAuthChange('uid-a', null), true);
   assert.equal(shouldResetWorkspaceForAuthChange('uid-a', 'uid-b'), true);
   assert.equal(shouldResetWorkspaceForAuthChange(null, 'uid-a'), true);
@@ -18,7 +18,7 @@ test('resets in-memory workspace at sign-out and when Firebase changes account U
   assert.match(appSource, /if \(shouldResetWorkspaceForAuthChange\(previousUid, nextUid\)\)\s*\{[\s\S]*?resetFinancialStateToCleanZero\(\);[\s\S]*?setSettings\(DEFAULT_SETTINGS\)/);
 });
 
-test('a loaded workspace is not considered ready for another Firebase UID', () => {
+test('a loaded workspace is not considered ready for another User UID', () => {
   assert.equal(isWorkspaceLoadedForUser('uid-a', 'uid-a'), true);
   assert.equal(isWorkspaceLoadedForUser('uid-a', 'uid-b'), false);
   assert.equal(isWorkspaceLoadedForUser('uid-a', null), false);

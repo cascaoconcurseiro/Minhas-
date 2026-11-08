@@ -1,5 +1,33 @@
 # Handoff — Minhas Economias
 
+## Login próprio no Neon (sem Firebase) — 2026-11-08
+
+Feito: Firebase removido do código, dependência e config. Novo login em `backend/authSession.ts` + rotas `/api/auth/register|login|me` em `backend/app.ts`; cliente em `src/lib/authClient.ts`. Migration `db/migrations/008_app_users_own_auth.sql`. CSV: sinal `R$ -34,90`/`34,90-`/`(34,90)` e linhas rejeitadas mantidas na caixa (`src/utils/quickCsvImport.ts`). Validado local: 377 testes, tsc, build e login/recarga no navegador com banco simulado.
+
+**Pendente (só o dono pode fazer, antes do deploy):**
+1. Rodar a migration 008 no SQL Editor do Neon (o SQL já foi colado no editor, falta clicar em Run).
+2. Cadastrar `AUTH_SESSION_SECRET` (32+ caracteres aleatórios) na Vercel, Production. Remover `FIREBASE_*`.
+3. Publicar. Depois testar cadastro/login em produção e apagar a conta de teste.
+
+**Limites conhecidos:** verificação de e-mail ainda não existe (compartilhamento familiar fica bloqueado, pois exige e-mail verificado); logout não revoga o token (vale até 30 dias); limite de tentativas é por instância serverless.
+
+## Triagem de regressões — 2026-11-07
+
+Revisei em paralelo API/Auth, finanças e UI após as correções locais de importação CSV sem conta, validação de investimento e verificação de conta Firebase. A árvore estava limpa antes desta atualização documental. Não executei os 374 testes, não chamei produção e não alterei código ou dados; a contagem permanece como relatada no projeto, não verificada nesta triagem. Não há evidência de deployment atual nesta revisão, então nenhum estado de publicação foi inferido.
+
+Riscos de maior prioridade observáveis sem escrita:
+- CSV misto: `src/App.tsx:2648-2694` ignora linhas inválidas e retorna somente contagem; `src/components/ReportsAndDataTab.tsx:337-349` limpa todo o texto quando ao menos uma linha é aceita. Um lote com uma linha válida e outra inválida pode sinalizar sucesso e apagar também a linha rejeitada. Verificar em harness sintético com callback espião, sem estado financeiro/API.
+- Sinal CSV: `src/App.tsx:2670-2671` classifica pela presença de `-` no primeiro caractere, enquanto `parseBRLInput` remove `R$` e espaços antes de ler o sinal (`src/utils/financeRules.ts:43-47`). `R$ -34,90` pode ser tratado como receita. Cobrir formatos com sinal antes/depois do símbolo em fixture local e observar o tipo entregue ao callback.
+- Conta destino obsoleta: `ReportsAndDataTab.tsx:154` inicializa o ID apenas no mount; quando as props mudam, o ID antigo pode continuar selecionado. `App.tsx` recebe esse ID sem validar contra as contas atuais. Simular troca de `[A,B]` para `[B]` em harness e capturar o ID, sem gravar.
+- Auth/readiness: `backend/app.ts:796-857` considera Firebase configurado pela presença de `FIREBASE_API_KEY`; chamadas autenticadas depois dependem de `accounts:lookup` em `backend/firebaseToken.ts`. Uma chave presente, mas inválida/restrita, pode coexistir com status/readiness configurados e falha 503 na rota protegida. Validar primeiro com fetch mockado; somente em QA, comparar esses GETs sem POST/PUT/DELETE de dados. A documentação Firebase alerta que restrições de API key podem gerar 403 se `identitytoolkit.googleapis.com` não estiver permitido. [Documentação Firebase API keys](https://firebase.google.com/docs/projects/api-keys).
+- Auth disponibilidade: `accounts:lookup` ocorre em cada verificação com timeout de 5 s (`firebaseToken.ts:128-169,248`). Testes atuais não demonstram comportamento de latência/concorrência/rate limit. Usar delay mockado ou GET autenticado em QA com identidade de teste; não fazer load test em produção.
+
+Casos financeiros adicionais para esclarecer antes de marcar como defeito: `InvestmentsTab.tsx:383-405` passa quantidade por `parseBRLInput`, que trata valores como dinheiro com duas casas; confirmar se frações abaixo de 0,01 são permitidas. A regra recente também recusa preço médio ou atual zero; confirmar a regra para ativos sem cotação/preço de custo desconhecido. `monthlyYieldPercent` converte entrada inválida/negativa em zero (`InvestmentsTab.tsx:394`), sem erro visível. Verificar os três por callbacks espiões em harness. Logout rejeitado também não tem tratamento visual em `AuthAndCloudTab.tsx:233,326`; testar callback rejeitado sem sessão real.
+
+**Próximo passo concreto:** adicionar/rodar somente os ensaios de harness (CSV misto, variação de formato do sinal, troca de conta destino, entradas de investimento e callback de logout rejeitado). Depois, em QA e apenas por GET, observar o comportamento com chave Firebase inválida ou upstream lento e conferir privilégios efetivos por consulta de catálogo read-only. Não inferir readiness real a partir da mera presença de variáveis e não afirmar deploy até observar evidência específica.
+
+**Limites:** a documentação Firebase confirma que chave com restrições incorretas pode produzir erro de serviço e que a Identity Toolkit API deve estar na allowlist; isso fundamenta o risco de configuração, mas não verifica a chave deste projeto. Nenhum teste, chamada QA/produção ou gravação foi feito nesta triagem. A arquitetura não mudou; o blueprint permanece inalterado.
+
 ## Estado atual — 2026-11-07 — autenticação, cron e cobertura
 
 Arquitetura vigente: **Firebase Auth identifica o usuário; Neon PostgreSQL é o único banco operacional**. O runtime importa `firebase/auth`, sem uso de Firestore. Firebase permanece no login/UID/token e na checagem de sessão; contas, lançamentos e demais dados financeiros persistem no Neon.
