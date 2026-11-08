@@ -743,7 +743,10 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Remover Firebase (código, dependência, config) e criar login próprio (`authSession.ts`, `/api/auth/*`, `authClient.ts`).
 - [x] Corrigir CSV: sinal em `R$ -34,90`, `34,90-`, `(34,90)` e manter linhas rejeitadas na caixa.
 - [x] 377 testes, tsc e build passando; login e recarga validados no navegador (banco simulado).
-- [ ] Rodar migration 008 no Neon de produção.
+- [x] Rodar migration 008 no Neon de produção.
 - [ ] Cadastrar `AUTH_SESSION_SECRET` na Vercel e remover `FIREBASE_*`.
 - [ ] Publicar e testar cadastro/login em produção.
-- [ ] Implementar verificação de e-mail (libera compartilhamento familiar).
+- [x] Verificação de e-mail descartada por decisão do dono: família só por convite no sistema.
+- [x] Logout real (token_version) implementado e testado localmente.
+- [x] Migration 009 aplicada no Neon de produção.
+- [ ] Commitar e publicar na main.

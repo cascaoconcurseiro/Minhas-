@@ -1,15 +1,16 @@
 # Handoff — Minhas Economias
 
-## Login próprio no Neon (sem Firebase) — 2026-11-08
+## Logout real + sem verificação de e-mail — 2026-11-07
 
-Feito: Firebase removido do código, dependência e config. Novo login em `backend/authSession.ts` + rotas `/api/auth/register|login|me` em `backend/app.ts`; cliente em `src/lib/authClient.ts`. Migration `db/migrations/008_app_users_own_auth.sql`. CSV: sinal `R$ -34,90`/`34,90-`/`(34,90)` e linhas rejeitadas mantidas na caixa (`src/utils/quickCsvImport.ts`). Validado local: 377 testes, tsc, build e login/recarga no navegador com banco simulado.
+Feito (local, NÃO commitado/publicado): `token_version` em `app_users` (migration `db/migrations/009_app_users_token_version.sql`), `verifyAuthUser` consulta o Neon a cada requisição, `POST /api/auth/logout` invalida tokens antigos, `signOutUser` chama o servidor. Verificação de e-mail removida por decisão do dono: família só por convite dentro do sistema (sem exigir e-mail confirmado). 379 testes, tsc e build ok.
 
-**Pendente (só o dono pode fazer, antes do deploy):**
-1. Rodar a migration 008 no SQL Editor do Neon (o SQL já foi colado no editor, falta clicar em Run).
-2. Cadastrar `AUTH_SESSION_SECRET` (32+ caracteres aleatórios) na Vercel, Production. Remover `FIREBASE_*`.
-3. Publicar. Depois testar cadastro/login em produção e apagar a conta de teste.
+**Pendente, nesta ordem:**
+1. FEITO: migration 009 aplicada no Neon de produção em 2026-11-07 (coluna token_version). O deploy já pode sair.
+2. Commitar e publicar na `main`.
+3. Apagar `FIREBASE_*` na Vercel (o assistente não pode).
+4. Cliente com versão antiga em cache (PWA, `registerType: 'prompt'`) ainda chama o Firebase: limpar dados do site ou aceitar a atualização.
 
-**Limites conhecidos:** verificação de e-mail ainda não existe (compartilhamento familiar fica bloqueado, pois exige e-mail verificado); logout não revoga o token (vale até 30 dias); limite de tentativas é por instância serverless.
+Limite conhecido: limitador de tentativas é por instância serverless.
 
 ## Triagem de regressões — 2026-11-07
 

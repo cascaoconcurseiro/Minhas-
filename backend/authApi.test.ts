@@ -16,6 +16,7 @@ interface UserRow {
   password_hash: string;
   display_name: string;
   email_verified: boolean;
+  token_version: number;
 }
 
 const users = new Map<string, UserRow>();
@@ -39,9 +40,14 @@ before(async () => {
     if (/INSERT INTO public\.app_users/.test(sql)) {
       const [id, email, password_hash, display_name] = params as string[];
       if (users.has(email)) return { rows: [], rowCount: 0 };
-      const row = { id, email, password_hash, display_name, email_verified: false };
+      const row = { id, email, password_hash, display_name, email_verified: false, token_version: 0 };
       users.set(email, row);
       return { rows: [row], rowCount: 1 };
+    }
+    if (/UPDATE public\.app_users SET token_version/.test(sql)) {
+      const row = [...users.values()].find((u) => u.id === params[0]);
+      if (row) row.token_version += 1;
+      return { rows: [], rowCount: row ? 1 : 0 };
     }
     if (/FROM public\.app_users WHERE email/.test(sql)) {
       const row = users.get(params[0] as string);
@@ -123,6 +129,27 @@ test('rotas protegidas aceitam a sessão emitida e recusam token adulterado ou e
   );
   const old = await fetch(`${baseUrl}/api/workspace`, { headers: { Authorization: `Bearer ${expired}` } });
   assert.equal(old.status, 401);
+});
+
+test('logout invalida o token em todos os lugares, sem afetar outros usuários', async () => {
+  const bob = await post('/api/auth/register', { name: 'Bob', email: 'bob@example.com', password: 'senha-do-bob-123' });
+  const carol = await post('/api/auth/register', { name: 'Carol', email: 'carol@example.com', password: 'senha-da-carol-123' });
+  assert.equal(bob.status, 201);
+  assert.equal(carol.status, 201);
+  assert.notEqual(bob.body.user.uid, carol.body.user.uid);
+
+  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+  assert.equal((await fetch(`${baseUrl}/api/auth/me`, { headers: auth(bob.body.token) })).status, 200);
+
+  const logout = await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST', headers: auth(bob.body.token) });
+  assert.equal(logout.status, 204);
+
+  // Token antigo do Bob morre; novo login funciona; Carol segue logada.
+  assert.equal((await fetch(`${baseUrl}/api/auth/me`, { headers: auth(bob.body.token) })).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/workspace`, { headers: auth(bob.body.token) })).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/auth/me`, { headers: auth(carol.body.token) })).status, 200);
+  const again = await post('/api/auth/login', { email: 'bob@example.com', password: 'senha-do-bob-123' });
+  assert.equal((await fetch(`${baseUrl}/api/auth/me`, { headers: auth(again.body.token) })).status, 200);
 });
 
 test('muitas senhas erradas bloqueiam novas tentativas por um tempo', async () => {

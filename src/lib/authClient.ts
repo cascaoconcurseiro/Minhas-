@@ -169,10 +169,6 @@ export async function registerWithEmail(displayName: string, email: string, pass
   return user;
 }
 
-export async function resendEmailVerification(_user: User): Promise<void> {
-  throw new AuthError('A verificação de e-mail ainda não está disponível.', 501);
-}
-
 export async function refreshAuthUser(user: User): Promise<User> {
   const token = await user.getIdToken();
   const session = await requestJson<SessionResponse>('/api/auth/me', {
@@ -182,7 +178,15 @@ export async function refreshAuthUser(user: User): Promise<User> {
 }
 
 export async function signOutUser(): Promise<void> {
+  const token = readStoredToken();
+  // Always end the local session; the server call revokes the token everywhere.
   applySession(null);
+  if (!token) return;
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    // Offline: the local session is already gone.
+  }
 }
 
 export function getAuthErrorMessage(error: unknown): string {
