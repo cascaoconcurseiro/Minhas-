@@ -102,6 +102,25 @@ test('GoalsAndSimulatorTab rejects invalid goals and creates one with parsed BRL
   assert.match(createdGoal.deadline, /^\d{4}-\d{2}-\d{2}$/);
 });
 
+test('goal money inputs group thousands while typing and finalize two decimal places on blur', async () => {
+  const page = renderGoalsTab({});
+  const openFormButton = [...page.querySelectorAll('button')]
+    .find((button) => button.textContent?.trim() === 'Nova Meta');
+  assert.ok(openFormButton);
+  await act(async () => { openFormButton.click(); });
+
+  const amountInput = page.querySelector<HTMLInputElement>('#goal-target');
+  assert.ok(amountInput);
+  await act(async () => {
+    amountInput.focus();
+    setInputValue(amountInput, '1000');
+  });
+  assert.equal(amountInput.value, '1.000');
+
+  await act(async () => { amountInput.blur(); });
+  assert.equal(amountInput.value, '1.000,00');
+});
+
 test('GoalsAndSimulatorTab edits an existing synthetic goal and preserves its id', async () => {
   const updatedGoals: SavingsGoal[] = [];
   const page = renderGoalsTab({

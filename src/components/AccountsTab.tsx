@@ -42,6 +42,8 @@ import {
 import { CURRENCY_CATALOG, formatForeignCurrency } from '../utils/travelRules';
 import { calculateAccountStatementWithRunningBalance } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { CurrencyInput } from './CurrencyInput';
+import { parseCurrencyInput } from '../utils/currencyInput';
 
 const FOREIGN_CURRENCY_OPTIONS: CurrencyCode[] = [
   'EUR',
@@ -372,7 +374,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     }
     const isIntl = accType === 'international';
     const parsedInitialBrl = parseBRLInput(accInitialStr);
-    const parsedInitialForeign = parseBRLInput(accInitialForeignStr);
+    const parsedInitialForeign = parseCurrencyInput(accInitialForeignStr, accCurrency);
     // parseBRLInput deliberately returns 0 for malformed input; validate the
     // text separately so malformed values cannot become real zero balances.
     if (!isValidBrlBalanceInput(accInitialStr)) {
@@ -747,11 +749,11 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                       <label htmlFor="account-form-initial-balance-input" className="block text-xs font-semibold text-slate-700 mb-1">
                         Saldo Inicial de Implantação (R$)
                       </label>
-                      <input
-                        type="text"
+                      <CurrencyInput
                         id="account-form-initial-balance-input"
                         value={accInitialStr}
-                        onChange={(e) => setAccInitialStr(e.target.value)}
+                        currency="BRL"
+                        onValueChange={setAccInitialStr}
                         placeholder="0,00"
                         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
                       />
@@ -765,12 +767,12 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                       <label htmlFor="account-form-initial-foreign-input" className="block text-xs font-semibold text-slate-700 mb-1">
                         Saldo Inicial na Moeda ({CURRENCY_CATALOG[accCurrency].symbol} {accCurrency})
                       </label>
-                      <input
-                        type="text"
+                      <CurrencyInput
                         id="account-form-initial-foreign-input"
                         data-testid="account-form-initial-foreign-input"
                         value={accInitialForeignStr}
-                        onChange={(e) => setAccInitialForeignStr(e.target.value)}
+                        currency={accCurrency}
+                        onValueChange={setAccInitialForeignStr}
                         placeholder="0,00"
                         className="w-full sm:max-w-xs rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-mono font-bold tabular-nums text-slate-900"
                       />
@@ -1288,10 +1290,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 <span className="text-xs font-mono font-bold text-slate-700">R$</span>
-                <input
-                  type="text"
+                <CurrencyInput
                   value={quickInitialStr}
-                  onChange={(e) => { setQuickInitialStr(e.target.value); setQuickInitialError(''); }}
+                  currency="BRL"
+                  onValueChange={(value) => { setQuickInitialStr(value); setQuickInitialError(''); }}
                   className="w-32 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-mono tabular-nums text-slate-900"
                 />
                 <button

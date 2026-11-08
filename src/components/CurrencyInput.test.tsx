@@ -10,14 +10,14 @@ let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 let latestValue = '';
 
-function renderInput(initial = ''): HTMLInputElement {
+function renderInput(initial = '', showCurrencySymbol = false): HTMLInputElement {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
   function Harness() {
     const [value, setValue] = useState(initial);
     latestValue = value;
-    return <CurrencyInput aria-label="Valor" className="money-field" value={value} currency="BRL" onValueChange={setValue} />;
+    return <CurrencyInput aria-label="Valor" className="money-field" value={value} currency="BRL" showCurrencySymbol={showCurrencySymbol} onValueChange={setValue} />;
   }
   act(() => root?.render(<Harness />));
   return container.querySelector('input')!;
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 test('shows the symbol outside the input and groups while typing', () => {
-  const input = renderInput();
+  const input = renderInput('', true);
   assert.equal(input.getAttribute('aria-label'), 'Valor');
   assert.equal(input.className, 'money-field');
   assert.equal(input.previousElementSibling?.textContent, 'R$');

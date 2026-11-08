@@ -359,7 +359,7 @@ test('targets save, contribution presets, class filter and search respond to con
   const preset = [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === '2.5k');
   assert.ok(preset);
   await act(async () => { preset.click(); });
-  assert.equal(page.querySelector<HTMLInputElement>('#smart-contribution-input')?.value, '2500,00');
+  assert.equal(page.querySelector<HTMLInputElement>('#smart-contribution-input')?.value, '2.500,00');
 
   await act(async () => { [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'FIIs')!.click(); });
   assert.match(page.textContent ?? '', /OTH2/);

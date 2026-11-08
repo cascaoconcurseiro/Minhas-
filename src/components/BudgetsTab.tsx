@@ -23,6 +23,8 @@ import {
   parseBRLInput,
 } from '../utils/financeRules';
 import { calculateMonthBurnRateMarker } from '../utils/uxEnhancementRules';
+import { CurrencyInput } from './CurrencyInput';
+import { parseCurrencyInput } from '../utils/currencyInput';
 import {
   CATEGORY_COLOR_PALETTE,
   CATEGORY_ICON_OPTIONS,
@@ -47,7 +49,7 @@ function parseNonNegativeBudget(raw: string): number | null {
   if (!raw.trim()) return 0;
   const cleaned = raw.trim().replace(/[R$\s]/g, '');
   if (!/^[+-]?(?:\d+(?:[,.]\d{0,2})?|[,.]\d{1,2}|\d{1,3}(?:\.\d{3})+,\d{0,2}|\d{1,3}(?:,\d{3})+\.\d{0,2}|\d{1,3}(?:\.\d{3}){2,}|\d{1,3}(?:,\d{3}){2,})$/.test(cleaned)) return null;
-  const parsed = parseBRLInput(raw);
+  const parsed = parseCurrencyInput(raw, 'BRL');
   if (parsed < 0) return null;
   if (parsed === 0 && !/^\+?0+(?:[.,]0+)?$/.test(cleaned)) return null;
   return parsed;
@@ -353,12 +355,12 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 <label htmlFor="cat-editor-budget" className="block text-xs font-semibold text-slate-700 mb-1">
                   Orçamento Mensal / Teto (R$)
                 </label>
-                <input
+                <CurrencyInput
                   id="cat-editor-budget"
-                  type="text"
                   value={catBudgetStr}
-                  onChange={(e) => {
-                    setCatBudgetStr(e.target.value);
+                  currency="BRL"
+                  onValueChange={(value) => {
+                    setCatBudgetStr(value);
                     setCategoryFormError('');
                   }}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono tabular-nums text-slate-900"
@@ -882,12 +884,12 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
 
                         <td className="py-3.5 px-3 text-right font-mono tabular-nums whitespace-nowrap">
                           {isEditing ? (
-                            <input
-                              type="text"
+                            <CurrencyInput
                               aria-label={`Novo teto para ${item.categoryName}`}
                               value={editValueStr}
-                              onChange={(e) => {
-                                setEditValueStr(e.target.value);
+                              currency="BRL"
+                              onValueChange={(value) => {
+                                setEditValueStr(value);
                                 setBudgetEditError('');
                               }}
                               className="w-28 rounded border border-emerald-600 px-2 py-1 text-right text-xs font-mono tabular-nums text-slate-900"

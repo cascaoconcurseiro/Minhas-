@@ -1,5 +1,15 @@
 # Handoff — Minhas Economias
 
+## Máscara monetária e checklist de produção — 2026-11-08
+
+Implementei a máscara editável de moeda nas telas de contas, lançamentos/rateios, cartões, orçamentos, metas/simulador, investimentos, viagens e conversor. Valores agrupam milhar enquanto digitados (`1000` → `1.000`) e recebem casas decimais da moeda ao sair do campo (`1.000,00` para BRL/EUR/USD; zero casas para JPY/CLP). Mantive prefixos existentes, moeda estrangeira é interpretada conforme a seleção e valores com precisão excessiva continuam visíveis para validação, sem arredondamento silencioso. Corrigi cursor, seleção e colagem no componente reutilizável.
+
+Verificação local reproduzida em 2026-11-08: `bun test` **380/380 em 56 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram. Isso é evidência de código/testes locais; a máscara ainda **não foi commitada, publicada nem validada visualmente no domínio**. A árvore contém um diretório preexistente não rastreado `.claude/`, preservado.
+
+O [CHECKLIST.md](./CHECKLIST.md) foi atualizado com as lacunas de liberação. Continuam pendentes: publicar esta alteração com CI/deploy e smoke na origem real; readiness autenticado/cron Vercel e schedule do backup cifrado; chave privada age guardada fora deste computador e recuperação testada; restore/import/export UI em QA, CRUD/readback por entidade e isolamento de dois titulares; sweep geral mobile/acessibilidade; cadastro/login/logout visual real e integrações externas de câmbio. As tarefas internas paralelas desta rodada foram concluídas; elas não fecharam esses aceites operacionais.
+
+**Próximo passo concreto:** revisar `git diff` dos 17 arquivos de máscara, preservar `.claude/`, executar a integração autorizada em `main`, aguardar CI/deploy e testar os campos publicados. Não declarar pronto para produção antes das evidências externas listadas acima.
+
 ## Logout real + sem verificação de e-mail — 2026-11-07
 
 Feito (local, NÃO commitado/publicado): `token_version` em `app_users` (migration `db/migrations/009_app_users_token_version.sql`), `verifyAuthUser` consulta o Neon a cada requisição, `POST /api/auth/logout` invalida tokens antigos, `signOutUser` chama o servidor. Verificação de e-mail removida por decisão do dono: família só por convite dentro do sistema (sem exigir e-mail confirmado). 379 testes, tsc e build ok.

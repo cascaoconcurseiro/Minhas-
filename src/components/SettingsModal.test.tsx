@@ -402,7 +402,7 @@ test('SettingsModal category and subcategory creation, budget edit and delete ca
   const budgetButton = [...page.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('(Editar)'));
   assert.ok(budgetButton);
   await act(async () => { budgetButton.click(); });
-  const budgetInput = [...page.querySelectorAll<HTMLInputElement>('input')].find((input) => input.value === '100');
+  const budgetInput = [...page.querySelectorAll<HTMLInputElement>('input')].find((input) => input.value === '100,00');
   assert.ok(budgetInput);
   await act(async () => {
     set(budgetInput, '250');

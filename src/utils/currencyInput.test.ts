@@ -38,11 +38,11 @@ test('roundtrips finalized amounts using the selected currency precision', () =>
   assert.equal(parseCurrencyInput(clp, 'CLP'), 1234);
 });
 
-test('preserves negative amounts and rounds excess precision when finalizing', () => {
+test('preserves negative amounts and keeps excess precision visible for form validation', () => {
   assert.equal(formatCurrencyInput('-1234,5', 'BRL', { focused: true }), '-1.234,5');
   assert.equal(formatCurrencyInput('-1234,5', 'BRL', { focused: false }), '-1.234,50');
-  assert.equal(formatCurrencyInput('1,239', 'BRL', { focused: false }), '1,24');
-  assert.equal(formatCurrencyInput('1,999', 'BRL', { focused: false }), '2,00');
+  assert.equal(formatCurrencyInput('1,239', 'BRL', { focused: false }), '1,239');
+  assert.equal(formatCurrencyInput('1,999', 'BRL', { focused: false }), '1,999');
 });
 
 test('maps caret by digit count when grouping punctuation changes', () => {

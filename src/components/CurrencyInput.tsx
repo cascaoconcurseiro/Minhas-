@@ -15,11 +15,12 @@ export interface CurrencyInputProps
   value: string;
   currency: CurrencyCode;
   onValueChange: (value: string) => void;
+  showCurrencySymbol?: boolean;
 }
 
 /** Controlled currency field. The symbol is rendered separately from its editable value. */
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  function CurrencyInput({ value, currency, onValueChange, onFocus, onBlur, ...inputProps }, forwardedRef) {
+  function CurrencyInput({ value, currency, onValueChange, showCurrencySymbol = false, onFocus, onBlur, ...inputProps }, forwardedRef) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const pendingSelection = useRef<{ start: number; end: number } | null>(null);
     const [focused, setFocused] = useState(false);
@@ -43,9 +44,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       pendingSelection.current = null;
     }, [displayValue]);
 
-    return (
-      <span className="inline-flex items-center">
-        <span aria-hidden="true" className="mr-1 select-none">{CURRENCY_CATALOG[currency].symbol}</span>
+    const input = (
         <input
           {...inputProps}
           ref={setRef}
@@ -69,17 +68,22 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
               start: mapCurrencyInputCaret(input.value, next, start),
               end: mapCurrencyInputCaret(input.value, next, end),
             };
-            onValueChange(next);
+            onValueChange(next || (input.value.trim() ? input.value : ''));
           }}
           onBlur={(event) => {
             setFocused(false);
             const finalized = formatCurrencyInput(value, currency, { focused: false, previousValue: displayValue });
-            onValueChange(finalized);
+            onValueChange(finalized || (value.trim() ? value : ''));
             onBlur?.(event);
           }}
         />
-      </span>
     );
+    return showCurrencySymbol ? (
+      <span className="inline-flex items-center">
+        <span aria-hidden="true" className="mr-1 select-none">{CURRENCY_CATALOG[currency].symbol}</span>
+        {input}
+      </span>
+    ) : input;
   },
 );
 
