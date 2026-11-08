@@ -100,7 +100,6 @@ mock.module('../lib/authClient', () => ({
     return authStateUser;
   },
   refreshAuthUser: async (user: SyntheticUser) => user,
-  resendEmailVerification: async () => {},
   signInWithEmail: async (email: string, pass: string) => {
     signInCalls.push([email, pass]);
     authStateUser = { ...syntheticUser, email };

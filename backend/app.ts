@@ -60,6 +60,7 @@ interface AuthUserIdentity {
   uid: string;
   email: string;
   email_verified?: boolean;
+  token_version?: number;
 }
 
 interface ReminderSmtpRouteDependencies {
@@ -69,7 +70,12 @@ interface ReminderSmtpRouteDependencies {
 
 function verifyAuthToken(token: string): AuthUserIdentity {
   const identity = verifySessionToken(token);
-  return { uid: identity.uid, email: identity.email, email_verified: identity.email_verified };
+  return {
+    uid: identity.uid,
+    email: identity.email,
+    email_verified: identity.email_verified,
+    token_version: identity.token_version ?? 0,
+  };
 }
 
 function getRequestWorkspacePayload(
@@ -226,7 +232,7 @@ async function startServer() {
 
   app.use(express.json({ limit: '2mb' }));
 
-  const verifyAuthUser: RequestHandler = (req, res, next) => {
+  const verifyAuthUser: RequestHandler = async (req, res, next) => {
     const authorization = req.header('authorization') || '';
     const token = authorization.startsWith('Bearer ')
       ? authorization.slice('Bearer '.length).trim()
@@ -235,14 +241,33 @@ async function startServer() {
       res.status(401).json({ error: 'Autenticação obrigatória.' });
       return;
     }
+    let identity: AuthUserIdentity;
     try {
-      res.locals.authUser = verifyAuthToken(token);
-      next();
+      identity = verifyAuthToken(token);
     } catch (error) {
       const status = error instanceof SessionTokenError ? error.status : 503;
       res.status(status).json({
         error: status === 401 ? 'Sessão inválida ou expirada. Entre novamente.' : 'Autenticação indisponível no servidor.',
       });
+      return;
+    }
+    // Server-side check: logout (token_version bump) revokes every older token,
+    // and e-mail verification takes effect immediately without a new login.
+    try {
+      const result = await getNeonPool().query(
+        `SELECT token_version, email_verified FROM public.app_users WHERE id = $1 LIMIT 1`,
+        [identity.uid]
+      );
+      const row = result.rows[0] as { token_version: number; email_verified: boolean } | undefined;
+      if (!row || Number(row.token_version) !== (identity.token_version ?? 0)) {
+        res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
+        return;
+      }
+      res.locals.authUser = { ...identity, email_verified: row.email_verified === true };
+      next();
+    } catch (error) {
+      console.error('Erro ao validar sessão no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível validar a sessão agora.' });
     }
   };
 
@@ -261,13 +286,14 @@ async function startServer() {
   const sendSession = (
     res: import('express').Response,
     status: number,
-    user: { id: string; email: string; display_name: string; email_verified: boolean }
+    user: { id: string; email: string; display_name: string; email_verified: boolean; token_version?: number }
   ) => {
     const token = signSessionToken({
       uid: user.id,
       email: user.email,
       email_verified: user.email_verified,
       name: user.display_name,
+      token_version: Number(user.token_version ?? 0),
     });
     res.set('Cache-Control', 'no-store');
     res.status(status).json({
@@ -309,7 +335,7 @@ async function startServer() {
         `INSERT INTO public.app_users (id, email, password_hash, display_name)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (email) DO NOTHING
-         RETURNING id, email, display_name, email_verified`,
+         RETURNING id, email, display_name, email_verified, token_version`,
         [id, email, passwordHash, displayName]
       );
       if (!result.rowCount) {
@@ -340,12 +366,12 @@ async function startServer() {
     }
     try {
       const result = await getNeonPool().query(
-        `SELECT id, email, password_hash, display_name, email_verified
+        `SELECT id, email, password_hash, display_name, email_verified, token_version
            FROM public.app_users WHERE email = $1 LIMIT 1`,
         [email]
       );
       const row = result.rows[0] as
-        | { id: string; email: string; password_hash: string; display_name: string; email_verified: boolean }
+        | { id: string; email: string; password_hash: string; display_name: string; email_verified: boolean; token_version: number }
         | undefined;
       const valid = await verifyPassword(password, row?.password_hash);
       if (!row || !valid) {
@@ -365,7 +391,7 @@ async function startServer() {
     const user = res.locals.authUser as AuthUserIdentity;
     try {
       const result = await getNeonPool().query(
-        `SELECT id, email, display_name, email_verified FROM public.app_users WHERE id = $1 LIMIT 1`,
+        `SELECT id, email, display_name, email_verified, token_version FROM public.app_users WHERE id = $1 LIMIT 1`,
         [user.uid]
       );
       if (!result.rowCount) {
@@ -379,17 +405,23 @@ async function startServer() {
     }
   });
 
-  const requireVerifiedFamilyEmail: RequestHandler = (_req, res, next) => {
+  app.post('/api/auth/logout', verifyAuthUser, async (_req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
-    if (user.email_verified !== true) {
-      res.status(403).json({ error: 'Verifique o e-mail da conta antes de usar o compartilhamento familiar.' });
-      return;
+    try {
+      await getNeonPool().query(
+        `UPDATE public.app_users SET token_version = token_version + 1, updated_at = now() WHERE id = $1`,
+        [user.uid]
+      );
+      res.set('Cache-Control', 'no-store');
+      res.status(204).end();
+    } catch (error) {
+      console.error('Erro ao encerrar sessão no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível encerrar a sessão no servidor.' });
     }
-    next();
-  };
+  });
 
   app.use('/api/workspace', verifyAuthUser);
-  app.use('/api/family', verifyAuthUser, requireVerifiedFamilyEmail);
+  app.use('/api/family', verifyAuthUser);
   app.use('/api/reminders/send-email', verifyAuthUser);
   app.use('/api/fx/live-rate', verifyAuthUser);
   app.use('/api/investments/sync-quotes', verifyAuthUser);

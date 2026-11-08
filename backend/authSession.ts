@@ -20,6 +20,8 @@ export interface SessionIdentity {
   email: string;
   email_verified: boolean;
   name: string;
+  /** Server-side session generation; bumping it in app_users revokes every issued token. */
+  token_version?: number;
 }
 
 /**
@@ -59,6 +61,8 @@ export function signSessionToken(identity: SessionIdentity, nowSeconds = Math.fl
       email: identity.email,
       email_verified: identity.email_verified,
       name: identity.name,
+      tv: identity.token_version ?? 0,
+      aud: 'session',
       iat: nowSeconds,
       exp: nowSeconds + SESSION_TTL_SECONDS,
     })
@@ -93,7 +97,11 @@ export function verifySessionToken(token: string, nowSeconds = Math.floor(Date.n
   if (typeof parsed.sub !== 'string' || !parsed.sub || typeof parsed.email !== 'string' || !parsed.email) {
     throw new SessionTokenError('Sessão inválida.', 401);
   }
+  if (parsed.aud !== undefined && parsed.aud !== 'session') {
+    throw new SessionTokenError('Sessão inválida.', 401);
+  }
   return {
+    token_version: typeof parsed.tv === 'number' ? parsed.tv : 0,
     uid: parsed.sub,
     email: parsed.email,
     email_verified: parsed.email_verified === true,

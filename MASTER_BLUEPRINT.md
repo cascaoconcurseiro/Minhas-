@@ -5,7 +5,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 
 ## Stack
 - Frontend: React, TypeScript e Vite
-- Autenticação: login próprio no backend (senha com hash scrypt em app_users; sessão assinada HS256 de 30 dias; limite de tentativas). Verificação de e-mail: pendente
+- Autenticação: login próprio no backend (senha com hash scrypt em app_users; sessão assinada HS256 de 30 dias; limite de tentativas; logout revoga tokens via token_version). Sem verificação de e-mail: família só por convite dentro do sistema
 - Banco de dados operacional único: PostgreSQL no Neon, acessado apenas pelo backend
 - Firebase foi removido por completo (código, dependência e configuração)
 - Workspaces, convites, lançamentos compartilhados e dados financeiros ficam no Neon

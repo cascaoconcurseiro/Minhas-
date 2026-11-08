@@ -21,8 +21,6 @@ import {
   getOrCreateAutoCloudVaultId,
   getVaultIdForUid,
   registerWithEmail,
-  refreshAuthUser,
-  resendEmailVerification,
   signInWithEmail,
   signOutUser,
   type User,
@@ -286,7 +284,6 @@ export default function App() {
 
   // Own Neon login supplies identity; Neon PostgreSQL stores the workspace.
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isVerificationActionBusy, setIsVerificationActionBusy] = useState(false);
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
@@ -1243,16 +1240,7 @@ export default function App() {
   const handleRegisterEmail = async (name: string, email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim() || settingsUserNameFallback(cleanEmail) || cleanEmail.split('@')[0];
-    const registeredUser = await registerWithEmail(cleanName, cleanEmail, pass);
-    let verificationSent = false;
-    if (!registeredUser.emailVerified) {
-      try {
-        await resendEmailVerification(registeredUser);
-        verificationSent = true;
-      } catch {
-        verificationSent = false;
-      }
-    }
+    await registerWithEmail(cleanName, cleanEmail, pass);
     resetFinancialStateToCleanZero();
     hasLoadedRemoteOnceRef.current = false;
     setSettings((prev) => ({ ...prev, userName: cleanName }));
@@ -1261,42 +1249,7 @@ export default function App() {
       email: cleanEmail,
       displayName: cleanName,
     });
-    showNotice(
-      registeredUser.emailVerified
-        ? `Conta criada para ${cleanEmail}.`
-        : verificationSent
-          ? `Conta criada para ${cleanEmail}. Confira o e-mail para liberar o compartilhamento familiar.`
-          : `Conta criada para ${cleanEmail}. Use Reenviar verificação na aba de autenticação para confirmar o e-mail.`,
-      undefined,
-      true
-    );
-  };
-
-  const handleResendVerification = async () => {
-    if (!currentUser) return;
-    setIsVerificationActionBusy(true);
-    try {
-      await resendEmailVerification(currentUser);
-      showNotice('E-mail de verificação enviado. Confira sua caixa de entrada e o spam.', undefined, true);
-    } catch {
-      showNotice('Não foi possível enviar o e-mail agora. Tente novamente mais tarde.', undefined, true);
-    } finally {
-      setIsVerificationActionBusy(false);
-    }
-  };
-
-  const handleRefreshEmailVerification = async () => {
-    if (!currentUser) return;
-    setIsVerificationActionBusy(true);
-    try {
-      const refreshedUser = await refreshAuthUser(currentUser);
-      setCurrentUser(refreshedUser);
-      showNotice(refreshedUser.emailVerified ? 'E-mail confirmado. Compartilhamento familiar liberado.' : 'Ainda não encontramos a confirmação. Abra o link enviado e tente novamente.', undefined, true);
-    } catch {
-      showNotice('Não foi possível atualizar o estado do e-mail. Tente novamente.', undefined, true);
-    } finally {
-      setIsVerificationActionBusy(false);
-    }
+    showNotice(`Conta criada para ${cleanEmail}.`, undefined, true);
   };
 
   const handleSignOut = async () => {
@@ -3249,17 +3202,6 @@ export default function App() {
           isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser
         )}
       >
-      {currentUser && !currentUser.isAnonymous && currentUser.email && !currentUser.emailVerified && (
-        <div role="status" aria-live="polite" className="fixed left-1/2 top-16 z-[60] w-[min(94vw,44rem)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>Confirme {currentUser.email} para ativar o compartilhamento familiar. Seus dados continuam sincronizados.</span>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={isVerificationActionBusy} onClick={handleResendVerification} className="min-h-10 rounded-lg border border-amber-700 px-3 py-1.5 font-semibold disabled:opacity-60">Reenviar e-mail</button>
-              <button type="button" disabled={isVerificationActionBusy} onClick={handleRefreshEmailVerification} className="min-h-10 rounded-lg bg-amber-800 px-3 py-1.5 font-semibold text-white disabled:opacity-60">Já confirmei</button>
-            </div>
-          </div>
-        </div>
-      )}
       {workspaceConflict && !isWorkspaceConflictOpen && (
         <div
           role="status"
