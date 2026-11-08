@@ -29,6 +29,7 @@ import {
   getActiveInstallmentGroupsForCard,
   getFutureUnpaidInstallments,
 } from '../utils/uxEnhancementRules';
+import { CurrencyInput } from './CurrencyInput';
 
 interface CreditCardsTabProps {
   selectedMonth: string;
@@ -302,11 +303,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 <label htmlFor="card-limit-input" className="block text-xs font-semibold text-slate-700 mb-1">
                   Limite Total (R$)
                 </label>
-                <input
+                <CurrencyInput
                   id="card-limit-input"
-                  type="text"
                   value={newCardLimit}
-                  onChange={(e) => setNewCardLimit(e.target.value)}
+                  currency="BRL"
+                  onValueChange={setNewCardLimit}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
                 />
               </div>
@@ -515,11 +516,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     <label htmlFor="card-limit-input" className="block text-xs font-semibold text-slate-700 mb-1">
                       Limite Total (R$)
                     </label>
-                    <input
+                    <CurrencyInput
                       id="card-limit-input"
-                      type="text"
                       value={newCardLimit}
-                      onChange={(e) => setNewCardLimit(e.target.value)}
+                      currency="BRL"
+                      onValueChange={setNewCardLimit}
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
                     />
                   </div>
@@ -890,11 +891,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   <label htmlFor="card-edit-limit-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Limite Total (R$)
                   </label>
-                  <input
-                    type="text"
+                  <CurrencyInput
                     id="card-edit-limit-input"
                     value={editCardLimit}
-                    onChange={(e) => setEditCardLimit(e.target.value)}
+                    currency="BRL"
+                    onValueChange={setEditCardLimit}
                     className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono tabular-nums text-slate-900"
                   />
                 </div>
@@ -1160,11 +1161,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                   <span className="text-xs font-mono font-bold text-emerald-900">R$</span>
-                  <input
-                    type="text"
+                  <CurrencyInput
                     value={partialPayAmountStr}
-                    onChange={(e) => {
-                      setPartialPayAmountStr(e.target.value);
+                    currency="BRL"
+                    onValueChange={(value) => {
+                      setPartialPayAmountStr(value);
                       setPartialPayError('');
                     }}
                     placeholder="Ex: 500,00"
@@ -1384,10 +1385,10 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                               </button>
                             </div>
                           </div>
-                          <input
-                            type="text"
+                          <CurrencyInput
                             value={anticipationDiscountStr}
-                            onChange={(e) => setAnticipationDiscountStr(e.target.value)}
+                            currency="BRL"
+                            onValueChange={setAnticipationDiscountStr}
                             placeholder="0,00"
                             className="w-full rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-mono tabular-nums text-slate-900 focus:border-violet-600 focus:outline-none"
                           />

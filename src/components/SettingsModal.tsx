@@ -24,7 +24,9 @@ import {
 } from 'lucide-react';
 import { AppSettings, BudgetBucket, Category, ReminderSettings } from '../types/finance';
 import { formatBRL, parseBRLInput } from '../utils/financeRules';
+import { parseCurrencyInput } from '../utils/currencyInput';
 import { parseFullFinanceBackup } from '../utils/fullBackup';
+import { CurrencyInput } from './CurrencyInput';
 import {
   DEFAULT_REMINDER_SETTINGS,
   requestBrowserNotificationPermission,
@@ -183,7 +185,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       color: randomColor,
       icon: newCatType === 'income' ? 'briefcase' : 'shopping-bag',
       monthlyBudget:
-        newCatType === 'expense' ? Math.max(0, parseBRLInput(newCatBudgetStr)) : 0,
+        newCatType === 'expense' ? Math.max(0, parseCurrencyInput(newCatBudgetStr, 'BRL')) : 0,
       bucket: newCatType === 'expense' ? newCatGroup : 'financial',
       subcategories: [],
     });
@@ -202,7 +204,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!onUpdateCategoryBudget) return;
     const raw = budgetEditInputs[catId];
     if (raw === undefined) return;
-    const parsed = Math.max(0, parseBRLInput(raw));
+    const parsed = Math.max(0, parseCurrencyInput(raw, 'BRL'));
     onUpdateCategoryBudget(catId, parsed || fallbackBudget);
     setBudgetEditInputs((prev) => {
       const next = { ...prev };
@@ -546,10 +548,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                           Teto Mensal (R$)
                         </label>
-                        <input
-                          type="text"
+                        <CurrencyInput
                           value={newCatBudgetStr}
-                          onChange={(e) => setNewCatBudgetStr(e.target.value)}
+                          currency="BRL"
+                          onValueChange={setNewCatBudgetStr}
                           className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900"
                         />
                       </div>
@@ -634,13 +636,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <span>Teto de Orçamento:</span>
                             {isEditingBudget ? (
                               <div className="flex items-center gap-1">
-                                <input
-                                  type="text"
+                                <CurrencyInput
                                   value={budgetEditInputs[cat.id]}
-                                  onChange={(e) =>
+                                  currency="BRL"
+                                  onValueChange={(value) =>
                                     setBudgetEditInputs((prev) => ({
                                       ...prev,
-                                      [cat.id]: e.target.value,
+                                      [cat.id]: value,
                                     }))
                                   }
                                   className="w-20 rounded border border-emerald-400 px-1.5 py-0.5 text-xs font-mono font-bold text-slate-900"

@@ -45,6 +45,8 @@ import {
   TripSettlementMethod,
 } from '../types/finance';
 import { formatBRL, formatShortDateBR, parseBRLInput } from '../utils/financeRules';
+import { parseCurrencyInput } from '../utils/currencyInput';
+import { CurrencyInput } from './CurrencyInput';
 import {
   calculateConvertedBrlAmount,
   calculateExchangeSavingsAnalysis,
@@ -298,7 +300,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     setTripCurrency(trip.currency);
     setTripStartDate(trip.startDate);
     setTripEndDate(trip.endDate);
-    setTripBudgetStr(String(trip.budgetForeign));
+    setTripBudgetStr(trip.budgetForeign.toFixed(CURRENCY_CATALOG[trip.currency].decimals).replace('.', ','));
     setTripDefaultRateStr(
       trip.defaultExchangeRate.toFixed(2).replace('.', ',')
     );
@@ -356,7 +358,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         endDate: tripEndDate >= tripStartDate ? tripEndDate : tripStartDate,
         currency: tripCurrency,
         defaultExchangeRate: defaultRate,
-        budgetForeign: Math.max(100, parseBRLInput(tripBudgetStr) || 1000),
+        budgetForeign: Math.max(100, parseCurrencyInput(tripBudgetStr, tripCurrency) || 1000),
         participants: updatedParticipants,
         isArchived: tripIsArchivedCheckbox,
       };
@@ -389,7 +391,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       status: 'active',
       currency: tripCurrency,
       defaultExchangeRate: defaultRate,
-      budgetForeign: Math.max(100, parseBRLInput(tripBudgetStr) || 1000),
+      budgetForeign: Math.max(100, parseCurrencyInput(tripBudgetStr, tripCurrency) || 1000),
       participants,
       exchangeLots: [],
       settlements: [],
@@ -423,7 +425,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     e.preventDefault();
     if (!activeTrip) return;
 
-    const foreignAmount = parseBRLInput(lotForeignAmountStr);
+    const foreignAmount = parseCurrencyInput(lotForeignAmountStr, activeTrip.currency);
     const rateBase = parseBRLInput(lotBaseRateStr);
     const iofPercent = parseBRLInput(lotIofPercentStr);
     if (foreignAmount <= 0 || rateBase <= 0) return;
@@ -503,7 +505,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     e.preventDefault();
     if (!activeTrip || !activeSettlementDebt) return;
 
-    const foreignEq = parseBRLInput(settlementForeignAmountStr);
+    const foreignEq = parseCurrencyInput(settlementForeignAmountStr, activeTrip.currency);
     if (!Number.isFinite(foreignEq) || foreignEq <= 0 || foreignEq > activeSettlementDebt.amountForeign + 0.009) {
       setSettlementError(
         `Informe um valor maior que zero e até ${formatForeignCurrency(activeSettlementDebt.amountForeign, activeTrip.currency)}.`
@@ -698,11 +700,11 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 <label htmlFor="trip-form-budget" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Meu Orçamento Pessoal ({tripCurrency})
                 </label>
-                <input
-                  type="text"
+                <CurrencyInput
                   id="trip-form-budget"
                   value={tripBudgetStr}
-                  onChange={(e) => setTripBudgetStr(e.target.value)}
+                  currency={tripCurrency}
+                  onValueChange={setTripBudgetStr}
                   placeholder="Ex: 1500"
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                 />
@@ -2444,11 +2446,11 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Valor Comprado ({activeTrip.currency})
                     </label>
-                    <input
-                      type="text"
+                    <CurrencyInput
                       required
                       value={lotForeignAmountStr}
-                      onChange={(e) => setLotForeignAmountStr(e.target.value)}
+                      currency={activeTrip.currency}
+                      onValueChange={setLotForeignAmountStr}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -2512,7 +2514,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 {/* Live Preview */}
                 {(() => {
                   const preview = calculateConvertedBrlAmount(
-                    parseBRLInput(lotForeignAmountStr),
+                    parseCurrencyInput(lotForeignAmountStr, activeTrip.currency),
                     parseBRLInput(lotBaseRateStr),
                     parseBRLInput(lotIofPercentStr)
                   );
@@ -2773,12 +2775,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                       Valor Abatido da Dívida ({activeTrip.currency})
                     </label>
-                    <input
-                      type="text"
+                    <CurrencyInput
                       required
                       value={settlementForeignAmountStr}
-                      onChange={(e) => {
-                        setSettlementForeignAmountStr(e.target.value);
+                      currency={activeTrip.currency}
+                      onValueChange={(value) => {
+                        setSettlementForeignAmountStr(value);
                         setSettlementError(null);
                       }}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
@@ -2868,7 +2870,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 {/* Summary Preview Box */}
                 {(() => {
                   const fAmt =
-                    parseBRLInput(settlementForeignAmountStr) ||
+                    parseCurrencyInput(settlementForeignAmountStr, activeTrip.currency) ||
                     activeSettlementDebt.amountForeign;
                   const rUsed =
                     settlementRateMode === 'effective_vet'

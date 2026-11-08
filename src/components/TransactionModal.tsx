@@ -67,6 +67,8 @@ import {
   SmartTransactionSuggestion,
 } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { CurrencyInput } from './CurrencyInput';
+import { parseCurrencyInput } from '../utils/currencyInput';
 
 type DomesticSharedSplitMode = 'half' | 'percentage' | 'custom';
 
@@ -585,7 +587,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   }, [isOpen, onClose]);
 
   // Live Multi-Currency Conversion Effect
-  const parsedForeignAmount = parseBRLInput(originalAmountStr);
+  const parsedForeignAmount = parseCurrencyInput(originalAmountStr, originalCurrency);
   const parsedExchangeRate = parseBRLInput(exchangeRateStr);
   const parsedIofPercent = parseBRLInput(iofPercentStr);
 
@@ -939,7 +941,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         ? selectedTripParticipantIds
         : selectedTrip.participants.map((participant) => participant.id);
     const customInputs = selectedTrip.participants.map((participant) => {
-      const value = parseBRLInput(tripCustomInputs[participant.id] || '');
+      const value = tripSplitMethod === 'exact'
+        ? parseCurrencyInput(tripCustomInputs[participant.id] || '', originalCurrency)
+        : parseBRLInput(tripCustomInputs[participant.id] || '');
       return {
         participantId: participant.id,
         exactForeign: tripSplitMethod === 'exact' ? value : undefined,
@@ -981,7 +985,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const customList: CustomParticipantSplitInput[] =
       selectedTrip.participants.map((p) => {
-        const val = parseBRLInput(tripCustomInputs[p.id] || '');
+        const val = tripSplitMethod === 'exact'
+          ? parseCurrencyInput(tripCustomInputs[p.id] || '', originalCurrency)
+          : parseBRLInput(tripCustomInputs[p.id] || '');
         return {
           participantId: p.id,
           exactForeign: tripSplitMethod === 'exact' ? val : undefined,
@@ -1725,13 +1731,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           {CURRENCY_CATALOG[originalCurrency]?.flag}{' '}
                           {CURRENCY_CATALOG[originalCurrency]?.symbol}
                         </span>
-                        <input
+                        <CurrencyInput
                           id="tx-foreign-amount"
                           data-testid="tx-foreign-amount-input"
-                          type="text"
-                          inputMode="decimal"
+                          currency={originalCurrency}
+                          onValueChange={setOriginalAmountStr}
                           value={originalAmountStr}
-                          onChange={(e) => setOriginalAmountStr(e.target.value)}
                           placeholder="0,00"
                           className="w-full rounded-r-xl border border-sky-400 dark:border-sky-700 bg-white dark:bg-slate-900 px-3 py-2 text-lg sm:text-xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white focus:border-sky-600 focus:outline-none"
                         />
@@ -1749,14 +1754,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         <span className="inline-flex items-center justify-center rounded-l-xl border border-r-0 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2.5 py-2 text-sm font-extrabold font-mono text-slate-700 dark:text-slate-200 select-none">
                           🇧🇷 R$
                         </span>
-                        <input
+                        <CurrencyInput
                           id="tx-amount"
                           data-testid="tx-amount-input"
-                          type="text"
-                          inputMode="decimal"
+                          currency="BRL"
+                          onValueChange={setAmountStr}
                           readOnly={Boolean(isTripLinked && selectedTrip)}
                           value={amountStr}
-                          onChange={(e) => setAmountStr(e.target.value)}
                           placeholder="0,00"
                           className="w-full rounded-r-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-3 py-2 text-lg sm:text-xl font-extrabold font-mono tabular-nums text-slate-700 dark:text-slate-200 focus:outline-none"
                         />
@@ -1913,13 +1917,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         >
                           R$
                         </span>
-                        <input
+                        <CurrencyInput
                           id="tx-amount"
                           data-testid="tx-amount-input"
-                          type="text"
-                          inputMode="decimal"
+                          currency="BRL"
+                          onValueChange={setAmountStr}
                           value={amountStr}
-                          onChange={(e) => setAmountStr(e.target.value)}
                           placeholder="0,00"
                           className="w-full rounded-r-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xl sm:text-2xl font-extrabold font-mono tabular-nums tracking-tight text-slate-900 dark:text-white placeholder:text-slate-300 focus:border-emerald-600 focus:outline-none"
                         />
@@ -3301,7 +3304,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                         ? '(Cotas)'
                                         : `(${originalCurrency})`}
                                     </label>
-                                    <input
+                                    {tripSplitMethod === 'exact' ? <CurrencyInput
+                                      currency={originalCurrency}
+                                      value={tripCustomInputs[p.id] || ''}
+                                      onValueChange={(value) =>
+                                        setTripCustomInputs((prev) => ({ ...prev, [p.id]: value }))
+                                      }
+                                      placeholder="0,00"
+                                      className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-mono text-slate-900 dark:text-white"
+                                    /> : <input
                                       type="text"
                                       inputMode="decimal"
                                       value={tripCustomInputs[p.id] || ''}
@@ -3319,7 +3330,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                           : '0,00'
                                       }
                                       className="w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-mono text-slate-900 dark:text-white"
-                                    />
+                                    />}
                                   </div>
                                 ))}
                             </div>
@@ -3721,13 +3732,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   <span className="text-xs font-mono font-bold text-slate-500">
                                     R$
                                   </span>
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
+                                  <CurrencyInput
                                     value={sharedCustomAmountStr}
-                                    onChange={(e) =>
-                                      setSharedCustomAmountStr(e.target.value)
-                                    }
+                                    currency="BRL"
+                                    onValueChange={setSharedCustomAmountStr}
                                     className="w-36 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white"
                                   />
                                 </div>

@@ -155,6 +155,9 @@ export function formatCurrencyInput(
   const parsed = normalizeNumberText(raw, decimals, options.previousValue);
   if (!parsed) return '';
   if (parsed.incompleteSign) return options.focused ? '-' : '';
+  // Keep over-precision visible so the surrounding form can reject it instead
+  // of silently truncating or rounding a user's entered amount.
+  if (parsed.fraction.length > decimals) return raw;
 
   let integer = parsed.integer;
   let fraction = parsed.fraction;

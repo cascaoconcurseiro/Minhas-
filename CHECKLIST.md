@@ -6,11 +6,13 @@
 - [x] Cadastrar `CRON_SECRET` como variável sensível em Production; não foi lido nem exposto.
 - [ ] Validar `/api/readiness` autenticado (200/Neon ok/role restrita) e observar execução agendada do cron; `vercel env run` não disponibilizou o valor sensível localmente, por isso o GET autenticado ainda não foi provado.
 - [ ] Comprovar execução automática `schedule` do backup cifrado; as execuções conhecidas continuam `workflow_dispatch`.
-- [ ] Implementar e testar formatação automática nos campos monetários BRL e internacionais: `1000` → `1.000,00` ao finalizar, `1,5` → `1,50`, moeda selecionada e casas JPY/CLP, com cursor/colagem/apagar corretos.
+- [x] Implementar máscara em campos monetários editáveis: contas/saldos, lançamentos e rateios exatos, cartões/pagamentos, orçamentos, metas/simulador, investimentos, viagens e conversor; a moeda selecionada controla casas decimais, inclusive JPY/CLP. `1000` agrupa ao digitar e finaliza como `1.000,00`; moeda fica no prefixo já existente.
+- [x] Validar utilitário e componente de moeda: digitação, cursor, substituição de seleção, colagem BR/US/Europa, backspace, precisão por moeda, valores negativos e conservação de casas excedentes para validação; full suite `bun test` **380/380 em 56 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram em 2026-11-08.
+- [ ] Publicar a máscara monetária e validar no site servido; esta alteração segue local e ainda não passou pelo CI/deploy.
 - [ ] Validar cadastro/login/logout e reload com sessão de QA, mais CRUD → reload/readback Neon para cada entidade e isolamento entre titulares.
 - [ ] Validar restore/import/export pela UI em branch Neon QA descartável, com readback independente e limpeza.
 - [ ] Concluir revisão visual/accessibilidade em desktop e mobile; guardar a chave privada `age` fora deste computador e comprovar recuperação em outro dispositivo.
-- [ ] Reexecutar suite, lint, build e smoke final após a máscara; publicar a versão final e registrar a evidência em CI/Vercel.
+- [ ] Após publicar a máscara, validar no site servido digitação e blur em campos BRL e internacionais, incluindo um valor com zero casas decimais; registrar CI/Vercel.
 
 ## Correções e integração de segurança — 2026-11-07
 - [x] Validar revogação/desativação Firebase no Identity Toolkit, falhar fechado sem `FIREBASE_API_KEY` e mapear erros conhecidos de conta/token para 401; erros de configuração, rede ou desconhecidos retornam 503.

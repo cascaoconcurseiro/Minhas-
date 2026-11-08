@@ -46,6 +46,7 @@ import {
   isMarketQuotedAsset,
   syncAssetsWithGoogleFinance,
 } from '../utils/investmentRules';
+import { CurrencyInput } from './CurrencyInput';
 
 interface InvestmentsTabProps {
   getAuthToken: () => Promise<string>;
@@ -803,11 +804,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 Valor do Novo Aporte Mensal (R$)
               </label>
               <div className="flex items-center gap-2">
-                <input
+                <CurrencyInput
                   id="smart-contribution-input"
-                  type="text"
                   value={contributionDraftStr}
-                  onChange={(e) => setContributionDraftStr(e.target.value)}
+                  currency="BRL"
+                  onValueChange={setContributionDraftStr}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-base font-bold font-mono tabular-nums text-slate-900 focus:border-emerald-600 focus:outline-none"
                 />
                 {[1000, 2500, 5000].map((preset) => (
@@ -1138,11 +1139,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 <label htmlFor="investment-form-average-price" className="block text-xs font-semibold text-slate-700 mb-1">
                   Preço Médio de Compra (R$)
                 </label>
-                <input
-                  type="text"
+                <CurrencyInput
                   id="investment-form-average-price"
                   value={avgPriceStr}
-                  onChange={(e) => setAvgPriceStr(e.target.value)}
+                  currency="BRL"
+                  onValueChange={setAvgPriceStr}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
                 />
               </div>
@@ -1151,11 +1152,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 <label htmlFor="investment-form-current-price" className="block text-xs font-semibold text-slate-700 mb-1">
                   Cotação / Valor Unitário Atual (R$)
                 </label>
-                <input
-                  type="text"
+                <CurrencyInput
                   id="investment-form-current-price"
                   value={currPriceStr}
-                  onChange={(e) => setCurrPriceStr(e.target.value)}
+                  currency="BRL"
+                  onValueChange={setCurrPriceStr}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono tabular-nums text-slate-900"
                 />
               </div>
@@ -1308,11 +1309,11 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                     : 'Preço Unitário / Cotação (R$):'}
                 </label>
                 <div className="flex items-center gap-1.5">
-                  <input
-                    type="text"
+                  <CurrencyInput
                     value={opPriceStr}
-                    onChange={(e) => {
-                      setOpPriceStr(e.target.value);
+                    currency="BRL"
+                    onValueChange={(value) => {
+                      setOpPriceStr(value);
                       setOperationError('');
                     }}
                     className="w-36 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-mono tabular-nums text-slate-900"

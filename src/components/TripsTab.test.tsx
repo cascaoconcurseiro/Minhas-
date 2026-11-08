@@ -102,6 +102,7 @@ test('TripsTab validates and creates a synthetic trip with companions and curren
     setInputValue(textInputs[0]!, '  Viagem QA Sintética  ');
     setInputValue(textInputs[1]!, '  Porto  ');
     setInputValue(textInputs[2]!, '1.500,00');
+    assert.equal(textInputs[2]?.value, '1.500,00', 'the selected foreign currency keeps grouped thousands while editing');
     setInputValue(textInputs[3]!, '6,30');
     setInputValue(textInputs[4]!, 'Ana, Bruno');
     form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { CurrencyCode, TripExchangeLot } from '../types/finance';
 import { formatBRL, parseBRLInput } from '../utils/financeRules';
+import { CurrencyInput } from './CurrencyInput';
+import { parseCurrencyInput } from '../utils/currencyInput';
 import {
   compareLiveRateWithTripVet,
   convertSmartCurrency,
@@ -158,7 +160,8 @@ export const SmartCurrencyConverterCard: React.FC<
   }, [rateMode, liveQuote, effectiveCurrency, customRateStr, latestRateInfo.rate]);
 
   const convertedResult = useMemo(() => {
-    const rawAmt = parseBRLInput(inputAmountStr) || 0;
+    const inputCurrency = direction === 'foreign_to_brl' ? effectiveCurrency : 'BRL';
+    const rawAmt = parseCurrencyInput(inputAmountStr, inputCurrency) || 0;
     return convertSmartCurrency({
       amount: rawAmt,
       direction,
@@ -481,11 +484,11 @@ export const SmartCurrencyConverterCard: React.FC<
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold font-mono text-slate-400">
               {direction === 'foreign_to_brl' ? meta.symbol : 'R$'}
             </span>
-            <input
-              type="text"
+            <CurrencyInput
               data-testid="quick-converter-amount-input"
+              currency={direction === 'foreign_to_brl' ? effectiveCurrency : 'BRL'}
+              onValueChange={setInputAmountStr}
               value={inputAmountStr}
-              onChange={(e) => setInputAmountStr(e.target.value)}
               placeholder="0,00"
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 pl-11 pr-3 py-2.5 text-base font-extrabold font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
             />
