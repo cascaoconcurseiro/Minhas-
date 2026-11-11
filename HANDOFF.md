@@ -2,6 +2,8 @@
 
 ## Fonte única de dados e regras — continuação de 11/11
 
+Outro consumidor corrigido: o extrato de `TransactionsTab` agora usa o mesmo seletor por data do calendário, evitando “Extrato (0)” no mês em que a compra foi feita e mostrada na grade. Orçamento permanece por competência/parcela por decisão explícita do usuário. O nome atual do seletor ainda é `getCalendarTransactionsForMonth`, compartilhado também pelo extrato; avaliar nome por domínio na consolidação global.
+
 Usuário ampliou explicitamente a exigência para todo o sistema: mesma fonte persistida e mesmas regras em todas as telas. Evidência atual: calendário mapeava por data, mas indicadores/semanas filtravam por competência, omitindo Amazon em novembro. Centralizado o filtro `getCalendarTransactionsForMonth` em `financeRules.ts`, usado por indicadores, seleção inicial e semanas. Regressão em `uxEnhancementRules.test.ts` cobre compra de novembro/fatura dezembro. Fatura novembro continua corretamente zero; contas bancárias a vencer também, pois não há débito bancário nesse mês. Quantidade de recorrentes e movimentações passam a refletir a grade. Não confundir essa correção com conclusão da consolidação global: próximo passo concreto é mapear cálculos locais de cada módulo listado no relatório e movê-los para regras de domínio compartilhadas.
 
 ## Decisão de apresentação e orçamento — 2026-11-11

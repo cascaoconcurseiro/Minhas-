@@ -24,6 +24,7 @@ import {
   formatBRL,
   formatShortDateBR,
   getEffectiveExpenseAmountForUser,
+  getCalendarTransactionsForMonth,
   normalizeSearchText,
 } from '../utils/financeRules';
 import { groupTransactionsByDate } from '../utils/uxEnhancementRules';
@@ -194,8 +195,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     const normalizedQuery = normalizeSearchText(effectiveSearchQuery).replace(/#/g, '');
     const tokens = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean) : [];
 
-    return transactions
-      .filter((tx) => tx.competenceMonth === selectedMonth)
+    return getCalendarTransactionsForMonth(transactions, selectedMonth)
       .filter((tx) => {
         if (typeFilter === 'expense') return tx.type === 'expense' && !tx.creditCardId;
         if (typeFilter === 'credit_card') return Boolean(tx.creditCardId);

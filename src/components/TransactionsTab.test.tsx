@@ -50,6 +50,14 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   };
 }
 
+test('ledger selects purchase date consistently with calendar when invoice competence differs', () => {
+  const purchase = makeTransaction({ description: 'Compra neste mês', competenceMonth: '2026-12' });
+  const future = makeTransaction({ id: 'future-dated', description: 'Compra no próximo mês', date: '2026-12-03' });
+  const page = renderTransactionsTab([purchase, future], () => {}, () => {});
+  assert.match(page.textContent ?? '', /Compra neste mês/);
+  assert.doesNotMatch(page.textContent ?? '', /Compra no próximo mês/);
+});
+
 function renderTransactionsTab(
   transaction: Transaction | Transaction[],
   onEditTransaction: (tx: Transaction) => void,
