@@ -414,6 +414,16 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             )}
           </div>
 
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={() => handleItemClick({ id: 'cloud', label: 'Conta e Nuvem', shortDesc: '', icon: RefreshCw })}
+              className="w-full mt-1.5 flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            >
+              <Settings className="h-4 w-4 shrink-0 text-slate-500" />
+              <span className="truncate">Conta e Nuvem</span>
+            </button>
+          )}
           {cloudUserEmail && onSignOut && (
             <button
               type="button"
