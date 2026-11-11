@@ -13,3 +13,4 @@ verify-*.png
 modal-*.png
 relatorio-*.pdf
 .vercel
+.playwright-mcp/
