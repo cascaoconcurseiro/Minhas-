@@ -463,3 +463,15 @@ html.dark body,
 .border-emerald-600 {
   border-color: #2563eb !important;
 }
+
+/* Botões de ação lilás (ex.: adiantar parcelas) seguem o azul */
+.bg-violet-50,
+.bg-indigo-50 {
+  background-color: #eff6ff !important;
+}
+.border-violet-200,
+.border-indigo-200,
+.border-violet-300,
+.border-indigo-300 {
+  border-color: #bfdbfe !important;
+}

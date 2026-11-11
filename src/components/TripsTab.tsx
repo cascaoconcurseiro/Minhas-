@@ -854,7 +854,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         </div>
 
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-xs">
-          <Plane className="mx-auto h-10 w-10 text-emerald-600 mb-3" />
+          <Plane className="mx-auto h-10 w-10 text-blue-600 mb-3" />
           <h2 className="text-lg font-bold text-slate-900 dark:text-white font-display">
             Nenhuma viagem cadastrada
           </h2>
