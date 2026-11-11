@@ -901,6 +901,9 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Corrigir filtro de cópias domésticas recebidas, substituir snapshot remoto em atualizações bem-sucedidas e preservar total original no espelhamento, com regressões.
 - [x] Confirmar conclusão do deploy Vercel `d79e019` da liquidação compartilhada.
 - [ ] Resolver retorno de estado de acerto do destinatário para a transação própria do remetente; verificar com duas identidades sem copiar IDs de contas bancárias entre usuários.
+- [x] Corrigir cota Amazon/Fran persistida indevidamente em 717,50 na primeira parcela; backup integral, revisão 43→44 e leitura remota/navegador confirmaram 59,80 em dezembro e soma 717,50 nas 12 cotas.
+- [x] Separar cotas futuras do acerto mensal, explicitar parcelamento e remover afirmações fixas de convite aceito/sincronizado; regressão liquida só a parcela do mês.
+- [ ] Atualizar cópia da Fran após convite ser aceito: envio bloqueado pelo servidor com 403 e convite em estado invited.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

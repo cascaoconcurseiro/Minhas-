@@ -88,3 +88,16 @@ test('settled-in-month totals follow actual settlement date instead of original 
   assert.equal(calculateSharedMemberSummary(settled, 'member', '2026-11').receivedMonthAmount, 0);
   assert.equal(calculateSharedMemberSummary(settled, 'member', '2026-12').receivedMonthAmount, 50);
 });
+
+test('installment collection includes only the selected competence and leaves future shares pending', () => {
+  const rows = Array.from({length:12}, (_, i) => ({...base, id:`installment-${i}`, amount:119.59,
+    sharedAmount:i<2?59.8:59.79, recurrence:'installment' as const, installmentNumber:i+1, installmentTotal:12,
+    competenceMonth:i===0?'2026-12':`2027-${String(i).padStart(2,'0')}`}));
+  const summary=calculateSharedMemberSummary(rows,'member','2026-12');
+  assert.equal(summary.owedToMeMonthAmount,59.8);
+  assert.equal(summary.futureInstallmentReceivable,657.7);
+  const result=settleSharedExpenses(rows,[account],{...input,month:'2026-12',date:'2026-12-05'});
+  assert.equal(result.netAmount,59.8);
+  assert.equal(result.affectedCount,1);
+  assert.equal(result.transactions.filter(tx=>tx.sharedStatus==='pending').length,11);
+});

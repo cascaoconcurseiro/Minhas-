@@ -7,6 +7,8 @@ Esta auditoria catalogou **52 falhas confirmadas no código (14 P0 e 38 P1)**, c
 
 ## Resumo
 
+**Correção do caso Fran após captura:** revisão 43 continha cota 717,50 na primeira parcela Amazon de 119,59. Após backup integral, apenas cotas foram redistribuídas: duas de 59,80 e dez de 59,79, somando 717,50. GET revisão 44 e navegador confirmaram dezembro cobrando 59,80. Atualização da cópia remota retornou 403 por convite `invited`; não houve confirmação de correção na conta da Fran. Tela passa a separar futuros, identificar cota/parcela e consultar status em vez de afirmar convite aceito/sincronização. Esse caso concretiza a falha P0 já registrada na edição de cota total, não é contado como novo achado.
+
 ### Consolidação de fonte de dados e regras solicitada pelo usuário
 
 O workspace no Neon é a fonte persistida; o estado `transactions` em `App.tsx` é a versão de trabalho da sessão. As telas recebem esse estado, mas ainda existem filtros e somas locais. Isso foi demonstrado no calendário: grade por `tx.date`, indicadores e semanas por `competenceMonth`. A mesma compra de novembro com fatura em dezembro aparecia na grade e sumia dos indicadores.

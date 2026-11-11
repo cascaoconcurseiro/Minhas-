@@ -352,7 +352,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
     const itemsText = pendingTxs
       .map(
         (tx) =>
-          `• ${tx.description} (${formatShortDateBR(tx.date)} — ${
+          `• ${tx.description}${tx.installmentNumber ? ` — parcela ${tx.installmentNumber}/${tx.installmentTotal}` : ''} (${formatShortDateBR(tx.date)} — ${
             tx.sharedPaidBy === 'member' ? `${member.name} pagou` : 'Eu paguei'
           }): ${formatBRL(tx.sharedAmount || 0)}`
       )
@@ -838,7 +838,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                         {activeSummary.member.email ? (
                           <span className="inline-flex items-center gap-1 rounded bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                             <Mail className="h-3 w-3" />
-                            {activeSummary.member.email} (Convite Aceito)
+                            {activeSummary.member.email} ({activeSummary.member.inviteStatus === 'accepted' ? 'Convite Aceito' : 'Convite Pendente'})
                           </span>
                         ) : (
                           <button
@@ -890,7 +890,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-colors whitespace-nowrap"
                       >
                         <CheckCircle2 className="h-4 w-4" />
-                        Liquidar Saldo Compensado ({formatBRL(Math.abs(activeSummary.netCompensatedMonthAmount))})
+                        Liquidar este mês ({formatBRL(Math.abs(activeSummary.netCompensatedMonthAmount))})
                       </button>
                     )}
 
@@ -909,7 +909,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4 border-t border-slate-800 pt-4">
                   <div>
                     <span className="text-xs text-slate-400">
-                      1. {activeSummary.member.name.split(' ')[0]} me deve (Eu paguei)
+                      1. Parte de {activeSummary.member.name.split(' ')[0]} neste mês
                     </span>
                     <div className="text-xl font-bold tabular-nums font-display text-emerald-400 mt-0.5">
                       +{formatBRL(activeSummary.owedToMeMonthAmount)}
@@ -917,7 +917,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                   </div>
                   <div>
                     <span className="text-xs text-slate-400">
-                      2. Eu devo a {activeSummary.member.name.split(' ')[0]} (Ele/ela pagou)
+                      2. Minha parte neste mês (Ele/ela pagou)
                     </span>
                     <div className="text-xl font-bold tabular-nums font-display text-amber-400 mt-0.5">
                       −{formatBRL(activeSummary.iOweMemberMonthAmount)}
@@ -1015,6 +1015,12 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
               {/* Items List (Extrato da Fatura Compartilhada) */}
               <div className="p-6 space-y-4">
+                {(activeSummary.futureInstallmentReceivable > 0 || activeSummary.futureInstallmentPayable > 0) && (
+                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs text-violet-900" data-testid="future-shared-installments">
+                    Parcelas futuras, fora do acerto deste mês: a receber {formatBRL(activeSummary.futureInstallmentReceivable)} · a pagar {formatBRL(activeSummary.futureInstallmentPayable)}.
+                    Cada cota entra no acerto da sua competência; a compra parcelada não é cobrada inteira neste mês.
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                     Lançamentos Compartilhados Nacionais ({activeSummary.monthTxs.length})
@@ -1116,7 +1122,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                                     data-testid="shared-tx-cloud-sync-badge"
                                     className="inline-flex items-center gap-1 rounded-full bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800"
                                   >
-                                    ☁️ Sincronizado com{' '}
+                                    {activeSummary.member.inviteStatus === 'accepted' ? 'Compartilhamento vinculado a ' : 'Convite pendente para '}
                                     {activeSummary.member.email ||
                                       activeSummary.member.invitedByEmail}
                                   </span>
@@ -1136,7 +1142,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                                     : 'Pago no caixa'}
                                 </span>
                                 <span>•</span>
-                                <span>Valor total da compra: {formatBRL(tx.amount)}</span>
+                                <span>{tx.installmentNumber ? `Compra ${formatBRL(tx.installmentPurchaseTotal ?? tx.amount)} em ${tx.installmentTotal}x · parcela ${formatBRL(tx.amount)}` : `Valor total da compra: ${formatBRL(tx.amount)}`}</span>
                               </div>
                             </div>
                           </div>
@@ -1154,7 +1160,9 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                                 {formatBRL(tx.sharedAmount || 0)}
                               </div>
                               <span className="text-[11px] text-slate-500">
-                                {paidByMember ? 'Eu devo esta parte' : 'Me deve esta parte'}
+                                {tx.installmentNumber
+                                  ? `Cota da parcela ${tx.installmentNumber}/${tx.installmentTotal} · ${formatMonthYearPT(tx.competenceMonth)}`
+                                  : paidByMember ? 'Eu devo esta parte' : 'Me deve esta parte'}
                               </span>
                             </div>
 

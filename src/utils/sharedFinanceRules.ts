@@ -25,8 +25,11 @@ export function calculateSharedMemberSummary(transactions: Transaction[], member
   const iOweMemberMonthAmount = sumShares(pending.filter((tx) => tx.sharedPaidBy === 'member'));
   const netCompensatedMonthAmount = Math.round((owedToMeMonthAmount - iOweMemberMonthAmount) * 100) / 100;
   const allPending = all.filter((tx) => tx.sharedStatus !== 'received');
+  const futureInstallments = allPending.filter((tx) => tx.recurrence === 'installment' && tx.competenceMonth > month);
   return { monthTxs, owedToMeMonthAmount, iOweMemberMonthAmount, netCompensatedMonthAmount,
     pendingMonthAmount: Math.abs(netCompensatedMonthAmount),
+    futureInstallmentReceivable: sumShares(futureInstallments.filter((tx) => tx.sharedPaidBy !== 'member')),
+    futureInstallmentPayable: sumShares(futureInstallments.filter((tx) => tx.sharedPaidBy === 'member')),
     receivedMonthAmount: sumShares(all.filter((tx) => tx.sharedStatus === 'received' &&
       (tx.sharedSettledDate ? tx.sharedSettledDate.slice(0, 7) : tx.competenceMonth) === month)),
     allTimePendingAmount: Math.round((sumShares(allPending.filter((tx) => tx.sharedPaidBy !== 'member')) - sumShares(allPending.filter((tx) => tx.sharedPaidBy === 'member'))) * 100) / 100,

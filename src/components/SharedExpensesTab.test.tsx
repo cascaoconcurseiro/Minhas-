@@ -685,7 +685,7 @@ test('SharedExpensesTab switches between members and confirms compensated full s
   assert.ok(memberSelector, 'participante deve aparecer no seletor de familiares');
   await act(async () => { memberSelector.click(); });
   assert.match(page.textContent ?? '', /Pessoa Segunda/);
-  const settleAll = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Liquidar Saldo Compensado'));
+  const settleAll = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Liquidar este mês'));
   assert.ok(settleAll);
   await act(async () => { settleAll.click(); });
   const date = page.querySelector<HTMLInputElement>('#shared-settlement-date');

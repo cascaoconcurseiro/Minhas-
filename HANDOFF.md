@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Correção real da cota da Fran — 11/11
+
+Captura do usuário mostrou parcela 119,59 cobrando cota total 717,50 em dezembro. GET autenticado confirmou revisão 43 com primeira cota 717,50 e demais 59,79, todas pending. Backup completo em `C:/Users/Wesley/Documents/CodexBackups/Minhas-20261111/fran-before.json`. Corrigidas somente cotas da série Amazon para somar 717,50 em 12 meses (primeiras duas 59,80, demais 59,79), preservando demais campos. PUT revisão esperada 43 e GET independente confirmaram revisão 44, salvo em `fran-after.json`. Navegador autenticado confirmou dezembro recebendo 59,80 sem cobrança 717,50.
+
+Tentativa autorizada de atualizar cópia remota retornou 403: API de convites retorna `invited`, não accepted. Não marcar cópia da Fran como corrigida; depende de vínculo aceito. A tela tinha texto fixo “Convite Aceito”/“Sincronizado” mesmo nesse estado; ajustado para consultar status e não afirmar sincronização. Também corrigido rótulo que chamava valor da parcela de total da compra.
+
+Resumo agora separa cotas futuras das do mês; mensagem copiada inclui número da parcela; botão explicita liquidar este mês. Teste confirma liquidação de dezembro baixa só 59,80, deixa 11 parcelas pendentes e mostra 657,70 futuros. Suíte completa passou 458/458 antes dos dois últimos ajustes de texto, depois 30 testes direcionados + lint/build passaram. Deploy anterior `e1c2929` confirmado success. Espaço Ego 1 entregue ao usuário em dezembro/Compartilhado; nenhuma mensagem enviada à Fran.
+
 ## Cópias recebidas e remoção remota — continuação de 11/11
 
 Deploy `d79e019` confirmado pelo status Vercel no GitHub (`gh api`, success). Corrigida regressão do filtro doméstico: cópias `tx-mirror-` com `isCompanionOnlyExpense` precisam entrar no compartilhamento, embora não debitem banco como compra original. Teste cobre resumo, baixa e saldo único de pagamento. Atualização periódica agora usa `replaceIncomingSharedTransactions` em vez de unir com cópias antigas; remove ausentes/revogadas somente após resposta bem-sucedida, preservando transações próprias. Backend preserva `installmentPurchaseTotal` na cópia, com regressão no endpoint.
