@@ -3078,3 +3078,78 @@ export function calculateFinancialHealthScore360(params: {
   };
 }
 
+
+export function calculatePersonalDre(
+  transactions: Transaction[],
+  selectedMonth: string,
+  accountBalances: AccountBalanceSummary[],
+  investments: InvestmentAsset[]
+) {
+  const monthTxs = transactions.filter(
+    (tx) =>
+      tx.competenceMonth === selectedMonth &&
+      !tx.isInvoicePayment &&
+      !tx.isCompanionOnlyExpense
+  );
+  let operationalIncome = 0;
+  let dividendIncome = 0;
+  let consumptionExpenses = 0;
+  let investmentContributions = 0;
+
+  for (const tx of monthTxs) {
+    if (tx.type === 'income') {
+      if (tx.sharedPaidBy === 'member') continue;
+      const isFamilyReimbursement =
+        tx.id.startsWith('tx-reimb-') ||
+        tx.description.toLowerCase().includes('reembolso compartilhado') ||
+        tx.description.toLowerCase().includes('acerto compensado');
+      if (tx.categoryId === 'cat-rendimentos' && !isFamilyReimbursement) {
+        dividendIncome += tx.amount;
+      } else {
+        operationalIncome += tx.amount;
+      }
+    } else if (tx.type === 'expense') {
+      const effective = getEffectiveExpenseAmountForUser(tx);
+      if (!effective) continue;
+      if (
+        tx.categoryId === 'cat-aportes' ||
+        tx.categoryId === 'cat-rendimentos' ||
+        tx.description.toLowerCase().includes('aporte')
+      ) {
+        investmentContributions += effective.amount;
+      } else {
+        consumptionExpenses += effective.amount;
+      }
+    } else if (tx.type === 'transfer' && tx.targetInvestmentAssetId) {
+      investmentContributions += tx.amount;
+    }
+  }
+
+  const totalIncome = operationalIncome + dividendIncome;
+  const freeCashFlowBeforeInvestments = totalIncome - consumptionExpenses;
+  const netSurplusAfterInvestments =
+    freeCashFlowBeforeInvestments - investmentContributions;
+
+  const liquidAccountsBalance = accountBalances.reduce(
+    (sum, b) => sum + b.currentBalance,
+    0
+  );
+  const investedAssetsValue = investments.reduce(
+    (sum, a) => sum + Math.round(a.quantity * a.currentPrice * 100) / 100,
+    0
+  );
+  const totalNetWorth = liquidAccountsBalance + investedAssetsValue;
+
+  return {
+    operationalIncome,
+    dividendIncome,
+    totalIncome,
+    consumptionExpenses,
+    investmentContributions,
+    freeCashFlowBeforeInvestments,
+    netSurplusAfterInvestments,
+    liquidAccountsBalance,
+    investedAssetsValue,
+    totalNetWorth,
+  };
+}

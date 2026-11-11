@@ -14,6 +14,7 @@ import {
   calculateDailyCashFlow,
   calculateFinancialHealthScore360,
   calculateMonthlySummary,
+  calculatePersonalDre,
   calculatePeriodReport,
   calculateSixMonthComparativeSeries,
   createTransactionBatch,
@@ -38,6 +39,31 @@ import {
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
+
+test('personal DRE uses the same shared-expense and income exclusions as monthly totals', () => {
+  const base: Transaction = {
+    id: 'shared-dre', description: 'Shared synthetic expense', amount: 100,
+    date: '2026-11-11', competenceMonth: '2026-11', type: 'expense', status: 'pending',
+    categoryId: 'consumption', recurrence: 'single', paymentMethod: 'pix',
+    isShared: true, sharedPaidBy: 'member', sharedAmount: 30,
+  };
+  const rows: Transaction[] = [
+    base,
+    { ...base, id: 'missing-share', sharedAmount: undefined },
+    { ...base, id: 'already-settled', sharedStatus: 'received' },
+    { ...base, id: 'member-income', type: 'income' },
+    { ...base, id: 'invoice-payment', isInvoicePayment: true },
+    { ...base, id: 'future', competenceMonth: '2026-12' },
+    { ...base, id: 'salary', type: 'income', sharedPaidBy: undefined, isShared: false, amount: 200 },
+  ];
+  const dre = calculatePersonalDre(rows, '2026-11', [], []);
+  const monthly = calculateMonthlySummary([], [], rows, '2026-11');
+  assert.equal(dre.consumptionExpenses, 30);
+  assert.equal(dre.consumptionExpenses, monthly.expenseTotal);
+  assert.equal(dre.totalIncome, monthly.incomeTotal);
+  assert.equal(dre.totalIncome, 200);
+  assert.equal(dre.netSurplusAfterInvestments, 170);
+});
 
 test('parseBRLInput parses Brazilian and standard decimal strings accurately', () => {
   assert.equal(parseBRLInput('R$ 1.450,90'), 1450.9);

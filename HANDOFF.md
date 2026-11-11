@@ -1,6 +1,14 @@
 # Handoff — Minhas Economias
 
+## Consolidação do DRE — continuação de 11/11
+
+Deploy `0a33f83` do extrato confirmado com sucesso na verificação Vercel. Na revisão global, `ReportsAndDataTab` ainda possuía DRE próprio com cota de familiar presumida em 50% quando ausente e receita do familiar incluída. Extraído `calculatePersonalDre` para `financeRules.ts`, usando `getEffectiveExpenseAmountForUser` e a mesma exclusão de receita do familiar do resumo mensal. Regressão compara resultados com `calculateMonthlySummary`; 58 testes direcionados passaram. Relatório atualizado para 38 achados tabelados, incluindo divergência calendário/extrato e DRE.
+
+Inventário confirmado: `App.tsx` já calcula saldo de contas, resumo de cartão, resumo mensal e categorias via `financeRules.ts`; `BudgetsTab` soma os resultados de categorias recebidos; relatórios de período e fluxo diário também já chamam o domínio. Próximo ponto concreto: `TransactionModal.tsx:1240`, `liveBudgetImpact`, usa `categoryBreakdown` do mês selecionado mesmo quando a fatura inferida é de outro mês. Conferir também o rateio do rascunho e a edição do total original, pois a prévia deve usar a mesma parcela/competência que será salva. Não alterar dados produtivos para esse teste; usar fixture sintética.
+
 ## Fonte única de dados e regras — continuação de 11/11
+
+Verificação real após deploy `68b3c08`: navegador autenticado mostrou 1 item parcelado, despesas nas datas do mês R$ 119,62 e semana 2 com 1 movimento/R$ 119,62, mantendo contas bancárias e fatura de novembro zeradas. O PWA estava instalando nova versão após reload e depois atualizou automaticamente; não houve limpeza de cache. Formulário confirmado sem miniatura/bandeira nem aviso de mês, com data padrão 11/11. Total principal no calendário confirmado R$ 1.435,00 em 12x / parcela 1/12 R$ 119,62. Suíte completa anterior: 440/440; após ajuste do extrato, 8 testes do componente passaram (incluindo regressão de data x competência), lint/build passaram. Commit `0a33f83` enviado a main, verificação Vercel ainda pendente na última consulta; confirmar publicação desse ajuste específico do extrato. Espaço Ego 1 entregue ao usuário com calendário aberto; retomar somente quando usuário devolver controle. Próximo trabalho independente: inventário e consolidação global de regras descritos no relatório.
 
 Outro consumidor corrigido: o extrato de `TransactionsTab` agora usa o mesmo seletor por data do calendário, evitando “Extrato (0)” no mês em que a compra foi feita e mostrada na grade. Orçamento permanece por competência/parcela por decisão explícita do usuário. O nome atual do seletor ainda é `getCalendarTransactionsForMonth`, compartilhado também pelo extrato; avaliar nome por domínio na consolidação global.
 

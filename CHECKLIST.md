@@ -886,4 +886,7 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Tornar total da compra e quantidade de parcelas visíveis na primeira parcela do calendário, remover instruções de sincronização manual da tela de login e atualizar documentação do login próprio. Lint/build/diff-check passaram.
 - [x] Retirar miniatura/bandeira e aviso de fatura estimada do formulário de compra; manter cálculo automático e ajuste manual recolhido. Trocar “Sem Gastos” por “Sem fatura no mês” na página do cartão. Regressões do modal, lint e build passaram.
 - [x] Usar filtro compartilhado por data nos indicadores/semanas/seleção inicial do calendário; cobrir compra de novembro faturada em dezembro com regressão.
+- [x] Confirmar em produção autenticada: compra em 11/11, total original em destaque, 1 recorrente e 1 movimento na semana 2; formulário sem miniatura/aviso de mês. Corrigir seleção do extrato com regressão (deploy específico ainda pendente na última consulta).
 - [ ] Consolidar seleção, somas e invariantes financeiros de todos os módulos no domínio compartilhado, comprovando resultados coerentes após uma mesma edição e readback remoto.
+- [x] Extrair DRE do componente para regra de domínio e alinhar despesas/receitas de familiar ao resumo mensal, com regressão de consistência.
+- [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

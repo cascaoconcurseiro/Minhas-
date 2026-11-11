@@ -26,6 +26,7 @@ import {
   addMonthsToYearMonth,
   calculateDailyCashFlow,
   calculatePeriodReport,
+  calculatePersonalDre,
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
@@ -182,83 +183,10 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     [historyAuditRows]
   );
 
-  // Personal DRE & Consolidated Wealth calculation for selectedMonth
-  const personalDre = useMemo(() => {
-    const monthTxs = transactions.filter(
-      (tx) =>
-        tx.competenceMonth === selectedMonth &&
-        !tx.isInvoicePayment &&
-        !tx.isCompanionOnlyExpense
-    );
-    let operationalIncome = 0;
-    let dividendIncome = 0;
-    let consumptionExpenses = 0;
-    let investmentContributions = 0;
-
-    for (const tx of monthTxs) {
-      if (tx.type === 'income') {
-        const isFamilyReimbursement =
-          tx.id.startsWith('tx-reimb-') ||
-          tx.description.toLowerCase().includes('reembolso compartilhado') ||
-          tx.description.toLowerCase().includes('acerto compensado');
-        if (tx.categoryId === 'cat-rendimentos' && !isFamilyReimbursement) {
-          dividendIncome += tx.amount;
-        } else {
-          operationalIncome += tx.amount;
-        }
-      } else if (tx.type === 'expense') {
-        // Respect shared expenses paid by family members (skip if already settled via tx-reimb-, or count only user share if pending)
-        if (tx.isShared && tx.sharedPaidBy === 'member') {
-          if (tx.sharedStatus === 'received') continue;
-          const userShare =
-            typeof tx.sharedAmount === 'number' && tx.sharedAmount > 0
-              ? tx.sharedAmount
-              : Math.round((tx.amount / 2) * 100) / 100;
-          consumptionExpenses += userShare;
-          continue;
-        }
-        if (
-          tx.categoryId === 'cat-aportes' ||
-          tx.categoryId === 'cat-rendimentos' ||
-          tx.description.toLowerCase().includes('aporte')
-        ) {
-          investmentContributions += tx.amount;
-        } else {
-          consumptionExpenses += tx.amount;
-        }
-      } else if (tx.type === 'transfer' && tx.targetInvestmentAssetId) {
-        investmentContributions += tx.amount;
-      }
-    }
-
-    const totalIncome = operationalIncome + dividendIncome;
-    const freeCashFlowBeforeInvestments = totalIncome - consumptionExpenses;
-    const netSurplusAfterInvestments =
-      freeCashFlowBeforeInvestments - investmentContributions;
-
-    const liquidAccountsBalance = accountBalances.reduce(
-      (sum, b) => sum + b.currentBalance,
-      0
-    );
-    const investedAssetsValue = investments.reduce(
-      (sum, a) => sum + Math.round(a.quantity * a.currentPrice * 100) / 100,
-      0
-    );
-    const totalNetWorth = liquidAccountsBalance + investedAssetsValue;
-
-    return {
-      operationalIncome,
-      dividendIncome,
-      totalIncome,
-      consumptionExpenses,
-      investmentContributions,
-      freeCashFlowBeforeInvestments,
-      netSurplusAfterInvestments,
-      liquidAccountsBalance,
-      investedAssetsValue,
-      totalNetWorth,
-    };
-  }, [transactions, selectedMonth, accountBalances, investments]);
+  const personalDre = useMemo(
+    () => calculatePersonalDre(transactions, selectedMonth, accountBalances, investments),
+    [transactions, selectedMonth, accountBalances, investments]
+  );
 
   const { activeStartMonth, activeEndMonth } = useMemo(() => {
     if (periodPreset === 'monthly') {
