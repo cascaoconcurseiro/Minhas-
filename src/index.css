@@ -459,6 +459,7 @@ html.dark body,
 }
 
 /* Estados selecionados (cards de escolha, abas) usam a cor de destaque azul */
+.border-emerald-400,
 .border-emerald-500,
 .border-emerald-600 {
   border-color: #2563eb !important;
@@ -474,4 +475,21 @@ html.dark body,
 .border-violet-300,
 .border-indigo-300 {
   border-color: #bfdbfe !important;
+}
+
+/* Botões de ação pretos (Nova Meta, Compra no Cartão...) seguem o azul principal.
+   Seletor exige a classe de hover, então painéis escuros continuam como estão. */
+.bg-slate-900.hover\:bg-slate-800 {
+  background-color: #2563eb !important;
+}
+.bg-slate-900.hover\:bg-slate-800:hover {
+  background-color: #1d4ed8 !important;
+}
+
+/* Detalhes que restaram: borda translúcida do banner de instalação e texto lilás de ações */
+.border-emerald-500\/30 {
+  border-color: rgb(37 99 235 / 0.3) !important;
+}
+.text-violet-800 {
+  color: #1e40af !important;
 }
