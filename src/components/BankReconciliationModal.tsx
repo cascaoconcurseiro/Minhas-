@@ -261,7 +261,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
               <FileCheck2 className="h-5 w-5" />
             </div>
             <div>
@@ -419,7 +419,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
               onClick={() => fileInputRef.current?.click()}
               className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all cursor-pointer ${
                 isDragging
-                  ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20'
+                  ? 'border-blue-500 bg-blue-50/50 dark:bg-emerald-950/20'
                   : 'border-slate-300 hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900'
               }`}
             >
@@ -431,7 +431,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 mb-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400 mb-3">
                 <UploadCloud className="h-6 w-6" />
               </div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -518,7 +518,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                     type="checkbox"
                     checked={showOnlyNew}
                     onChange={(e) => setShowOnlyNew(e.target.checked)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                    className="rounded text-blue-600 focus:ring-blue-500"
                   />
                   <span>Ocultar duplicatas da lista</span>
                 </label>
@@ -543,7 +543,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                         type="checkbox"
                         checked={c.selected}
                         onChange={() => handleToggleCandidate(c.id)}
-                        className="mt-0.5 sm:mt-0 rounded text-emerald-600 focus:ring-emerald-500 shrink-0"
+                        className="mt-0.5 sm:mt-0 rounded text-blue-600 focus:ring-blue-500 shrink-0"
                       />
                       <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 shrink-0 w-20">
                         {c.date}

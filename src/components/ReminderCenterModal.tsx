@@ -324,7 +324,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
               type="button"
               onClick={() => setShowChannelConfig((prev) => !prev)}
               data-testid="toggle-reminder-channels-btn"
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold border transition-colors ${
+              className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-bold border transition-colors ${
                 showChannelConfig
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
@@ -591,7 +591,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                       <button
                         type="button"
                         onClick={handleRequestPermission}
-                        className="rounded-lg bg-sky-600 hover:bg-sky-700 text-white px-2.5 py-1.5 text-xs font-bold transition-colors"
+                        className="whitespace-nowrap rounded-lg bg-sky-600 hover:bg-sky-700 text-white px-2.5 py-1.5 text-xs font-bold transition-colors"
                       >
                         Permitir no Navegador
                       </button>
@@ -605,7 +605,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                     <button
                       type="button"
                       onClick={handleSendTestNotification}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors ml-auto"
+                      className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors ml-auto"
                     >
                       <Send className="h-3 w-3 text-sky-600" />
                       {testNotificationSent ? 'Enviado!' : 'Testar Alerta'}
