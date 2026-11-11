@@ -60,7 +60,6 @@ function renderTransactionModal(
         accounts: options.accounts ?? [account],
         cards,
         categories: options.categories ?? [category],
-        categoryBreakdown: [],
         transactions: options.transactions ?? [],
         familyMembers: options.familyMembers ?? [],
         onAddFamilyMember: options.onAddFamilyMember,
@@ -485,6 +484,25 @@ test('credit-card purchase creates pending installments tied to the chosen card'
   assert.equal(saved[0].installmentTotal, 3);
   assert.equal(saved[0].installmentPurchaseTotal, 3000);
   assert.equal(saved[0].accountId, undefined);
+});
+
+test('budget warning follows invoice competence instead of the month open behind the modal', async () => {
+  const base: Transaction = {
+    id: 'nov-budget', description: 'Synthetic existing expense', amount: 290,
+    date: '2026-11-01', competenceMonth: '2026-11', type: 'expense', status: 'pending',
+    categoryId: 'category-test', recurrence: 'single', paymentMethod: 'pix',
+  };
+  const page = renderTransactionModal(() => {}, () => {}, {
+    cards: [testCard], transactions: [base, { ...base, id: 'dec-budget', amount: 40, competenceMonth: '2026-12' }],
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-date-input"]')!, '2026-11-11');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '50,00');
+  });
+  assert.match(page.textContent ?? '', /Teto de Alimentação \(Dezembro de 2026\)/);
+  assert.match(page.textContent ?? '', /90,00/);
+  assert.doesNotMatch(page.textContent ?? '', /340,00/);
 });
 
 test('updates card invoice competence from the closing day without requiring manual month selection', async () => {

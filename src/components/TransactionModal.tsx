@@ -21,7 +21,6 @@ import {
 import {
   BankAccount,
   Category,
-  CategorySpendItem,
   CreditCard,
   CurrencyCode,
   CurrencyPaymentRegime,
@@ -47,6 +46,7 @@ import {
   normalizeSearchText,
   normalizeTransactionTags,
   parseBRLInput,
+  previewCategoryBudget,
   resolveCreditCardInvoiceMonth,
 } from '../utils/financeRules';
 import {
@@ -62,7 +62,6 @@ import {
 } from '../utils/travelRules';
 import { computeModalScrollState } from '../utils/modalScrollRules';
 import {
-  calculateBudgetImpactPreview,
   getSmartTransactionSuggestions,
   predictCategoryFromDescription,
   SmartCategorySuggestion,
@@ -92,7 +91,6 @@ interface TransactionModalProps {
   accounts: BankAccount[];
   cards: CreditCard[];
   categories: Category[];
-  categoryBreakdown: CategorySpendItem[];
   transactions: Transaction[];
   familyMembers: FamilyMember[];
   onAddFamilyMember?: (newMember: Omit<FamilyMember, 'id'>) => FamilyMember | void;
@@ -125,7 +123,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   accounts,
   cards,
   categories,
-  categoryBreakdown,
   transactions,
   familyMembers,
   onAddFamilyMember,
@@ -1211,61 +1208,28 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
-  const currentTransactionMonthlyImpact = useMemo(() => {
-    if (numericPreview <= 0) return 0;
-    if (
-      !editingTransaction &&
-      entryMode === 'credit_card' &&
-      recurrence === 'installment' &&
-      amountMode === 'total_divided' &&
-      installmentTotal > 1
-    ) {
-      return Math.round((numericPreview / installmentTotal) * 100) / 100;
-    }
-    if (selectedTrip && isPaidByCompanion) {
-      return 0;
-    }
-    return numericPreview;
-  }, [
-    numericPreview,
-    editingTransaction,
-    entryMode,
-    recurrence,
-    amountMode,
-    installmentTotal,
-    selectedTrip,
-    isPaidByCompanion,
-  ]);
-
   const liveBudgetImpact = useMemo(() => {
-    if (entryMode === 'income' || entryMode === 'transfer' || !categoryId) {
+    if (entryMode === 'income' || entryMode === 'transfer' || !categoryId || numericPreview <= 0 || (selectedTrip && isPaidByCompanion)) {
       return null;
     }
-    const catObj = categories.find((c) => c.id === categoryId);
-    const currentItem = categoryBreakdown.find(
-      (b) => b.categoryId === categoryId
-    );
-    const currentSpent = currentItem?.spent || 0;
-    const prevAmount =
-      editingTransaction &&
-      editingTransaction.categoryId === categoryId &&
-      editingTransaction.competenceMonth === selectedMonth
-        ? editingTransaction.amount
-        : 0;
-    return calculateBudgetImpactPreview(
-      catObj,
-      currentSpent,
-      numericPreview,
-      recurrence,
-      amountMode,
-      installmentTotal,
-      prevAmount
-    );
+    return previewCategoryBudget(categories, transactions, {
+      description, amount: numericPreview, date,
+      competenceMonth: entryMode === 'credit_card' ? invoiceCompetenceMonth : date.slice(0, 7),
+      categoryId, type: 'expense', status,
+      creditCardId: entryMode === 'credit_card' ? creditCardId : undefined,
+      paymentMethod: entryMode === 'credit_card' ? 'credit_card' : paymentMethod,
+      recurrence: entryMode !== 'credit_card' && recurrence === 'installment' ? 'single' : recurrence,
+      amountMode, installmentTotal,
+      installmentPurchaseTotal: recurrence === 'installment' && !legacyInstallmentTotalUnknown
+        ? Math.round((amountMode === 'total_divided' ? numericPreview : numericPreview * installmentTotal) * 100) / 100
+        : undefined,
+    }, editingTransaction?.id, cascadeScope);
   }, [
     entryMode,
     categoryId,
     categories,
-    categoryBreakdown,
+    transactions, date, invoiceCompetenceMonth, creditCardId, status, paymentMethod,
+    description, cascadeScope, legacyInstallmentTotalUnknown, selectedTrip, isPaidByCompanion,
     numericPreview,
     recurrence,
     amountMode,
@@ -2924,7 +2888,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         {liveBudgetImpact.statusAfter !== 'ok' && (
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                         )}
-                        Teto de {liveBudgetImpact.categoryName}:
+                        Teto de {liveBudgetImpact.categoryName} ({formatMonthYearPT(liveBudgetImpact.month)}):
                       </span>
                       <span className="font-mono font-bold tabular-nums">
                         {formatBRL(liveBudgetImpact.projectedSpent)} /{' '}
@@ -4236,7 +4200,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <span>
                     Impacto mensal:{' '}
                     <strong className="font-mono tabular-nums text-slate-900 dark:text-white">
-                      {formatBRL(currentTransactionMonthlyImpact)}
+                      {formatBRL(liveBudgetImpact?.draftMonthlyAmount ?? (selectedTrip && isPaidByCompanion ? 0 : numericPreview))}
                     </strong>
                   </span>
                   <span className="text-slate-300 dark:text-slate-600">•</span>

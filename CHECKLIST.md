@@ -889,4 +889,5 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Confirmar em produção autenticada: compra em 11/11, total original em destaque, 1 recorrente e 1 movimento na semana 2; formulário sem miniatura/aviso de mês. Corrigir seleção do extrato com regressão (deploy específico ainda pendente na última consulta).
 - [ ] Consolidar seleção, somas e invariantes financeiros de todos os módulos no domínio compartilhado, comprovando resultados coerentes após uma mesma edição e readback remoto.
 - [x] Extrair DRE do componente para regra de domínio e alinhar despesas/receitas de familiar ao resumo mensal, com regressão de consistência.
+- [x] Consolidar prévia de orçamento e rodapé do formulário com geração/edição de parcelas do domínio, removendo cálculo duplicado e resumo de mês incorreto; cobrir competência de fatura, centavos, preservação de parcela paga, limite e categoria sem orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

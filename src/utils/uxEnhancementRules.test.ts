@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   anticipateCardInstallments,
   calculateAccountStatementWithRunningBalance,
-  calculateBudgetImpactPreview,
   calculateMonthBurnRateMarker,
   calculateWeeklyCashPulse,
   getCategorySuggestionsForDescription,
@@ -13,42 +12,6 @@ import {
 } from './uxEnhancementRules';
 import { Category, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
-
-test('calculateBudgetImpactPreview computes accurate before/after budget metrics and over-limit status', () => {
-  const supermercadoCat: Category = {
-    id: 'cat-mercado',
-    name: 'Supermercado & Feira',
-    type: 'expense',
-    bucket: 'essential',
-    monthlyBudget: 1600,
-    color: '#059669',
-    icon: 'shopping-cart',
-    subcategories: [],
-  };
-
-  const previewOk = calculateBudgetImpactPreview(supermercadoCat, 1369.6, 100);
-  assert.equal(previewOk.hasBudget, true);
-  assert.equal(previewOk.projectedSpent, 1469.6);
-  assert.equal(previewOk.remainingAfter, 130.4);
-  assert.equal(previewOk.statusAfter, 'warning');
-
-  const previewOver = calculateBudgetImpactPreview(supermercadoCat, 1369.6, 300);
-  assert.equal(previewOver.projectedSpent, 1669.6);
-  assert.equal(previewOver.remainingAfter, -69.6);
-  assert.equal(previewOver.statusAfter, 'over');
-
-  const previewInstallment = calculateBudgetImpactPreview(
-    supermercadoCat,
-    1300,
-    600,
-    'installment',
-    'total_divided',
-    3
-  );
-  assert.equal(previewInstallment.addedInMonth, 200);
-  assert.equal(previewInstallment.projectedSpent, 1500);
-  assert.equal(previewInstallment.remainingAfter, 100);
-});
 
 test('groupTransactionsByDate groups transactions chronologically and computes daily subtotals', () => {
   const sampleTxs: Transaction[] = [

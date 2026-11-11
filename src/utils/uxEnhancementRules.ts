@@ -7,19 +7,6 @@ import {
 import { getEffectiveExpenseAmountForUser, getCalendarTransactionsForMonth } from './financeRules';
 import { matchCategoryByDescription } from './ofxParser';
 
-export interface BudgetImpactPreview {
-  hasBudget: boolean;
-  categoryName: string;
-  budgetLimit: number;
-  spentBefore: number;
-  addedInMonth: number;
-  projectedSpent: number;
-  remainingAfter: number;
-  percentBefore: number;
-  percentAfter: number;
-  statusAfter: 'ok' | 'warning' | 'over';
-}
-
 export interface DailyTransactionGroup {
   date: string;
   dayHeaderLabel: string;
@@ -90,73 +77,6 @@ const WEEKDAYS_PT = [
   'Sexta-feira',
   'Sábado',
 ];
-
-/**
- * Calculates real-time budget impact when filling out a new or edited expense in TransactionModal.
- */
-export function calculateBudgetImpactPreview(
-  category: Category | undefined,
-  currentCategorySpent: number,
-  rawDraftAmount: number,
-  recurrence: 'single' | 'installment' | 'fixed' = 'single',
-  amountMode: 'total_divided' | 'per_installment' = 'total_divided',
-  installmentTotal = 1,
-  editingPreviousAmountInMonth = 0
-): BudgetImpactPreview {
-  if (!category || category.type !== 'expense' || category.monthlyBudget <= 0) {
-    return {
-      hasBudget: false,
-      categoryName: category?.name || '',
-      budgetLimit: 0,
-      spentBefore: 0,
-      addedInMonth: 0,
-      projectedSpent: 0,
-      remainingAfter: 0,
-      percentBefore: 0,
-      percentAfter: 0,
-      statusAfter: 'ok',
-    };
-  }
-
-  const budgetLimit = category.monthlyBudget;
-  const spentBefore = Math.max(
-    0,
-    Math.round((currentCategorySpent - editingPreviousAmountInMonth) * 100) / 100
-  );
-
-  const safeDraft = Math.max(0, rawDraftAmount);
-  const safeInstallments = Math.max(1, installmentTotal);
-  const addedInMonth =
-    recurrence === 'installment' && amountMode === 'total_divided' && safeInstallments > 1
-      ? Math.round((safeDraft / safeInstallments) * 100) / 100
-      : Math.round(safeDraft * 100) / 100;
-
-  const projectedSpent = Math.round((spentBefore + addedInMonth) * 100) / 100;
-  const remainingAfter = Math.round((budgetLimit - projectedSpent) * 100) / 100;
-
-  const percentBefore = Math.round((spentBefore / budgetLimit) * 1000) / 10;
-  const percentAfter = Math.round((projectedSpent / budgetLimit) * 1000) / 10;
-
-  const statusAfter: 'ok' | 'warning' | 'over' =
-    projectedSpent > budgetLimit
-      ? 'over'
-      : percentAfter >= 80
-      ? 'warning'
-      : 'ok';
-
-  return {
-    hasBudget: true,
-    categoryName: category.name,
-    budgetLimit,
-    spentBefore,
-    addedInMonth,
-    projectedSpent,
-    remainingAfter,
-    percentBefore,
-    percentAfter,
-    statusAfter,
-  };
-}
 
 /**
  * Formats a YYYY-MM-DD date string into a friendly Brazilian daily group header.

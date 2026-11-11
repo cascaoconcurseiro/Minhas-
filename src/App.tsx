@@ -4175,7 +4175,6 @@ export default function App() {
         accounts={accounts}
         cards={cards}
         categories={categories}
-        categoryBreakdown={categoryBreakdown}
         transactions={transactions}
         familyMembers={familyMembers}
         onAddFamilyMember={handleAddFamilyMember}

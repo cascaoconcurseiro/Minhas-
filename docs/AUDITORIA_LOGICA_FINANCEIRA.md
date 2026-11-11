@@ -3,7 +3,7 @@
 Data: 2026-11-11
 Escopo: lançamentos, compras parceladas, cartões/faturas, competência, categorias, moeda e sincronização.
 
-Esta auditoria catalogou **38 falhas confirmadas no código (11 P0 e 27 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
+Esta auditoria catalogou **39 falhas confirmadas no código (11 P0 e 28 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
 
 ## Resumo
 
@@ -35,6 +35,7 @@ Na varredura de campos numéricos, os valores monetários dos módulos de lança
 
 | Prioridade | Achado confirmado | Correção aplicada | Evidência |
 | --- | --- | --- | --- |
+| P1 | A prévia de orçamento do formulário usava gastos do mês aberto mesmo quando a fatura inferida era de outro mês, dividia parcelas por uma regra própria e podia exibir o total original editado como impacto mensal. | `previewCategoryBudget` calcula antes/depois pela competência do rascunho, reutiliza `createTransactionBatch`, `applyCascadeTransactionEdit` e `calculateCategoryBreakdown`. O formulário e rodapé usam essa prévia; a propriedade com resumo do mês aberto e a função antiga duplicada foram removidas. | Regressões com compra novembro/fatura dezembro, resto de centavos, parcela paga preservada, alertas de limite e categoria sem orçamento; teste do modal confirma dezembro/R$ 90,00 em vez de novembro/R$ 340,00. |
 | P1 | Grade do calendário selecionava por data, enquanto indicadores, semanas e extrato selecionavam por competência. Uma compra de novembro faturada em dezembro aparecia na grade mas sumia dos demais indicadores. | Calendário, indicadores, semanas e extrato usam o mesmo seletor por data; orçamento e fatura mantêm sua competência. | `getCalendarTransactionsForMonth`, regressões de semanas e extrato; calendário autenticado mostrou 1 item e movimento de R$ 119,62 na semana 2 após deploy. |
 | P1 | DRE tinha tratamento próprio para despesas pagas por familiares: presumia metade sem cota informada e incluía receitas do familiar que os demais resumos excluíam. | DRE extraído para `calculatePersonalDre` no domínio, reutilizando `getEffectiveExpenseAmountForUser` e a exclusão de receitas do familiar. | Teste compara DRE com resumo mensal para cota válida, ausente, quitada, fatura, mês futuro e receita própria/do familiar. |
 | P0 | O formulário preenchia dia 15 quando aberto sem uma data explícita, fazendo a compra cair em outro dia no calendário. | O padrão passou a ser a data local atual; datas iniciais fornecidas pelo calendário continuam sendo respeitadas. | `src/components/TransactionModal.tsx`; teste sintético de envio da data e uso de `getLocalDateISO`. |

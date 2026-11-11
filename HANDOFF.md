@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Prévia de orçamento consolidada — continuação de 11/11
+
+`TransactionModal` não recebe mais `categoryBreakdown` do mês aberto. Usa `previewCategoryBudget` em `financeRules.ts`, com a competência que será salva. A prévia reutiliza a geração de parcelas, edição em cascata (com parcelas pagas preservadas) e soma por categoria. O rodapé usa o valor da parcela resultante, inclusive ao editar o total original; categorias sem orçamento continuam fornecendo impacto mensal. A função duplicada `calculateBudgetImpactPreview` foi removida de `uxEnhancementRules`, e suas verificações de alerta foram portadas para a regra atual.
+
+Regressões cobrem compra em novembro faturada em dezembro, rateio de R$ 0,08/5, total editado preservando parcela paga, aviso de limite e orçamento inexistente. Teste do modal compara os R$ 90,00 corretos de dezembro aos R$ 340,00 indevidos do mês aberto. Próximo passo após publicar: continuar inventário das regras restantes, incluindo preview de compartilhamentos/viagens e cálculos de patrimônio; não afirmar consolidação global concluída. Espaço Ego permanece entregue ao usuário, sem novo acesso à sessão nesta continuação.
+
 ## Consolidação do DRE — continuação de 11/11
 
 Deploy `0a33f83` do extrato confirmado com sucesso na verificação Vercel. Na revisão global, `ReportsAndDataTab` ainda possuía DRE próprio com cota de familiar presumida em 50% quando ausente e receita do familiar incluída. Extraído `calculatePersonalDre` para `financeRules.ts`, usando `getEffectiveExpenseAmountForUser` e a mesma exclusão de receita do familiar do resumo mensal. Regressão compara resultados com `calculateMonthlySummary`; 58 testes direcionados passaram. Relatório atualizado para 38 achados tabelados, incluindo divergência calendário/extrato e DRE.

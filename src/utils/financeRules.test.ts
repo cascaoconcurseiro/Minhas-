@@ -15,6 +15,7 @@ import {
   calculateFinancialHealthScore360,
   calculateMonthlySummary,
   calculatePersonalDre,
+  previewCategoryBudget,
   calculatePeriodReport,
   calculateSixMonthComparativeSeries,
   createTransactionBatch,
@@ -39,6 +40,49 @@ import {
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
+
+test('budget preview uses the saved invoice month and exact first installment cents', () => {
+  const category: Category = { ...INITIAL_CATEGORIES.find((item) => item.type === 'expense')!, monthlyBudget: 100 };
+  const draft = {
+    description: 'Synthetic installments', amount: .08, date: '2026-11-11', competenceMonth: '2026-12',
+    type: 'expense' as const, status: 'pending' as const, categoryId: category.id,
+    paymentMethod: 'credit_card' as const, creditCardId: 'card', recurrence: 'installment' as const,
+    amountMode: 'total_divided' as const, installmentTotal: 5,
+  };
+  const existing = createTransactionBatch({ ...draft, amount: 90, recurrence: 'single', competenceMonth: '2026-11' });
+  const december = createTransactionBatch({ ...draft, amount: 20, recurrence: 'single' });
+  const preview = previewCategoryBudget([category], [...existing, ...december], draft)!;
+  const saved = createTransactionBatch(draft);
+  assert.equal(preview.month, '2026-12');
+  assert.equal(preview.spentBefore, 20);
+  assert.equal(preview.projectedSpent, 20 + saved[0].amount);
+  assert.equal(preview.projectedSpent, 20.02);
+  assert.equal(preview.draftMonthlyAmount, saved[0].amount);
+  const warning = previewCategoryBudget([category], december, { ...draft, amount: 60, recurrence: 'single' })!;
+  assert.equal(warning.statusAfter, 'warning');
+  const over = previewCategoryBudget([category], december, { ...draft, amount: 300, recurrence: 'single' })!;
+  assert.equal(over.statusAfter, 'over');
+  assert.equal(over.remainingAfter, -220);
+  const unbudgeted = previewCategoryBudget([{ ...category, monthlyBudget: 0 }], [], draft)!;
+  assert.equal(unbudgeted.hasBudget, false);
+  assert.equal(unbudgeted.draftMonthlyAmount, .02);
+});
+
+test('budget edit preview reuses cascade allocation while preserving a paid installment', () => {
+  const category: Category = { ...INITIAL_CATEGORIES.find((item) => item.type === 'expense')!, monthlyBudget: 500 };
+  const draft = { description: 'Synthetic edit', amount: 300, date: '2026-11-11', competenceMonth: '2026-11',
+    type: 'expense' as const, status: 'paid' as const, categoryId: category.id, paymentMethod: 'credit_card' as const,
+    creditCardId: 'card', recurrence: 'installment' as const, installmentTotal: 3, amountMode: 'total_divided' as const };
+  const rows = createTransactionBatch(draft);
+  const before = JSON.stringify(rows);
+  const edit = { ...draft, amount: 360, installmentPurchaseTotal: 360, status: 'pending' as const,
+    date: rows[1].date, competenceMonth: rows[1].competenceMonth };
+  const preview = previewCategoryBudget([category], rows, edit, rows[1].id, 'all_series')!;
+  assert.equal(preview.spentBefore, 100);
+  assert.equal(preview.projectedSpent, 130);
+  assert.equal(preview.draftMonthlyAmount, 130);
+  assert.equal(JSON.stringify(rows), before);
+});
 
 test('personal DRE uses the same shared-expense and income exclusions as monthly totals', () => {
   const base: Transaction = {

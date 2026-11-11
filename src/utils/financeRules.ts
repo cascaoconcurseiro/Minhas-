@@ -3079,6 +3079,48 @@ export function calculateFinancialHealthScore360(params: {
 }
 
 
+export function previewCategoryBudget(
+  categories: Category[],
+  transactions: Transaction[],
+  draft: CreateTransactionBatchInput,
+  editingId?: string,
+  scope: CascadeScope = 'single'
+) {
+  const month = draft.competenceMonth || draft.date.slice(0, 7);
+  const category = categories.find((item) => item.id === draft.categoryId);
+  if (!category || category.type !== 'expense') return null;
+  let projected: Transaction[];
+  let draftRows: Transaction[];
+  const original = editingId ? transactions.find((tx) => tx.id === editingId) : undefined;
+  if (original) {
+    const edit = applyCascadeTransactionEdit(transactions, { ...original, ...draft, competenceMonth: month }, scope);
+    if (edit.error) return null;
+    projected = edit.updatedTransactions;
+    draftRows = projected.filter((tx) => tx.id === original.id);
+  } else {
+    try {
+      draftRows = createTransactionBatch(draft);
+      projected = [...transactions, ...draftRows];
+    } catch (error) {
+      if (error instanceof RangeError) return null;
+      throw error;
+    }
+  }
+  const before = calculateCategoryBreakdown(categories, transactions, month).find((item) => item.categoryId === category.id);
+  const after = calculateCategoryBreakdown(categories, projected, month).find((item) => item.categoryId === category.id);
+  const spentBefore = before?.spent || 0;
+  const projectedSpent = after?.spent || 0;
+  return {
+    hasBudget: category.monthlyBudget > 0, categoryName: category.name, month, budgetLimit: category.monthlyBudget,
+    draftMonthlyAmount: draftRows.filter((tx) => tx.competenceMonth === month)
+      .reduce((sum, tx) => sum + Math.round((getEffectiveExpenseAmountForUser(tx)?.amount || 0) * 100), 0) / 100,
+    spentBefore, projectedSpent,
+    remainingAfter: Math.round((category.monthlyBudget - projectedSpent) * 100) / 100,
+    percentAfter: category.monthlyBudget > 0 ? Math.round(projectedSpent / category.monthlyBudget * 1000) / 10 : 0,
+    statusAfter: projectedSpent > category.monthlyBudget ? 'over' : projectedSpent >= category.monthlyBudget * .8 ? 'warning' : 'ok',
+  };
+}
+
 export function calculatePersonalDre(
   transactions: Transaction[],
   selectedMonth: string,
