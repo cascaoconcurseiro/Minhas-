@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Publicação da auditoria financeira — 2026-11-11
+
+As correções da auditoria financeira foram enviadas ao GitHub `main` no commit `1f9c139`; a verificação Vercel no GitHub concluiu com sucesso e `https://minhaseconomias-blue.vercel.app/` respondeu HTTP 200 com bundle atualizado. O app está publicado pelo fluxo GitHub → Vercel. Não há migration SQL: `installmentPurchaseTotal` é metadado opcional no JSON do workspace. Embora a tela de revisão/migração histórica esteja publicada, nenhum dado financeiro de produção foi modificado, pois não houve sessão autenticada para executar a operação e confirmar readback no Neon.
+
+O relatório completo, com 36 falhas confirmadas (11 P0 e 25 P1), correções e evidências está em `docs/AUDITORIA_LOGICA_FINANCEIRA.md`. Validação local final: 439 testes em 58 arquivos aprovados, lint/TypeScript, build PWA (88 entradas) e `git diff --check` aprovados.
+
+Próximo passo concreto: abrir Relatórios e Dados no workspace autenticado, revisar o CSV de séries parceladas, baixar e salvar o backup JSON e então aplicar somente os metadados de alta confiança; confirmar o readback no Neon. Fazer também QA visual autenticado com dados sintéticos. Não migrar competências antigas.
+
 ## Auditoria e correções da lógica financeira — 2026-11-11
 
 O pedido de revisar a lógica financeira foi convertido em plano e iniciado. Corrigi os pontos reproduzíveis em datas de lançamento, competência automática da fatura (fechamento + vencimento), edição de parcelamentos com preservação de parcelas pagas, edição de recorrências com reposicionamento de datas, unificação da despesa conta/cartão, entrada monetária como centavos, classificação de estabelecimentos e sincronização silenciosa. No pagamento de fatura, agora é possível escolher explicitamente cartão e fatura, ver o saldo em aberto e sugerir o valor total; o mês do débito usa a data real de pagamento, separado do mês da fatura. Liquidações vinculadas só são corrigidas por estorno e novo pagamento, evitando edição genérica sem cascata.

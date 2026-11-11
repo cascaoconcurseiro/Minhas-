@@ -3,13 +3,13 @@
 Data: 2026-11-11
 Escopo: lançamentos, compras parceladas, cartões/faturas, competência, categorias, moeda e sincronização.
 
-Esta auditoria catalogou **36 falhas confirmadas no código (11 P0 e 25 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. As correções estão no checkout local e foram validadas com testes, lint e build; o deploy e o QA autenticado ainda estão pendentes.
+Esta auditoria catalogou **36 falhas confirmadas no código (11 P0 e 25 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. As correções foram validadas com testes, lint e build, publicadas no commit `1f9c139` via GitHub → Vercel, e o domínio de produção respondeu HTTP 200 com bundle atualizado em 2026-11-11. O QA autenticado/readback no Neon continua pendente.
 
 ## Resumo
 
 Foram corrigidas falhas confirmadas no código para data de criação, competência das faturas, edição do valor original de compras parceladas, entrada de moeda, classificação por estabelecimento, criação de subcategoria e exposição persistente do estado de sincronização. O modelo continua registrando uma parcela por mês para projeções e faturas; a compra original agora também fica disponível na edição e aparece junto à parcela nos detalhes do lançamento e calendário.
 
-O total original de compra é armazenado como metadado opcional em cada lançamento do JSON do workspace. Não requer migration SQL no Neon. A adaptação histórica autorizada limita-se a preencher esse metadado em séries completas e de alta confiança, mantendo valores, pagamentos, datas e competências existentes; séries ambíguas/incompletas permanecem para revisão.
+O total original de compra é armazenado como metadado opcional em cada lançamento do JSON do workspace. Não requer migration SQL no Neon nem mudança de schema. A interface de adaptação histórica está publicada; ela pode preencher esse metadado em séries completas e de alta confiança, mantendo valores, pagamentos, datas e competências existentes; séries ambíguas/incompletas permanecem para revisão. Nenhum dado histórico de produção foi alterado nesta entrega: não houve sessão autenticada disponível para executar o fluxo no workspace.
 
 Também foi corrigido um risco de integridade na exclusão de cartões: cartões com compras ou pagamentos de fatura ligados permanecem no histórico; só cartões sem transações vinculadas podem ser excluídos.
 
@@ -97,7 +97,7 @@ Na varredura de campos numéricos, os valores monetários dos módulos de lança
 5. O relatório CSV local contém IDs, valor proposto, competência salva/sugerida, motivo e confiança. Antes de aplicar metadados de alta confiança, a interface solicita o backup JSON integral do workspace e exige uma segunda confirmação da pessoa de que o arquivo foi salvo; o toast oferece desfazer na sessão atual.
 6. O código atual só preenche `installmentPurchaseTotal` ausente nas linhas por IDs explícitos e de forma idempotente. Não muda valor/status/data/competência, não preenche séries de revisão manual e não aplica competência histórica. A validação autenticada/readback desse fluxo no workspace QA ainda falta. Qualquer aplicação futura de outros campos exige revisão do CSV e cópia reversível; produção não entra nesse fluxo sem autorização específica.
 
-O relatório e o preenchimento confirmado de alta confiança estão implementados; nenhum histórico foi modificado durante esta auditoria. O restante dos casos permanece apenas sinalizado para revisão.
+O relatório e o preenchimento confirmado de alta confiança estão implementados e publicados; nenhum histórico foi modificado durante esta auditoria. O restante dos casos permanece apenas sinalizado para revisão.
 
 ## Limites e riscos
 
@@ -106,7 +106,7 @@ O relatório e o preenchimento confirmado de alta confiança estão implementado
 - Em série legada sem `installmentPurchaseTotal`, um total só é inferido quando todos os números de parcela estão presentes. Séries incompletas ficam limitadas à edição isolada até revisão; não se estima o preço original por multiplicação de uma parcela.
 - Classificação por descrição é uma sugestão automática por correspondência de texto e pode errar nomes ambíguos. Histórico de uso tem prioridade quando sua confiança é alta.
 - A conciliação OFX usa uma taxa única informada para todas as linhas do arquivo; diferenças de taxa por data/linha não são inferidas. Extratos com taxas variadas precisam ser separados. OFX sem `CURDEF` e incompatibilidade de moeda ficam bloqueados; CSV brasileiro sem metadados segue tratado como BRL.
-- Testes, lint e build locais não demonstram persistência autenticada no Neon nem qualidade visual em todas as telas.
+- Testes, lint e build locais, junto à resposta HTTP e ao bundle novo em produção, não demonstram persistência autenticada no Neon nem qualidade visual em todas as telas.
 - Um workspace legado que contenha transação tipada sem valor/data/competência/status ou com dado inválido agora falha ao hidratar para evitar cálculos silenciosamente errados; essa validação não repara nem altera dados automaticamente, então a recuperação exige revisar/restaurar os registros afetados.
 - Coleções legadas com IDs repetidos agora também falham na hidratação e na gravação de API. Não renumero automaticamente porque vínculos de fatura, compartilhamento, divisão parcial e séries podem depender do ID; a recuperação precisa identificar os registros e referências antes de corrigir.
 - Não houve leitura nem escrita de dados financeiros de produção.

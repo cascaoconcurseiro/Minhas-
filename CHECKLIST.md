@@ -877,4 +877,7 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Corrigir inferência de total em série legada incompleta com parcela parcialmente paga; não estimar o total original, restringir a edição à parcela selecionada e cobrir com regressão sintética. Suíte completa: 438/438, lint, build PWA (88 entradas) e diff-check aprovados.
 - [x] Separar o download do backup da alteração dos metadados históricos; só aplicar após segunda confirmação de que o arquivo foi salvo. Regressão confirma que o primeiro clique não altera os lançamentos.
 - [x] Rejeitar IDs repetidos nas coleções persistidas antes da hidratação local ou gravação pela API; cobrir parser e endpoint para evitar edição/liquidação ambígua.
-- [ ] Seguir a auditoria dos demais fluxos financeiros e completar QA autenticado/readback no Neon Preview.
+- [x] Consolidar achados/correções/evidências de 36 falhas confirmadas (11 P0 e 25 P1) em `docs/AUDITORIA_LOGICA_FINANCEIRA.md`.
+- [x] Publicar a revisão financeira pelo GitHub `main` → Vercel e confirmar verificação Vercel concluída e bundle atualizado no domínio de produção.
+- [ ] Aplicar metadados históricos de parcelamento de alta confiança com backup JSON salvo e confirmar readback no Neon; nenhum dado de produção foi alterado na publicação.
+- [ ] Completar QA visual autenticado com dados sintéticos e readback no Neon Preview.
