@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Recorrências e dividendos — continuação de 11/11
+
+Deploy `f723328` do patrimônio confirmado com sucesso na verificação Vercel. `calculateCreditCardSummary` agora aceita data de referência opcional (padrão data local atual) e não consome limite com recorrências `fixed` ainda futuras. Mantém todas as parcelas pendentes de compras contratadas no limite e preserva cobranças recorrentes na previsão da fatura futura. Regressão diferencia essas operações e a passagem da data de referência.
+
+`isInvestmentIncome` compartilha a classificação de proventos entre DRE e investimentos; `calculateInvestmentIncomeSummary` fornece lista e totais em centavos. Tela de investimentos não inclui mais reembolsos/familiares como proventos e explicita registros recebidos e previstos. Relatório atualizado para 43 achados tabelados. Nenhum dado produtivo foi alterado nesta continuação. Próximo ponto concreto: revisar compartilhamentos em `SharedExpensesTab` e a coerência dos previews de divisão no `TransactionModal`; consolidar o inventário de regras antes de considerar a meta concluída.
+
 ## Patrimônio compartilhado — continuação de 11/11
 
 Deploy `fdcad78` da prévia de orçamento confirmado com sucesso na verificação Vercel. Extraído `calculateNetWorth` em `financeRules.ts` para DRE/saúde financeira: contas + investimentos - dívida dos cartões. `ReportsAndDataTab` agora passa os mesmos resumos de cartão do domínio e exibe dívida na composição do patrimônio líquido. Overview reutiliza a liquidez calculada pelo domínio. Corrigido o estado inicial da saúde financeira para não zerar dívida quando ainda não há conta bancária/investimento nem despesa no mês da fatura selecionado.

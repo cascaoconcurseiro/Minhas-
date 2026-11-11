@@ -15,6 +15,7 @@ import {
   calculateFinancialHealthScore360,
   calculateMonthlySummary,
   calculatePersonalDre,
+  calculateInvestmentIncomeSummary,
   previewCategoryBudget,
   calculatePeriodReport,
   calculateSixMonthComparativeSeries,
@@ -2200,6 +2201,39 @@ test('card debt is deducted consistently from DRE and health even without bank a
   assert.equal(health.netWorth, -1435);
   assert.equal(dre.totalNetWorth, health.netWorth);
   assert.equal(dre.creditCardDebt, health.creditCardDebt);
+});
+
+test('future subscriptions stay forecast without consuming limit while all contracted installments consume it', () => {
+  const card: CreditCard = { id: 'subscription-card', name: 'Synthetic card', brand: 'Visa', limit: 1000, closingDay: 20, dueDay: 28, color: '#000000', defaultAccountId: '' };
+  const base = { description: 'Subscription', amount: 10, date: '2026-11-11', competenceMonth: '2026-11',
+    type: 'expense' as const, status: 'pending' as const, categoryId: 'subscriptions', creditCardId: card.id, paymentMethod: 'credit_card' as const };
+  const fixed = createTransactionBatch({ ...base, recurrence: 'fixed', fixedMonthsCount: 3 });
+  const installments = createTransactionBatch({ ...base, amount: 40, recurrence: 'installment', installmentTotal: 4 });
+  const rows = [...fixed, ...installments];
+  const november = calculateCreditCardSummary(card, rows, '2026-11', '2026-11-11');
+  const decemberForecast = calculateCreditCardSummary(card, rows, '2026-12', '2026-11-11');
+  assert.equal(november.usedLimit, 50);
+  assert.equal(november.availableLimit, 950);
+  assert.equal(decemberForecast.usedLimit, november.usedLimit);
+  assert.equal(decemberForecast.invoiceTotal, 20);
+  assert.equal(calculateCreditCardSummary(card, rows, '2026-12', '2026-12-11').usedLimit, 60);
+});
+
+test('investment income and DRE share exclusions for family reimbursements and sum cents consistently', () => {
+  const base: Transaction = { id: 'yield-one', description: 'Dividend', amount: .1, date: '2026-11-11',
+    competenceMonth: '2026-11', type: 'income', status: 'paid', categoryId: 'cat-rendimentos', recurrence: 'single', paymentMethod: 'pix' };
+  const rows: Transaction[] = [base, { ...base, id: 'yield-two', amount: .2, status: 'pending' },
+    { ...base, id: 'family-income', amount: 999, sharedPaidBy: 'member' },
+    { ...base, id: 'tx-reimb-synthetic', amount: 100 },
+    { ...base, id: 'described-reimbursement', amount: 200, description: 'Reembolso compartilhado' },
+    { ...base, id: 'companion', amount: 500, isCompanionOnlyExpense: true }];
+  const summary = calculateInvestmentIncomeSummary(rows, '2026-11');
+  const dre = calculatePersonalDre(rows, '2026-11', [], [], []);
+  assert.equal(summary.monthTotal, .3);
+  assert.equal(summary.registeredTotal, .3);
+  assert.deepEqual(summary.monthTransactions.map((tx) => tx.id).sort(), ['yield-one', 'yield-two']);
+  assert.equal(dre.dividendIncome, summary.monthTotal);
+  assert.equal(dre.operationalIncome, 300);
 });
 
 test('custom tags: normalizeTransactionTag, normalizeTransactionTags, createTransactionBatch, applyCascadeTransactionEdit, and searchTransactionsGlobal', () => {

@@ -642,7 +642,8 @@ export function getPendingBankMovements(
 export function calculateCreditCardSummary(
   card: CreditCard | undefined | null,
   transactions: Transaction[],
-  selectedMonth: string
+  selectedMonth: string,
+  referenceDate: string = getLocalDateISO()
 ): CreditCardSummary {
   if (!card) {
     return {
@@ -682,7 +683,7 @@ export function calculateCreditCardSummary(
   }
 
   const usedLimit = cardAllTx
-    .filter((tx) => tx.status === 'pending')
+    .filter((tx) => tx.status === 'pending' && (tx.recurrence !== 'fixed' || tx.date <= referenceDate))
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   const availableLimit = Math.max(0, card.limit - usedLimit);
@@ -3121,6 +3122,21 @@ export function previewCategoryBudget(
   };
 }
 
+export function isInvestmentIncome(tx: Transaction): boolean {
+  return tx.type === 'income' && tx.categoryId === 'cat-rendimentos' &&
+    !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member' &&
+    !tx.id.startsWith('tx-reimb-') &&
+    !tx.description.toLowerCase().includes('reembolso compartilhado') &&
+    !tx.description.toLowerCase().includes('acerto compensado');
+}
+
+export function calculateInvestmentIncomeSummary(transactions: Transaction[], month: string) {
+  const income = transactions.filter(isInvestmentIncome);
+  const monthTransactions = income.filter((tx) => tx.competenceMonth === month).sort((a, b) => b.date.localeCompare(a.date));
+  const sum = (rows: Transaction[]) => rows.reduce((total, tx) => total + Math.round(tx.amount * 100), 0) / 100;
+  return { monthTransactions, monthTotal: sum(monthTransactions), registeredTotal: sum(income) };
+}
+
 export function calculatePersonalDre(
   transactions: Transaction[],
   selectedMonth: string,
@@ -3142,12 +3158,8 @@ export function calculatePersonalDre(
   for (const tx of monthTxs) {
     if (tx.type === 'income') {
       if (tx.sharedPaidBy === 'member') continue;
-      const isFamilyReimbursement =
-        tx.id.startsWith('tx-reimb-') ||
-        tx.description.toLowerCase().includes('reembolso compartilhado') ||
-        tx.description.toLowerCase().includes('acerto compensado');
-      if (tx.categoryId === 'cat-rendimentos' && !isFamilyReimbursement) {
-        dividendIncome += tx.amount;
+      if (isInvestmentIncome(tx)) {
+        dividendIncome = Math.round((dividendIncome + tx.amount) * 100) / 100;
       } else {
         operationalIncome += tx.amount;
       }
@@ -3168,7 +3180,7 @@ export function calculatePersonalDre(
     }
   }
 
-  const totalIncome = operationalIncome + dividendIncome;
+  const totalIncome = Math.round((operationalIncome + dividendIncome) * 100) / 100;
   const freeCashFlowBeforeInvestments = totalIncome - consumptionExpenses;
   const netSurplusAfterInvestments =
     freeCashFlowBeforeInvestments - investmentContributions;

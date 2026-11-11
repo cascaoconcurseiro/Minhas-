@@ -36,6 +36,7 @@ import {
   formatShortDateBR,
   normalizeSearchText,
   parseBRLInput,
+  calculateInvestmentIncomeSummary,
 } from '../utils/financeRules';
 import {
   calculatePortfolioSummary,
@@ -506,30 +507,9 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     setShowTargetEditor(false);
   };
 
-  const monthDividendTransactions = useMemo(
-    () =>
-      transactions
-        .filter(
-          (tx) =>
-            tx.type === 'income' &&
-            tx.categoryId === 'cat-rendimentos' &&
-            tx.competenceMonth === selectedMonth
-        )
-        .sort((a, b) => b.date.localeCompare(a.date)),
+  const { monthTransactions: monthDividendTransactions, monthTotal: monthDividendsTotal, registeredTotal: allTimeDividendsTotal } = useMemo(
+    () => calculateInvestmentIncomeSummary(transactions, selectedMonth),
     [transactions, selectedMonth]
-  );
-
-  const allTimeDividendsTotal = useMemo(
-    () =>
-      transactions
-        .filter((tx) => tx.type === 'income' && tx.categoryId === 'cat-rendimentos')
-        .reduce((sum, tx) => sum + tx.amount, 0),
-    [transactions]
-  );
-
-  const monthDividendsTotal = useMemo(
-    () => monthDividendTransactions.reduce((sum, tx) => sum + tx.amount, 0),
-    [monthDividendTransactions]
   );
 
   return (
@@ -1724,7 +1704,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Acompanhe todos os dividendos de FIIs, JCP e rendimentos creditados diretamente nas suas contas bancárias
+              Acompanhe dividendos de FIIs, JCP e rendimentos recebidos ou previstos. Cada lançamento indica se já foi creditado.
             </p>
           </div>
 
@@ -1739,7 +1719,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-right">
               <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Acumulado Histórico
+                Total Registrado
               </span>
               <span className="font-mono tabular-nums text-xs sm:text-sm font-bold text-slate-900">
                 {formatBRL(allTimeDividendsTotal)}
