@@ -10,6 +10,32 @@ permissions:
   contents: read
 
 jobs:
+  postgres:
+    name: PostgreSQL real — compartilhamentos e concorrência
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: neondb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qa-only-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d neondb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: API real, RLS, acertos, readback e revisão concorrente
+        run: bun scripts/qa-postgres.ts
+        env:
+          QA_POSTGRES_URL: postgresql://postgres:qa-only-admin-password@127.0.0.1:5432/neondb
   verify:
     name: Testes Unitários, Typecheck & Build
     runs-on: ubuntu-latest

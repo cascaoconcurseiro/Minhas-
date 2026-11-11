@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## QA PostgreSQL real no CI — 11/11
+
+Preparado job `postgres` em `.github/workflows/ci.yml`: serviço PostgreSQL 17 descartável, banco neondb vazio, sem credenciais de produção. `scripts/qa-postgres.ts` exige CI=true, host localhost/127.0.0.1 e banco vazio antes de aplicar todas as migrations reais. Cria três usuários sintéticos pela API sob papel restrito, testa convite/espelho/RLS, retorno e reenvio do acerto, recibo persistido/reload/reabertura, conflito de revisão e revogação. Lint e diff-check passaram; execução real ainda pendente até terminar o job no GitHub. Não considerar cenário concluído antes de examinar log/conclusão desse job. A próxima etapa concreta é acompanhar esse run e corrigir qualquer SQL/comportamento que falhar. Nenhum dado de usuário real é usado.
+
 ## Recibos locais dos acertos recebidos — 11/11
 
 Reproduzida perda de sharedSettlementId/conta em espelhos após reload: espelhos não entram em transactionsJson. Adicionado campo opcional `sharedSettlementReceiptsJson` ao JSON do workspace, computado das cópias atuais. Apenas identidade do espelho, status local, grupo, conta e data; sem duplicar dados da compra. App restaura recibos ao hidratar e os inclui no backup; restauração só aplica recibos do mesmo titular. `parseSharedSettlementReceipts` valida API/cliente/backup. Snapshot remoto agora preserva status/grupo/conta/data locais e transforma status do outro usuário em aviso. Legado com movimento `[ref:...]` reconstrói vínculo; compensações antigas de zero sem recibo continuam sem reconstrução confiável.
