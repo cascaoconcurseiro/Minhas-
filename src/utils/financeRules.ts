@@ -2215,6 +2215,46 @@ export function applyCascadeTransactionEdit(
         (baseCents + (index < remainderCents ? 1 : 0)) / 100,
       ])
     );
+    const sharedById = new Map<string, number>();
+    const adjustableShares = groupTransactions.filter((tx) => amountById.has(tx.id) && tx.sharedStatus !== 'received');
+    if (groupTransactions.some((tx) => tx.sharedStatus === 'received' && amountById.has(tx.id) && (tx.sharedAmount || 0) > (amountById.get(tx.id) || 0))) {
+      return { updatedTransactions: transactions, affectedCount: 0, error: 'O valor da parcela não pode ficar abaixo de uma cota compartilhada já acertada.' };
+    }
+    if (editedTx.isShared) {
+      const requestedShare = Math.round((editedTx.sharedAmount || 0) * 100);
+      const adjustableIds = new Set(adjustableShares.map((tx) => tx.id));
+      const preservedShare = groupTransactions.filter((tx) => !adjustableIds.has(tx.id))
+        .reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0);
+      const remainingShare = requestedShare - preservedShare;
+      const capacities = adjustableShares.map((tx) => ({ id: tx.id, cents: Math.round((amountById.get(tx.id) || 0) * 100) }));
+      const capacity = capacities.reduce((sum, row) => sum + row.cents, 0);
+      if (!Number.isSafeInteger(requestedShare) || remainingShare < 0 || remainingShare > capacity) {
+        return { updatedTransactions: transactions, affectedCount: 0, error: 'A cota compartilhada precisa preservar os acertos existentes e caber nas parcelas pendentes.' };
+      }
+      if (capacity > 0) {
+        const allocated = capacities.map((row) => {
+          const product = BigInt(remainingShare) * BigInt(row.cents);
+          return { ...row, amount: Number(product / BigInt(capacity)), remainder: product % BigInt(capacity) };
+        });
+        let rest = remainingShare - allocated.reduce((sum, row) => sum + row.amount, 0);
+        allocated.sort((a, b) => a.remainder > b.remainder ? -1 : a.remainder < b.remainder ? 1 : 0);
+        for (const row of allocated) {
+          if (rest > 0 && row.amount < row.cents) { row.amount++; rest--; }
+          sharedById.set(row.id, row.amount / 100);
+        }
+      }
+    }
+    const sharedFields = (tx: Transaction) => {
+      if (!adjustableShares.some((row) => row.id === tx.id)) {
+        return { isShared: tx.isShared, sharedMemberId: tx.sharedMemberId, sharedAmount: tx.sharedAmount,
+          sharedPaidBy: tx.sharedPaidBy, sharedSplitMode: tx.sharedSplitMode, sharedStatus: tx.sharedStatus };
+      }
+      return { isShared: editedTx.isShared, sharedMemberId: editedTx.isShared ? editedTx.sharedMemberId : undefined,
+        sharedAmount: editedTx.isShared ? sharedById.get(tx.id) || 0 : undefined,
+        sharedPaidBy: editedTx.isShared ? editedTx.sharedPaidBy : undefined,
+        sharedSplitMode: editedTx.isShared ? editedTx.sharedSplitMode : undefined,
+        sharedStatus: editedTx.isShared ? 'pending' as const : undefined };
+    };
     const getScheduledDates = (tx: Transaction) => {
       if (!inScope(tx) || tx.installmentNumber === undefined) return {};
       const monthOffset = tx.installmentNumber - (editedTx.installmentNumber || tx.installmentNumber);
@@ -2235,6 +2275,7 @@ export function applyCascadeTransactionEdit(
           ...editedTx,
           amount: amount ?? tx.amount,
           installmentPurchaseTotal: requestedCents / 100,
+          ...sharedFields(tx),
           ...getScheduledDates(tx),
         };
       }
@@ -2254,6 +2295,7 @@ export function applyCascadeTransactionEdit(
             }
           : {}),
         ...(amount !== undefined ? { amount } : {}),
+        ...sharedFields(tx),
         installmentPurchaseTotal: requestedCents / 100,
         ...getScheduledDates(tx),
       };
@@ -3080,6 +3122,13 @@ export function calculateFinancialHealthScore360(params: {
 }
 
 
+export function calculateSharedAmount(amount: number, mode: 'half' | 'percentage' | 'custom', percentage = 50, customAmount = 0): number {
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  if (mode === 'half') return Math.round(amount * 50) / 100;
+  if (mode === 'percentage') return Math.round(amount * Math.max(1, Math.min(100, percentage || 50))) / 100;
+  return Math.min(amount, Math.max(.01, customAmount));
+}
+
 export function previewCategoryBudget(
   categories: Category[],
   transactions: Transaction[],
@@ -3115,6 +3164,8 @@ export function previewCategoryBudget(
     hasBudget: category.monthlyBudget > 0, categoryName: category.name, month, budgetLimit: category.monthlyBudget,
     draftMonthlyAmount: draftRows.filter((tx) => tx.competenceMonth === month)
       .reduce((sum, tx) => sum + Math.round((getEffectiveExpenseAmountForUser(tx)?.amount || 0) * 100), 0) / 100,
+    draftSharedAmount: draftRows.filter((tx) => tx.competenceMonth === month)
+      .reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0) / 100,
     spentBefore, projectedSpent,
     remainingAfter: Math.round((category.monthlyBudget - projectedSpent) * 100) / 100,
     percentAfter: category.monthlyBudget > 0 ? Math.round(projectedSpent / category.monthlyBudget * 1000) / 10 : 0,

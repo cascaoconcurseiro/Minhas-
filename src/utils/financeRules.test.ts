@@ -17,6 +17,7 @@ import {
   calculatePersonalDre,
   calculateInvestmentIncomeSummary,
   previewCategoryBudget,
+  calculateSharedAmount,
   calculatePeriodReport,
   calculateSixMonthComparativeSeries,
   createTransactionBatch,
@@ -2234,6 +2235,34 @@ test('investment income and DRE share exclusions for family reimbursements and s
   assert.deepEqual(summary.monthTransactions.map((tx) => tx.id).sort(), ['yield-one', 'yield-two']);
   assert.equal(dre.dividendIncome, summary.monthTotal);
   assert.equal(dre.operationalIncome, 300);
+});
+
+test('shared installment edits distribute the total share and preserve paid and settled shares', () => {
+  const input = { description: 'Shared synthetic', amount: 300, date: '2026-11-11', competenceMonth: '2026-11',
+    type: 'expense' as const, status: 'paid' as const, categoryId: 'shopping', creditCardId: 'card', paymentMethod: 'credit_card' as const,
+    recurrence: 'installment' as const, installmentTotal: 3, isShared: true, sharedAmount: 150, sharedMemberId: 'member', sharedPaidBy: 'me' as const };
+  const rows = createTransactionBatch(input);
+  const edit = { ...rows[1], amount: 360, installmentPurchaseTotal: 360, sharedAmount: 180 };
+  const result = applyCascadeTransactionEdit(rows, edit, 'all_series');
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.updatedTransactions.map((tx) => tx.amount), [100, 130, 130]);
+  assert.deepEqual(result.updatedTransactions.map((tx) => tx.sharedAmount), [50, 65, 65]);
+  const settled = rows.map((tx, index) => index === 2 ? { ...tx, sharedStatus: 'received' as const } : tx);
+  const settledResult = applyCascadeTransactionEdit(settled, edit, 'all_series');
+  assert.deepEqual(settledResult.updatedTransactions.map((tx) => tx.sharedAmount), [50, 80, 50]);
+  assert.equal(settledResult.updatedTransactions[2].sharedStatus, 'received');
+  assert.ok(applyCascadeTransactionEdit(rows, { ...edit, sharedAmount: 20 }, 'all_series').error);
+  assert.ok(applyCascadeTransactionEdit(settled, { ...edit, installmentPurchaseTotal: 180 }, 'all_series').error);
+});
+
+test('shared custom preview equals the saved installment share, including small remainders', () => {
+  const category: Category = { ...INITIAL_CATEGORIES.find((item) => item.type === 'expense')!, monthlyBudget: 100 };
+  const draft = { description: 'Shared preview', amount: 300, date: '2026-11-11', competenceMonth: '2026-11',
+    type: 'expense' as const, status: 'pending' as const, categoryId: category.id, creditCardId: 'card', paymentMethod: 'credit_card' as const,
+    recurrence: 'installment' as const, installmentTotal: 3, isShared: true, sharedAmount: calculateSharedAmount(300, 'custom', 50, 60) };
+  assert.equal(previewCategoryBudget([category], [], draft)?.draftSharedAmount, 20);
+  const small = { ...draft, amount: .02, sharedAmount: calculateSharedAmount(.02, 'half') };
+  assert.equal(previewCategoryBudget([category], [], small)?.draftSharedAmount, createTransactionBatch(small)[0].sharedAmount);
 });
 
 test('custom tags: normalizeTransactionTag, normalizeTransactionTags, createTransactionBatch, applyCascadeTransactionEdit, and searchTransactionsGlobal', () => {

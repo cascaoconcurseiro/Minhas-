@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Cotas compartilhadas de parcelas — continuação de 11/11
+
+Corrigido `applyCascadeTransactionEdit` para não atribuir a cota da compra inteira à parcela editada: distribui o total de cotas entre linhas ajustáveis proporcionalmente aos valores, em centavos com BigInt para o produto, preservando linhas pagas e cotas `received`. Bloqueia soma compartilhada abaixo do histórico preservado, acima da capacidade das parcelas e redução de parcela abaixo de cota já acertada. Ao remover compartilhamento, só limpa campos de linhas ajustáveis; mantém histórico preservado.
+
+`calculateSharedAmount` resolve cota total tanto no submit quanto na prévia. `previewCategoryBudget` retorna a cota da parcela efetivamente resultante; o modal usa esse valor. Campo personalizado reabre com a soma das cotas da série completa e explicita cota total da compra. Regressões cobrem proporção, centavos, paid/received, limites e hidratação do campo. Relatório agora tem 45 achados tabelados. Nenhum dado produtivo foi alterado.
+
+Próximo passo: terminar inventário de compartilhamentos e centralizar `SharedExpensesTab:memberSummaries` com as regras de liquidação usadas pelo App; conferir desvinculação/remoção de compartilhamento e espelhamento. A suíte/preview local não substitui QA remoto do acerto entre identidades. Espaço Ego continua entregue ao usuário.
+
 ## Recorrências e dividendos — continuação de 11/11
 
 Deploy `f723328` do patrimônio confirmado com sucesso na verificação Vercel. `calculateCreditCardSummary` agora aceita data de referência opcional (padrão data local atual) e não consome limite com recorrências `fixed` ainda futuras. Mantém todas as parcelas pendentes de compras contratadas no limite e preserva cobranças recorrentes na previsão da fatura futura. Regressão diferencia essas operações e a passagem da data de referência.

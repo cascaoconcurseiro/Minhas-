@@ -47,6 +47,7 @@ import {
   normalizeTransactionTags,
   parseBRLInput,
   previewCategoryBudget,
+  calculateSharedAmount,
   resolveCreditCardInvoiceMonth,
 } from '../utils/financeRules';
 import {
@@ -381,7 +382,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         );
         setSharedCustomPercentStr(String(pct));
         setSharedCustomAmountStr(
-          editingTransaction.sharedAmount.toFixed(2).replace('.', ',')
+          (hasReliableInstallmentTotal && inferredInstallmentTotal !== undefined
+            ? existingInstallments.reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0) / 100
+            : editingTransaction.sharedAmount).toFixed(2).replace('.', ',')
         );
       } else {
         setSharedCustomPercentStr('50');
@@ -1212,6 +1215,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     if (entryMode === 'income' || entryMode === 'transfer' || !categoryId || numericPreview <= 0 || (selectedTrip && isPaidByCompanion)) {
       return null;
     }
+    const domesticSharing = isShared && !((isTripLinked || isMultiCurrencyOpen) && (originalCurrency !== 'BRL' || Boolean(tripId)));
     return previewCategoryBudget(categories, transactions, {
       description, amount: numericPreview, date,
       competenceMonth: entryMode === 'credit_card' ? invoiceCompetenceMonth : date.slice(0, 7),
@@ -1220,6 +1224,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       paymentMethod: entryMode === 'credit_card' ? 'credit_card' : paymentMethod,
       recurrence: entryMode !== 'credit_card' && recurrence === 'installment' ? 'single' : recurrence,
       amountMode, installmentTotal,
+      isShared: domesticSharing, sharedMemberId: domesticSharing ? sharedMemberId : undefined,
+      sharedPaidBy: domesticSharing ? sharedPaidBy : undefined, sharedStatus: 'pending',
+      sharedSplitMode: sharedSplitMode === 'half' ? 'half' : 'custom',
+      sharedAmount: domesticSharing ? calculateSharedAmount(numericPreview, sharedSplitMode, parseBRLInput(sharedCustomPercentStr), parseBRLInput(sharedCustomAmountStr)) : undefined,
       installmentPurchaseTotal: recurrence === 'installment' && !legacyInstallmentTotalUnknown
         ? Math.round((amountMode === 'total_divided' ? numericPreview : numericPreview * installmentTotal) * 100) / 100
         : undefined,
@@ -1230,6 +1238,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     categories,
     transactions, date, invoiceCompetenceMonth, creditCardId, status, paymentMethod,
     description, cascadeScope, legacyInstallmentTotalUnknown, selectedTrip, isPaidByCompanion,
+    isShared, sharedMemberId, sharedPaidBy, sharedSplitMode, sharedCustomPercentStr, sharedCustomAmountStr,
+    isTripLinked, isMultiCurrencyOpen, originalCurrency, tripId,
     numericPreview,
     recurrence,
     amountMode,
@@ -1249,30 +1259,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   if (!isOpen) return null;
 
   const calculatedSharedPreview = (): number => {
-    if (!isShared || numericPreview <= 0) return 0;
-    const baseAmount =
-      !editingTransaction &&
-      entryMode === 'credit_card' &&
-      recurrence === 'installment' &&
-      amountMode === 'total_divided'
-        ? numericPreview / installmentTotal
-        : numericPreview;
-
-    if (sharedSplitMode === 'half') {
-      return Math.round(baseAmount * 50) / 100;
-    }
-    if (sharedSplitMode === 'percentage') {
-      const pct = Math.max(
-        1,
-        Math.min(100, parseBRLInput(sharedCustomPercentStr) || 50)
-      );
-      return Math.round(baseAmount * pct) / 100;
-    }
-    const customAmt = parseBRLInput(sharedCustomAmountStr);
-    return Math.min(
-      Math.round(baseAmount * 100) / 100,
-      Math.max(0, customAmt)
-    );
+    return isShared ? liveBudgetImpact?.draftSharedAmount || 0 : 0;
   };
 
   const handleCategoryChange = (newCatId: string, isManual = true) => {
@@ -1420,18 +1407,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
     let finalSharedAmount: number | undefined = undefined;
     if (isShared && entryMode !== 'income' && entryMode !== 'transfer') {
-      if (sharedSplitMode === 'half') {
-        finalSharedAmount = Math.round(numericAmount * 50) / 100;
-      } else if (sharedSplitMode === 'percentage') {
-        const pct = Math.max(
-          1,
-          Math.min(100, parseBRLInput(sharedCustomPercentStr) || 50)
-        );
-        finalSharedAmount = Math.round(numericAmount * pct) / 100;
-      } else {
-        const customTotal = parseBRLInput(sharedCustomAmountStr);
-        finalSharedAmount = Math.min(numericAmount, Math.max(0.01, customTotal));
-      }
+      finalSharedAmount = calculateSharedAmount(numericAmount, sharedSplitMode, parseBRLInput(sharedCustomPercentStr), parseBRLInput(sharedCustomAmountStr));
     }
 
     if (activeMultiCurrency && tripId && tripSplitValidationError) {
@@ -4058,7 +4034,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             {sharedSplitMode === 'custom' && (
                               <div>
                                 <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                  Valor exato da parte dividida (R$)
+                                  {recurrence === 'installment' && amountMode === 'total_divided' ? 'Cota total na compra (R$)' : 'Valor exato da parte dividida (R$)'}
                                 </label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs font-mono font-bold text-slate-500">
@@ -4066,6 +4042,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   </span>
                                   <CurrencyInput
                                     value={sharedCustomAmountStr}
+                                    data-testid="shared-total-amount-input"
                                     currency="BRL"
                                     onValueChange={setSharedCustomAmountStr}
                                     className="w-36 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white"

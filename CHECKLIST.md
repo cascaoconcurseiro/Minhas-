@@ -893,6 +893,8 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Centralizar patrimônio do DRE e saúde financeira, descontando dívida dos cartões; impedir modo inicial com dívida existente e cobrir compra parcelada sem conta/fatura no mês.
 - [x] Separar recorrências futuras da dívida atual do cartão sem excluir previsões de faturas nem parcelas contratadas; testar limite antes/depois da cobrança recorrente.
 - [x] Compartilhar classificação e soma de dividendos entre investimentos e DRE, excluindo reembolsos e receitas de familiar; explicitar recebidos/previstos na tela.
+- [x] Corrigir rateio das cotas compartilhadas ao editar total original de compra parcelada, preservando parcelas pagas/acertos recebidos e bloqueando alterações incompatíveis.
+- [x] Usar cálculo compartilhado da cota total no submit e prévia mensal da parcela; reabrir campo personalizado com a cota total da série completa, com regressões.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

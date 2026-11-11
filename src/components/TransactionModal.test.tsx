@@ -505,6 +505,21 @@ test('budget warning follows invoice competence instead of the month open behind
   assert.doesNotMatch(page.textContent ?? '', /340,00/);
 });
 
+test('editing shared installments loads the total custom share and previews only the selected installment', () => {
+  const base: Transaction = { id: 'shared-1', description: 'Shared synthetic', amount: 100, date: '2026-11-11', competenceMonth: '2026-11',
+    type: 'expense', status: 'pending', categoryId: 'category-test', creditCardId: testCard.id, paymentMethod: 'credit_card',
+    recurrence: 'installment', installmentTotal: 3, installmentNumber: 1, installmentGroupId: 'shared-series', installmentPurchaseTotal: 300,
+    isShared: true, sharedAmount: 20, sharedSplitMode: 'custom', sharedMemberId: 'member', sharedPaidBy: 'me' };
+  const rows = [base, { ...base, id: 'shared-2', installmentNumber: 2, date: '2026-12-11', competenceMonth: '2026-12' },
+    { ...base, id: 'shared-3', installmentNumber: 3, date: '2027-01-11', competenceMonth: '2027-01' }];
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard], editingTransaction: base, transactions: rows,
+    familyMembers: [{ id: 'member', name: 'Synthetic member', relationship: 'amigo(a)', color: '#000000', inviteStatus: 'accepted' }] });
+  const custom = page.querySelector<HTMLInputElement>('[data-testid="shared-total-amount-input"]');
+  assert.ok(custom);
+  assert.match(custom.value, /60,00/);
+  assert.match(page.textContent ?? '', /Cota total na compra/);
+});
+
 test('updates card invoice competence from the closing day without requiring manual month selection', async () => {
   const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard] });
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
