@@ -493,13 +493,13 @@ test('updates card invoice competence from the closing day without requiring man
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-date-input"]')!, '2026-11-21');
   });
-  assert.equal(page.querySelector('[data-testid="auto-invoice-month"]')?.textContent, 'Janeiro de 2027');
+  assert.equal(page.querySelector('[data-testid="auto-invoice-month"]'), null);
   assert.equal(page.querySelector('[data-testid="invoice-month-override"]'), null);
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="toggle-invoice-month-override"]')?.click(); });
   assert.equal(page.querySelector<HTMLSelectElement>('[data-testid="invoice-month-override"]')?.value, '2027-01');
 });
 
-test('recalculates invoice due month when editing a credit-card purchase date', () => {
+test('recalculates invoice due month when editing a credit-card purchase date', async () => {
   const transaction: Transaction = {
     id: 'card-purchase-edit-test',
     description: 'Compra de cartão sintética',
@@ -517,7 +517,9 @@ test('recalculates invoice due month when editing a credit-card purchase date', 
     cards: [testCard],
     editingTransaction: transaction,
   });
-  assert.equal(page.querySelector('[data-testid="auto-invoice-month"]')?.textContent, 'Dezembro de 2026');
+  assert.equal(page.querySelector('[data-testid="auto-invoice-month"]'), null);
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="toggle-invoice-month-override"]')?.click(); });
+  assert.equal(page.querySelector<HTMLSelectElement>('[data-testid="invoice-month-override"]')?.value, '2026-12');
 });
 
 test('editing an installment series passes the selected cascade scope and transaction id', async () => {

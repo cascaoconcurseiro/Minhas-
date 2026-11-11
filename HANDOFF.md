@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Ajustes solicitados nas capturas — 2026-11-11
+
+Removidos do formulário de compra: miniatura do cartão, bandeira redundante e aviso com mês estimado. O cálculo automático da fatura continua funcionando; o ajuste manual permanece recolhido. Na listagem e detalhe do cartão, fatura zerada passa a dizer “Sem fatura no mês” em vez de “Sem Gastos”, pois pode haver compras comprometendo limite em outras competências. Regressões do modal, lint e build PWA passaram. Conferir deploy e navegador autenticado após publicação.
+
 ## Retorno do usuário sobre compra no dia 15 — 2026-11-11
 
 Atualização após login autorizado: backup JSON integral salvo fora do Git em `C:/Users/Wesley/Documents/CodexBackups/Minhas-20261111/`. A leitura autenticada identificou uma única série Amazon de 12 parcelas somando R$ 1.435,00, sem total original e iniciando em 15/11. Corrigi somente a data da primeira parcela para 11/11 e preenchi `installmentPurchaseTotal=1435` nas 12 linhas. PUT com revisão esperada 26 e GET independente confirmaram revisão 27 e igualdade com o patch esperado, preservando todos os demais campos das transações. Backups antes/depois da API estão no mesmo diretório privado. As afirmações históricas abaixo sobre ausência de acesso a produção foram superadas por esta operação autorizada.

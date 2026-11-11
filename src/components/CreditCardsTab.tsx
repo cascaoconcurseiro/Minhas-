@@ -674,7 +674,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                             : 'bg-amber-50 text-amber-800 border border-amber-200'
                         }`}
                       >
-                        {isPaid ? 'Quitada' : invoiceTotal === 0 ? 'Sem Gastos' : 'Aberta'}
+                        {isPaid ? 'Quitada' : invoiceTotal === 0 ? 'Sem fatura no mês' : 'Aberta'}
                       </span>
                     </div>
 
@@ -1057,7 +1057,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 {activeSummary.isInvoicePaid
                   ? 'Fatura Quitada'
                   : activeSummary.invoiceTotal === 0
-                  ? 'Sem Gastos'
+                  ? 'Sem fatura no mês'
                   : 'Em Aberto'}
               </p>
           <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs font-mono tabular-nums text-slate-500 truncate">

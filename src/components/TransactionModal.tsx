@@ -2739,14 +2739,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             </option>
                           ))}
                         </select>
-                        {selectedCreditCard && (
-                          <div className="flex items-center gap-3">
-                            <CreditCardFace card={selectedCreditCard} size="compact" />
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                              Bandeira {selectedCreditCard.brand}
-                            </span>
-                          </div>
-                        )}
                         {(() => {
                           const chosenCard =
                             cards.find((c) => c.id === creditCardId) || cards[0];
@@ -2757,8 +2749,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             date,
                             chosenCard
                           );
-                          const isAfterClosing =
-                            Number(date.slice(8, 10)) > (chosenCard?.closingDay || 0);
                           const hasManualInvoiceMonth =
                             invoiceCompetenceMonth !== autoInvoiceMonth;
                           const monthOptions = Array.from(
@@ -2774,17 +2764,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             .sort();
 
                           return (
-                            <div className="flex flex-wrap items-center justify-between gap-1.5 rounded-lg border border-violet-200 dark:border-violet-800/70 bg-violet-50/70 dark:bg-violet-950/30 px-2.5 py-1.5 text-[11px]">
-                              <span className="font-semibold text-violet-900 dark:text-violet-200">
-                                {isAfterClosing
-                                  ? `Compra após o fechamento (dia ${chosenCard?.closingDay}); fatura:`
-                                  : hasManualInvoiceMonth
-                                  ? 'Fatura ajustada manualmente:'
-                                  : 'Fatura estimada automaticamente:'}
-                              </span>
-                              <span data-testid="auto-invoice-month" className="font-bold text-violet-900 dark:text-violet-100">
-                                {formatMonthYearPT(invoiceCompetenceMonth)}
-                              </span>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                               <button
                                 type="button"
                                 data-testid="toggle-invoice-month-override"
