@@ -2189,7 +2189,7 @@ export function duplicateFinancialTransaction(tx: Transaction, id: string): Tran
   for (const field of ['installmentGroupId', 'installmentNumber', 'installmentTotal', 'installmentPurchaseTotal',
     'invoicePaymentId', 'partialSplitOriginalId', 'settledCardId', 'settledInvoiceMonth', 'isInvoicePayment',
     'isAnticipated', 'originalCompetenceMonth', 'originalDateBeforeAnticipation', 'originalAmountBeforeDiscount',
-    'sharedSyncId', 'sharedOriginEmail', 'sharedTargetEmail', 'sharedSettlementId', 'sharedSettledDate', 'sharedSettledAccountId',
+    'sharedSyncId', 'sharedOriginEmail', 'sharedTargetEmail', 'sharedSettlementId', 'sharedSettledDate', 'sharedSettledAccountId', 'sharedRemoteStatus', 'sharedRemoteSettledDate',
     'fitid', 'importBatchId', 'reconciled'] as const) delete copy[field];
   if (copy.isShared) copy.sharedStatus = 'pending';
   return copy;

@@ -8,11 +8,25 @@ export function getDomesticSharedTransactions(transactions: Transaction[]) {
 
 export function replaceIncomingSharedTransactions(previous: Transaction[], incoming: Transaction[]): Transaction[] {
   const mirrors = new Map<string, Transaction>();
+  const previousById = new Map(previous.map((tx) => [tx.id, tx]));
   for (const tx of incoming) {
     if (!tx.id?.startsWith('tx-mirror-')) continue;
-    mirrors.set(tx.sharedSyncId || tx.id.slice('tx-mirror-'.length), tx);
+    const local = previousById.get(tx.id);
+    const next = local?.sharedStatus === 'received' && tx.sharedStatus === 'received'
+      ? { ...tx, sharedSettlementId: local.sharedSettlementId, sharedSettledAccountId: local.sharedSettledAccountId }
+      : tx;
+    mirrors.set(tx.sharedSyncId || tx.id.slice('tx-mirror-'.length), next);
   }
   return [...previous.filter((tx) => !tx.id.startsWith('tx-mirror-')), ...mirrors.values()];
+}
+
+export function applyRemoteSettlementReports(transactions: Transaction[], reports: Array<{ shared_sync_id: string; status: 'pending' | 'received'; date?: string | null }>): Transaction[] {
+  const byId = new Map(reports.map((report) => [report.shared_sync_id, report]));
+  return transactions.map((tx) => {
+    if (!tx.isShared || tx.id.startsWith('tx-mirror-')) return tx;
+    const report = byId.get(tx.sharedSyncId || tx.id);
+    return { ...tx, sharedRemoteStatus: report?.status, sharedRemoteSettledDate: report?.date || undefined };
+  });
 }
 
 const sumShares = (rows: Transaction[]) => rows.reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0) / 100;

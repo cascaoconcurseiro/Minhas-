@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { BankAccount, Transaction } from '../types/finance';
-import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses, replaceIncomingSharedTransactions } from './sharedFinanceRules';
+import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses, replaceIncomingSharedTransactions, applyRemoteSettlementReports } from './sharedFinanceRules';
 import { applyCascadeTransactionDelete, calculateAccountBalances } from './financeRules';
 import { prepareRestoredBackupTransactions } from './fullBackup';
 
@@ -10,6 +10,23 @@ const base: Transaction = { id: 'owed-to-me', description: 'Synthetic shared', a
   type: 'expense', status: 'pending', categoryId: 'food', paymentMethod: 'cash', recurrence: 'single',
   isShared: true, sharedMemberId: 'member', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending' };
 const input = { memberId: 'member', month: '2026-11', memberName: 'Synthetic member', accountId: account.id, date: '2026-11-12', settlementId: 'batch-one' };
+
+test('remote settlement informs the owner without confirming cash or overwriting local settlement identity', () => {
+  const reported=applyRemoteSettlementReports([base],[{shared_sync_id:base.id,status:'received',date:'2026-11-12'}]);
+  assert.equal(reported[0].sharedRemoteStatus,'received');
+  assert.equal(reported[0].sharedStatus,'pending');
+  assert.equal(calculateAccountBalances([account],reported,'2026-11')[0].currentBalance,100);
+  const local=settleSharedExpenses(reported,[account],input).transactions;
+  const reopenedRemote=applyRemoteSettlementReports(local,[{shared_sync_id:base.id,status:'pending'}]);
+  assert.equal(reopenedRemote.find(tx=>tx.id===base.id)?.sharedStatus,'received');
+  assert.equal(reopenedRemote.find(tx=>tx.id===base.id)?.sharedSettlementId,input.settlementId);
+  assert.equal(calculateAccountBalances([account],reopenedRemote,'2026-11')[0].currentBalance,150);
+  assert.equal(applyRemoteSettlementReports(reported,[])[0].sharedRemoteStatus,undefined);
+  const mirror={...base,id:'tx-mirror-source',sharedStatus:'received' as const,sharedSettledAccountId:'private-account',sharedSettlementId:'private-settlement'};
+  const refreshed=replaceIncomingSharedTransactions([mirror],[{...mirror,sharedSettledAccountId:undefined,sharedSettlementId:undefined}]);
+  assert.equal(refreshed[0].sharedSettledAccountId,'private-account');
+  assert.equal(refreshed[0].sharedSettlementId,'private-settlement');
+});
 
 test('incoming domestic mirror remains visible and settleable without treating companion travel as domestic', () => {
   const mirror = { ...base, id: 'tx-mirror-incoming', sharedPaidBy: 'member' as const, isCompanionOnlyExpense: true };

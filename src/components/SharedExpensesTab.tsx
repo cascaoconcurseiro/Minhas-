@@ -1115,6 +1115,14 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                                       : ''}
                                   </span>
                                 )}
+                                {tx.sharedRemoteStatus === 'received' && isPending && (
+                                  <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs text-sky-800">
+                                    {activeSummary.member.name.split(' ')[0]} informou o acerto. Confira o recebimento ou pagamento antes de confirmar.
+                                  </span>
+                                )}
+                                {tx.sharedRemoteStatus === 'pending' && !isPending && (
+                                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-800">O acerto foi reaberto pela outra pessoa. Confira antes de estornar.</span>
+                                )}
 
                                 {(activeSummary.member.email ||
                                   activeSummary.member.invitedByEmail) && (

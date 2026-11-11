@@ -122,6 +122,7 @@ mock.module('../lib/neonWorkspace', () => ({
   createNeonFamilyInvitation: async () => ({ invitationId: 'qa-invite' }),
   loadNeonFamilyInvitations: async () => [],
   loadNeonSharedTransactions: async () => [],
+  loadNeonSharedSnapshot: async () => ({ transactions: [], outgoingSettlements: [] }),
   loadNeonWorkspace: async () => {
     loadCalls += 1;
     return loadWorkspace();

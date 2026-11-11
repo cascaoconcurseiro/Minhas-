@@ -179,10 +179,20 @@ export function revokeNeonFamilyInvitation(invitationId: string): Promise<{ ok: 
 }
 
 export async function loadNeonSharedTransactions(): Promise<Record<string, unknown>[]> {
-  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[] }>(
+  return (await loadNeonSharedSnapshot()).transactions;
+}
+
+export interface OutgoingSharedSettlement {
+  shared_sync_id: string;
+  status: 'pending' | 'received';
+  date?: string | null;
+}
+
+export async function loadNeonSharedSnapshot(): Promise<{ transactions: Record<string, unknown>[]; outgoingSettlements: OutgoingSharedSettlement[] }> {
+  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[] }>(
     '/api/family/shared'
   );
-  return (result.transactions || []).map((row) => row.payload);
+  return { transactions: (result.transactions || []).map((row) => row.payload), outgoingSettlements: result.outgoingSettlements || [] };
 }
 
 export function syncNeonSharedTransactions(input: {

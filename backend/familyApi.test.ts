@@ -206,8 +206,23 @@ before(async () => {
           return { rows: [{ ...invitation }], rowCount: 1 };
         }
         if (normalized.startsWith('INSERT INTO public.finance_shared_transactions')) {
-          shared.set(String(params[2]), JSON.parse(String(params[3])));
+          const previous = shared.get(String(params[2])) as Record<string, unknown> | undefined;
+          shared.set(String(params[2]), { ...JSON.parse(String(params[3])),
+            ...(previous?.recipientSharedStatus ? { recipientSharedStatus: previous.recipientSharedStatus, recipientSettledDate: previous.recipientSettledDate } : {}) });
           return { rows: [], rowCount: 1 };
+        }
+        if (normalized.startsWith('UPDATE public.finance_shared_transactions')) {
+          const previous = shared.get(String(params[2])) as Record<string, unknown> | undefined;
+          if (previous) shared.set(String(params[2]), { ...previous, recipientSharedStatus: params[3], recipientSettledDate: params[4] });
+          return { rows: [], rowCount: previous ? 1 : 0 };
+        }
+        if (normalized.startsWith('SELECT sender_user_id, recipient_user_id, shared_sync_id')) {
+          const rows = String(params[0]) === 'member-uid' ? [...shared.entries()].map(([id,payload]) => ({ sender_user_id:'owner-uid',recipient_user_id:'member-uid',shared_sync_id:id,payload })) : [];
+          return { rows, rowCount: rows.length };
+        }
+        if (normalized.startsWith("SELECT shared_sync_id, payload ->> 'recipientSharedStatus'")) {
+          const rows = String(params[0]) === 'owner-uid' ? [...shared.entries()].map(([id,payload]) => ({shared_sync_id:id,status:(payload as Record<string,unknown>).recipientSharedStatus,date:(payload as Record<string,unknown>).recipientSettledDate})) : [];
+          return {rows,rowCount:rows.length};
         }
         if (normalized.startsWith('UPDATE public.finance_family_invitations') && normalized.includes('SET status = $1')) {
           const [status, invitedUid, invitationId, invitedEmail] = params.map(String);
@@ -385,6 +400,27 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   assert.deepEqual(await sync.json(), { ok: true, forbidden: false, upserted: 1, settled: 0, deleted: 0 });
   assert.equal(shared.size, 1);
   assert.equal((shared.get('tx-local-1') as { installmentPurchaseTotal?: number })?.installmentPurchaseTotal, 36);
+  const settle = await originalFetch(`${baseUrl}/api/family/shared`, { method:'PUT',
+    headers:{Authorization:`Bearer ${authTokens.invited}`,'Content-Type':'application/json'},
+    body:JSON.stringify({partnerEmail:'owner@example.com',transactions:[{id:'tx-mirror-tx-local-1',sharedSyncId:'tx-local-1',sharedStatus:'received',sharedSettledDate:'2026-11-04'}]}) });
+  assert.equal(settle.status,200);
+  const reports = await originalFetch(`${baseUrl}/api/family/shared`, {headers});
+  const reportBody = await reports.json() as {transactions:unknown[];outgoingSettlements:unknown[]};
+  assert.deepEqual(reportBody.transactions,[]);
+  assert.deepEqual(reportBody.outgoingSettlements,[{shared_sync_id:'tx-local-1',status:'received',date:'2026-11-04'}]);
+  const received = await originalFetch(`${baseUrl}/api/family/shared`, {headers:{Authorization:`Bearer ${authTokens.invited}`}});
+  const receivedBody = await received.json() as {transactions:Array<{payload:{sharedStatus:string}}>};
+  assert.equal(receivedBody.transactions[0].payload.sharedStatus,'received');
+  const resend = await originalFetch(`${baseUrl}/api/family/shared`, {method:'PUT',headers,
+    body:JSON.stringify({partnerEmail:'member@example.com',transactions:[{id:'tx-local-1',isShared:true,description:'Fixture updated',amount:12,sharedAmount:6,date:'2026-11-03'}]})});
+  assert.equal(resend.status,200);
+  assert.equal((shared.get('tx-local-1') as Record<string,unknown>).recipientSharedStatus,'received');
+  const reopen=await originalFetch(`${baseUrl}/api/family/shared`,{method:'PUT',headers:{Authorization:`Bearer ${authTokens.invited}`,'Content-Type':'application/json'},
+    body:JSON.stringify({partnerEmail:'owner@example.com',transactions:[{id:'tx-mirror-tx-local-1',sharedStatus:'pending'}]})});
+  assert.equal(reopen.status,200);
+  const pendingReport=await originalFetch(`${baseUrl}/api/family/shared`,{headers});
+  assert.deepEqual((await pendingReport.json() as {outgoingSettlements:unknown[]}).outgoingSettlements,[{shared_sync_id:'tx-local-1',status:'pending',date:null}]);
+  assert.ok(sqlLog.some(sql=>sql.includes('recipientSharedStatus') && sql.startsWith('UPDATE public.finance_shared_transactions')));
   assert.match(sqlLog.find((sql) => sql.startsWith('SELECT owner_user_id, owner_email, invited_email')) || '', /FOR UPDATE$/);
 
   const revoked = await originalFetch(`${baseUrl}/api/family/invitations/test-invitation/revoke`, { method: 'POST', headers });

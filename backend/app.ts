@@ -752,7 +752,19 @@ async function startServer() {
         );
         return result.rows;
       });
-      res.json({ transactions });
+      const outgoing = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `SELECT shared_sync_id, payload ->> 'recipientSharedStatus' AS status,
+                  payload ->> 'recipientSettledDate' AS date
+             FROM public.finance_shared_transactions
+            WHERE sender_user_id = $1`, [user.uid]);
+        return result.rows.filter((row) => row.status === 'received' || row.status === 'pending');
+      });
+      res.json({ transactions: transactions.map((row) => ({ ...row, payload: {
+        ...row.payload,
+        ...(row.payload.recipientSharedStatus ? { sharedStatus: row.payload.recipientSharedStatus,
+          sharedSettledDate: row.payload.recipientSettledDate || undefined } : {}),
+      } })), outgoingSettlements: outgoing });
     } catch (error) {
       console.error('Erro ao carregar lançamentos compartilhados:', error);
       res.status(503).json({ error: 'Não foi possível carregar os lançamentos compartilhados.' });
@@ -834,10 +846,10 @@ async function startServer() {
               `UPDATE public.finance_shared_transactions
                   SET payload = jsonb_set(
                     CASE WHEN $5::text IS NULL
-                      THEN payload - 'sharedSettledDate'
-                      ELSE jsonb_set(payload, '{sharedSettledDate}', to_jsonb($5::text), true)
+                      THEN payload - 'recipientSettledDate'
+                      ELSE jsonb_set(payload, '{recipientSettledDate}', to_jsonb($5::text), true)
                     END,
-                    '{sharedStatus}', to_jsonb($4::text), true
+                    '{recipientSharedStatus}', to_jsonb($4::text), true
                   ),
                   updated_at = now()
                 WHERE sender_user_id = $1
@@ -897,7 +909,10 @@ async function startServer() {
                (sender_user_id, recipient_user_id, shared_sync_id, payload, updated_at)
              VALUES ($1, $2, $3, $4::jsonb, now())
              ON CONFLICT (sender_user_id, recipient_user_id, shared_sync_id)
-             DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
+             DO UPDATE SET payload = EXCLUDED.payload || jsonb_strip_nulls(jsonb_build_object(
+               'recipientSharedStatus', public.finance_shared_transactions.payload -> 'recipientSharedStatus',
+               'recipientSettledDate', public.finance_shared_transactions.payload -> 'recipientSettledDate'
+             )), updated_at = now()`,
             [user.uid, partnerUid, sharedSyncId, JSON.stringify(mirror)]
           );
           upserted += 1;

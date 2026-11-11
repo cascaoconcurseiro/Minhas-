@@ -1,4 +1,4 @@
-import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions } from './utils/sharedFinanceRules';
+import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
@@ -29,7 +29,7 @@ import {
   createNeonWorkspace,
   createNeonFamilyInvitation,
   loadNeonFamilyInvitations,
-  loadNeonSharedTransactions,
+  loadNeonSharedSnapshot,
   loadNeonWorkspace,
   NeonWorkspaceError,
   type NeonWorkspaceSnapshot,
@@ -942,9 +942,9 @@ export default function App() {
         if (!active || authenticatedUidRef.current !== loadUid) return;
         const cleaned = stripLegacyMockItemsFromWorkspace(snapshot.payload);
         const data = cleaned.payload;
-        const [familyInvitations, sharedPayloads] = await Promise.all([
+        const [familyInvitations, sharedSnapshot] = await Promise.all([
           loadNeonFamilyInvitations().catch(() => []),
-          loadNeonSharedTransactions().catch(() => []),
+          loadNeonSharedSnapshot().catch(() => ({ transactions: [], outgoingSettlements: [] })),
         ]);
         if (!active || authenticatedUidRef.current !== loadUid) return;
 
@@ -966,7 +966,7 @@ export default function App() {
 
         const rawTransactions = parseWorkspaceArray<Transaction>(data.transactionsJson, INITIAL_TRANSACTIONS, 'transactionsJson');
         const sharedById = new Map<string, Transaction>();
-        for (const sharedPayload of sharedPayloads) {
+        for (const sharedPayload of sharedSnapshot.transactions) {
           const sharedTransaction = sharedPayload as unknown as Transaction;
           const sharedId = sharedTransaction.sharedSyncId ||
             sharedTransaction.id?.replace(/^tx-mirror-/, '');
@@ -1041,7 +1041,7 @@ export default function App() {
         setAccounts(stripLegacyMockItems(rawAccounts));
         setCards(stripLegacyMockItems(rawCards));
         setCategories(nextCategories);
-        setTransactions([...localTransactions, ...sharedById.values()]);
+        setTransactions([...applyRemoteSettlementReports(localTransactions, sharedSnapshot.outgoingSettlements), ...sharedById.values()]);
         setGoals(stripLegacyMockItems(parseWorkspaceArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS, 'goalsJson')));
         setFamilyMembers(familyMembers);
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
@@ -1109,9 +1109,9 @@ export default function App() {
     const refreshFamilyData = async () => {
       if (!hasLoadedRemoteOnceRef.current || !navigator.onLine) return;
       try {
-        const [invitations, sharedPayloads] = await Promise.all([
+        const [invitations, sharedSnapshot] = await Promise.all([
           loadNeonFamilyInvitations(),
-          loadNeonSharedTransactions(),
+          loadNeonSharedSnapshot(),
         ]);
         if (!active) return;
         setFamilyMembers((previous) => {
@@ -1169,7 +1169,7 @@ export default function App() {
           return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
         });
         setTransactions((previous) => {
-          const next = replaceIncomingSharedTransactions(previous, sharedPayloads as unknown as Transaction[]);
+          const next = replaceIncomingSharedTransactions(applyRemoteSettlementReports(previous, sharedSnapshot.outgoingSettlements), sharedSnapshot.transactions as unknown as Transaction[]);
           return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
         });
       } catch (error) {

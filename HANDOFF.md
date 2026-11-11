@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Retorno bilateral de acerto implementado — 11/11
+
+Deploy 23a4c02 confirmado success via GitHub. Backend agora mantém `recipientSharedStatus`/`recipientSettledDate` no JSON de compartilhamento, separados do estado do remetente. PUT do espelho só muda esses campos; upsert do remetente os preserva. GET de recebidos resolve estado do destinatário no payload e retorna `outgoingSettlements` só para `sender_user_id` autenticado. `loadNeonSharedSnapshot` e App consomem os avisos no carregamento e polling. `applyRemoteSettlementReports` grava apenas aviso remoto, nunca cria/estorna caixa ou sobrescreve sharedStatus/conta/acerto local. SharedExpensesTab mostra aviso de acerto ou reabertura pela outra pessoa com orientação para conferir. Snapshot de espelho mantém IDs de conta/acerto locais se ambos os estados permanecem received. Backup de outro titular e duplicação removem metadados remotos.
+
+Sem migration SQL; somente campos JSON opcionais. Testes de API usam PostgreSQL simulado, não provam execução SQL real. Regressões incluem retorno ao remetente, reenvio preservando estado, reabertura, saldo inalterado por aviso remoto e identidade bancária local preservada. Harness de orquestração atualizado para o novo contrato. Nenhum dado real alterado. QA remoto com duas identidades continua obrigatório antes de fechar a pendência; convite Fran segue invited e não foi aceito em nome dela.
+
+Próximo passo concreto: verificar schema/RLS de `finance_shared_transactions` para acesso do remetente ao próprio estado, testar SQL/upsert e ciclo com duas identidades QA em banco isolado, incluindo reabertura do grupo e atualização concorrente; conferir ausência de perda de identidade de acerto local ao recarregar (espelhos não são persistidos no workspace pessoal, pode exigir estratégia própria). Relatório 56 achados tabelados.
+
 ## Meta ampla retomada e edição/duplicação — 11/11
 
 Nova meta explícita ativa cobre sistema inteiro, fonte persistida única e regras compartilhadas, interface simples, correções/verificação/publicação e pendências bilaterais. Confirmado deploy afce37b success via GitHub. Diff de edição/duplicação do turno anterior revalidado: `duplicateFinancialTransaction` remove vínculos de parcela/acerto/importação e rejeita copiar liquidações/reembolsos/espelhos; cópia compartilhada recebe ID novo, cota pending e dispara sincronização. `getTransactionEditRestriction` bloqueia editar genericamente acertos recebidos e movimentos vinculados; aplicado na abertura e em `applyCascadeTransactionEdit`. Localizar no extrato usa mês da data, não competência.

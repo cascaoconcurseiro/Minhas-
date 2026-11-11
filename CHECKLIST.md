@@ -914,6 +914,9 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Corrigir duplicação de transações para remover vínculos de operações/importação e bloquear cópia de liquidações/reembolsos/espelhos; sincronizar nova cópia compartilhada.
 - [x] Bloquear edição genérica de acerto recebido e reembolso antes da reabertura; corrigir mês de destino ao localizar no extrato, com verificações do domínio/extrato.
 - [x] Confirmar deploy afce37b das verificações automáticas concluído.
+- [x] Implementar retorno de aviso de acerto/reabertura do destinatário para remetente, separado da baixa bancária própria, com preservação no reenvio e regressões API/domínio.
+- [x] Confirmar deploy 23a4c02 de duplicação/edição protegido concluído.
+- [ ] Validar retorno bilateral em PostgreSQL e duas identidades QA, incluindo recarregamento e persistência dos vínculos locais do destinatário.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

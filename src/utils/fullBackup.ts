@@ -50,6 +50,8 @@ const FAMILY_SHARE_FIELDS = [
   'sharedSettledDate',
   'sharedSettledAccountId',
   'sharedSettlementId',
+  'sharedRemoteStatus',
+  'sharedRemoteSettledDate',
   'sharedSyncId',
   'sharedOriginEmail',
   'sharedTargetEmail',
