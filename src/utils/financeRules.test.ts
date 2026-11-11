@@ -15,6 +15,7 @@ import {
   calculateFinancialHealthScore360,
   calculateMonthlySummary,
   calculatePersonalDre,
+  duplicateFinancialTransaction,
   calculateInvestmentIncomeSummary,
   previewCategoryBudget,
   calculateSharedAmount,
@@ -42,6 +43,39 @@ import {
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
+
+test('duplicated expense is an independent operation without settlement, import or installment identities', () => {
+  const tx: Transaction = { id:'original', description:'Synthetic expense', amount:100, date:'2026-11-11', competenceMonth:'2026-12',
+    type:'expense', status:'paid', categoryId:'shopping', paymentMethod:'credit_card', creditCardId:'card', recurrence:'installment',
+    installmentGroupId:'series', installmentNumber:1, installmentTotal:3, installmentPurchaseTotal:300,
+    isShared:true, sharedAmount:50, sharedMemberId:'member', sharedStatus:'received', sharedSyncId:'shared-original',
+    sharedSettlementId:'settled', sharedSettledAccountId:'bank', sharedSettledDate:'2026-11-12',
+    invoicePaymentId:'invoice', partialSplitOriginalId:'split', fitid:'bank-fitid', importBatchId:'import', reconciled:true };
+  const copy=duplicateFinancialTransaction(tx,'copy')!;
+  assert.equal(copy.amount,100);
+  assert.equal(copy.status,'pending');
+  assert.equal(copy.sharedStatus,'pending');
+  assert.equal(copy.sharedAmount,50);
+  for(const key of ['installmentGroupId','installmentPurchaseTotal','sharedSyncId','sharedSettlementId','sharedSettledDate','invoicePaymentId','partialSplitOriginalId','fitid','importBatchId','reconciled']) {
+    assert.equal((copy as unknown as Record<string,unknown>)[key],undefined,key);
+  }
+  assert.equal(tx.sharedStatus,'received');
+  assert.equal(duplicateFinancialTransaction({...tx,isInvoicePayment:true},'blocked'),null);
+  assert.equal(duplicateFinancialTransaction({...tx,id:'tx-reimb-123'},'blocked'),null);
+  assert.equal(duplicateFinancialTransaction({...tx,id:'tx-mirror-123'},'blocked'),null);
+});
+
+test('settled shared expenses and reimbursement movements require reversal before generic editing', () => {
+  const tx: Transaction = { id:'shared-settled', description:'Synthetic expense', amount:100, date:'2026-11-11', competenceMonth:'2026-11',
+    type:'expense',status:'paid',categoryId:'food',paymentMethod:'pix',recurrence:'single',isShared:true,sharedAmount:50,sharedStatus:'received' };
+  const rows=[tx];
+  const result=applyCascadeTransactionEdit(rows,{...tx,amount:200,sharedStatus:'pending'},'single');
+  assert.ok(result.error);
+  assert.equal(result.updatedTransactions,rows);
+  assert.equal(result.affectedCount,0);
+  const reimb={...tx,id:'tx-reimb-one',isShared:false};
+  assert.ok(applyCascadeTransactionEdit([reimb],{...reimb,amount:200}).error);
+});
 
 test('budget preview uses the saved invoice month and exact first installment cents', () => {
   const category: Category = { ...INITIAL_CATEGORIES.find((item) => item.type === 'expense')!, monthlyBudget: 100 };

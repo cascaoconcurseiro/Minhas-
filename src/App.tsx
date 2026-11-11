@@ -58,6 +58,8 @@ import {
   applyCascadeTransactionDelete,
   applyCascadeTransactionEdit,
   calculateAccountBalances,
+  duplicateFinancialTransaction,
+  getTransactionEditRestriction,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
   calculateMonthlySummary,
@@ -1357,9 +1359,10 @@ export default function App() {
   };
 
   const handleEditTransaction = (tx: Transaction) => {
-    if (tx.isInvoicePayment) {
+    const restriction = getTransactionEditRestriction(tx);
+    if (restriction) {
       showNotice(
-        'Pagamentos de fatura são liquidações vinculadas às compras do cartão. Estorne a fatura e registre o pagamento novamente para corrigir data, conta ou valor.',
+        restriction,
         undefined,
         true
       );
@@ -1375,17 +1378,11 @@ export default function App() {
   };
 
   const handleDuplicateTransaction = (tx: Transaction) => {
-    const cloned: Transaction = {
-      ...tx,
-      id: `tx-dup-${Date.now()}`,
-      description: `${tx.description} (Cópia)`,
-      status: tx.creditCardId ? 'pending' : 'paid',
-      recurrence: 'single',
-      installmentGroupId: undefined,
-      installmentNumber: undefined,
-      installmentTotal: undefined,
-    };
-    setTransactions((prev) => [cloned, ...prev]);
+    const cloned = duplicateFinancialTransaction(tx, `tx-dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    if (!cloned) { showNotice('Este lançamento é vinculado a outra operação. Crie um novo lançamento para registrar outra movimentação.', undefined, true); return; }
+    const next = [cloned, ...transactions];
+    setTransactions(next);
+    if (cloned.isShared) triggerCrossAccountSharedTxSync(next);
     showNotice(`Lançamento "${tx.description}" duplicado na competência.`, transactions);
   };
 
@@ -2715,7 +2712,7 @@ export default function App() {
   }, [isWorkspaceReadyForCurrentUser, accounts, cards, categories, transactions, goals, investments, trips]);
 
   const handleJumpToTransactionInLedger = (tx: Transaction) => {
-    setSelectedMonth(tx.competenceMonth);
+    setSelectedMonth(tx.date.slice(0, 7));
     setActiveTab('transactions');
     setRequestedLedgerViewMode('table');
     showNotice(

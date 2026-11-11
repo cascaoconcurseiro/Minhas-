@@ -2174,6 +2174,27 @@ export function toggleTransactionStatusWithCascade(
  * - 'this_and_future': altera este e todos os meses seguintes da mesma série (parcelas ou fixos)
  * - 'all_series': altera todos os lançamentos da série (passados e futuros)
  */
+export function getTransactionEditRestriction(tx: Transaction): string | null {
+  if (tx.isInvoicePayment) return 'Estorne o pagamento da fatura antes de corrigir seus dados.';
+  if (tx.id.startsWith('tx-reimb-') || (tx.isShared && tx.sharedStatus === 'received')) {
+    return 'Reabra o acerto em Compartilhado antes de editar, para estornar o movimento vinculado.';
+  }
+  return null;
+}
+
+export function duplicateFinancialTransaction(tx: Transaction, id: string): Transaction | null {
+  if (tx.isInvoicePayment || tx.id.startsWith('tx-reimb-') || tx.id.startsWith('tx-mirror-')) return null;
+  const copy: Transaction = { ...tx, id, description: `${tx.description} (Cópia)`,
+    status: tx.creditCardId ? 'pending' : 'paid', recurrence: 'single' };
+  for (const field of ['installmentGroupId', 'installmentNumber', 'installmentTotal', 'installmentPurchaseTotal',
+    'invoicePaymentId', 'partialSplitOriginalId', 'settledCardId', 'settledInvoiceMonth', 'isInvoicePayment',
+    'isAnticipated', 'originalCompetenceMonth', 'originalDateBeforeAnticipation', 'originalAmountBeforeDiscount',
+    'sharedSyncId', 'sharedOriginEmail', 'sharedTargetEmail', 'sharedSettlementId', 'sharedSettledDate', 'sharedSettledAccountId',
+    'fitid', 'importBatchId', 'reconciled'] as const) delete copy[field];
+  if (copy.isShared) copy.sharedStatus = 'pending';
+  return copy;
+}
+
 export function applyCascadeTransactionEdit(
   transactions: Transaction[],
   editedTx: Transaction,
@@ -2184,6 +2205,8 @@ export function applyCascadeTransactionEdit(
   error?: string;
 } {
   const original = transactions.find((t) => t.id === editedTx.id);
+  const restriction = original ? getTransactionEditRestriction(original) : null;
+  if (restriction) return { updatedTransactions: transactions, affectedCount: 0, error: restriction };
   const isPurchaseTotalEdit = Boolean(
     original && original.recurrence === 'installment' && Number.isFinite(editedTx.installmentPurchaseTotal)
   );

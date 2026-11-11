@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Meta ampla retomada e edição/duplicação — 11/11
+
+Nova meta explícita ativa cobre sistema inteiro, fonte persistida única e regras compartilhadas, interface simples, correções/verificação/publicação e pendências bilaterais. Confirmado deploy afce37b success via GitHub. Diff de edição/duplicação do turno anterior revalidado: `duplicateFinancialTransaction` remove vínculos de parcela/acerto/importação e rejeita copiar liquidações/reembolsos/espelhos; cópia compartilhada recebe ID novo, cota pending e dispara sincronização. `getTransactionEditRestriction` bloqueia editar genericamente acertos recebidos e movimentos vinculados; aplicado na abertura e em `applyCascadeTransactionEdit`. Localizar no extrato usa mês da data, não competência.
+
+Validação anterior do mesmo patch base: 459 testes em 59 arquivos, lint/build aprovados. Após ligar sincronização da cópia, 62 testes direcionados de domínio/extrato, lint e build (84 entradas PWA) passaram. Não acessados dados reais nesta etapa. Relatório atualizado para 55 achados tabelados (16 P0,39 P1). Próximo passo prioritário continua retorno bilateral de estado de acerto: backend GET só entrega recebidos, e remetente não consome atualizações de status da sua própria transação; desenhar sem copiar accountId entre usuários, criar regressões de API/cliente e comprovar com identidades QA. Convite Fran em invited exige aceite por ela; não enviar mensagem nem aceitar em nome dela. Teste de navegação visual do extrato e validação de todos os módulos ainda pendentes.
+
 ## Auditoria técnica retirada da navegação — 11/11
 
 Pedido do usuário: não exibir auditoria contábil/serviços ao lado do sino; executar verificações automaticamente. Removidos botão header-system-verifier, atalho de Overview, lazy mount do ExpertSystemReviewModal e handler manual de reparo. O componente antigo permanece no repositório sem ponto de entrada em App. `runFinancialIntegrityAudit` agora roda por useMemo após hidratação válida do usuário e mudanças do estado financeiro; não modifica dados. Estado saudável é silencioso; divergência mostra aviso simples e ação Conferir lançamentos. Validação de persistência/API continua automática como antes.
