@@ -3155,7 +3155,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen w-full max-w-full overflow-x-hidden flex bg-slate-50 text-slate-900 transition-colors duration-200 ${
+      className={`min-h-screen w-full max-w-full overflow-x-hidden flex bg-[#F4F6FB] text-slate-900 transition-colors duration-200 ${
         settings.theme === 'dark' ? 'dark' : ''
       } ${settings.privacyMode ? 'privacy-mode' : ''} ${
         settings.density === 'compact' ? 'density-compact' : ''
@@ -3451,10 +3451,10 @@ export default function App() {
                 onClick={() => handleOpenNewTransaction('expense')}
                 aria-label="Novo lançamento"
                 title="Criar novo lançamento"
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0 shadow-sm"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden xl:inline">Novo Lançamento</span>
+                <span className="hidden xl:inline">Adicionar</span>
               </button>
             </div>
           </div>

@@ -34,6 +34,7 @@ import {
 } from '../utils/financeRules';
 import { calculateMonthBurnRateMarker } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { OverviewHomeCards } from './OverviewHomeCards';
 
 interface OverviewTabProps {
   selectedMonth: string;
@@ -186,6 +187,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             : `Contas em dia em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
+
+      {/* Painel de referência: saldo previsto, contas a pagar e cartões */}
+      <OverviewHomeCards
+        monthlySummary={monthlySummary}
+        pendingBills={pendingBills}
+        accounts={accounts}
+        categories={categories}
+        cards={cards}
+        cardSummaries={cardSummaries}
+        onToggleStatus={onToggleStatus}
+        onNavigateTab={onNavigateTab}
+        onNavigateToCard={onNavigateToCard}
+      />
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
       <section aria-label="Indicadores financeiros do mês" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
