@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Decisão de apresentação e orçamento — 2026-11-11
+
+O usuário confirmou explicitamente orçamento distribuído por parcela. Calendário, detalhes e extrato devem destacar o total original primeiro, seguido de número de parcelas e valor da parcela corrente. Os totais agregados seguem por parcela; não somar o total original a cada mês. Na série Amazon preservada, a primeira parcela é R$ 119,62 e as outras R$ 119,58, somando R$ 1.435,00; apresentar valor da parcela corrente sem sugerir que todas têm valor idêntico.
+
 ## Ajustes solicitados nas capturas — 2026-11-11
 
 Removidos do formulário de compra: miniatura do cartão, bandeira redundante e aviso com mês estimado. O cálculo automático da fatura continua funcionando; o ajuste manual permanece recolhido. Na listagem e detalhe do cartão, fatura zerada passa a dizer “Sem fatura no mês” em vez de “Sem Gastos”, pois pode haver compras comprometendo limite em outras competências. Regressões do modal, lint e build PWA passaram. Conferir deploy e navegador autenticado após publicação.

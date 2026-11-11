@@ -722,9 +722,10 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                               : ''
                           }`}
                         >
-                          {tx.installmentNumber === 1 && tx.installmentPurchaseTotal !== undefined && (
+                          {tx.installmentPurchaseTotal !== undefined && (
                             <span className="w-full text-violet-800 font-bold tabular-nums break-words">
-                              Compra {formatBRL(tx.installmentPurchaseTotal)} · {tx.installmentTotal}x
+                              {formatBRL(tx.installmentPurchaseTotal)} em {tx.installmentTotal}x
+                              <span className="block font-normal">Parcela {tx.installmentNumber}/{tx.installmentTotal}: {formatBRL(tx.amount)}</span>
                             </span>
                           )}
                           <span className="truncate flex items-center gap-1 min-w-0">
@@ -740,7 +741,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                             <span className="truncate">{tx.description}</span>
                           </span>
 
-                          <span className="hidden md:inline tabular-nums shrink-0 ml-1 font-semibold">
+                          <span className={`${tx.installmentPurchaseTotal !== undefined ? 'hidden' : 'hidden md:inline'} tabular-nums shrink-0 ml-1 font-semibold`}>
                             {isIncome ? '+' : '-'}
                             {formatBRL(tx.amount)}
                           </span>
@@ -1050,8 +1051,13 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                           }`}
                         >
                           {isIncome ? '+' : '-'}
-                          {formatBRL(tx.amount)}
+                          {formatBRL(tx.installmentPurchaseTotal ?? tx.amount)}
                         </div>
+                        {tx.installmentPurchaseTotal !== undefined && (
+                          <div className="text-xs font-medium text-slate-600">
+                            Em {tx.installmentTotal}x · parcela {tx.installmentNumber}/{tx.installmentTotal}: {formatBRL(tx.amount)}
+                          </div>
+                        )}
                         <span className="text-[11px] text-slate-400 capitalize">
                           {tx.paymentMethod === 'pix'
                             ? 'PIX'

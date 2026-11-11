@@ -1092,7 +1092,12 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                           }`}
                         >
                           {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}
-                          {formatBRL(tx.amount)}
+                          {formatBRL(tx.installmentPurchaseTotal ?? tx.amount)}
+                          {tx.installmentPurchaseTotal !== undefined && (
+                            <div className="text-xs font-medium text-slate-500">
+                              Em {tx.installmentTotal}x · parcela {tx.installmentNumber}/{tx.installmentTotal}: {formatBRL(tx.amount)}
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-3 pl-3 pr-6 text-right whitespace-nowrap">
