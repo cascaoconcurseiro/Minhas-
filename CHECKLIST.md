@@ -905,6 +905,8 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Separar cotas futuras do acerto mensal, explicitar parcelamento e remover afirmações fixas de convite aceito/sincronizado; regressão liquida só a parcela do mês.
 - [ ] Atualizar cópia da Fran após convite ser aceito: envio bloqueado pelo servidor com 403 e convite em estado invited.
 - [x] Ajustar quadro semanal para total original da compra uma única vez, sem somar parcelas futuras como novas compras nem duplicar linhas de pagamento parcial; preservar orçamento/faturas por parcela.
+- [x] Simplificar sino para notificações e ações; retirar configurações duplicadas e manter preferências/canais em SettingsModal, com teste de navegação para aba correta e ausência de formulários no sino.
+- [x] Confirmar deploy Vercel faab761 do total original no quadro semanal.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

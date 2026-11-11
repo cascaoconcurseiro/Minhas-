@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Central de notificações simplificada — 11/11
+
+Pedido do usuário: sino deve ter só notificações; configurações ficam no local próprio. `ReminderCenterModal` agora contém lista/filtros/ações dos avisos e atalho acessível para a aba reminders em `SettingsModal`. Retirados painel de canais/horários, SMTP, permissões/testes de envio, cartões de resumo financeiro e estado dos canais no rodapé. Configurações já existiam em SettingsModal; nenhuma preferência ou dado persistido foi removido. Removidas props e lógica duplicadas de configuração/envio no modal e no App.
+
+Verificações: 18 testes direcionados entre notificações/configurações; suíte completa 456/456 em 59 arquivos, lint e build PWA (86 entradas) passaram. Depois de limpar fixtures de testes obsoletos, lint e 3 testes do modal passaram. A redução de testes corresponde à retirada de testes da configuração duplicada; SettingsModal mantém testes dos campos e canais. QA visual desta revisão ainda não foi executado no navegador. Deploy anterior faab761 do total semanal confirmado success via GitHub. Próximo passo: conferir deploy desta simplificação e renderização do sino, mantendo pendências financeiras anteriores abertas.
+
 ## Compras semanais pelo total original — 11/11
 
 Usuário esclareceu pela captura que o quadro semanal deve representar o total da compra, e não a parcela. `getPurchaseTransactionsForMonth` em `financeRules.ts` agrupa séries, conta uma compra na data da primeira parcela e usa `installmentPurchaseTotal`. Sem esse metadado, só infere por soma se todos os números de parcela estiverem presentes; série incompleta não vira preço presumido. Linhas de parcela divididas por pagamento parcial não duplicam o total salvo. Próximas parcelas não geram nova compra nas semanas futuras. `calculateWeeklyCashPulse` consome essa seleção; título/texto explicam “Compras por Semana”. Orçamento e faturas continuam por parcela, por decisão expressa do usuário. Nenhum registro do banco alterado nesta etapa.

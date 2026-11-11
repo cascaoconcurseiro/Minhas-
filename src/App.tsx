@@ -4061,19 +4061,6 @@ export default function App() {
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
         reminders={dailyReminders}
-        settings={settings.reminders || DEFAULT_REMINDER_SETTINGS}
-        userEmail={effectiveUserEmail}
-        userName={effectiveUserDisplayName || settings.userName}
-        getAuthToken={() => currentUser?.getIdToken() ?? Promise.resolve('')}
-        onUpdateReminderSettings={(partial) =>
-          setSettings((prev) => ({
-            ...prev,
-            reminders: {
-              ...(prev.reminders || DEFAULT_REMINDER_SETTINGS),
-              ...partial,
-            },
-          }))
-        }
         onPayCardInvoice={(cardId) => {
           handleNavigateToCard(cardId);
         }}
