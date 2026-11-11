@@ -3253,7 +3253,7 @@ export default function App() {
         <header className="sticky top-0 z-30 w-full max-w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs px-3.5 sm:px-6 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)]">
           <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-2 sm:gap-4">
             {/* Zone 1 (Left): Mobile Menu Trigger + Active Page Title */}
-            <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(true)}
