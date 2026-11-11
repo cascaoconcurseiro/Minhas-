@@ -55,7 +55,7 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
   return (
     <section aria-label="Resumo do mês" className="grid grid-cols-1 gap-4 lg:grid-cols-3 min-w-0">
       {/* Saldo previsto */}
-      <article className={`${CARD_SHELL} lg:col-span-2 flex flex-col justify-between gap-6 min-w-0`}>
+      <article className={`${CARD_SHELL} lg:col-span-2 flex flex-col gap-6 min-w-0 self-start`}>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Saldo previsto</p>
