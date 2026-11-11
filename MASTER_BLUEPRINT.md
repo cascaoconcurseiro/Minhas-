@@ -26,6 +26,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
+| 2026-11-11 | Centralizar regras monetárias em `financeRules.ts` e seleção/resumo/liquidação/reabertura de compartilhamentos em `sharedFinanceRules.ts`; App e telas consomem essas funções | Evitar filtros, somas e cascatas divergentes entre tela e gravação. Cada novo acerto recebe `sharedSettlementId` no JSON do workspace, incluindo compensações de saldo zero; sem migration SQL |
 | 2026-11-07 (superada em 2026-11-08) | Usar Firebase Auth somente para identidade e Neon PostgreSQL para toda persistência operacional | Manter o login Firebase sem devolver dados financeiros ao Firestore |
 | 2026-11-07 | Derivar o workspace do UID estável Firebase, nunca do e-mail | Preservar associações UID e permitir mudança de e-mail sem trocar o titular |
 | 2026-11-07 (superada em 2026-11-08) | Validar o ID token Firebase contra o projeto esperado e aplicar o UID verificado às políticas RLS Neon | Impedir que o cliente escolha a identidade usada em consultas ou gravações |
@@ -34,7 +35,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 
 ## Regras do projeto
 - Nunca expor `DATABASE_URL` no frontend.
-- Toda operação de workspace deve validar o ID token Firebase e restringir a linha Neon ao UID autenticado.
+- Toda operação de workspace deve validar a sessão própria e sua versão no banco, restringindo a linha Neon ao ID de usuário autenticado.
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.
 - Não enviar credenciais PostgreSQL ao frontend; o ID token Firebase identifica o titular nas rotas do backend.
 - Não inicializar nem usar Firestore ou Firebase Storage no runtime.

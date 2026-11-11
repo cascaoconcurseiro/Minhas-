@@ -1,3 +1,4 @@
+import { settleSharedExpenses, reopenSharedSettlement } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
@@ -2334,176 +2335,33 @@ export default function App() {
       });
   };
 
-  const handleSettleSharedTransaction = (
-    txId: string,
-    receivingAccountId: string,
-    settledDate: string
-  ) => {
-    const tx = transactions.find((t) => t.id === txId);
-    if (!tx || !tx.sharedAmount) return;
-    const effectiveAccountId =
-      receivingAccountId || tx.accountId || accounts[0]?.id || '';
-    const member = familyMembers.find((m) => m.id === tx.sharedMemberId);
-    const isPaidByMember = tx.sharedPaidBy === 'member';
-
-    const settledTransactions = transactions.map((t) =>
-      t.id === txId
-        ? {
-            ...t,
-            sharedStatus: 'received' as const,
-            sharedSettledDate: settledDate,
-            sharedSettledAccountId: effectiveAccountId,
-          }
-        : t
-    );
-
-    const reimbursementTx: Transaction = {
-      id: `tx-reimb-${Date.now()}`,
-      description: isPaidByMember
-        ? `Pagamento de Rateio Compartilhado — ${member?.name || 'Familiar'} (${tx.description})`
-        : `Reembolso Compartilhado — ${member?.name || 'Familiar'} (${tx.description})`,
-      amount: tx.sharedAmount,
-      date: settledDate,
-      competenceMonth: settledDate.slice(0, 7),
-      type: isPaidByMember ? 'expense' : 'income',
-      status: 'paid',
-      categoryId: isPaidByMember ? tx.categoryId : 'cat-rendimentos',
-      accountId: effectiveAccountId,
-      paymentMethod: 'pix',
-      recurrence: 'single',
-      notes: isPaidByMember
-        ? `Pagamento da minha cota de despesa paga por ${member?.name || 'Familiar'} [ref:${tx.id}]`
-        : `Reembolso automático de despesa compartilhada [ref:${tx.id}]`,
-    };
-
-    const nextAll = [reimbursementTx, ...settledTransactions];
-    setTransactions(nextAll);
-    triggerCrossAccountSharedTxSync(nextAll);
-    showNotice(
-      isPaidByMember
-        ? `Pagamento de ${formatBRL(tx.sharedAmount)} a ${member?.name || 'Familiar'} debitado na conta!`
-        : `Recebimento de ${formatBRL(tx.sharedAmount)} confirmado e creditado na conta!`
-    );
+  const applySharedSettlement = (input: { txId?: string; memberId?: string; month?: string; accountId: string; date: string }) => {
+    const tx = input.txId ? transactions.find((item) => item.id === input.txId) : undefined;
+    const member = familyMembers.find((item) => item.id === (input.memberId || tx?.sharedMemberId));
+    const result = settleSharedExpenses(transactions, accounts, { ...input, memberName: member?.name || 'Familiar',
+      settlementId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
+    if (result.error) { showNotice(result.error, undefined, true); return; }
+    if (!result.affectedCount) return;
+    setTransactions(result.transactions);
+    triggerCrossAccountSharedTxSync(result.transactions);
+    showNotice(result.netAmount === 0 ? 'Encontro de contas quitado com saldo R$ 0,00.'
+      : `${result.netAmount > 0 ? 'Recebimento' : 'Pagamento'} de ${formatBRL(Math.abs(result.netAmount))} confirmado na conta.`);
   };
 
-  const handleSettleAllMemberInvoices = (
-    memberId: string,
-    month: string,
-    receivingAccountId: string,
-    settledDate: string
-  ) => {
-    const member = familyMembers.find((m) => m.id === memberId);
-    const effectiveAccountId = receivingAccountId || accounts[0]?.id || '';
-    const targetTxs = transactions.filter(
-      (t) =>
-        t.isShared &&
-        !t.tripId &&
-        t.sharedMemberId === memberId &&
-        t.competenceMonth === month &&
-        t.sharedStatus !== 'received'
-    );
+  const handleSettleSharedTransaction = (txId: string, accountId: string, date: string) => {
+    applySharedSettlement({ txId, accountId, date });
+  };
 
-    if (targetTxs.length === 0) return;
-
-    const owedToMe = targetTxs
-      .filter((t) => (t.sharedPaidBy || 'me') === 'me')
-      .reduce((acc, t) => acc + (t.sharedAmount || 0), 0);
-    const iOweMember = targetTxs
-      .filter((t) => t.sharedPaidBy === 'member')
-      .reduce((acc, t) => acc + (t.sharedAmount || 0), 0);
-    const netAmount = Math.round((owedToMe - iOweMember) * 100) / 100;
-
-    const targetIds = new Set(targetTxs.map((t) => t.id));
-
-    const settledList = transactions.map((t) =>
-      targetIds.has(t.id)
-        ? {
-            ...t,
-            sharedStatus: 'received' as const,
-            sharedSettledDate: settledDate,
-            sharedSettledAccountId: effectiveAccountId,
-          }
-        : t
-    );
-
-    if (Math.abs(netAmount) > 0.009) {
-      const isNetReceivable = netAmount > 0;
-      const refsTag = targetTxs.map((t) => `[ref:${t.id}]`).join(' ');
-      const consolidatedTx: Transaction = {
-        id: `tx-reimb-all-${Date.now()}`,
-        description: isNetReceivable
-          ? `Acerto Compensado Recebido (${formatMonthYearPT(month)}) — ${member?.name || 'Familiar'}`
-          : `Acerto Compensado Pago (${formatMonthYearPT(month)}) — ${member?.name || 'Familiar'}`,
-        amount: Math.abs(netAmount),
-        date: settledDate,
-        competenceMonth: settledDate.slice(0, 7),
-        type: isNetReceivable ? 'income' : 'expense',
-        status: 'paid',
-        categoryId: isNetReceivable ? 'cat-rendimentos' : 'cat-outros',
-        accountId: effectiveAccountId,
-        paymentMethod: 'pix',
-        recurrence: 'single',
-        notes: `Encontro de contas bilateral (${targetTxs.length} lançamento(s): ${formatBRL(owedToMe)} a receber vs ${formatBRL(iOweMember)} a pagar) ${refsTag}`,
-      };
-
-      const nextAll = [consolidatedTx, ...settledList];
-      setTransactions(nextAll);
-      triggerCrossAccountSharedTxSync(nextAll);
-      showNotice(
-        isNetReceivable
-          ? `Saldo compensado de ${formatBRL(Math.abs(netAmount))} recebido de ${member?.name || 'Familiar'} e creditado na conta!`
-          : `Saldo compensado de ${formatBRL(Math.abs(netAmount))} pago a ${member?.name || 'Familiar'} e debitado na conta!`
-      );
-    } else {
-      setTransactions(settledList);
-      triggerCrossAccountSharedTxSync(settledList);
-      showNotice(
-        `Encontro de contas quitado com saldo R$ 0,00 entre você e ${member?.name || 'Familiar'}!`
-      );
-    }
+  const handleSettleAllMemberInvoices = (memberId: string, month: string, accountId: string, date: string) => {
+    applySharedSettlement({ memberId, month, accountId, date });
   };
 
   const handleReopenSharedTransaction = (txId: string) => {
-    const targetTx = transactions.find((t) => t.id === txId);
-    const idsToReopen = new Set<string>([txId]);
-    const nextList = transactions
-      .filter((t) => {
-        if (!t.id.startsWith('tx-reimb-')) return true;
-        if (t.notes?.includes(`[ref:${txId}]`)) {
-          if (t.id.startsWith('tx-reimb-all-') && t.notes) {
-            const matches = t.notes.matchAll(/\[ref:([^\]]+)\]/g);
-            for (const m of matches) {
-              if (m[1]) idsToReopen.add(m[1]);
-            }
-          }
-          return false;
-        }
-        if (
-          targetTx &&
-          t.description.includes(`(${targetTx.description})`) &&
-          (!targetTx.sharedSettledDate || t.date === targetTx.sharedSettledDate)
-        ) {
-          return false;
-        }
-        return true;
-      })
-      .map((t) =>
-        idsToReopen.has(t.id)
-          ? {
-              ...t,
-              sharedStatus: 'pending' as const,
-              sharedSettledDate: undefined,
-              sharedSettledAccountId: undefined,
-            }
-          : t
-      );
-    setTransactions(nextList);
-    triggerCrossAccountSharedTxSync(nextList);
-    showNotice(
-      idsToReopen.size > 1
-        ? `${idsToReopen.size} despesas compartilhadas do encontro de contas reabertas como pendentes e lançamento estornado.`
-        : 'Despesa compartilhada reaberta como pendente e lançamento de reembolso estornado.'
-    );
+    const result = reopenSharedSettlement(transactions, txId);
+    if (!result.affectedCount) return;
+    setTransactions(result.transactions);
+    triggerCrossAccountSharedTxSync(result.transactions);
+    showNotice(`${result.affectedCount} despesa(s) compartilhada(s) reaberta(s) e acerto estornado.`);
   };
 
   const handleAddAccount = (newAcc: Omit<BankAccount, 'id'>): BankAccount => {

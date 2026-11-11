@@ -134,6 +134,7 @@ export interface Transaction {
   sharedStatus?: 'pending' | 'received';
   sharedSettledDate?: string;
   sharedSettledAccountId?: string;
+  sharedSettlementId?: string;
   sharedSyncId?: string; // Correlation ID shared between linked family accounts
   sharedOriginEmail?: string; // Email of the user who originally created the shared transaction
   sharedTargetEmail?: string; // Email of the linked family member

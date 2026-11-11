@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Liquidação compartilhada centralizada — continuação de 11/11
+
+Deploy `ffc50f2` das cotas confirmado com sucesso na verificação Vercel. Criado domínio `sharedFinanceRules.ts`: seleção doméstica, resumo por membro, baixa idempotente com validação de conta/data e reabertura. App e `SharedExpensesTab` substituíram somas e mutações locais por essas funções. Todo novo acerto (inclusive saldo zero) recebe `sharedSettlementId` no JSON; backup do titular preserva, restauração de outro titular remove o vínculo. Não exige migration SQL.
+
+`getSharedSettlementLinks` em `financeRules.ts` é usado pela reabertura e pela exclusão individual/em série, resolvendo vínculos explícitos atuais ou refs legadas, sem excluir/reabrir por mera coincidência de descrição/data. Resumo de quitado no mês usa data do acerto. Testes cobrem saldo positivo, compensação zero, repetição da baixa, reversão de caixa, exclusão, dois acertos no mesmo dia, conta/data inválidas, viagem excluída e portabilidade do backup. Blueprint atualizado pela nova divisão do domínio.
+
+Limite histórico: compensações antigas de saldo zero sem identificador e sem movimento com refs não têm informação suficiente para reconstruir o grupo; não inferir automaticamente. QA remoto entre identidades ainda pendente e nenhum registro produtivo foi alterado nesta continuação. Próximo passo: revisar espelhamento de cotas e remoção de compartilhamento nos endpoints `backend/app.ts` e cliente; conferir consistência do vínculo de acerto ao receber atualizações de outra identidade.
+
 ## Cotas compartilhadas de parcelas — continuação de 11/11
 
 Corrigido `applyCascadeTransactionEdit` para não atribuir a cota da compra inteira à parcela editada: distribui o total de cotas entre linhas ajustáveis proporcionalmente aos valores, em centavos com BigInt para o produto, preservando linhas pagas e cotas `received`. Bloqueia soma compartilhada abaixo do histórico preservado, acima da capacidade das parcelas e redução de parcela abaixo de cota já acertada. Ao remover compartilhamento, só limpa campos de linhas ajustáveis; mantém histórico preservado.

@@ -2354,6 +2354,18 @@ export function applyCascadeTransactionEdit(
  * - Se for um reembolso de despesa compartilhada (`tx-reimb-`), reabre as despesas compartilhadas vinculadas como Pendentes.
  * - Se for uma série parcelada/recorrente com escopo de série, remove os lançamentos vinculados.
  */
+export function getSharedSettlementLinks(transactions: Transaction[], target: Transaction): Set<string> {
+  const ids = new Set([target.id]);
+  for (const tx of transactions) {
+    if (target.sharedSettlementId && tx.sharedSettlementId === target.sharedSettlementId) ids.add(tx.id);
+    if (tx.id.startsWith('tx-reimb-') && (tx.id === target.id || tx.notes?.includes(`[ref:${target.id}]`))) {
+      ids.add(tx.id);
+      for (const match of tx.notes?.matchAll(/\[ref:([^\]]+)\]/g) || []) ids.add(match[1]);
+    }
+  }
+  return ids;
+}
+
 export function applyCascadeTransactionDelete(
   transactions: Transaction[],
   targetId: string,
@@ -2381,152 +2393,28 @@ export function applyCascadeTransactionDelete(
     };
   }
 
-  // 2. Efeito Cascata Automático ao apagar um Reembolso de Despesa Compartilhada
-  if (target.id.startsWith('tx-reimb-')) {
-    let reopenedShared = 0;
-    const updatedTransactions = transactions
-      .filter((t) => t.id !== target.id)
-      .map((t) => {
-        const isDirectRef = Boolean(target.notes && target.notes.includes(`[ref:${t.id}]`));
-        if (
-          t.isShared &&
-          t.sharedStatus === 'received' &&
-          (isDirectRef ||
-            (t.competenceMonth === target.competenceMonth &&
-              t.sharedSettledDate === target.date))
-        ) {
-          reopenedShared += 1;
-          return {
-            ...t,
-            sharedStatus: 'pending' as const,
-            sharedSettledDate: undefined,
-            sharedSettledAccountId: undefined,
-          };
-        }
-        return t;
-      });
-
-    return {
-      updatedTransactions,
-      deletedCount: 1,
-      cascadeReopenedCount: reopenedShared,
-      actionDescription:
-        reopenedShared > 0
-          ? `Reembolso excluído e efeito cascata refeito: ${reopenedShared} despesa(s) compartilhada(s) voltaram para Pendente!`
-          : 'Lançamento de reembolso removido.',
-    };
-  }
-
-  if (scope === 'single' || !target.installmentGroupId) {
-    const siblingSharedIdsToReopen = new Set<string>();
-    const filteredList = transactions.filter((t) => {
-      if (t.id === targetId) return false;
-      if (
-        target.isShared &&
-        t.id.startsWith('tx-reimb-') &&
-        (t.notes?.includes(`[ref:${target.id}]`) ||
-          (!t.id.startsWith('tx-reimb-all-') &&
-            t.description.includes(`(${target.description})`) &&
-            t.date === target.sharedSettledDate))
-      ) {
-        if (t.id.startsWith('tx-reimb-all-') && t.notes) {
-          const matches = t.notes.matchAll(/\[ref:([^\]]+)\]/g);
-          for (const m of matches) {
-            if (m[1] && m[1] !== target.id) {
-              siblingSharedIdsToReopen.add(m[1]);
-            }
-          }
-        }
-        return false;
-      }
-      return true;
-    }).map((t) => {
-      if (siblingSharedIdsToReopen.has(t.id) && t.isShared && t.sharedStatus === 'received') {
-        return {
-          ...t,
-          sharedStatus: 'pending' as const,
-          sharedSettledDate: undefined,
-          sharedSettledAccountId: undefined,
-        };
-      }
-      return t;
-    });
-    return {
-      updatedTransactions: filteredList,
-      deletedCount: transactions.length - filteredList.length,
-      cascadeReopenedCount: siblingSharedIdsToReopen.size,
-      actionDescription: `Lançamento "${target.description}" removido.`,
-    };
-  }
-
-  const groupId = target.installmentGroupId;
-  const seriesTransactionsToDelete = transactions.filter((tx) =>
-    tx.id === target.id ||
-    (tx.installmentGroupId === groupId &&
-      (scope === 'all_series' ||
-        (scope === 'this_and_future' && tx.competenceMonth >= target.competenceMonth)))
-  );
-  const deletedSharedIds = new Set(
-    seriesTransactionsToDelete.filter((tx) => tx.isShared).map((tx) => tx.id)
-  );
-  const reimbursementIdsToDelete = new Set<string>();
-  const siblingSharedIdsToReopen = new Set<string>();
-
-  if (deletedSharedIds.size > 0) {
-    for (const reimbursement of transactions) {
-      if (!reimbursement.id.startsWith('tx-reimb-')) continue;
-      const refs = reimbursement.notes?.matchAll(/\[ref:([^\]]+)\]/g);
-      const referencedIds = refs
-        ? Array.from(refs, (match) => match[1]).filter(Boolean)
-        : [];
-      const directlyLinked = referencedIds.some((id) => deletedSharedIds.has(id));
-      const fallbackLinked = seriesTransactionsToDelete.some(
-        (sharedTx) =>
-          sharedTx.isShared &&
-          !reimbursement.id.startsWith('tx-reimb-all-') &&
-          reimbursement.description.includes(`(${sharedTx.description})`) &&
-          sharedTx.sharedSettledDate === reimbursement.date
-      );
-      if (!directlyLinked && !fallbackLinked) continue;
-
-      reimbursementIdsToDelete.add(reimbursement.id);
-      for (const id of referencedIds) {
-        if (!deletedSharedIds.has(id)) siblingSharedIdsToReopen.add(id);
-      }
+  const deleting = new Set(transactions.filter((tx) => tx.id === target.id ||
+    (scope !== 'single' && target.installmentGroupId && tx.installmentGroupId === target.installmentGroupId &&
+      (scope === 'all_series' || tx.competenceMonth >= target.competenceMonth))).map((tx) => tx.id));
+  const linked = new Set<string>();
+  for (const tx of transactions) {
+    if (deleting.has(tx.id) && (tx.isShared || tx.id.startsWith('tx-reimb-'))) {
+      for (const id of getSharedSettlementLinks(transactions, tx)) linked.add(id);
     }
   }
-
-  let deletedCount = 0;
-
-  const updatedTransactions = transactions
-    .filter((tx) => {
-      const remove =
-        seriesTransactionsToDelete.some((deletedTx) => deletedTx.id === tx.id) ||
-        reimbursementIdsToDelete.has(tx.id);
-      if (remove) deletedCount++;
-      return !remove;
-    })
-    .map((tx) => {
-      if (siblingSharedIdsToReopen.has(tx.id) && tx.isShared && tx.sharedStatus === 'received') {
-        return {
-          ...tx,
-          sharedStatus: 'pending' as const,
-          sharedSettledDate: undefined,
-          sharedSettledAccountId: undefined,
-        };
-      }
-      return tx;
-    });
-
-  return {
-    updatedTransactions,
-    deletedCount,
-    cascadeReopenedCount: siblingSharedIdsToReopen.size,
-    actionDescription:
-      deletedCount > 1
-        ? `Efeito Cascata: ${deletedCount} lançamentos da série "${target.description}" removidos.`
-        : `Lançamento "${target.description}" removido.`,
-  };
+  for (const tx of transactions) {
+    if (linked.has(tx.id) && tx.id.startsWith('tx-reimb-')) deleting.add(tx.id);
+  }
+  let reopened = 0;
+  const updatedTransactions = transactions.filter((tx) => !deleting.has(tx.id)).map((tx) => {
+    if (!linked.has(tx.id) || !tx.isShared || tx.sharedStatus !== 'received') return tx;
+    reopened++;
+    return { ...tx, sharedStatus: 'pending' as const, sharedSettledDate: undefined,
+      sharedSettledAccountId: undefined, sharedSettlementId: undefined };
+  });
+  return { updatedTransactions, deletedCount: transactions.length - updatedTransactions.length,
+    cascadeReopenedCount: reopened,
+    actionDescription: `Lançamento(s) removido(s): ${transactions.length - updatedTransactions.length}. ${reopened} despesa(s) compartilhada(s) reaberta(s).` };
 }
 
 export interface CascadeAccountDeleteResult {

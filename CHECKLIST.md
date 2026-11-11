@@ -895,6 +895,9 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Compartilhar classificação e soma de dividendos entre investimentos e DRE, excluindo reembolsos e receitas de familiar; explicitar recebidos/previstos na tela.
 - [x] Corrigir rateio das cotas compartilhadas ao editar total original de compra parcelada, preservando parcelas pagas/acertos recebidos e bloqueando alterações incompatíveis.
 - [x] Usar cálculo compartilhado da cota total no submit e prévia mensal da parcela; reabrir campo personalizado com a cota total da série completa, com regressões.
+- [x] Centralizar resumo, seleção, baixa e reabertura de compartilhamentos; tornar baixa idempotente e vincular grupos de compensação zero.
+- [x] Usar vínculos explícitos comuns na exclusão e reabertura, sem atingir acertos não relacionados por coincidência de data/descrição; conferir indicador quitado pela data real.
+- [x] Confirmar conclusão do deploy Vercel `ffc50f2` das cotas compartilhadas.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

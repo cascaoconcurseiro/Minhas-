@@ -1,3 +1,4 @@
+import { calculateSharedMemberSummary, getDomesticSharedTransactions } from '../utils/sharedFinanceRules';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDownLeft,
@@ -158,62 +159,14 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
   // Filter domestic shared transactions ONLY (exclude international trip expenses so currencies never mix)
   const allSharedTxs = useMemo(() => {
-    return transactions.filter((tx) => tx.isShared && tx.sharedMemberId && !tx.tripId);
+    return getDomesticSharedTransactions(transactions);
   }, [transactions]);
 
   // Group shared transactions by member with bilateral compensation ("O que me deve" - "O que eu devo")
-  const memberSummaries = useMemo(() => {
-    return familyMembers.map((member) => {
-      const monthTxs = allSharedTxs.filter(
-        (tx) => tx.sharedMemberId === member.id && tx.competenceMonth === selectedMonth
-      );
-      const allTimeTxs = allSharedTxs.filter((tx) => tx.sharedMemberId === member.id);
-
-      const pendingMonthTxs = monthTxs.filter((tx) => tx.sharedStatus !== 'received');
-
-      // What the member owes me (I paid the bill)
-      const owedToMeMonthAmount = pendingMonthTxs
-        .filter((tx) => tx.sharedPaidBy !== 'member')
-        .reduce((acc, tx) => acc + (tx.sharedAmount || 0), 0);
-
-      // What I owe the member (Member paid the bill)
-      const iOweMemberMonthAmount = pendingMonthTxs
-        .filter((tx) => tx.sharedPaidBy === 'member')
-        .reduce((acc, tx) => acc + (tx.sharedAmount || 0), 0);
-
-      // Compensated Net Balance: positive = member owes me; negative = I owe member
-      const netCompensatedMonthAmount =
-        Math.round((owedToMeMonthAmount - iOweMemberMonthAmount) * 100) / 100;
-
-      const receivedMonthAmount = monthTxs
-        .filter((tx) => tx.sharedStatus === 'received')
-        .reduce((acc, tx) => acc + (tx.sharedAmount || 0), 0);
-
-      const allTimePendingAmount = allTimeTxs
-        .filter((tx) => tx.sharedStatus !== 'received')
-        .reduce(
-          (acc, tx) =>
-            acc +
-            (tx.sharedPaidBy === 'member'
-              ? -(tx.sharedAmount || 0)
-              : tx.sharedAmount || 0),
-          0
-        );
-
-      return {
-        member,
-        monthTxs,
-        owedToMeMonthAmount: Math.round(owedToMeMonthAmount * 100) / 100,
-        iOweMemberMonthAmount: Math.round(iOweMemberMonthAmount * 100) / 100,
-        netCompensatedMonthAmount,
-        pendingMonthAmount: Math.abs(netCompensatedMonthAmount),
-        receivedMonthAmount: Math.round(receivedMonthAmount * 100) / 100,
-        allTimePendingAmount: Math.round(allTimePendingAmount * 100) / 100,
-        totalMonthItems: monthTxs.length,
-        hasOpenItems: pendingMonthTxs.length > 0,
-      };
-    });
-  }, [familyMembers, allSharedTxs, selectedMonth]);
+  const memberSummaries = useMemo(
+    () => familyMembers.map((member) => ({ member, ...calculateSharedMemberSummary(allSharedTxs, member.id, selectedMonth) })),
+    [familyMembers, allSharedTxs, selectedMonth]
+  );
 
   // Overall totals across all family members
   const overallOwedToMeThisMonth = useMemo(() => {
