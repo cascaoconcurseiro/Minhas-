@@ -881,3 +881,6 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Publicar a revisão financeira pelo GitHub `main` → Vercel e confirmar verificação Vercel concluída e bundle atualizado no domínio de produção.
 - [ ] Aplicar metadados históricos de parcelamento de alta confiança com backup JSON salvo e confirmar readback no Neon; nenhum dado de produção foi alterado na publicação.
 - [ ] Completar QA visual autenticado com dados sintéticos e readback no Neon Preview.
+- [ ] Resolver retorno do usuário: compra realizada em 11/11 aparece em 15/11 no histórico; conferir registro autenticado, corrigir data específica e validar apresentação do total original no calendário. Correção do padrão de novos lançamentos não resolve esse dado histórico.
+- [x] Com backup integral salvo, corrigir data da primeira parcela Amazon para 11/11 e preencher total original R$ 1.435,00 nas 12 parcelas; PUT revisão 26 e GET independente revisão 27 confirmaram preservação dos demais campos.
+- [x] Tornar total da compra e quantidade de parcelas visíveis na primeira parcela do calendário, remover instruções de sincronização manual da tela de login e atualizar documentação do login próprio. Lint/build/diff-check passaram.

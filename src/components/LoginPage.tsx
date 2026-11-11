@@ -85,7 +85,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Controle absoluto do seu patrimônio e das suas viagens em um só lugar.
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-            Acompanhe contas bancárias, faturas de cartão de crédito, câmbio médio ponderado em viagens internacionais e lembretes diários. Após entrar, confira o estado da sincronização com o Neon.
+            Acompanhe contas bancárias, faturas de cartão de crédito, câmbio médio ponderado em viagens internacionais e lembretes diários.
           </p>
 
           <div className="space-y-3.5 pt-2">
@@ -123,10 +123,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
               <div>
                 <h3 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Banco de Dados Neon
+                  Seus dados sempre à mão
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  O login protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
+                  Entre na sua conta para acessar seus dados, com salvamento automático das alterações.
                 </p>
               </div>
             </div>
@@ -165,11 +165,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {mode === 'login'
-                  ? 'Entre para acessar seus lançamentos e sincronizar na nuvem'
-                  : 'Sua conta começa sem lançamentos. A sincronização é confirmada após o login e a conexão com o Neon.'}
+                  ? 'Entre para acompanhar seus lançamentos e seu patrimônio'
+                  : 'Comece cadastrando suas contas e seus primeiros lançamentos.'}
               </p>
           <p className="pt-2 text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
-                Entre com sua conta ou crie uma nova. Os dados financeiros permanecem no Neon.
+                Acesse suas finanças com seu e-mail e sua senha.
               </p>
             </div>
 
@@ -297,7 +297,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
-            Entre para sincronizar seu workspace no Neon PostgreSQL.
+            Suas alterações são salvas automaticamente após entrar.
           </p>
         </div>
       </div>

@@ -701,7 +701,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                       return (
                         <div
                           key={tx.id}
-                          className={`truncate rounded px-1 sm:px-1.5 py-0.5 text-[10px] flex items-center justify-between border min-w-0 ${
+                          className={`rounded px-1 sm:px-1.5 py-0.5 text-[10px] flex flex-wrap items-center justify-between border min-w-0 ${
                             isPending && isExpense
                               ? 'bg-amber-50/90 border-amber-300 text-amber-950 font-bold'
                               : isIncome
@@ -722,6 +722,11 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                               : ''
                           }`}
                         >
+                          {tx.installmentNumber === 1 && tx.installmentPurchaseTotal !== undefined && (
+                            <span className="w-full text-violet-800 font-bold tabular-nums break-words">
+                              Compra {formatBRL(tx.installmentPurchaseTotal)} · {tx.installmentTotal}x
+                            </span>
+                          )}
                           <span className="truncate flex items-center gap-1 min-w-0">
                             {isPending && isExpense ? (
                               <Clock className="h-2.5 w-2.5 text-amber-600 shrink-0" />

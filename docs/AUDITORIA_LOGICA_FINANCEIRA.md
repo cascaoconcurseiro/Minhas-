@@ -7,6 +7,8 @@ Esta auditoria catalogou **36 falhas confirmadas no código (11 P0 e 25 P1)**, c
 
 ## Resumo
 
+**Atualização após validação autenticada em 11/11:** a compra Amazon legada continuava no dia 15 porque a correção da data padrão não alterava o histórico salvo. Após backup integral, foi corrigida a data da primeira parcela para 11/11 e preenchido o total original de R$ 1.435,00 nas 12 parcelas. O PUT usou revisão esperada 26; um novo GET confirmou revisão 27 e exatamente as mudanças propostas, mantendo valores, status e competências. O calendário também recebeu destaque visível do total original e quantidade de parcelas na primeira parcela. Os registros anteriores abaixo sobre ausência de acesso a produção descrevem o estado antes desta operação autorizada.
+
 Foram corrigidas falhas confirmadas no código para data de criação, competência das faturas, edição do valor original de compras parceladas, entrada de moeda, classificação por estabelecimento, criação de subcategoria e exposição persistente do estado de sincronização. O modelo continua registrando uma parcela por mês para projeções e faturas; a compra original agora também fica disponível na edição e aparece junto à parcela nos detalhes do lançamento e calendário.
 
 O total original de compra é armazenado como metadado opcional em cada lançamento do JSON do workspace. Não requer migration SQL no Neon nem mudança de schema. A interface de adaptação histórica está publicada; ela pode preencher esse metadado em séries completas e de alta confiança, mantendo valores, pagamentos, datas e competências existentes; séries ambíguas/incompletas permanecem para revisão. Nenhum dado histórico de produção foi alterado nesta entrega: não houve sessão autenticada disponível para executar o fluxo no workspace.

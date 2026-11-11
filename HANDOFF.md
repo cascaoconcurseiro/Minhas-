@@ -1,5 +1,15 @@
 # Handoff — Minhas Economias
 
+## Retorno do usuário sobre compra no dia 15 — 2026-11-11
+
+Atualização após login autorizado: backup JSON integral salvo fora do Git em `C:/Users/Wesley/Documents/CodexBackups/Minhas-20261111/`. A leitura autenticada identificou uma única série Amazon de 12 parcelas somando R$ 1.435,00, sem total original e iniciando em 15/11. Corrigi somente a data da primeira parcela para 11/11 e preenchi `installmentPurchaseTotal=1435` nas 12 linhas. PUT com revisão esperada 26 e GET independente confirmaram revisão 27 e igualdade com o patch esperado, preservando todos os demais campos das transações. Backups antes/depois da API estão no mesmo diretório privado. As afirmações históricas abaixo sobre ausência de acesso a produção foram superadas por esta operação autorizada.
+
+O calendário recebeu destaque visível para total da compra e quantidade de parcelas na primeira parcela, inclusive em telas pequenas. Login não pede mais para conferir sincronização. Documentação de autenticação atualizada. Lint, build PWA (88 entradas) e diff-check passaram. Próximo passo: publicar e conferir renderização no navegador autenticado.
+
+O usuário confirmou que sua compra de 11/11 continua no dia 15, com destaque apenas para a parcela. A publicação corrigiu a data padrão de novos lançamentos, mas não corrigiu a data já persistida desse histórico; a entrega desse caso permanece incompleta. O calendário agrupa por `tx.date` em `MonthlyCalendarView.tsx:139`, e o total original no cartão do calendário aparece no tooltip/detalhe, enquanto o valor principal continua sendo a parcela. É necessário identificar e conferir o registro autenticado antes de corrigir a data; não inferir pela competência da fatura.
+
+O espaço Ego `minhas-financeiro-qa` (ID 1) abriu a produção sem sessão autenticada. Controle entregue ao usuário para login; foi solicitado também descrição/valor total da compra. Retomar o mesmo espaço após confirmação. Alterações locais ainda não publicadas: textos da tela de login retirando instrução de conferir sincronização e referências técnicas ao Neon; correção da documentação de autenticação em `docs/NEON_MIGRATION.md`. Lint e build passaram após essas alterações. Nenhum dado financeiro remoto foi lido ou alterado.
+
 ## Publicação da auditoria financeira — 2026-11-11
 
 As correções da auditoria financeira foram enviadas ao GitHub `main` no commit `1f9c139`; a verificação Vercel no GitHub concluiu com sucesso e `https://minhaseconomias-blue.vercel.app/` respondeu HTTP 200 com bundle atualizado. O app está publicado pelo fluxo GitHub → Vercel. Não há migration SQL: `installmentPurchaseTotal` é metadado opcional no JSON do workspace. Embora a tela de revisão/migração histórica esteja publicada, nenhum dado financeiro de produção foi modificado, pois não houve sessão autenticada para executar a operação e confirmar readback no Neon.
