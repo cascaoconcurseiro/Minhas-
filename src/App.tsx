@@ -13,7 +13,6 @@ import {
   RotateCcw,
   Search,
   Settings,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import {
@@ -122,7 +121,6 @@ const TransactionModal = lazy(() => import('./components/TransactionModal').then
 const GlobalSearchPanel = lazy(() => import('./components/GlobalSearchPanel').then((m) => ({ default: m.GlobalSearchPanel })));
 const SettingsModal = lazy(() => import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })));
 const ReminderCenterModal = lazy(() => import('./components/ReminderCenterModal').then((m) => ({ default: m.ReminderCenterModal })));
-const ExpertSystemReviewModal = lazy(() => import('./components/ExpertSystemReviewModal').then((m) => ({ default: m.ExpertSystemReviewModal })));
 const BankReconciliationModal = lazy(() => import('./components/BankReconciliationModal').then((m) => ({ default: m.BankReconciliationModal })));
 const WorkspaceConflictModal = lazy(() => import('./components/WorkspaceConflictModal').then((m) => ({ default: m.WorkspaceConflictModal })));
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -166,6 +164,7 @@ import {
 import {
   stripLegacyMockRecords,
   sanitizeAndRepairFinancialState,
+  runFinancialIntegrityAudit,
 } from './utils/travelRules';
 
 export type ActiveTab =
@@ -431,7 +430,6 @@ export default function App() {
   // Modal & Universal Undo Stack state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isExpertReviewOpen, setIsExpertReviewOpen] = useState(false);
   const [modalDefaultMode, setModalDefaultMode] = useState<
     'expense' | 'income' | 'credit_card' | 'transfer'
   >('expense');
@@ -2710,72 +2708,11 @@ export default function App() {
     triggerDataLoadingTransition(240);
   };
 
-  const handleRunDiagnosticAndRepair = () => {
-    const result = sanitizeAndRepairFinancialState({
-      accounts,
-      cards,
-      categories,
-      transactions,
-      goals,
-      investments,
-      trips,
-    });
-
-    if (result.repairedCount > 0) {
-      setAccounts(result.accounts);
-      setCards(result.cards);
-      setTransactions(result.transactions);
-      setGoals(result.goals);
-      setInvestments(result.investments);
-      setTrips(result.trips);
-      showNotice(
-        `Auditoria local: ${result.repairedCount} inconsistência(s) corrigida(s). Confira o indicador de sincronização para confirmar o Neon.`
-      );
-    } else {
-      showNotice(
-        'Auditoria local: nenhuma inconsistência encontrada nos dados carregados nesta sessão.',
-        undefined,
-        true
-      );
-    }
-
-    return {
-      repairedCount: result.repairedCount,
-      repairedLog: result.repairedLog,
-    };
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const isInputFocused =
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable);
-
-      if (e.key === '/' && !isInputFocused) {
-        e.preventDefault();
-        globalSearchInputRef.current?.focus();
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        globalSearchInputRef.current?.focus();
-      } else if (
-        (e.metaKey || e.ctrlKey) &&
-        e.key.toLowerCase() === 'z' &&
-        !isInputFocused &&
-        undoStack.length > 0
-      ) {
-        e.preventDefault();
-        handleUndoLastTransactionChange();
-      } else if (e.key === 'Escape' && globalSearchQuery.trim()) {
-        setGlobalSearchQuery('');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [globalSearchQuery, undoStack]);
+  const financialIntegrity = useMemo(() => {
+    if (!isWorkspaceReadyForCurrentUser) return null;
+    return runFinancialIntegrityAudit({ accountsCount: accounts.length, cardsCount: cards.length,
+      accounts, cards, categories, transactions, goals, investments, trips });
+  }, [isWorkspaceReadyForCurrentUser, accounts, cards, categories, transactions, goals, investments, trips]);
 
   const handleJumpToTransactionInLedger = (tx: Transaction) => {
     setSelectedMonth(tx.competenceMonth);
@@ -3166,6 +3103,12 @@ export default function App() {
           isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser
         )}
       >
+      {financialIntegrity && !financialIntegrity.isAllHealthy && (
+        <div role="status" className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-2">
+          <span>Alguns lançamentos precisam de revisão. Confira os dados antes de continuar.</span>
+          <button type="button" className="font-semibold underline" onClick={() => handleSelectTab('transactions')}>Conferir lançamentos</button>
+        </div>
+      )}
       {workspaceConflict && !isWorkspaceConflictOpen && (
         <div
           role="status"
@@ -3383,16 +3326,7 @@ export default function App() {
                   )}
                 </button>
 
-                <button
-                  type="button"
-                  data-testid="header-system-verifier-btn"
-                  onClick={() => setIsExpertReviewOpen(true)}
-                  aria-label="Abrir auditoria local e estado dos serviços"
-                  title="Auditoria de dados locais e estado dos serviços"
-                  className="rounded-md p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                </button>
+
 
                 <button
                   type="button"
@@ -3739,7 +3673,6 @@ export default function App() {
                   onChangeClarityMode={(mode) =>
                     handleUpdateSettings({ viewClarityMode: mode })
                   }
-                  onOpenExpertReview={() => setIsExpertReviewOpen(true)}
                   onToggleStatus={(id) => handleToggleTransactionStatus(id, 'single')}
                   onToggleAccountInTotal={handleToggleAccountInTotal}
                   onOpenNewTransaction={(mode) => handleOpenNewTransaction(mode)}
@@ -3957,7 +3890,6 @@ export default function App() {
                   onSignOut={handleSignOut}
                   onForceCloudSync={handleForceCloudSync}
                   onUpdateSettings={handleUpdateSettings}
-                  onRunDiagnosticAndRepair={handleRunDiagnosticAndRepair}
                 />
               )}
               </>
@@ -4075,27 +4007,6 @@ export default function App() {
           setSettingsInitialTab(tab as any);
           setIsSettingsOpen(true);
         }}
-        />}
-
-        {/* Real-Time System Verifier & Clarity Guide Modal */}
-        {isExpertReviewOpen && <ExpertSystemReviewModal
-        isOpen={isExpertReviewOpen}
-        onClose={() => setIsExpertReviewOpen(false)}
-        viewClarityMode={settings.viewClarityMode || 'complete'}
-        onChangeClarityMode={(mode) =>
-          handleUpdateSettings({ viewClarityMode: mode })
-        }
-        onNavigateTab={handleSelectTab}
-        accounts={accounts}
-        cards={cards}
-        categories={categories}
-        transactions={transactions}
-        investments={investments}
-        goals={goals}
-        trips={trips}
-        cloudSyncStatus={cloudSyncStatus}
-        lastSyncedAt={lastSyncedAt}
-        onRunDiagnosticAndRepair={handleRunDiagnosticAndRepair}
         />}
 
         {/* Bank Reconciliation & Smart OFX/CSV Import Modal */}

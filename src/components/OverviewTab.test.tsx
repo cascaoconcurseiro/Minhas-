@@ -53,6 +53,11 @@ type OverviewNavTab =
 
 type OverviewTabProps = React.ComponentProps<typeof OverviewTab>;
 
+test('overview does not expose technical audit controls to the user', () => {
+  const page = renderOverviewTab();
+  assert.doesNotMatch(page.textContent ?? '', /Auditoria Contábil Completa/);
+});
+
 function renderOverviewTab(
   onNavigateTab: (tab: OverviewNavTab) => void = () => {},
   overrides: Partial<OverviewTabProps> = {}

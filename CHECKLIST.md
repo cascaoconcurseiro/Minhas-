@@ -908,6 +908,8 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Simplificar sino para notificações e ações; retirar configurações duplicadas e manter preferências/canais em SettingsModal, com teste de navegação para aba correta e ausência de formulários no sino.
 - [x] Confirmar deploy Vercel faab761 do total original no quadro semanal.
 - [x] Corrigir proporção achatada de CreditCardFace e limitar largura na listagem/detalhe; conferir visual local desktop/mobile sem overflow, lint e build.
+- [x] Remover auditoria técnica do cabeçalho/visão geral e executar verificação de integridade automaticamente após hidratação/mudanças, mostrando só aviso acionável quando houver divergência.
+- [x] Confirmar deploy b95e376 do formato do cartão concluído.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

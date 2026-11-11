@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Auditoria técnica retirada da navegação — 11/11
+
+Pedido do usuário: não exibir auditoria contábil/serviços ao lado do sino; executar verificações automaticamente. Removidos botão header-system-verifier, atalho de Overview, lazy mount do ExpertSystemReviewModal e handler manual de reparo. O componente antigo permanece no repositório sem ponto de entrada em App. `runFinancialIntegrityAudit` agora roda por useMemo após hidratação válida do usuário e mudanças do estado financeiro; não modifica dados. Estado saudável é silencioso; divergência mostra aviso simples e ação Conferir lançamentos. Validação de persistência/API continua automática como antes.
+
+Não automatizado o saneador heurístico que presume datas/moedas/contas: ele segue apenas no fluxo de importação já existente e não foi acionado em dados reais. A aba técnica antiga AuthAndCloud continua no código, mas não recebe mais callback de reparo. Não afirmar que a simples auditoria de estado repara toda inconsistência financeira. Próximo passo: conferir UI publicada e revisar/remove a aba técnica antiga caso ainda haja rota pública; manter pendências da sincronização bilateral abertas.
+
+Verificação: suíte completa 456/456 em 59 arquivos, lint passou; teste adicional de ausência de auditoria na visão geral passou com 5 testes do componente. Deploy b95e376 do formato do cartão confirmado success via GitHub. Nenhum dado de produção alterado.
+
 ## Proporção visual do cartão — 11/11
 
 Usuário mostrou CreditCardFace achatado. Componente usava largura total com altura fixa h-28; compact também misturava w-full com largura específica. Agora ambas as variantes usam aspect 1.586/1; standard limita largura a 320px e detalhe em CreditCardsTab usa wrapper com mesmo limite. Sombra reduzida e cantos/proporção ajustados.

@@ -55,7 +55,6 @@ interface OverviewTabProps {
   alertsExpandedByDefault?: boolean;
   viewClarityMode?: 'complete' | 'essential';
   onChangeClarityMode?: (mode: 'complete' | 'essential') => void;
-  onOpenExpertReview?: () => void;
   onToggleStatus: (txId: string) => void;
   onToggleAccountInTotal: (accountId: string) => void;
   onOpenNewTransaction: (mode: 'expense' | 'income' | 'credit_card' | 'transfer') => void;
@@ -92,7 +91,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   alertsExpandedByDefault = true,
   viewClarityMode = 'complete',
   onChangeClarityMode,
-  onOpenExpertReview,
   onToggleStatus,
   onToggleAccountInTotal,
   onOpenNewTransaction,
@@ -432,16 +430,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </p>
                 )}
               </div>
-              {onOpenExpertReview && (
-                <button
-                  type="button"
-                  onClick={onOpenExpertReview}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600/30 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-colors shrink-0 self-start sm:self-center"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Auditoria Contábil Completa
-                </button>
-              )}
+
             </div>
           </div>
         )}
