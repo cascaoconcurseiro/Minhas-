@@ -199,6 +199,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         onToggleStatus={onToggleStatus}
         onNavigateTab={onNavigateTab}
         onNavigateToCard={onNavigateToCard}
+        transactions={transactions}
+        selectedMonth={selectedMonth}
       />
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
@@ -926,7 +928,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             type="button"
                             onClick={() => onToggleStatus(tx.id)}
                             aria-label={`Efetivar ${tx.description}`}
-                            className="rounded-lg border border-emerald-600/30 bg-emerald-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-600 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                            className="rounded-lg border border-blue-600/30 bg-blue-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-600 hover:text-white transition-colors whitespace-nowrap shrink-0"
                           >
                             Efetivar
                           </button>
