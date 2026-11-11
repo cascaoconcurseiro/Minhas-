@@ -2,7 +2,17 @@ import type { BankAccount, Transaction } from '../types/finance';
 import { formatBRL, formatMonthYearPT, getSharedSettlementLinks } from './financeRules';
 
 export function getDomesticSharedTransactions(transactions: Transaction[]) {
-  return transactions.filter((tx) => tx.type === 'expense' && tx.isShared && tx.sharedMemberId && !tx.tripId && !tx.isCompanionOnlyExpense);
+  return transactions.filter((tx) => tx.type === 'expense' && tx.isShared && tx.sharedMemberId && !tx.tripId &&
+    (!tx.isCompanionOnlyExpense || tx.id.startsWith('tx-mirror-')));
+}
+
+export function replaceIncomingSharedTransactions(previous: Transaction[], incoming: Transaction[]): Transaction[] {
+  const mirrors = new Map<string, Transaction>();
+  for (const tx of incoming) {
+    if (!tx.id?.startsWith('tx-mirror-')) continue;
+    mirrors.set(tx.sharedSyncId || tx.id.slice('tx-mirror-'.length), tx);
+  }
+  return [...previous.filter((tx) => !tx.id.startsWith('tx-mirror-')), ...mirrors.values()];
 }
 
 const sumShares = (rows: Transaction[]) => rows.reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0) / 100;

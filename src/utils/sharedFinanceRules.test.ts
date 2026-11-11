@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { BankAccount, Transaction } from '../types/finance';
-import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses } from './sharedFinanceRules';
+import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses, replaceIncomingSharedTransactions } from './sharedFinanceRules';
 import { applyCascadeTransactionDelete, calculateAccountBalances } from './financeRules';
 import { prepareRestoredBackupTransactions } from './fullBackup';
 
@@ -10,6 +10,28 @@ const base: Transaction = { id: 'owed-to-me', description: 'Synthetic shared', a
   type: 'expense', status: 'pending', categoryId: 'food', paymentMethod: 'cash', recurrence: 'single',
   isShared: true, sharedMemberId: 'member', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending' };
 const input = { memberId: 'member', month: '2026-11', memberName: 'Synthetic member', accountId: account.id, date: '2026-11-12', settlementId: 'batch-one' };
+
+test('incoming domestic mirror remains visible and settleable without treating companion travel as domestic', () => {
+  const mirror = { ...base, id: 'tx-mirror-incoming', sharedPaidBy: 'member' as const, isCompanionOnlyExpense: true };
+  const travel = { ...base, id: 'travel-companion', isCompanionOnlyExpense: true };
+  const summary = calculateSharedMemberSummary([mirror, travel], 'member', '2026-11');
+  assert.equal(summary.iOweMemberMonthAmount, 50);
+  assert.equal(summary.monthTxs.length, 1);
+  const result = settleSharedExpenses([mirror, travel], [account], { ...input, txId: mirror.id });
+  assert.equal(result.netAmount, -50);
+  assert.equal(result.affectedCount, 1);
+  assert.equal(calculateAccountBalances([account], result.transactions, '2026-11')[0].currentBalance, 50);
+});
+
+test('successful incoming refresh replaces the snapshot and removes revoked or deleted mirrors', () => {
+  const removed = { ...base, id: 'tx-mirror-removed' };
+  const updated = { ...base, id: 'tx-mirror-current', sharedAmount: 20 };
+  const before = [base, removed, { ...updated, sharedAmount: 10 }];
+  const next = replaceIncomingSharedTransactions(before, [updated]);
+  assert.deepEqual(next, [base, updated]);
+  assert.deepEqual(replaceIncomingSharedTransactions(next, []), [base]);
+  assert.equal(before[2].sharedAmount, 10);
+});
 
 test('bilateral summary and settlement agree and repeated settlement cannot create duplicate cash', () => {
   const rows = [base, { ...base, id: 'i-owe', sharedPaidBy: 'member' as const, sharedAmount: 20 }];

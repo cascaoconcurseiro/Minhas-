@@ -898,6 +898,9 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Centralizar resumo, seleção, baixa e reabertura de compartilhamentos; tornar baixa idempotente e vincular grupos de compensação zero.
 - [x] Usar vínculos explícitos comuns na exclusão e reabertura, sem atingir acertos não relacionados por coincidência de data/descrição; conferir indicador quitado pela data real.
 - [x] Confirmar conclusão do deploy Vercel `ffc50f2` das cotas compartilhadas.
+- [x] Corrigir filtro de cópias domésticas recebidas, substituir snapshot remoto em atualizações bem-sucedidas e preservar total original no espelhamento, com regressões.
+- [x] Confirmar conclusão do deploy Vercel `d79e019` da liquidação compartilhada.
+- [ ] Resolver retorno de estado de acerto do destinatário para a transação própria do remetente; verificar com duas identidades sem copiar IDs de contas bancárias entre usuários.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

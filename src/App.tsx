@@ -1,4 +1,4 @@
-import { settleSharedExpenses, reopenSharedSettlement } from './utils/sharedFinanceRules';
+import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
@@ -1169,19 +1169,7 @@ export default function App() {
           return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
         });
         setTransactions((previous) => {
-          const merged = new Map<string, Transaction>();
-          for (const tx of previous.filter((item) => item.id.startsWith('tx-mirror-'))) {
-            merged.set(tx.sharedSyncId || tx.id.replace(/^tx-mirror-/, ''), tx);
-          }
-          for (const payload of sharedPayloads) {
-            const tx = payload as unknown as Transaction;
-            const id = tx.sharedSyncId || tx.id?.replace(/^tx-mirror-/, '');
-            if (id) merged.set(id, tx);
-          }
-          const next = [
-            ...previous.filter((item) => !item.id.startsWith('tx-mirror-')),
-            ...merged.values(),
-          ];
+          const next = replaceIncomingSharedTransactions(previous, sharedPayloads as unknown as Transaction[]);
           return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
         });
       } catch (error) {

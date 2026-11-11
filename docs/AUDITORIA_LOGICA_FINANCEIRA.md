@@ -3,7 +3,7 @@
 Data: 2026-11-11
 Escopo: lançamentos, compras parceladas, cartões/faturas, competência, categorias, moeda e sincronização.
 
-Esta auditoria catalogou **49 falhas confirmadas no código (14 P0 e 35 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
+Esta auditoria catalogou **52 falhas confirmadas no código (14 P0 e 38 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
 
 ## Resumo
 
@@ -35,6 +35,9 @@ Na varredura de campos numéricos, os valores monetários dos módulos de lança
 
 | Prioridade | Achado confirmado | Correção aplicada | Evidência |
 | --- | --- | --- | --- |
+| P1 | O filtro doméstico introduzido na consolidação excluía cópias recebidas de familiar por elas carregarem `isCompanionOnlyExpense` para evitar débito bancário duplicado. | Distinguir cópia doméstica `tx-mirror-` de gasto de acompanhante de viagem: cópias domésticas entram no resumo e liquidação. | Teste de cópia recebida com cota de 50 confirma dívida, baixa e débito bancário único de 50; acompanhante de viagem fica fora. |
+| P1 | Atualização periódica fazia união entre cópias anteriores e resposta do servidor, mantendo lançamentos excluídos/revogados até recarregar a página. | `replaceIncomingSharedTransactions` substitui o conjunto de cópias pela resposta bem-sucedida do servidor, preservando transações próprias. Erros da requisição continuam fora dessa substituição. | Teste remove cópia ausente, atualiza valor de outra e remove todas quando a resposta é vazia. |
+| P1 | Backend descartava `installmentPurchaseTotal` ao criar cópia de compra parcelada para o familiar. | Preservar total original numérico válido no payload espelhado. | Regressão do endpoint confere total 36 na cópia de parcela 12/3. |
 | P0 | Compensações compartilhadas de saldo zero não criavam movimento nem identificador de grupo; reabrir uma despesa podia deixar as demais quitadas sem acerto válido. | Todo novo acerto grava `sharedSettlementId` nos registros envolvidos, inclusive com saldo zero. Reabertura e exclusão usam o mesmo vínculo de grupo. | Regressão baixa duas cotas opostas sem criar caixa, reabre ambas e confirma exclusão reabrindo a cota restante. |
 | P0 | Exclusão de reembolso podia reabrir outras despesas apenas por coincidência da data do acerto e competência, mesmo com referências diferentes. | Vínculos resolvidos por identificador de acerto ou referências explícitas legadas, compartilhados entre reabertura e exclusão. Removidas inferências por data/descrição. | Teste com dois acertos de familiares diferentes no mesmo dia preserva o segundo ao excluir o primeiro. |
 | P1 | A baixa individual não verificava se a cota já estava quitada, permitindo nova execução do callback gerar outro reembolso. | Domínio só liquida cotas pendentes elegíveis; repetição após a baixa retorna sem movimento nem alteração. | Regressão compara estado após primeira baixa e repetição, com saldo bancário e quantidade de reembolsos. |

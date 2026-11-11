@@ -377,12 +377,14 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
     body: JSON.stringify({
       partnerEmail: 'member@example.com',
       deletedSharedIds: [],
-      transactions: [{ id: 'tx-local-1', isShared: true, description: 'Fixture', amount: 12, sharedAmount: 6, date: '2026-11-03' }],
+      transactions: [{ id: 'tx-local-1', isShared: true, description: 'Fixture', amount: 12, sharedAmount: 6, date: '2026-11-03',
+        installmentTotal: 3, installmentNumber: 1, installmentPurchaseTotal: 36 }],
     }),
   });
   assert.equal(sync.status, 200, await sync.clone().text());
   assert.deepEqual(await sync.json(), { ok: true, forbidden: false, upserted: 1, settled: 0, deleted: 0 });
   assert.equal(shared.size, 1);
+  assert.equal((shared.get('tx-local-1') as { installmentPurchaseTotal?: number })?.installmentPurchaseTotal, 36);
   assert.match(sqlLog.find((sql) => sql.startsWith('SELECT owner_user_id, owner_email, invited_email')) || '', /FOR UPDATE$/);
 
   const revoked = await originalFetch(`${baseUrl}/api/family/invitations/test-invitation/revoke`, { method: 'POST', headers });

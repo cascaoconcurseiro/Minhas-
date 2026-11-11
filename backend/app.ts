@@ -879,6 +879,9 @@ async function startServer() {
             ...(typeof tx.installmentGroupId === 'string' ? { installmentGroupId: `mirror-${tx.installmentGroupId}` } : {}),
             ...(typeof tx.installmentNumber === 'number' ? { installmentNumber: tx.installmentNumber } : {}),
             ...(typeof tx.installmentTotal === 'number' ? { installmentTotal: tx.installmentTotal } : {}),
+            ...(typeof tx.installmentPurchaseTotal === 'number' && Number.isFinite(tx.installmentPurchaseTotal) &&
+              tx.installmentPurchaseTotal >= 0 && Number.isSafeInteger(Math.round(tx.installmentPurchaseTotal * 100))
+              ? { installmentPurchaseTotal: tx.installmentPurchaseTotal } : {}),
             ...(typeof tx.notes === 'string' ? { notes: tx.notes.slice(0, 2000) } : {}),
             isShared: true,
             sharedMemberId: recipientMemberId,

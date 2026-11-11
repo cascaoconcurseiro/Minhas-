@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Cópias recebidas e remoção remota — continuação de 11/11
+
+Deploy `d79e019` confirmado pelo status Vercel no GitHub (`gh api`, success). Corrigida regressão do filtro doméstico: cópias `tx-mirror-` com `isCompanionOnlyExpense` precisam entrar no compartilhamento, embora não debitem banco como compra original. Teste cobre resumo, baixa e saldo único de pagamento. Atualização periódica agora usa `replaceIncomingSharedTransactions` em vez de unir com cópias antigas; remove ausentes/revogadas somente após resposta bem-sucedida, preservando transações próprias. Backend preserva `installmentPurchaseTotal` na cópia, com regressão no endpoint.
+
+Problema ainda aberto identificado nesta revisão: `/api/family/shared` GET retorna apenas linhas recebidas. Quando o destinatário muda `sharedStatus`, o PUT atualiza o payload compartilhado, mas o remetente lê sua transação própria do workspace, sem consumir esse estado de volta. Não afirmar sincronização bilateral concluída. Próximo passo concreto: desenhar e implementar retorno de estado de acerto para o remetente sem misturar os IDs locais de conta/acerto dos dois usuários nem criar movimentos bancários fictícios; conferir `backend/app.ts:GET/PUT /api/family/shared` e hidratação/poll em `App.tsx`. QA real entre identidades continua pendente. Nenhum dado produtivo alterado nesta continuação.
+
 ## Liquidação compartilhada centralizada — continuação de 11/11
 
 Deploy `ffc50f2` das cotas confirmado com sucesso na verificação Vercel. Criado domínio `sharedFinanceRules.ts`: seleção doméstica, resumo por membro, baixa idempotente com validação de conta/data e reabertura. App e `SharedExpensesTab` substituíram somas e mutações locais por essas funções. Todo novo acerto (inclusive saldo zero) recebe `sharedSettlementId` no JSON; backup do titular preserva, restauração de outro titular remove o vínculo. Não exige migration SQL.
