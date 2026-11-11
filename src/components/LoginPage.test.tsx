@@ -45,8 +45,9 @@ test('login renderiza acesso por e-mail e não anuncia dados demo', () => {
   assert.match(page.textContent ?? '', /Acesse sua conta/);
   assert.ok(page.querySelector('[data-testid="login-email-input"]'));
   assert.ok(page.querySelector('[data-testid="login-password-input"]'));
-  assert.match(page.textContent ?? '', /O login protege o acesso/);
-  assert.match(page.textContent ?? '', /Neon PostgreSQL/);
+  assert.match(page.textContent ?? '', /Acesso protegido por autenticação/);
+  assert.match(page.textContent ?? '', /salvamento automático/);
+  assert.doesNotMatch(page.textContent ?? '', /Neon PostgreSQL|confira o estado da sincronização/);
   assert.doesNotMatch(page.textContent ?? '', /Firestore|Guia Rápido|Quick Guide|dados fictícios/i);
   for (const label of Array.from(page.querySelectorAll('label'))) {
     assert.ok(label.htmlFor, `label "${label.textContent}" should identify its input`);

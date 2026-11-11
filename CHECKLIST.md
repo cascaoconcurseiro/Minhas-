@@ -885,3 +885,5 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Com backup integral salvo, corrigir data da primeira parcela Amazon para 11/11 e preencher total original R$ 1.435,00 nas 12 parcelas; PUT revisão 26 e GET independente revisão 27 confirmaram preservação dos demais campos.
 - [x] Tornar total da compra e quantidade de parcelas visíveis na primeira parcela do calendário, remover instruções de sincronização manual da tela de login e atualizar documentação do login próprio. Lint/build/diff-check passaram.
 - [x] Retirar miniatura/bandeira e aviso de fatura estimada do formulário de compra; manter cálculo automático e ajuste manual recolhido. Trocar “Sem Gastos” por “Sem fatura no mês” na página do cartão. Regressões do modal, lint e build passaram.
+- [x] Usar filtro compartilhado por data nos indicadores/semanas/seleção inicial do calendário; cobrir compra de novembro faturada em dezembro com regressão.
+- [ ] Consolidar seleção, somas e invariantes financeiros de todos os módulos no domínio compartilhado, comprovando resultados coerentes após uma mesma edição e readback remoto.

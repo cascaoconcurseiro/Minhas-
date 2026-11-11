@@ -25,6 +25,7 @@ import {
   formatBRL,
   formatMonthYearPT,
   getClampedMonthDate,
+  getCalendarTransactionsForMonth,
   getEffectiveExpenseAmountForUser,
 } from '../utils/financeRules';
 import { calculateWeeklyCashPulse } from '../utils/uxEnhancementRules';
@@ -146,7 +147,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
   // Summary counts for this month
   const monthStats = useMemo(() => {
-    const monthTxs = transactions.filter((tx) => tx.competenceMonth === selectedMonth);
+    const monthTxs = getCalendarTransactionsForMonth(transactions, selectedMonth);
 
     let pendingBillsCount = 0;
     let pendingBillsAmount = 0;
@@ -193,8 +194,8 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   // Initial active day selection: look for earliest pending bill in month or day 15 or day 01
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // Check if there is an urgent pending bill in the selected month
-    const pendingInMonth = transactions
-      .filter((t) => t.competenceMonth === selectedMonth && t.status === 'pending')
+    const pendingInMonth = getCalendarTransactionsForMonth(transactions, selectedMonth)
+      .filter((t) => t.status === 'pending')
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pendingInMonth.length > 0) {
       return pendingInMonth[0].date;
@@ -358,7 +359,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
-              Total de Saídas no Mês
+              Despesas nas Datas do Mês
             </span>
             <ArrowDownRight className="h-4 w-4 text-rose-600" />
           </div>
@@ -379,10 +380,10 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-xs font-bold text-slate-900">
-              Pulso Semanal do Mês (Concentração de Contas por Semana)
+              Movimentações por Semana
             </h3>
             <p className="text-[11px] text-slate-500">
-              Identifique a semana mais pesada de vencimentos e clique para inspecionar os dias
+              Compras e lançamentos pela data no calendário; faturas seguem o mês de vencimento
             </p>
           </div>
           <span className="text-[11px] font-mono tabular-nums text-slate-500">

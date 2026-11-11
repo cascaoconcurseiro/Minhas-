@@ -282,6 +282,20 @@ test('calculateWeeklyCashPulse splits month into 5 weeks and flags peak expense 
   assert.equal(pulse[2].isPeakExpenseWeek, false);
 });
 
+test('calendar weeks include a purchase dated this month even when its invoice is next month', () => {
+  const purchase: Transaction = {
+    id: 'calendar-invoice-next-month', description: 'Synthetic purchase', amount: 119.62,
+    date: '2026-11-11', competenceMonth: '2026-12', type: 'expense', status: 'pending',
+    categoryId: 'shopping', creditCardId: 'card', paymentMethod: 'credit_card',
+    recurrence: 'installment', installmentNumber: 1, installmentTotal: 12, installmentPurchaseTotal: 1435,
+  };
+  const nextDated = { ...purchase, id: 'next-date', date: '2026-12-11', competenceMonth: '2026-11' };
+  const weeks = calculateWeeklyCashPulse([purchase, nextDated], '2026-11');
+  assert.equal(weeks[1].txCount, 1);
+  assert.equal(weeks[1].expense, 119.62);
+  assert.equal(weeks.reduce((sum, week) => sum + week.txCount, 0), 1);
+});
+
 test('calculateAccountStatementWithRunningBalance computes opening balance and running balance after each entry', () => {
   const txs: Transaction[] = [
     {

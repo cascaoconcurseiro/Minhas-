@@ -4,7 +4,7 @@ import {
   PaymentMethod,
   Transaction,
 } from '../types/finance';
-import { getEffectiveExpenseAmountForUser } from './financeRules';
+import { getEffectiveExpenseAmountForUser, getCalendarTransactionsForMonth } from './financeRules';
 import { matchCategoryByDescription } from './ofxParser';
 
 export interface BudgetImpactPreview {
@@ -893,9 +893,8 @@ export function calculateWeeklyCashPulse(
     { weekIndex: 5, startDay: 29, endDay: daysInMonth },
   ];
 
-  const monthTxs = transactions.filter(
+  const monthTxs = getCalendarTransactionsForMonth(transactions, selectedMonth).filter(
     (tx) =>
-      tx.competenceMonth === selectedMonth &&
       !tx.isInvoicePayment &&
       tx.type !== 'transfer'
   );

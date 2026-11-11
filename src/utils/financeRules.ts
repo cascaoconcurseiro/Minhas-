@@ -1581,6 +1581,10 @@ export function calculateDailyCashFlow(
   return points;
 }
 
+export function getCalendarTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
+  return transactions.filter((tx) => tx.date.slice(0, 7) === month);
+}
+
 export interface CalendarDaySummary {
   pendingExpense: number;
   paidExpense: number;

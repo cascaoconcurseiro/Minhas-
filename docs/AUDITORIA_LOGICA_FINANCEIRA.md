@@ -7,6 +7,14 @@ Esta auditoria catalogou **36 falhas confirmadas no código (11 P0 e 25 P1)**, c
 
 ## Resumo
 
+### Consolidação de fonte de dados e regras solicitada pelo usuário
+
+O workspace no Neon é a fonte persistida; o estado `transactions` em `App.tsx` é a versão de trabalho da sessão. As telas recebem esse estado, mas ainda existem filtros e somas locais. Isso foi demonstrado no calendário: grade por `tx.date`, indicadores e semanas por `competenceMonth`. A mesma compra de novembro com fatura em dezembro aparecia na grade e sumia dos indicadores.
+
+Correção desta continuação: `getCalendarTransactionsForMonth` em `financeRules.ts` define a seleção por data para indicadores, seleção inicial e semanas. As faturas continuam usando `calculateCreditCardSummary`, pelo vencimento; o usuário confirmou orçamento por parcela. O resumo semanal tem regressão que inclui compra de 11/11 faturada em dezembro e exclui registro de dezembro com competência de novembro. O rótulo semanal passa a falar de movimentações, sem confundir essas compras com vencimentos bancários.
+
+Próxima revisão estrutural: inventariar cálculos em `OverviewTab`, `TransactionsTab`, `MonthlyCalendarView`, `CreditCardsTab`, `ReportsAndDataTab`, `BudgetsTab` e demais módulos financeiros; substituir regras repetidas por funções do domínio em `financeRules.ts` ou pelo módulo de domínio já existente. Para cada métrica, registrar base de data, inclusão de compartilhamentos, pagamentos de fatura, transferências e status. Comprovar a mesma edição no estado, persistência por revisão e leitura posterior do Neon, e depois em cada tela. Não considerar essa consolidação global concluída pela correção isolada do calendário.
+
 **Atualização após validação autenticada em 11/11:** a compra Amazon legada continuava no dia 15 porque a correção da data padrão não alterava o histórico salvo. Após backup integral, foi corrigida a data da primeira parcela para 11/11 e preenchido o total original de R$ 1.435,00 nas 12 parcelas. O PUT usou revisão esperada 26; um novo GET confirmou revisão 27 e exatamente as mudanças propostas, mantendo valores, status e competências. O calendário também recebeu destaque visível do total original e quantidade de parcelas na primeira parcela. Os registros anteriores abaixo sobre ausência de acesso a produção descrevem o estado antes desta operação autorizada.
 
 Foram corrigidas falhas confirmadas no código para data de criação, competência das faturas, edição do valor original de compras parceladas, entrada de moeda, classificação por estabelecimento, criação de subcategoria e exposição persistente do estado de sincronização. O modelo continua registrando uma parcela por mês para projeções e faturas; a compra original agora também fica disponível na edição e aparece junto à parcela nos detalhes do lançamento e calendário.
