@@ -40,6 +40,7 @@ let authStateUser: SyntheticUser | null = syntheticUser;
 let authStateListener: ((user: SyntheticUser | null) => void) | null = null;
 const signInCalls: Array<[string, string]> = [];
 const registerCalls: Array<[string, string, string]> = [];
+const saveRevisionArgs: number[] = [];
 const authMock = {
   get currentUser() { return authStateUser; },
 };
@@ -67,6 +68,10 @@ let loadWorkspace: () => Promise<SyntheticSnapshot> = async () => makeSnapshot()
 let loadCalls = 0;
 let createCalls = 0;
 let saveCalls = 0;
+let saveWorkspaceImpl: (expectedRevision: number) => Promise<{ revision: number; updatedAt: string }> = async () => ({
+  revision: 8,
+  updatedAt: '2026-11-07T12:00:01.000Z',
+});
 let unsubscribeAuth: (() => void) | null = null;
 const originalConsoleError = console.error;
 let root: Root | null = null;
@@ -124,23 +129,49 @@ mock.module('../lib/neonWorkspace', () => ({
   NeonWorkspaceError: SyntheticNeonWorkspaceError,
   revokeNeonFamilyInvitation: async () => {},
   respondToNeonFamilyInvitation: async () => {},
-  saveNeonWorkspace: async () => {
+  saveNeonWorkspace: async (_payload: Record<string, unknown>, expectedRevision: number) => {
     saveCalls += 1;
-    return { revision: 8, updatedAt: '2026-11-07T12:00:01.000Z' };
+    saveRevisionArgs.push(expectedRevision);
+    return saveWorkspaceImpl(expectedRevision);
   },
   syncNeonSharedTransactions: async () => {},
 }));
 
 mock.module('../components/OverviewTab', () => ({
-  OverviewTab: ({ accounts }: { accounts: Array<{ name: string }> }) =>
+  OverviewTab: ({ accounts, onToggleAccountInTotal }: {
+    accounts: Array<{ id: string; name: string }>;
+    onToggleAccountInTotal?: (id: string) => void;
+  }) =>
     React.createElement('section', { 'data-testid': 'synthetic-overview' },
-      `Contas carregadas do Neon: ${accounts.map((account) => account.name).join(', ')}`),
+      `Contas carregadas do Neon: ${accounts.map((account) => account.name).join(', ')}`,
+      React.createElement('button', {
+        'data-testid': 'toggle-synthetic-account',
+        onClick: () => onToggleAccountInTotal?.(accounts[0]?.id ?? 'qa-account-001'),
+      }, 'Alterar conta sintética')),
 }));
 
 mock.module('../components/SidebarNav', () => ({
   SidebarNav: ({ cloudSyncStatus }: { cloudSyncStatus: string }) =>
     React.createElement('nav', { 'aria-label': 'Navegação sintética', 'data-cloud-sync-status': cloudSyncStatus },
       `Estado da nuvem: ${cloudSyncStatus}`),
+}));
+mock.module('../components/WorkspaceConflictModal', () => ({
+  WorkspaceConflictModal: ({
+    conflict,
+    isOpen,
+    onKeepLocal,
+    onUseCloud,
+  }: {
+    conflict: { remoteSnapshot: SyntheticSnapshot };
+    isOpen: boolean;
+    onKeepLocal: () => void;
+    onUseCloud: () => void;
+  }) => isOpen
+    ? React.createElement('section', { 'data-testid': 'workspace-conflict' },
+      `Conflito remoto: ${conflict.remoteSnapshot.revision}`,
+      React.createElement('button', { 'data-testid': 'keep-local-version', onClick: onKeepLocal }, 'Manter local'),
+      React.createElement('button', { 'data-testid': 'use-cloud-version', onClick: onUseCloud }, 'Usar nuvem'))
+    : null,
 }));
 mock.module('../components/MobileBottomNav', () => ({
   MobileBottomNav: () => React.createElement('nav', { 'aria-label': 'Navegação móvel sintética' }),
@@ -190,6 +221,8 @@ afterEach(() => {
   loadCalls = 0;
   createCalls = 0;
   saveCalls = 0;
+  saveWorkspaceImpl = async () => ({ revision: 8, updatedAt: '2026-11-07T12:00:01.000Z' });
+  saveRevisionArgs.length = 0;
   unsubscribeAuth = null;
   authStateUser = syntheticUser;
   authStateListener = null;
@@ -316,6 +349,152 @@ test('failed Neon load keeps the workspace blocked and the retry loads the next 
   });
   assert.equal(attempts, 2);
   assert.equal(createCalls, 0);
+});
+
+test('a delayed save from a prior user cannot overwrite the new user workspace revision', async () => {
+  let resolveFirstSave!: (result: { revision: number; updatedAt: string }) => void;
+  saveWorkspaceImpl = () => new Promise((resolve) => { resolveFirstSave = resolve; });
+  const page = renderApp();
+  await waitFor(() => assert.ok(page.querySelector('[data-testid="toggle-synthetic-account"]')));
+
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+  await waitFor(() => assert.equal(saveCalls, 1));
+
+  authStateUser = { ...syntheticUser, uid: 'qa-app-user-002', email: 'second@example.test' };
+  await act(async () => {
+    authStateListener?.(authStateUser);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => assert.match(page.textContent ?? '', /Conta Neon sintética/));
+  await act(async () => {
+    resolveFirstSave({ revision: 8, updatedAt: '2026-11-07T12:00:01.000Z' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  saveWorkspaceImpl = async () => ({ revision: 9, updatedAt: '2026-11-07T12:00:02.000Z' });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+  await waitFor(() => assert.equal(saveCalls, 2));
+  assert.deepEqual(saveRevisionArgs, [7, 7]);
+});
+
+test('a same-email UID switch cancels the prior user workspace load', async () => {
+  let resolvePriorLoad!: (snapshot: SyntheticSnapshot) => void;
+  let workspaceReads = 0;
+  loadWorkspace = () => {
+    workspaceReads += 1;
+    if (workspaceReads === 1) return new Promise((resolve) => { resolvePriorLoad = resolve; });
+    return Promise.resolve(makeSnapshot('Workspace do novo UID'));
+  };
+  const page = renderApp();
+  await waitFor(() => assert.equal(loadCalls, 1));
+
+  authStateUser = { ...syntheticUser, uid: 'qa-app-user-recreated' };
+  await act(async () => {
+    authStateListener?.(authStateUser);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => {
+    assert.equal(loadCalls, 2);
+    assert.match(page.textContent ?? '', /Workspace do novo UID/);
+  });
+
+  await act(async () => {
+    resolvePriorLoad(makeSnapshot('Workspace antigo do mesmo e-mail'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.match(page.textContent ?? '', /Workspace do novo UID/);
+  assert.doesNotMatch(page.textContent ?? '', /Workspace antigo do mesmo e-mail/);
+});
+
+test('a delayed 409 refresh from a prior user cannot open a conflict in the new account', async () => {
+  let resolveConflictLoad!: (snapshot: SyntheticSnapshot) => void;
+  let workspaceReads = 0;
+  loadWorkspace = () => {
+    workspaceReads += 1;
+    if (workspaceReads === 2) return new Promise((resolve) => { resolveConflictLoad = resolve; });
+    return Promise.resolve(makeSnapshot(workspaceReads === 1 ? 'Workspace antigo' : 'Workspace novo'));
+  };
+  saveWorkspaceImpl = async () => { throw new SyntheticNeonWorkspaceError('revisão antiga', 409); };
+  const page = renderApp();
+  await waitFor(() => assert.ok(page.querySelector('[data-testid="toggle-synthetic-account"]')));
+
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+  await waitFor(() => assert.equal(loadCalls, 2));
+
+  authStateUser = { ...syntheticUser, uid: 'qa-app-user-new-owner', email: 'new-owner@example.test' };
+  await act(async () => {
+    authStateListener?.(authStateUser);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => {
+    assert.equal(loadCalls, 3);
+    assert.match(page.textContent ?? '', /Workspace novo/);
+  });
+
+  await act(async () => {
+    resolveConflictLoad(makeSnapshot('Conflito antigo'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(page.querySelector('[data-testid="workspace-conflict"]'), null);
+  assert.match(page.textContent ?? '', /Workspace novo/);
+});
+
+test('a delayed keep-local resolution cannot replace the new user revision', async () => {
+  let resolveKeepLocal!: (result: { revision: number; updatedAt: string }) => void;
+  let saveAttempt = 0;
+  let workspaceReads = 0;
+  loadWorkspace = () => {
+    workspaceReads += 1;
+    return Promise.resolve(makeSnapshot(workspaceReads === 1 ? 'Workspace antigo' : 'Workspace novo'));
+  };
+  saveWorkspaceImpl = () => {
+    saveAttempt += 1;
+    if (saveAttempt === 1) return Promise.reject(new SyntheticNeonWorkspaceError('revisão antiga', 409));
+    if (saveAttempt === 2) return new Promise((resolve) => { resolveKeepLocal = resolve; });
+    return Promise.resolve({ revision: 12, updatedAt: '2026-11-07T12:00:12.000Z' });
+  };
+  const page = renderApp();
+  await waitFor(() => assert.ok(page.querySelector('[data-testid="toggle-synthetic-account"]')));
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+  await waitFor(() => assert.ok(page.querySelector('[data-testid="workspace-conflict"]')));
+
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="keep-local-version"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => assert.equal(saveCalls, 2));
+
+  authStateUser = { ...syntheticUser, uid: 'qa-app-user-after-conflict', email: 'after-conflict@example.test' };
+  await act(async () => {
+    authStateListener?.(authStateUser);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => assert.match(page.textContent ?? '', /Workspace novo/));
+
+  await act(async () => {
+    resolveKeepLocal({ revision: 99, updatedAt: '2026-11-07T12:00:99.000Z' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  saveWorkspaceImpl = async () => ({ revision: 13, updatedAt: '2026-11-07T12:00:13.000Z' });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+  await waitFor(() => assert.equal(saveCalls, 3));
+  assert.deepEqual(saveRevisionArgs, [7, 7, 7]);
 });
 
 for (const currentCase of cases) {

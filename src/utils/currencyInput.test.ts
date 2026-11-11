@@ -1,12 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatCurrencyInput, mapCurrencyInputCaret, parseCurrencyInput } from './currencyInput';
+import { formatCurrencyInput, isCurrencyInputValid, isExchangeRateInputValid, mapCurrencyInputCaret, parseCurrencyInput, parseExchangeRateInput } from './currencyInput';
 
 test('groups while editing and completes configured decimals on blur', () => {
   assert.equal(formatCurrencyInput('1000', 'BRL', { focused: true }), '1.000');
   assert.equal(formatCurrencyInput('1000', 'BRL', { focused: false }), '1.000,00');
   assert.equal(formatCurrencyInput('1,5', 'BRL', { focused: false }), '1,50');
   assert.equal(formatCurrencyInput('1,', 'BRL', { focused: true }), '1,');
+});
+
+test('interprets unseparated digit entry as cents for currencies with minor units', () => {
+  assert.equal(formatCurrencyInput('1255', 'BRL', { focused: true, digitEntryAsMinorUnits: true }), '12,55');
+  assert.equal(formatCurrencyInput('1000', 'BRL', { focused: false, digitEntryAsMinorUnits: true }), '10,00');
+  assert.equal(formatCurrencyInput('1255', 'USD', { focused: false, digitEntryAsMinorUnits: true }), '12,55');
+  assert.equal(formatCurrencyInput('1255', 'JPY', { focused: false, digitEntryAsMinorUnits: true }), '1.255');
 });
 
 test('normalizes pasted Brazilian and international currency formats without symbols', () => {
@@ -43,6 +50,36 @@ test('preserves negative amounts and keeps excess precision visible for form val
   assert.equal(formatCurrencyInput('-1234,5', 'BRL', { focused: false }), '-1.234,50');
   assert.equal(formatCurrencyInput('1,239', 'BRL', { focused: false }), '1,239');
   assert.equal(formatCurrencyInput('1,999', 'BRL', { focused: false }), '1,999');
+});
+
+test('rejects fractional amounts beyond the selected currency precision instead of rounding or dropping them', () => {
+  assert.equal(formatCurrencyInput('1,5', 'JPY', { focused: false }), '1,5');
+  assert.equal(formatCurrencyInput('1,5', 'CLP', { focused: false }), '1,5');
+  assert.equal(parseCurrencyInput('1,5', 'JPY'), 0);
+  assert.equal(parseCurrencyInput('1,5', 'CLP'), 0);
+  assert.equal(parseCurrencyInput('1,239', 'BRL'), 0);
+  assert.equal(isCurrencyInputValid('1,5', 'JPY'), false);
+  assert.equal(isCurrencyInputValid('1,5', 'CLP'), false);
+  assert.equal(isCurrencyInputValid('1,239', 'BRL'), false);
+  assert.equal(isCurrencyInputValid('1.234', 'JPY'), true);
+  assert.equal(parseCurrencyInput('1.234', 'JPY'), 1234);
+  assert.equal(parseCurrencyInput(null as unknown as string, 'JPY'), 0);
+  assert.equal(isCurrencyInputValid(null as unknown as string, 'JPY'), false);
+  assert.equal(parseCurrencyInput('9007199254740992', 'JPY'), 0);
+  assert.equal(isCurrencyInputValid('9007199254740992', 'JPY'), false);
+  assert.equal(parseCurrencyInput('0,29', 'BRL'), 0.29);
+  assert.equal(isCurrencyInputValid('0,29', 'BRL'), true);
+});
+
+test('parses exchange rates with four or more decimals without using money precision', () => {
+  assert.equal(parseExchangeRateInput('0,0052'), 0.0052);
+  assert.equal(parseExchangeRateInput('6,1845'), 6.1845);
+  assert.equal(parseExchangeRateInput('1.234,5678'), 1234.5678);
+  assert.equal(parseExchangeRateInput('1,234.5678'), 1234.5678);
+  assert.equal(isExchangeRateInputValid('0,0052'), true);
+  assert.equal(isExchangeRateInputValid('0'), false);
+  assert.equal(isExchangeRateInputValid('taxa inválida'), false);
+  assert.equal(parseExchangeRateInput('6,123456789'), 0);
 });
 
 test('maps caret by digit count when grouping punctuation changes', () => {

@@ -128,6 +128,75 @@ test('AccountsTab validates and creates a checking account with a parsed synthet
   });
 });
 
+test('international account separates paid foreign expenses from pending balance impact', async () => {
+  const account: BankAccount = {
+    id: 'account-usd-synthetic', name: 'Conta USD', institution: 'Banco sintético',
+    type: 'international', currency: 'USD', initialBalance: 5000,
+    initialBalanceForeign: 1000, color: '#059669', includeInTotal: false,
+  };
+  const makeExpense = (
+    id: string,
+    amount: number,
+    originalAmount: number,
+    status: Transaction['status'],
+    competenceMonth = '2026-11'
+  ): Transaction => ({
+    id, description: `Despesa ${id}`, amount, originalAmount, originalCurrency: 'USD',
+    date: `${competenceMonth}-10`, competenceMonth, type: 'expense', status,
+    categoryId: 'cat-synthetic', accountId: account.id, paymentMethod: 'debit_card',
+    recurrence: 'single',
+  });
+  const page = renderAccountsTab({
+    accounts: [account],
+    trips: [{
+      currency: 'USD',
+      exchangeLots: [
+        {
+          id: 'future-usd-lot', date: '2026-12-01', currency: 'USD',
+          foreignAmount: 40, rateBase: 5, iofPercent: 0,
+          effectiveRateBrl: 5, totalBrlPaid: 200,
+          sourceLabel: 'Câmbio futuro', accountId: account.id,
+        },
+        {
+          id: 'invalid-usd-lot', date: '2026-10-01', currency: 'USD',
+          foreignAmount: Number.NaN, rateBase: 5, iofPercent: 0,
+          effectiveRateBrl: 5, totalBrlPaid: 200,
+          sourceLabel: 'Câmbio inválido', accountId: account.id,
+        },
+      ],
+    } as unknown as import('../types/finance').Trip],
+    transactions: [
+      makeExpense('paid-usd', 50, 10, 'paid'),
+      makeExpense('pending-usd', 100, 20, 'pending'),
+      makeExpense('future-usd', 200, 40, 'pending', '2026-12'),
+      {
+        ...makeExpense('income-usd', 25, 5, 'paid'),
+        type: 'income',
+      },
+      {
+        ...makeExpense('pending-income-usd', 15, 3, 'pending'),
+        type: 'income',
+      },
+    ],
+  });
+  const accountCard = page.querySelector<HTMLElement>(`[data-testid="account-card-${account.id}"]`);
+  assert.ok(accountCard);
+  assert.match(accountCard.textContent ?? '', /Saldo na Moeda/);
+  assert.match(accountCard.textContent ?? '', /Após pendências/);
+  assert.match(accountCard.textContent ?? '', /995/);
+  assert.match(accountCard.textContent ?? '', /978/);
+
+  await act(async () => { accountCard.click(); });
+  const banner = page.querySelector<HTMLElement>('[data-testid="intl-account-dedicated-banner"]');
+  assert.ok(banner);
+  assert.match(banner.textContent ?? '', /Gastos realizados/);
+  assert.match(banner.textContent ?? '', /Depósitos realizados/);
+  assert.match(banner.textContent ?? '', /pendentes/i);
+  assert.match(banner.textContent ?? '', /Saldo previsto/);
+  assert.match(banner.textContent ?? '', /995/);
+  assert.match(banner.textContent ?? '', /978/);
+});
+
 test('AccountsTab rejects malformed balance text instead of saving it as zero', async () => {
   let addCalls = 0;
   const page = renderAccountsTab({ onAddAccount: () => { addCalls += 1; } });
@@ -144,6 +213,32 @@ test('AccountsTab rejects malformed balance text instead of saving it as zero', 
     assert.match(page.textContent ?? '', /saldo inicial válido/i, `${malformed} should show a validation error`);
     assert.ok(page.querySelector('[data-testid="account-create-edit-form"]'), 'keep the form open so the user can correct the value');
   }
+});
+
+test('AccountsTab rejects fractional opening balances for zero-decimal currencies', async () => {
+  let addCalls = 0;
+  const page = renderAccountsTab({ onAddAccount: () => { addCalls += 1; } });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="open-new-account-btn"]')!.click(); });
+  const form = page.querySelector<HTMLFormElement>('[data-testid="account-create-edit-form"]');
+  const typeSelect = page.querySelector<HTMLSelectElement>('[data-testid="account-form-type-select"]');
+  assert.ok(form && typeSelect);
+
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(typeSelect, 'international');
+    typeSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  const currencySelect = page.querySelector<HTMLSelectElement>('[data-testid="account-form-currency-select"]');
+  assert.ok(currencySelect);
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(currencySelect, 'JPY');
+    currencySelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="account-form-name-input"]')!, 'Conta JPY');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="account-form-initial-foreign-input"]')!, '1,5');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+
+  assert.equal(addCalls, 0);
+  assert.match(page.textContent ?? '', /até 0 casa\(s\) decimal/);
 });
 
 test('AccountsTab accepts a deliberate zero opening balance', async () => {

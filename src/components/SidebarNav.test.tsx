@@ -10,20 +10,25 @@ const { createRoot } = await import('react-dom/client');
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
-function renderSidebar(isMobileDrawerOpen = false) {
+function renderSidebar(
+  isMobileDrawerOpen = false,
+  cloudSyncStatus: 'local' | 'syncing' | 'synced' | 'error' = 'synced',
+  onSelectTab: (tab: string) => void = () => {}
+) {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
   act(() => {
     root?.render(React.createElement(SidebarNav, {
       activeTab: 'overview',
-      onSelectTab: () => {},
+      onSelectTab,
       isCollapsed: false,
       onToggleCollapse: () => {},
       isMobileDrawerOpen,
       onCloseMobileDrawer: () => {},
       onOpenNewTransaction: () => {},
       onOpenSettings: () => {},
+      cloudSyncStatus,
     }));
   });
   return container;
@@ -59,4 +64,18 @@ test('mobile drawer navigation buttons retain accessible text names', () => {
   assert.match(navButton.textContent ?? '', /Visão Geral/);
   navButton.focus();
   assert.equal(document.activeElement, navButton);
+});
+
+test('cloud sync status stays hidden during normal operation and opens cloud settings on error', () => {
+  let selectedTab = '';
+  const page = renderSidebar(false, 'synced', (tab) => { selectedTab = tab; });
+  assert.equal(page.querySelector('[data-testid="sidebar-cloud-sync-status"]'), null);
+
+  act(() => root?.unmount());
+  root = null;
+  const errorPage = renderSidebar(false, 'error', (tab) => { selectedTab = tab; });
+  const alert = errorPage.querySelector<HTMLButtonElement>('[data-testid="sidebar-cloud-sync-status"]');
+  assert.ok(alert);
+  act(() => alert.click());
+  assert.equal(selectedTab, 'cloud');
 });

@@ -103,7 +103,7 @@ test('TripsTab validates and creates a synthetic trip with companions and curren
     setInputValue(textInputs[1]!, '  Porto  ');
     setInputValue(textInputs[2]!, '1.500,00');
     assert.equal(textInputs[2]?.value, '1.500,00', 'the selected foreign currency keeps grouped thousands while editing');
-    setInputValue(textInputs[3]!, '6,30');
+    setInputValue(textInputs[3]!, '6,1845');
     setInputValue(textInputs[4]!, 'Ana, Bruno');
     form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
   });
@@ -113,11 +113,32 @@ test('TripsTab validates and creates a synthetic trip with companions and curren
   assert.equal(created[0]?.destination, 'Porto');
   assert.equal(created[0]?.currency, 'EUR');
   assert.equal(created[0]?.budgetForeign, 1500);
-  assert.equal(created[0]?.defaultExchangeRate, 6.3);
+  assert.equal(created[0]?.defaultExchangeRate, 6.1845);
   assert.deepEqual(created[0]?.participants.map((person) => person.name), ['Você', 'Ana', 'Bruno']);
   assert.equal(created[0]?.participants[0]?.isMe, true);
   assert.equal(created[0]?.exchangeLots.length, 0);
   assert.equal(page.querySelector('form'), null, 'successful creation closes the modal');
+});
+
+test('TripsTab keeps the trip form open when a zero-decimal currency budget has fractional digits', async () => {
+  const created: Trip[] = [];
+  const page = renderTripsTab({ onAddTrip: (trip) => created.push(trip) });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="create-first-trip-btn"]')!.click(); });
+  const form = page.querySelector<HTMLFormElement>('form');
+  const currency = page.querySelector<HTMLSelectElement>('#trip-form-currency');
+  assert.ok(form && currency);
+
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('#trip-form-name')!, 'Viagem Japão');
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(currency, 'JPY');
+    currency.dispatchEvent(new window.Event('change', { bubbles: true }));
+    setInputValue(page.querySelector<HTMLInputElement>('#trip-form-budget')!, '1,5');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+
+  assert.equal(created.length, 0);
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /até 0 casa\(s\) decimal/);
+  assert.ok(page.querySelector('form'));
 });
 
 test('new trip form labels focus and name all corresponding controls', async () => {

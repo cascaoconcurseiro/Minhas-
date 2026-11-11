@@ -25,6 +25,8 @@ import {
   summarizeGlobalSearchResults,
 } from '../utils/financeRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { CardNetworkMark } from './CardNetworkMark';
+import { InstitutionMark } from './InstitutionMark';
 
 interface GlobalSearchPanelProps {
   query: string;
@@ -418,6 +420,12 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                   const originName = tx.creditCardId
                     ? `Cartão ${cardMap.get(tx.creditCardId) || ''}`
                     : accMap.get(tx.accountId || '') || 'Conta';
+                  const originAccount = tx.creditCardId
+                    ? null
+                    : accounts.find((account) => account.id === tx.accountId) ?? null;
+                  const originCard = tx.creditCardId
+                    ? cards.find((card) => card.id === tx.creditCardId) ?? null
+                    : null;
                   const sharedMemberName = tx.sharedMemberId
                     ? memberMap.get(tx.sharedMemberId)
                     : undefined;
@@ -521,7 +529,19 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
 
                       {/* Account / Card */}
                       <td className="py-3 px-4 align-top whitespace-nowrap text-slate-600">
-                        {originName}
+                        <span className="inline-flex items-center gap-2">
+                          {originAccount ? (
+                            <InstitutionMark
+                              institution={originAccount.institution}
+                              accountName={originAccount.name}
+                              color={originAccount.color}
+                              size="xs"
+                            />
+                          ) : originCard ? (
+                            <CardNetworkMark brand={originCard.brand} compact />
+                          ) : null}
+                          <span>{originName}</span>
+                        </span>
                       </td>
 
                       {/* Status Toggle Button */}

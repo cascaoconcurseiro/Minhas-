@@ -20,13 +20,17 @@ import {
   Transaction,
 } from '../types/finance';
 import {
+  calculateCalendarDaySummary,
   calculateCreditCardSummary,
   formatBRL,
   formatMonthYearPT,
+  getClampedMonthDate,
   getEffectiveExpenseAmountForUser,
 } from '../utils/financeRules';
 import { calculateWeeklyCashPulse } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { CardNetworkMark } from './CardNetworkMark';
+import { InstitutionMark } from './InstitutionMark';
 
 export type CalendarFilterType =
   | 'all'
@@ -54,7 +58,7 @@ interface CardInvoiceDueItem {
   id: string;
   cardId: string;
   cardName: string;
-  cardBrand: string;
+  cardBrand: CreditCard['brand'];
   amount: number;
   isPaid: boolean;
   closingDay: number;
@@ -100,8 +104,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   const cardInvoicesDue = useMemo<CardInvoiceDueItem[]>(() => {
     return cards.map((card) => {
       const summary = calculateCreditCardSummary(card, transactions, selectedMonth);
-      const dayStr = String(card.dueDay).padStart(2, '0');
-      const dueDate = `${selectedMonth}-${dayStr}`;
+      const dueDate = getClampedMonthDate(selectedMonth, card.dueDay);
       return {
         id: `invoice-${card.id}-${selectedMonth}`,
         cardId: card.id,
@@ -284,47 +287,8 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   }, [selectedDate]);
 
   const selectedDayTotals = useMemo(() => {
-    let pendingExpense = 0;
-    let paidExpense = 0;
-    let income = 0;
-
-    for (const tx of selectedDateTxs) {
-      if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) continue;
-      if (tx.type === 'income') {
-        if (tx.sharedPaidBy === 'member') continue;
-        income += tx.amount;
-      } else if (tx.type === 'expense') {
-        // Se no dia selecionado já houver a Fatura do Cartão vencendo, evita somar duas vezes a compra do mesmo cartão
-        const hasInvoiceDueForThisCard =
-          Boolean(tx.creditCardId) &&
-          selectedDateInvoices.some((inv) => inv.cardId === tx.creditCardId);
-        if (hasInvoiceDueForThisCard) continue;
-
-        const eff = getEffectiveExpenseAmountForUser(tx);
-        if (!eff) continue;
-        if (eff.status === 'pending') {
-          pendingExpense += eff.amount;
-        } else {
-          paidExpense += eff.amount;
-        }
-      }
-    }
-
-    for (const inv of selectedDateInvoices) {
-      if (!inv.isPaid) {
-        pendingExpense += inv.amount;
-      } else {
-        paidExpense += inv.amount;
-      }
-    }
-
-    return {
-      pendingExpense: Math.round(pendingExpense * 100) / 100,
-      paidExpense: Math.round(paidExpense * 100) / 100,
-      income: Math.round(income * 100) / 100,
-      dayBalance: Math.round((income - (pendingExpense + paidExpense)) * 100) / 100,
-    };
-  }, [selectedDateTxs, selectedDateInvoices]);
+    return calculateCalendarDaySummary(selectedDateTxs);
+  }, [selectedDateTxs]);
 
   // Today string for comparison (in Brazil timezone/standard)
   const todayStr = useMemo(() => {
@@ -440,7 +404,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 onClick={() => setSelectedDate(week.firstDate)}
                 className={`rounded-xl border p-3 text-left transition-all flex flex-col justify-between gap-2 ${
                   isWeekActive
-                    ? 'border-emerald-600 bg-emerald-50/40 ring-1 ring-emerald-600/20'
+                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-600/20'
                     : week.isPeakExpenseWeek
                     ? 'border-rose-200 bg-rose-50/40 hover:border-rose-300'
                     : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'
@@ -717,7 +681,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                         })`}
                       >
                         <span className="truncate flex items-center gap-1 min-w-0">
-                          <CreditCardIcon className="h-2.5 w-2.5 shrink-0" />
+                          <CardNetworkMark brand={inv.cardBrand} compact />
                           <span className="truncate">Fat. {inv.cardName}</span>
                         </span>
                         <span className="hidden md:inline tabular-nums shrink-0 ml-1">
@@ -751,6 +715,10 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                           })${
                             tx.installmentNumber
                               ? ` - Parcela ${tx.installmentNumber}/${tx.installmentTotal}`
+                              : ''
+                          }${
+                            tx.installmentPurchaseTotal !== undefined
+                              ? ` — Compra total ${formatBRL(tx.installmentPurchaseTotal)}`
                               : ''
                           }`}
                         >
@@ -882,6 +850,9 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               <CreditCardIcon className="h-3.5 w-3.5 text-violet-600" />
               Vencimento de Fatura de Cartão de Crédito
             </h4>
+            <p className="text-[11px] text-slate-500">
+              A fatura fica separada das compras lançadas; o pagamento aparece na data em que saiu da conta.
+            </p>
             <div className="space-y-2">
               {selectedDateInvoices.map((inv) => (
                 <div
@@ -894,7 +865,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center text-violet-700">
-                      <CreditCardIcon className="h-5 w-5" />
+                      <CardNetworkMark brand={inv.cardBrand} compact />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -902,7 +873,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                           Fatura {inv.cardName}
                         </span>
                         <span className="text-[11px] text-slate-500">
-                          ({inv.cardBrand} · Fecha dia {inv.closingDay} · Vence dia {inv.dueDay})
+                          ({inv.cardBrand} · Fecha dia {inv.closingDay} · Vence dia {inv.dueDate.slice(-2)}{Number(inv.dueDate.slice(-2)) !== inv.dueDay ? ` (padrão ${inv.dueDay})` : ''})
                         </span>
                       </div>
                       <p className="text-xs text-slate-600">
@@ -993,6 +964,11 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                               Parcela {tx.installmentNumber}/{tx.installmentTotal}
                             </span>
                           )}
+                          {tx.installmentPurchaseTotal !== undefined && (
+                            <span className="text-xs font-medium text-violet-700">
+                              Compra total {formatBRL(tx.installmentPurchaseTotal)}
+                            </span>
+                          )}
 
                           {tx.recurrence === 'fixed' && (
                             <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-blue-200">
@@ -1028,12 +1004,24 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                             {subName ? ` › ${subName}` : ''}
                           </span>
                           <span>•</span>
-                          <span>
-                            {tx.creditCardId
-                              ? `Cartão ${cardMap.get(tx.creditCardId)}`
-                              : tx.accountId
-                              ? accMap.get(tx.accountId)
-                              : 'Caixa Geral'}
+                          <span className="inline-flex items-center gap-1.5">
+                            {tx.creditCardId ? (
+                              <CardNetworkMark brand={cards.find((card) => card.id === tx.creditCardId)?.brand || 'Visa'} compact />
+                            ) : tx.accountId ? (
+                              <InstitutionMark
+                                institution={accounts.find((account) => account.id === tx.accountId)?.institution}
+                                accountName={accMap.get(tx.accountId)}
+                                color={accounts.find((account) => account.id === tx.accountId)?.color}
+                                size="xs"
+                              />
+                            ) : null}
+                            <span>
+                              {tx.creditCardId
+                                ? `Cartão ${cardMap.get(tx.creditCardId)}`
+                                : tx.accountId
+                                ? accMap.get(tx.accountId)
+                                : 'Caixa Geral'}
+                            </span>
                           </span>
                           {tx.notes && (
                             <>

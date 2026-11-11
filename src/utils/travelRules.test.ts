@@ -99,6 +99,28 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
     assert.equal(wiseRes.baseBrlAmount, 1537.5);
     assert.equal(wiseRes.totalBrl, 1554.41);
     assert.equal(wiseRes.iofBrlAmount, 16.91);
+    assert.equal(cardRes.isValid, true);
+    assert.equal(wiseRes.isValid, true);
+  });
+
+  it('rejects FX conversions that are invalid or exceed safe BRL cent precision', () => {
+    for (const [foreign, rate, iof] of [
+      [0, 5.8, 0],
+      [100, 0, 0],
+      [100, 5.8, -1],
+      [100, 5.8, 101],
+      [1e12, 1e4, 0],
+      [1e308, 1e308, 0],
+    ]) {
+      const result = calculateConvertedBrlAmount(foreign, rate, iof);
+      assert.equal(result.isValid, false);
+      assert.equal(Number.isFinite(result.totalBrl), true);
+      assert.equal(result.totalBrl, 0);
+    }
+
+    const smallCurrency = calculateConvertedBrlAmount(1, 0.0052, 0);
+    assert.equal(smallCurrency.isValid, true);
+    assert.equal(smallCurrency.totalBrl, 0.01);
   });
 
   it('computes weighted average exchange rate (VET médio) across multiple exchange lots', () => {
@@ -133,6 +155,36 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
     assert.equal(res.totalForeignPurchased, 1500);
     assert.equal(res.totalBrlPaid, 9300);
     assert.equal(res.weightedAverageRate, 6.2);
+  });
+
+  it('ignores non-finite and unsafe exchange lots in trip aggregates', () => {
+    const validLot = {
+      id: 'lot-valid', date: '2026-10-01', currency: 'EUR' as const,
+      foreignAmount: 100, rateBase: 6, iofPercent: 1.1,
+      effectiveRateBrl: 6.1, totalBrlPaid: 610,
+      sourceLabel: 'Lote válido',
+    };
+    const invalidLots = [
+      { ...validLot, id: 'lot-nan', foreignAmount: Number.NaN },
+      { ...validLot, id: 'lot-infinite', totalBrlPaid: Number.POSITIVE_INFINITY },
+      { ...validLot, id: 'lot-overflow', foreignAmount: 1e15, totalBrlPaid: 1e15 },
+    ];
+
+    const weighted = calculateTripWeightedAverageRate([...invalidLots, validLot], Number.POSITIVE_INFINITY);
+    assert.equal(weighted.weightedAverageRate, 6.1);
+    assert.equal(weighted.totalForeignPurchased, 100);
+    assert.equal(weighted.totalBrlPaid, 610);
+
+    const analysis = calculateExchangeSavingsAnalysis([...invalidLots, validLot], 'EUR', 6.35);
+    assert.equal(analysis.lotCount, 1);
+    assert.equal(analysis.totalForeignPurchased, 100);
+    assert.equal(analysis.totalBrlPaid, 610);
+    assert.equal(analysis.monthlySeries.length, 1);
+    assert.equal(analysis.lotSeries[0].effectiveRate, 6.1);
+
+    const noValidLots = calculateTripWeightedAverageRate(invalidLots, Number.NaN);
+    assert.equal(noValidLots.weightedAverageRate, 1);
+    assert.equal(noValidLots.totalForeignPurchased, 0);
   });
 
   it('splits expenses across equal, exact, percentage, and shares modes without cent drift', () => {

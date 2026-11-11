@@ -30,6 +30,9 @@ import {
   getFutureUnpaidInstallments,
 } from '../utils/uxEnhancementRules';
 import { CurrencyInput } from './CurrencyInput';
+import { CardNetworkMark } from './CardNetworkMark';
+import { CreditCardFace } from './CreditCardFace';
+import { InstitutionMark } from './InstitutionMark';
 
 interface CreditCardsTabProps {
   selectedMonth: string;
@@ -48,7 +51,7 @@ interface CreditCardsTabProps {
   onReverseAnticipation?: (targetIdOrGroupId: string) => void;
   onAddCard: (card: Omit<CreditCard, 'id'>) => void;
   onUpdateCard?: (card: CreditCard) => void;
-  onDeleteCard?: (cardId: string) => void;
+  onDeleteCard?: (cardId: string) => boolean | void;
   onDeleteTransaction: (txId: string, deleteGroup?: boolean) => void;
   onOpenNewCardExpense: () => void;
 }
@@ -106,6 +109,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const [newCardLimit, setNewCardLimit] = useState('');
   const [newCardClosing, setNewCardClosing] = useState(20);
   const [newCardDue, setNewCardDue] = useState(28);
+  const [newCardColor, setNewCardColor] = useState('#0f172a');
   const [newCardAccount, setNewCardAccount] = useState(accounts[0]?.id || '');
   const [formError, setFormError] = useState('');
 
@@ -116,10 +120,14 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const [editCardLimit, setEditCardLimit] = useState('');
   const [editCardClosing, setEditCardClosing] = useState(20);
   const [editCardDue, setEditCardDue] = useState(28);
+  const [editCardColor, setEditCardColor] = useState('#0f172a');
   const [editCardAccount, setEditCardAccount] = useState('');
   const [confirmDeleteCardId, setConfirmDeleteCardId] = useState<string | null>(null);
 
   const activeCard = cards.find((c) => c.id === selectedCardId) || cards[0];
+  const newCardAccountDetails = accounts.find((account) => account.id === newCardAccount) ?? null;
+  const editCardAccountDetails = accounts.find((account) => account.id === editCardAccount) ?? null;
+  const paymentAccountDetails = accounts.find((account) => account.id === paymentAccountId) ?? null;
   const activeSummary = cardSummaries.find((s) => s.cardId === activeCard?.id);
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const accMap = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
@@ -168,7 +176,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
     return transactions.filter(
       (tx) =>
         tx.isInvoicePayment &&
-        tx.competenceMonth === selectedMonth &&
+        (tx.settledInvoiceMonth || tx.competenceMonth) === selectedMonth &&
         (tx.settledCardId === activeCard.id ||
           tx.description.toLowerCase().includes(activeCard.name.toLowerCase()) ||
           tx.id.includes(activeCard.id))
@@ -224,16 +232,17 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
       closingDay: newCardClosing,
       dueDay: newCardDue,
       defaultAccountId: newCardAccount || accounts[0]?.id || '',
-      color: '#0f172a',
+      color: newCardColor,
     });
     setNewCardName('');
+    setNewCardColor('#0f172a');
     setFormError('');
     setShowNewCardForm(false);
   };
 
   if (!activeCard || !activeSummary) {
     return (
-      <div className="space-y-6 min-w-0 max-w-full">
+      <div className="module-page space-y-6 min-w-0 max-w-full">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xs">
           <CreditCardIcon className="mx-auto h-10 w-10 text-emerald-600 mb-3" />
           <h2 className="text-lg font-bold text-slate-900 font-display">
@@ -268,7 +277,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               <div className="lg:col-span-2">
                 <label htmlFor="card-name-input" className="block text-xs font-semibold text-slate-700 mb-1">
                   Nome do Cartão
@@ -342,6 +351,23 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   />
                 </div>
               </div>
+
+              <div>
+                <label htmlFor="card-color-input" className="block text-xs font-semibold text-slate-700 mb-1">
+                  Cor do Cartão
+                </label>
+                <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-2">
+                  <input
+                    id="card-color-input"
+                    type="color"
+                    value={newCardColor}
+                    onChange={(e) => setNewCardColor(e.target.value)}
+                    className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                    aria-label="Escolher cor do cartão"
+                  />
+                  <span className="font-mono text-[11px] uppercase text-slate-600">{newCardColor}</span>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -359,6 +385,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     </option>
                   ))}
                 </select>
+              {newCardAccountDetails && (
+                <InstitutionMark institution={newCardAccountDetails.institution} accountName={newCardAccountDetails.name} color={newCardAccountDetails.color} size="xs" />
+              )}
               </div>
               <button
                 type="submit"
@@ -378,7 +407,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   );
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full" data-testid="cards-tab-view">
+    <div className="module-page space-y-6 min-w-0 max-w-full" data-testid="cards-tab-view">
       {/* VIEW 1: CREDIT CARDS OVERVIEW LIST (Shown when no specific card page is opened) */}
       {!isCardDetailOpen && (
         <>
@@ -572,6 +601,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                         </option>
                       ))}
                     </select>
+                    {newCardAccountDetails && (
+                      <InstitutionMark institution={newCardAccountDetails.institution} accountName={newCardAccountDetails.name} color={newCardAccountDetails.color} size="xs" />
+                    )}
                   </div>
                   <button
                     type="submit"
@@ -613,20 +645,23 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                         setActiveViewCardId(card.id);
                       }
                     }}
-                    className="group rounded-2xl border border-slate-200 bg-white hover:border-violet-500 hover:shadow-md p-5 text-left transition-all cursor-pointer flex flex-col justify-between gap-4"
+                    className="group rounded-2xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-md p-5 text-left transition-all cursor-pointer flex flex-col justify-between gap-4"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-2xs">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-2xs">
                           <CreditCardIcon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <span className="text-sm font-bold text-slate-900 block truncate group-hover:text-violet-700 transition-colors">
+                          <span className="text-sm font-bold text-slate-900 block truncate group-hover:text-blue-700 transition-colors">
                             {card.name}
                           </span>
-                          <p className="text-[11px] text-slate-500 truncate">
-                            {card.brand} · Fecha dia {card.closingDay} · Vence dia {card.dueDay}
-                          </p>
+                          <div className="mt-0.5 flex items-center gap-2 min-w-0">
+                            <CardNetworkMark brand={card.brand} />
+                            <span className="text-[11px] text-slate-500 truncate">
+                              Fecha dia {card.closingDay} · Vence dia {card.dueDay}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -642,6 +677,8 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                         {isPaid ? 'Quitada' : invoiceTotal === 0 ? 'Sem Gastos' : 'Aberta'}
                       </span>
                     </div>
+
+                    <CreditCardFace card={card} />
 
                     <div className="space-y-3">
                       <div>
@@ -668,7 +705,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-violet-700 group-hover:text-violet-800">
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:text-blue-800">
                         <span>Abrir página e fatura do cartão</span>
                         <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                       </div>
@@ -705,6 +742,8 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       <button
                         key={card.id}
                         type="button"
+                        aria-pressed={isSelected}
+                        data-selection-control="true"
                         onClick={() => {
                           setSelectedCardId(card.id);
                           setActiveViewCardId(card.id);
@@ -718,7 +757,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                             : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        <CreditCardIcon className="h-3.5 w-3.5" />
+                        <CardNetworkMark brand={card.brand} />
                         <span>{card.name}</span>
                       </button>
                     );
@@ -768,6 +807,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     } else {
                       setEditCardName(activeCard.name);
                       setEditCardBrand(activeCard.brand);
+                      setEditCardColor(activeCard.color || '#0f172a');
                       setEditCardLimit(activeCard.limit.toFixed(2).replace('.', ','));
                       setEditCardClosing(activeCard.closingDay);
                       setEditCardDue(activeCard.dueDay);
@@ -791,9 +831,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        onDeleteCard(activeCard.id);
-                        setConfirmDeleteCardId(null);
-                        setActiveViewCardId(null);
+                        const deleted = onDeleteCard(activeCard.id);
+                        if (deleted !== false) {
+                          setConfirmDeleteCardId(null);
+                          setActiveViewCardId(null);
+                        }
                       }}
                       className="rounded bg-rose-600 px-2 py-0.5 font-bold text-white hover:bg-rose-700"
                     >
@@ -830,6 +872,10 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
             </div>
           </div>
 
+          <div className="mx-auto w-full max-w-sm">
+            <CreditCardFace card={activeCard} />
+          </div>
+
           {isEditingActiveCard && onUpdateCard && (
             <form
               onSubmit={(e) => {
@@ -840,6 +886,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   ...activeCard,
                   name: editCardName.trim(),
                   brand: editCardBrand,
+                  color: editCardColor,
                   limit: limitVal,
                   closingDay: Math.max(1, Math.min(31, editCardClosing || 20)),
                   dueDay: Math.max(1, Math.min(31, editCardDue || 28)),
@@ -857,7 +904,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   Ajuste limite, dia de fechamento, vencimento ou conta de débito padrão
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
                 <div className="lg:col-span-2">
                   <label htmlFor="card-edit-name-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Nome do Cartão
@@ -945,6 +992,25 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       </option>
                     ))}
                   </select>
+                {editCardAccountDetails && (
+                  <InstitutionMark institution={editCardAccountDetails.institution} accountName={editCardAccountDetails.name} color={editCardAccountDetails.color} size="xs" />
+                )}
+                </div>
+                <div>
+                  <label htmlFor="card-edit-color-input" className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Cor do Cartão
+                  </label>
+                  <div className="flex h-8 items-center gap-2 rounded-lg border border-slate-300 bg-white px-2">
+                    <input
+                      id="card-edit-color-input"
+                      type="color"
+                      value={editCardColor}
+                      onChange={(e) => setEditCardColor(e.target.value)}
+                      className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0"
+                      aria-label="Escolher cor do cartão"
+                    />
+                    <span className="font-mono text-[10px] uppercase text-slate-600">{editCardColor}</span>
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -1051,6 +1117,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       </option>
                     ))}
                   </select>
+                {paymentAccountDetails && (
+                  <InstitutionMark institution={paymentAccountDetails.institution} accountName={paymentAccountDetails.name} color={paymentAccountDetails.color} size="xs" />
+                )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1286,14 +1355,16 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                                 <button
                                   key={grp.installmentGroupId}
                                   type="button"
+                                  aria-pressed={isSelected}
+                                  data-selection-control="true"
                                   onClick={() => {
                                     setAnticipatingGroupId(grp.installmentGroupId);
                                     setAnticipationCountToAdvance(0);
                                   }}
                                   className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                                     isSelected
-                                      ? 'border-violet-700 bg-violet-700 text-white'
-                                      : 'border-violet-200 bg-white text-violet-900 hover:bg-violet-100'
+                                      ? 'border-blue-600 bg-blue-600 text-white'
+                                      : 'border-slate-200 bg-white text-slate-700 hover:bg-blue-50'
                                   }`}
                                 >
                                   {grp.title} ({grp.futureInstallmentsCount}x futuras ·{' '}

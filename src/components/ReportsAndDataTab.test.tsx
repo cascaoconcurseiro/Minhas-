@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { BankAccount, Transaction } from '../types/finance';
+import type { BankAccount, CreditCard, Transaction } from '../types/finance';
 import { ReportsAndDataTab } from './ReportsAndDataTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -19,8 +19,10 @@ function renderReports(options: {
   onExportFullBackupJson?: () => void;
   onImportQuickCsvLines?: (lines: string, accountId: string) => number;
   onOpenReconciliation?: () => void;
+  onApplyHistoricalInstallmentTotals?: () => void;
   onResetWorkspaceData?: () => void;
   accounts?: BankAccount[];
+  cards?: CreditCard[];
   transactions?: Transaction[];
 } = {}) {
   container = document.createElement('div');
@@ -32,13 +34,14 @@ function renderReports(options: {
         selectedMonth: '2026-11',
         accounts: options.accounts ?? [{ id: 'acc-synthetic', name: 'Conta sintética', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#059669', includeInTotal: true }],
         accountBalances: [],
-        cards: [],
+        cards: options.cards ?? [],
         categories: [],
         transactions: options.transactions ?? [],
         investments: [],
         onExportFullBackupJson: options.onExportFullBackupJson ?? (() => {}),
         onImportQuickCsvLines: options.onImportQuickCsvLines ?? (() => 0),
         onOpenReconciliation: options.onOpenReconciliation,
+        onApplyHistoricalInstallmentTotals: options.onApplyHistoricalInstallmentTotals,
         onResetWorkspaceData: options.onResetWorkspaceData ?? (() => {}),
       })
     );
@@ -117,6 +120,121 @@ test('ReportsAndDataTab sends the workspace backup action to its callback', asyn
 
   await act(async () => { exportButton.click(); });
   assert.equal(exportCount, 1);
+});
+
+test('ReportsAndDataTab exports a read-only financial history audit for review', async () => {
+  const blobs: Blob[] = [];
+  const clicked: string[] = [];
+  originalCreateObjectURL = Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL');
+  originalRevokeObjectURL = Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL');
+  originalAnchorClick = HTMLAnchorElement.prototype.click;
+  Object.defineProperty(window.URL, 'createObjectURL', {
+    configurable: true,
+    value: (blob: Blob) => {
+      blobs.push(blob);
+      return 'blob:history-audit';
+    },
+  });
+  Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: () => {} });
+  HTMLAnchorElement.prototype.click = function click() { clicked.push(this.download); };
+
+  const card: CreditCard = {
+    id: 'card-audit-ui',
+    name: 'Cartão QA',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 5,
+    defaultAccountId: 'acc-synthetic',
+    color: '#123456',
+  };
+  const transaction: Transaction = {
+    id: 'purchase-audit-ui',
+    description: 'Compra histórica',
+    amount: 125.5,
+    date: '2026-11-21',
+    competenceMonth: '2026-12',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-synthetic',
+    creditCardId: card.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'single',
+  };
+  const page = renderReports({ cards: [card], transactions: [transaction] });
+  assert.match(page.textContent || '', /1 apontamento\(s\) para revisar/);
+  const button = page.querySelector<HTMLButtonElement>('[data-testid="download-financial-history-audit"]');
+  assert.ok(button);
+  await act(async () => { button.click(); });
+
+  assert.deepEqual(clicked, ['minhas-auditoria-historica-2026-11.csv']);
+  assert.equal(blobs.length, 1);
+  const csv = await blobs[0].text();
+  assert.match(csv, /Competência da fatura/);
+  assert.match(csv, /2027-01/);
+  assert.match(csv, /Não corrigir automaticamente/);
+  assert.match(page.textContent || '', /O relatório não altera lançamentos/);
+});
+
+test('ReportsAndDataTab requires confirmation before applying historical totals', async () => {
+  let applyCalls = 0;
+  let backupCalls = 0;
+  const card: CreditCard = {
+    id: 'card-audit-confirm',
+    name: 'Cartão QA',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'acc-synthetic',
+    color: '#123456',
+  };
+  const transactions: Transaction[] = [1, 2, 3].map((number) => ({
+    id: `audit-parcel-${number}`,
+    description: 'Compra histórica',
+    amount: 10,
+    date: `2026-0${number}-05`,
+    competenceMonth: `2026-0${number}`,
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-synthetic',
+    creditCardId: card.id,
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentGroupId: 'audit-group-confirm',
+    installmentNumber: number,
+    installmentTotal: 3,
+  }));
+  const page = renderReports({
+    cards: [card],
+    transactions,
+    onExportFullBackupJson: () => { backupCalls += 1; },
+    onApplyHistoricalInstallmentTotals: () => { applyCalls += 1; },
+  });
+
+  const open = page.querySelector<HTMLButtonElement>('[data-testid="apply-high-confidence-history-totals"]');
+  assert.ok(open);
+  await act(async () => { open.click(); });
+  assert.equal(applyCalls, 0);
+  assert.match(page.textContent || '', /o histórico não será alterado nesta etapa/);
+  const cancel = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Cancelar');
+  assert.ok(cancel);
+  await act(async () => { cancel.click(); });
+  assert.equal(applyCalls, 0);
+
+  const reopen = page.querySelector<HTMLButtonElement>('[data-testid="apply-high-confidence-history-totals"]');
+  assert.ok(reopen);
+  await act(async () => { reopen.click(); });
+  const downloadBackup = page.querySelector<HTMLButtonElement>('[data-testid="download-history-backup-before-apply"]');
+  assert.ok(downloadBackup);
+  await act(async () => { downloadBackup.click(); });
+  assert.equal(backupCalls, 1);
+  assert.equal(applyCalls, 0, 'o histórico não muda até a pessoa conferir o arquivo salvo');
+  const confirm = page.querySelector<HTMLButtonElement>('[data-testid="confirm-apply-history-totals"]');
+  assert.ok(confirm);
+  await act(async () => { confirm.click(); });
+  assert.equal(applyCalls, 1);
+  assert.equal(backupCalls, 1);
 });
 
 test('ReportsAndDataTab applies custom month range and routes reconciliation action', async () => {

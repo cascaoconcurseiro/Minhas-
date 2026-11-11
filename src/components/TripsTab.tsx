@@ -45,8 +45,14 @@ import {
   TripSettlementMethod,
 } from '../types/finance';
 import { formatBRL, formatShortDateBR, parseBRLInput } from '../utils/financeRules';
-import { parseCurrencyInput } from '../utils/currencyInput';
+import {
+  isCurrencyInputValid,
+  isExchangeRateInputValid,
+  parseCurrencyInput,
+  parseExchangeRateInput,
+} from '../utils/currencyInput';
 import { CurrencyInput } from './CurrencyInput';
+import { InstitutionMark } from './InstitutionMark';
 import {
   calculateConvertedBrlAmount,
   calculateExchangeSavingsAnalysis,
@@ -172,6 +178,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   const [tripStartDate, setTripStartDate] = useState(todayIso);
   const [tripEndDate, setTripEndDate] = useState(todayIso);
   const [tripBudgetStr, setTripBudgetStr] = useState('');
+  const [tripFormError, setTripFormError] = useState<string | null>(null);
   const [tripDefaultRateStr, setTripDefaultRateStr] = useState('6,22');
   const [tripCompanionsInput, setTripCompanionsInput] = useState('');
 
@@ -179,9 +186,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   const [lotSourceLabel, setLotSourceLabel] = useState('');
   const [lotDate, setLotDate] = useState(todayIso);
   const [lotForeignAmountStr, setLotForeignAmountStr] = useState('');
+  const [lotError, setLotError] = useState<string | null>(null);
   const [lotBaseRateStr, setLotBaseRateStr] = useState('6,18');
   const [lotIofPercentStr, setLotIofPercentStr] = useState('1,1');
   const [lotDebitAccountId, setLotDebitAccountId] = useState<string>('');
+  const selectedLotDebitAccount =
+    accounts.find((account) => account.id === lotDebitAccountId) ?? null;
 
   // Add Participant Form State
   const [newParticipantName, setNewParticipantName] = useState('');
@@ -209,6 +219,8 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       setSettlementBankAccountId(accounts[0].id);
     }
   }, [accounts, settlementBankAccountId]);
+  const selectedSettlementBankAccount =
+    accounts.find((account) => account.id === settlementBankAccountId) ?? accounts[0] ?? null;
   const [settlementRecordInBank, setSettlementRecordInBank] = useState<boolean>(true);
   const [settlementNotes, setSettlementNotes] = useState('');
   const [settlementError, setSettlementError] = useState<string | null>(null);
@@ -280,6 +292,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   };
 
   const handleOpenNewTripModal = () => {
+    setTripFormError(null);
     setEditingTripId(null);
     setTripName('');
     setTripDestination('');
@@ -294,6 +307,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   };
 
   const handleOpenEditTripModal = (trip: Trip) => {
+    setTripFormError(null);
     setEditingTripId(trip.id);
     setTripName(trip.name);
     setTripDestination(trip.destination);
@@ -302,7 +316,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     setTripEndDate(trip.endDate);
     setTripBudgetStr(trip.budgetForeign.toFixed(CURRENCY_CATALOG[trip.currency].decimals).replace('.', ','));
     setTripDefaultRateStr(
-      trip.defaultExchangeRate.toFixed(2).replace('.', ',')
+      trip.defaultExchangeRate.toFixed(4).replace('.', ',')
     );
     const companions = trip.participants
       .filter((p) => !p.isMe && p.id !== 'me')
@@ -316,6 +330,18 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   const handleCreateTrip = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tripName.trim()) return;
+    if (tripBudgetStr.trim() && !isCurrencyInputValid(tripBudgetStr, tripCurrency)) {
+      setTripFormError(`Informe o orçamento com até ${CURRENCY_CATALOG[tripCurrency].decimals} casa(s) decimal(is).`);
+      return;
+    }
+    if (tripDefaultRateStr.trim() && !isExchangeRateInputValid(tripDefaultRateStr)) {
+      setTripFormError('Informe uma cotação de referência válida maior que zero.');
+      return;
+    }
+    setTripFormError(null);
+    const budgetForeign = tripBudgetStr.trim()
+      ? parseCurrencyInput(tripBudgetStr, tripCurrency)
+      : 1000;
 
     const companionNames = tripCompanionsInput
       .split(',')
@@ -323,7 +349,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       .filter(Boolean);
 
     const defaultRate =
-      parseBRLInput(tripDefaultRateStr) ||
+      parseExchangeRateInput(tripDefaultRateStr) ||
       CURRENCY_CATALOG[tripCurrency].defaultCommercialRateBrl;
 
     if (editingTripId && activeTrip && activeTrip.id === editingTripId) {
@@ -358,7 +384,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         endDate: tripEndDate >= tripStartDate ? tripEndDate : tripStartDate,
         currency: tripCurrency,
         defaultExchangeRate: defaultRate,
-        budgetForeign: Math.max(100, parseCurrencyInput(tripBudgetStr, tripCurrency) || 1000),
+        budgetForeign: Math.max(100, budgetForeign),
         participants: updatedParticipants,
         isArchived: tripIsArchivedCheckbox,
       };
@@ -391,7 +417,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       status: 'active',
       currency: tripCurrency,
       defaultExchangeRate: defaultRate,
-      budgetForeign: Math.max(100, parseCurrencyInput(tripBudgetStr, tripCurrency) || 1000),
+      budgetForeign: Math.max(100, budgetForeign),
       participants,
       exchangeLots: [],
       settlements: [],
@@ -411,10 +437,11 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     if (!activeTrip) return;
     const catMeta = CURRENCY_CATALOG[activeTrip.currency];
     setLotSourceLabel('');
+    setLotError(null);
     setLotDate(activeTrip.startDate);
     setLotForeignAmountStr('');
     setLotBaseRateStr(
-      catMeta.defaultCommercialRateBrl.toFixed(2).replace('.', ',')
+      catMeta.defaultCommercialRateBrl.toFixed(4).replace('.', ',')
     );
     setLotIofPercentStr('1,1');
     setLotDebitAccountId('');
@@ -426,11 +453,27 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     if (!activeTrip) return;
 
     const foreignAmount = parseCurrencyInput(lotForeignAmountStr, activeTrip.currency);
-    const rateBase = parseBRLInput(lotBaseRateStr);
+    const rateBase = parseExchangeRateInput(lotBaseRateStr);
     const iofPercent = parseBRLInput(lotIofPercentStr);
-    if (foreignAmount <= 0 || rateBase <= 0) return;
+    if (!isCurrencyInputValid(lotForeignAmountStr, activeTrip.currency) || foreignAmount <= 0) {
+      setLotError(`Informe um valor comprado válido com até ${CURRENCY_CATALOG[activeTrip.currency].decimals} casa(s) decimal(is).`);
+      return;
+    }
+    if (rateBase <= 0) {
+      setLotError('Informe uma cotação base válida maior que zero.');
+      return;
+    }
+    if (!isCurrencyInputValid(lotIofPercentStr, 'BRL') || iofPercent < 0 || iofPercent > 100) {
+      setLotError('Informe um IOF válido entre 0% e 100%, com até duas casas decimais.');
+      return;
+    }
+    setLotError(null);
 
     const conv = calculateConvertedBrlAmount(foreignAmount, rateBase, iofPercent);
+    if (!conv.isValid) {
+      setLotError('O valor convertido excede o limite de cálculo seguro. Reduza o valor ou a cotação.');
+      return;
+    }
 
     const newLot: TripExchangeLot = {
       id: `lot-${Date.now()}`,
@@ -515,7 +558,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     const rateUsed =
       settlementRateMode === 'effective_vet'
         ? activeSettlementDebt.impliedEffectiveRate
-        : parseBRLInput(settlementCustomRateStr);
+        : parseExchangeRateInput(settlementCustomRateStr);
     if (!Number.isFinite(rateUsed) || rateUsed <= 0) {
       setSettlementError('Informe uma cotação válida maior que zero.');
       return;
@@ -612,6 +655,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
         <form onSubmit={handleCreateTrip} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5 text-xs modal-form-scroll custom-scrollbar">
+            {tripFormError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 font-medium text-rose-800">{tripFormError}</p>}
             <div>
               <label htmlFor="trip-form-name" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Nome da Viagem
@@ -651,6 +695,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                   onChange={(e) => {
                     const code = e.target.value as CurrencyCode;
                     setTripCurrency(code);
+                    setTripFormError(null);
                     setTripDefaultRateStr(
                       CURRENCY_CATALOG[code].defaultCommercialRateBrl
                         .toFixed(2)
@@ -704,7 +749,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                   id="trip-form-budget"
                   value={tripBudgetStr}
                   currency={tripCurrency}
-                  onValueChange={setTripBudgetStr}
+                  onValueChange={(value) => { setTripBudgetStr(value); setTripFormError(null); }}
                   placeholder="Ex: 1500"
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                 />
@@ -717,7 +762,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                   type="text"
                   id="trip-form-exchange-rate"
                   value={tripDefaultRateStr}
-                  onChange={(e) => setTripDefaultRateStr(e.target.value)}
+                  onChange={(e) => { setTripDefaultRateStr(e.target.value); setTripFormError(null); }}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                 />
               </div>
@@ -791,7 +836,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
   if (!activeTrip || !summary) {
     return (
-      <div id="trips-container" className="space-y-5">
+      <div id="trips-container" className="module-page space-y-5">
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1064,7 +1109,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   }
 
   return (
-    <div id="trips-container" data-testid="trip-dedicated-page" className="space-y-5">
+    <div id="trips-container" data-testid="trip-dedicated-page" className="module-page space-y-5">
       {/* Top Navigation Bar: Back to All Trips + Quick Trip Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
@@ -1085,6 +1130,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
               <button
                 key={t.id}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => handleSelectTrip(t.id)}
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
                   isSelected
@@ -2441,6 +2487,8 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                   />
                 </div>
 
+                {lotError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">{lotError}</p>}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -2476,7 +2524,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                       type="text"
                       required
                       value={lotBaseRateStr}
-                      onChange={(e) => setLotBaseRateStr(e.target.value)}
+                      onChange={(e) => { setLotBaseRateStr(e.target.value); setLotError(null); }}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -2487,7 +2535,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     <input
                       type="text"
                       value={lotIofPercentStr}
-                      onChange={(e) => setLotIofPercentStr(e.target.value)}
+                      onChange={(e) => { setLotIofPercentStr(e.target.value); setLotError(null); }}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 font-mono font-bold text-slate-900 dark:text-white"
                     />
                   </div>
@@ -2509,13 +2557,24 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                       </option>
                     ))}
                   </select>
+                  {selectedLotDebitAccount && (
+                    <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                      <InstitutionMark
+                        institution={selectedLotDebitAccount.institution}
+                        accountName={selectedLotDebitAccount.name}
+                        color={selectedLotDebitAccount.color}
+                        size="xs"
+                      />
+                      <span>Débito vinculado a {selectedLotDebitAccount.name}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Live Preview */}
                 {(() => {
                   const preview = calculateConvertedBrlAmount(
                     parseCurrencyInput(lotForeignAmountStr, activeTrip.currency),
-                    parseBRLInput(lotBaseRateStr),
+                    parseExchangeRateInput(lotBaseRateStr),
                     parseBRLInput(lotIofPercentStr)
                   );
                   return (
@@ -2862,6 +2921,17 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                               </option>
                             ))}
                           </select>
+                        {selectedSettlementBankAccount && (
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                            <InstitutionMark
+                              institution={selectedSettlementBankAccount.institution}
+                              accountName={selectedSettlementBankAccount.name}
+                              color={selectedSettlementBankAccount.color}
+                              size="xs"
+                            />
+                            <span>PIX registrado em {selectedSettlementBankAccount.name}</span>
+                          </div>
+                        )}
                         </div>
                       )}
                     </div>
@@ -2875,7 +2945,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                   const rUsed =
                     settlementRateMode === 'effective_vet'
                       ? activeSettlementDebt.impliedEffectiveRate
-                      : Math.max(0.0001, parseBRLInput(settlementCustomRateStr));
+                      : Math.max(0.0001, parseExchangeRateInput(settlementCustomRateStr));
                   const totalBrl = Math.round(fAmt * rUsed * 100) / 100;
 
                   return (

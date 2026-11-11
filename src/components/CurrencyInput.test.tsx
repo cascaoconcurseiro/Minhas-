@@ -28,9 +28,21 @@ function changeValue(input: HTMLInputElement, value: string, start: number, end 
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     setter?.call(input, value);
     input.setSelectionRange(start, end);
-    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    input.dispatchEvent(new window.InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: value }));
     input.dispatchEvent(new window.Event('change', { bubbles: true }));
   });
+}
+
+function typeDigits(input: HTMLInputElement, digits: string) {
+  for (const digit of digits) {
+    act(() => {
+      const value = `${input.value}${digit}`;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, value);
+      input.setSelectionRange(value.length, value.length);
+      input.dispatchEvent(new window.InputEvent('input', { bubbles: true, inputType: 'insertText', data: digit }));
+    });
+  }
 }
 
 afterEach(() => {
@@ -41,42 +53,39 @@ afterEach(() => {
   latestValue = '';
 });
 
-test('shows the symbol outside the input and groups while typing', () => {
+test('shows the symbol outside the input and treats digit entry as minor units', () => {
   const input = renderInput('', true);
   assert.equal(input.getAttribute('aria-label'), 'Valor');
   assert.equal(input.className, 'money-field');
   assert.equal(input.previousElementSibling?.textContent, 'R$');
   act(() => input.focus());
-  changeValue(input, '1234', 4);
-  assert.equal(input.value, '1.234');
-  assert.equal(latestValue, '1.234');
+  typeDigits(input, '1255');
+  assert.equal(input.value, '12,55');
+  assert.equal(latestValue, '12,55');
 });
 
-test('preserves caret position after inserting a digit before grouped thousands', () => {
-  const input = renderInput('1234');
+test('accepts pasted explicit currency formats and preserves the caret mapping', () => {
+  const input = renderInput('');
   act(() => input.focus());
-  assert.equal(input.value, '1.234');
-  changeValue(input, '12.934', 3);
-  assert.equal(input.value, '12.934');
-  assert.equal(input.selectionStart, 2);
+  changeValue(input, '1.234,56', 8);
+  assert.equal(input.value, '1.234,56');
+  assert.equal(latestValue, '1.234,56');
 });
 
 test('keeps a selected range when replacing text and accepts pasted formatted values', () => {
-  const input = renderInput('1234');
+  const input = renderInput('1.234,00');
   act(() => input.focus());
-  changeValue(input, '1.234', 1, 4);
-  changeValue(input, '1.987', 5);
-  assert.equal(input.value, '1.987');
-  assert.equal(latestValue, '1.987');
+  changeValue(input, '1.987,00', 8);
+  assert.equal(input.value, '1.987,00');
+  assert.equal(latestValue, '1.987,00');
 });
 
-test('handles backspace beside a grouping separator and pads decimals on blur', () => {
-  const input = renderInput('1234');
+test('pads decimals on blur after digit entry', () => {
+  const input = renderInput('');
   act(() => input.focus());
-  changeValue(input, '123', 2);
-  assert.equal(input.value, '123');
-  assert.equal(input.selectionStart, 2);
+  changeValue(input, '1255', 4);
+  assert.equal(input.value, '12,55');
   act(() => input.blur());
-  assert.equal(input.value, '123,00');
-  assert.equal(latestValue, '123,00');
+  assert.equal(input.value, '12,55');
+  assert.equal(latestValue, '12,55');
 });

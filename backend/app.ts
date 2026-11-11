@@ -12,6 +12,7 @@ import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
+import { parseWorkspaceArray } from '../src/utils/workspacePayload.ts';
 import {
   createAttemptLimiter,
   hashPassword,
@@ -100,17 +101,7 @@ function getRequestWorkspacePayload(
   }
   for (const field of requiredJsonFields) {
     try {
-      const parsed = JSON.parse(payload[field] as string);
-      if (
-        !Array.isArray(parsed) ||
-        !parsed.every((item) =>
-          Boolean(item && typeof item === 'object' && !Array.isArray(item)) &&
-          typeof item.id === 'string' &&
-          item.id.trim().length > 0
-        )
-      ) {
-        return null;
-      }
+      parseWorkspaceArray(payload[field], [], field);
     } catch {
       return null;
     }
@@ -125,14 +116,7 @@ function getRequestWorkspacePayload(
     try {
       const parsed = JSON.parse(String(payload[field]));
       if (field === 'familyMembersJson' || field === 'tripsJson') {
-        if (
-          !Array.isArray(parsed) ||
-          !parsed.every((item) =>
-            Boolean(item && typeof item === 'object' && !Array.isArray(item)) &&
-            typeof item.id === 'string' &&
-            item.id.trim().length > 0
-          )
-        ) return null;
+        parseWorkspaceArray(parsed, [], field);
       } else if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return null;
       }

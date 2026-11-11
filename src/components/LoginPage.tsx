@@ -10,6 +10,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { getAuthErrorMessage } from '../lib/authClient';
+import { BrandMark } from './BrandMark';
 
 interface LoginPageProps {
   defaultEmail?: string;
@@ -63,70 +64,68 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   return (
     <div
       data-testid="dedicated-login-page"
-      className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col lg:flex-row"
+      className="min-h-screen w-full bg-[var(--app-canvas)] dark:bg-slate-950 flex flex-col lg:flex-row"
     >
       {/* Left Column: Financial Value Proposition & Brand Identity */}
-      <div className="hidden lg:flex lg:w-5/12 xl:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-5/12 xl:w-1/2 bg-gradient-to-br from-blue-50 via-white to-white dark:from-blue-950/30 dark:via-slate-900 dark:to-slate-900 text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-800 p-12 flex-col justify-between relative overflow-hidden">
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-lg shadow-sm">
-            R$
-          </div>
+          <BrandMark />
           <div>
             <span className="text-lg font-extrabold tracking-tight block leading-none">
-              Minhas Economias BR
+              Minhas Economias
             </span>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               Gestão Patrimonial, Fluxo de Caixa & Viagens
             </span>
           </div>
         </div>
 
         <div className="relative z-10 max-w-md space-y-6 my-auto">
-          <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight text-white">
+          <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight leading-tight text-slate-900 dark:text-white">
             Controle absoluto do seu patrimônio e das suas viagens em um só lugar.
           </h1>
-          <p className="text-sm text-slate-300 leading-relaxed">
+          <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
             Acompanhe contas bancárias, faturas de cartão de crédito, câmbio médio ponderado em viagens internacionais e lembretes diários. Após entrar, confira o estado da sincronização com o Neon.
           </p>
 
           <div className="space-y-3.5 pt-2">
             <div className="flex items-start gap-3">
-              <div className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400 shrink-0 mt-0.5">
+              <div className="rounded-lg bg-blue-100 dark:bg-blue-500/20 p-2 text-blue-700 dark:text-blue-300 shrink-0 mt-0.5">
                 <Wallet className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-white">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   Fluxo de Caixa & Faturas de Cartão
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Previsibilidade mensal com baixa rápida de pendências e controle de parcelamentos.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="rounded-lg bg-sky-500/20 p-2 text-sky-400 shrink-0 mt-0.5">
+              <div className="rounded-lg bg-blue-100 dark:bg-blue-500/20 p-2 text-blue-700 dark:text-blue-300 shrink-0 mt-0.5">
                 <TrendingUp className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-white">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   Viagens com Câmbio Médio Automático
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Conversão automática das despesas pela cotação média ponderada das moedas que você comprou.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="rounded-lg bg-amber-500/20 p-2 text-amber-400 shrink-0 mt-0.5">
+              <div className="rounded-lg bg-blue-100 dark:bg-blue-500/20 p-2 text-blue-700 dark:text-blue-300 shrink-0 mt-0.5">
                 <ShieldCheck className="h-4 w-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-white">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   Banco de Dados Neon
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   O login protege o acesso; o workspace é salvo no Neon PostgreSQL após a autenticação.
                 </p>
               </div>
@@ -134,8 +133,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-xs text-slate-400 border-t border-slate-800 pt-6">
-          <span>Minhas Economias BR</span>
+        <div className="relative z-10 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-6">
+          <span>Minhas Economias</span>
           <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
             <CheckCircle2 className="h-3.5 w-3.5" />
             Acesso protegido por autenticação
@@ -148,12 +147,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         <div className="w-full max-w-md space-y-6">
           {/* Mobile Brand Header */}
           <div className="flex lg:hidden items-center justify-center gap-2.5 mb-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white font-extrabold text-base shadow-xs">
-              R$
-            </div>
+            <BrandMark size="sm" />
             <div>
               <span className="text-base font-extrabold text-slate-900 dark:text-white block leading-none">
-                Minhas Economias BR
+                Minhas Economias
               </span>
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
                 Controle Financeiro & Viagens
@@ -171,7 +168,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   ? 'Entre para acessar seus lançamentos e sincronizar na nuvem'
                   : 'Sua conta começa sem lançamentos. A sincronização é confirmada após o login e a conexão com o Neon.'}
               </p>
-              <p className="pt-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+          <p className="pt-2 text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
                 Entre com sua conta ou crie uma nova. Os dados financeiros permanecem no Neon.
               </p>
             </div>
@@ -180,13 +177,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div className="grid grid-cols-2 rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
               <button
                 type="button"
+                  aria-pressed={mode === 'login'}
                 onClick={() => {
                   setMode('login');
                   setErrorMsg(null);
                 }}
                 className={`rounded-lg py-2 text-xs font-bold transition-all ${
                   mode === 'login'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
@@ -194,6 +192,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </button>
               <button
                 type="button"
+                  aria-pressed={mode === 'register'}
                 onClick={() => {
                   setMode('register');
                   setName('');
@@ -203,7 +202,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 }}
                 className={`rounded-lg py-2 text-xs font-bold transition-all ${
                   mode === 'register'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                 }`}
               >
@@ -234,7 +233,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Como deseja ser chamado"
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:bg-white focus:outline-none"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
                     />
                   </div>
                 </div>
@@ -254,7 +253,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu.email@exemplo.com"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -274,7 +273,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -283,7 +282,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="submit"
                 data-testid="login-submit-btn"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 px-4 py-3 text-xs font-bold text-white shadow-sm transition-colors cursor-pointer"
               >
                 <span>
                   {isLoading

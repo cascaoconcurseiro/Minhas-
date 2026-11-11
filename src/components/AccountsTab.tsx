@@ -43,7 +43,8 @@ import { CURRENCY_CATALOG, formatForeignCurrency } from '../utils/travelRules';
 import { calculateAccountStatementWithRunningBalance } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { CurrencyInput } from './CurrencyInput';
-import { parseCurrencyInput } from '../utils/currencyInput';
+import { isCurrencyInputValid, parseCurrencyInput } from '../utils/currencyInput';
+import { InstitutionMark } from './InstitutionMark';
 
 const FOREIGN_CURRENCY_OPTIONS: CurrencyCode[] = [
   'EUR',
@@ -58,10 +59,8 @@ const FOREIGN_CURRENCY_OPTIONS: CurrencyCode[] = [
 
 // Keep the legacy blank-as-zero behavior, but distinguish a real numeric zero
 // from malformed text that parseBRLInput intentionally converts to zero.
-const isValidBalanceInput = (raw: string): boolean => {
-  if (!raw.trim()) return true;
-  const cleaned = raw.trim().replace(/[R$\s]/g, '');
-  return /^[+-]?(?:\d+(?:[,.]\d*)?|[,.]\d+|\d{1,3}(?:\.\d{3})+(?:,\d*)?|\d{1,3}(?:,\d{3})+(?:\.\d*)?)$/.test(cleaned);
+const isValidBalanceInput = (raw: string, currency: CurrencyCode): boolean => {
+  return !raw.trim() || isCurrencyInputValid(raw, currency);
 };
 
 const isValidBrlBalanceInput = (raw: string): boolean => {
@@ -325,42 +324,83 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     // Sum exchange lots explicitly credited to this account
     let purchasedLotsForeign = 0;
     let totalLotsBrl = 0;
+    let costBasisForeign = Number.isFinite(baseForeign) && baseForeign > 0 ? baseForeign : 0;
+    let costBasisBrl = Number.isFinite(acc.initialBalance) && acc.initialBalance > 0 ? acc.initialBalance : 0;
     for (const t of trips) {
       if (t.currency !== currency) continue;
       for (const lot of t.exchangeLots) {
-        if (lot.accountId === acc.id) {
+        if (
+          lot.accountId === acc.id &&
+          /^\d{4}-\d{2}-\d{2}$/.test(lot.date) &&
+          lot.date.slice(0, 7) <= selectedMonth &&
+          Number.isFinite(lot.foreignAmount) &&
+          lot.foreignAmount > 0 &&
+          Number.isSafeInteger(Math.round(lot.foreignAmount * 100)) &&
+          Number.isFinite(lot.totalBrlPaid) &&
+          lot.totalBrlPaid > 0 &&
+          Number.isSafeInteger(Math.round(lot.totalBrlPaid * 100))
+        ) {
           purchasedLotsForeign += lot.foreignAmount;
           totalLotsBrl += lot.totalBrlPaid;
+          costBasisForeign += lot.foreignAmount;
+          costBasisBrl += lot.totalBrlPaid;
         }
       }
     }
 
-    // Sum foreign expenses paid via this account
+    // Apply foreign income and expenses with separate realized/projected balances.
     let spentForeign = 0;
+    let pendingForeign = 0;
+    let receivedForeign = 0;
+    let pendingIncomeForeign = 0;
     for (const tx of transactions) {
       if (
         tx.accountId === acc.id &&
-        tx.type === 'expense' &&
+        (tx.type === 'expense' || tx.type === 'income') &&
         !tx.isCompanionOnlyExpense &&
-        (tx.originalCurrency === currency || (!tx.originalCurrency && tx.tripId))
+        tx.sharedPaidBy !== 'member' &&
+        tx.competenceMonth <= selectedMonth &&
+        (tx.originalCurrency === currency ||
+          (!tx.originalCurrency && Boolean(tx.tripId) && trips.some((trip) => trip.id === tx.tripId && trip.currency === currency)))
       ) {
-        spentForeign += tx.originalAmount ?? 0;
+        const amount = Number.isFinite(tx.originalAmount) ? tx.originalAmount || 0 : 0;
+        if (amount <= 0) continue;
+        if (tx.type === 'expense' && tx.status === 'paid') spentForeign += amount;
+        else if (tx.type === 'expense' && tx.status === 'pending') pendingForeign += amount;
+        else if (tx.type === 'income' && tx.status === 'paid') {
+          receivedForeign += amount;
+          const effectiveRate = tx.effectiveExchangeRate ?? tx.exchangeRate;
+          const acquisitionCents = Number.isFinite(effectiveRate)
+            ? Math.round(amount * (effectiveRate || 0) * 100)
+            : 0;
+          if (effectiveRate && effectiveRate > 0 && Number.isSafeInteger(acquisitionCents) && acquisitionCents > 0) {
+            costBasisForeign += amount;
+            costBasisBrl += acquisitionCents / 100;
+          }
+        }
+        else if (tx.type === 'income' && tx.status === 'pending') pendingIncomeForeign += amount;
       }
     }
 
     const currentForeignBalance =
-      Math.round((baseForeign + purchasedLotsForeign - spentForeign) * 100) / 100;
+      Math.round((baseForeign + purchasedLotsForeign + receivedForeign - spentForeign) * 100) / 100;
+    const projectedForeignBalance =
+      Math.round((currentForeignBalance + pendingIncomeForeign - pendingForeign) * 100) / 100;
     const avgRate =
-      purchasedLotsForeign > 0
-        ? totalLotsBrl / purchasedLotsForeign
+      costBasisForeign > 0 && costBasisBrl > 0
+        ? costBasisBrl / costBasisForeign
         : CURRENCY_CATALOG[currency]?.defaultCommercialRateBrl || 6.0;
     const estimatedBrlValue = Math.round(currentForeignBalance * avgRate * 100) / 100;
 
     return {
       currency,
       currentForeignBalance,
+      projectedForeignBalance,
       purchasedLotsForeign,
       spentForeign,
+      pendingForeign,
+      receivedForeign,
+      pendingIncomeForeign,
       avgRate,
       estimatedBrlValue,
     };
@@ -381,8 +421,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       setFormError('Informe um saldo inicial válido.');
       return;
     }
-    if (isIntl && !isValidBalanceInput(accInitialForeignStr)) {
-      setFormError('Informe um saldo na moeda estrangeira válido, com até duas casas decimais.');
+    if (isIntl && !isValidBalanceInput(accInitialForeignStr, accCurrency)) {
+      setFormError(`Informe um saldo na moeda estrangeira válido, com até ${CURRENCY_CATALOG[accCurrency].decimals} casa(s) decimal(is).`);
       return;
     }
     const effectiveCurrency: CurrencyCode = isIntl ? accCurrency : 'BRL';
@@ -468,7 +508,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   );
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full" data-testid="accounts-tab-view">
+    <div className="module-page space-y-6 min-w-0 max-w-full" data-testid="accounts-tab-view">
       {/* VIEW 1: ACCOUNTS OVERVIEW LIST (Shown when no specific account page is opened) */}
       {!isAccountDetailOpen && (
         <>
@@ -708,18 +748,26 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                     <label htmlFor="account-form-institution-input" className="block text-xs font-semibold text-slate-700 mb-1">
                       Instituição Financeira
                     </label>
-                    <input
-                      type="text"
-                      id="account-form-institution-input"
-                      value={accInstitution}
-                      onChange={(e) => setAccInstitution(e.target.value)}
-                      placeholder={
-                        accType === 'international'
-                          ? 'Ex: Wise, Nomad, Avenue, C6 Global'
-                          : 'Ex: Itaú, Nubank, Caixa, Dinheiro'
-                      }
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
-                    />
+                    <div className="flex min-w-0 items-center gap-2">
+                      <InstitutionMark
+                        institution={accInstitution}
+                        accountName={accName}
+                        color={accColor}
+                        size="sm"
+                      />
+                      <input
+                        type="text"
+                        id="account-form-institution-input"
+                        value={accInstitution}
+                        onChange={(e) => setAccInstitution(e.target.value)}
+                        placeholder={
+                          accType === 'international'
+                            ? 'Ex: Wise, Nomad, Avenue, C6 Global'
+                            : 'Ex: Itaú, Nubank, Caixa, Dinheiro'
+                        }
+                        className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+                      />
+                    </div>
                   </div>
 
                   {accType === 'international' ? (
@@ -906,21 +954,21 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                       className={`group rounded-2xl border p-5 text-left transition-all cursor-pointer flex flex-col justify-between gap-4 ${
                         isIntl
                           ? 'border-sky-200 bg-gradient-to-br from-white to-sky-50/40 hover:border-sky-500 hover:shadow-md'
-                          : 'border-slate-200 bg-white hover:border-emerald-500 hover:shadow-md'
+                          : 'border-slate-200 bg-white hover:border-blue-500 hover:shadow-md'
                       }`}
                     >
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
-                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-2xs"
-                              style={{ backgroundColor: acc.color || '#059669' }}
+                              className="shrink-0"
                             >
-                              {isIntl ? (
-                                <Globe className="h-4.5 w-4.5" />
-                              ) : (
-                                <Building2 className="h-4.5 w-4.5" />
-                              )}
+                              <InstitutionMark
+                                institution={acc.institution}
+                                accountName={acc.name}
+                                color={acc.color}
+                                size="sm"
+                              />
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -1000,6 +1048,11 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                             <p className="text-[11px] font-mono tabular-nums text-slate-500 mt-0.5">
                               Equiv. câmbio médio: {formatBRL(intlMetrics.estimatedBrlValue)}
                             </p>
+                            {(intlMetrics.pendingForeign > 0 || intlMetrics.pendingIncomeForeign > 0) && (
+                              <p className="text-[11px] font-mono tabular-nums text-amber-700 mt-0.5">
+                                Após pendências: {formatForeignCurrency(intlMetrics.projectedForeignBalance, intlMetrics.currency)}
+                              </p>
+                            )}
                           </div>
                         ) : (
                           <>
@@ -1052,7 +1105,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
 
       {/* VIEW 2: DEDICATED ACCOUNT PAGE WITH FULL BANK STATEMENT */}
       {isAccountDetailOpen && activeAccount && statementSummary && (
-        <div className="space-y-5 animate-expand-in" data-testid="account-dedicated-page">
+        <div className="module-page space-y-5 animate-expand-in" data-testid="account-dedicated-page">
           {/* Top Navigation Bar: Back to All Accounts + Quick Switcher */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-2xs">
             <button
@@ -1064,6 +1117,23 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
               <ArrowLeft className="h-4 w-4" />
               <span>Voltar para Todas as Contas ({accounts.length})</span>
             </button>
+
+            <div className="flex min-w-0 items-center gap-2.5">
+              <InstitutionMark
+                institution={activeAccount.institution}
+                accountName={activeAccount.name}
+                color={activeAccount.color}
+                size="sm"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-slate-900">
+                  {activeAccount.name}
+                </p>
+                <p className="truncate text-[10px] text-slate-500">
+                  {activeAccount.institution} · {getAccountTypeLabel(activeAccount.type, activeAccount.currency)}
+                </p>
+              </div>
+            </div>
 
             {accounts.length > 1 && (
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
@@ -1132,6 +1202,20 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                       <strong className="font-mono">
                         -{formatForeignCurrency(intlMetrics.spentForeign, intlMetrics.currency)}
                       </strong>
+                      {' '}· Depósitos realizados: <strong className="font-mono">
+                        +{formatForeignCurrency(intlMetrics.receivedForeign, intlMetrics.currency)}
+                      </strong>
+                      {(intlMetrics.pendingForeign > 0 || intlMetrics.pendingIncomeForeign > 0) && (
+                        <>
+                          {' '}· Despesas pendentes: <strong className="font-mono">
+                            -{formatForeignCurrency(intlMetrics.pendingForeign, intlMetrics.currency)}
+                          </strong>{' '}· Receitas pendentes: <strong className="font-mono">
+                            +{formatForeignCurrency(intlMetrics.pendingIncomeForeign, intlMetrics.currency)}
+                          </strong>{' '}· Saldo previsto: <strong className="font-mono">
+                            {formatForeignCurrency(intlMetrics.projectedForeignBalance, intlMetrics.currency)}
+                          </strong>
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>

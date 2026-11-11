@@ -10,7 +10,7 @@ import {
   SmtpCredentials,
   Transaction,
 } from '../types/finance';
-import { calculateCreditCardSummary, formatBRL } from './financeRules';
+import { calculateCreditCardSummary, formatBRL, getClampedMonthDate } from './financeRules';
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
@@ -194,8 +194,8 @@ export function calculateDailyReminders({
     for (const card of cards) {
       const invoice = calculateCreditCardSummary(card, transactions, selectedMonth);
       if (invoice.invoicePendingAmount > 0) {
-        const dueDayStr = String(card.dueDay).padStart(2, '0');
-        const dueDate = `${selectedMonth}-${dueDayStr}`;
+        const dueDate = getClampedMonthDate(selectedMonth, card.dueDay);
+        const actualDueDay = Number(dueDate.slice(-2));
         const daysRemaining = getDaysDifference(referenceDate, dueDate);
 
         let urgency: ReminderUrgency;
@@ -215,10 +215,10 @@ export function calculateDailyReminders({
           title: `Fatura ${card.name}`,
           description:
             daysRemaining < 0
-              ? `Fatura vencida há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'} (Venceu dia ${card.dueDay})`
+              ? `Fatura vencida há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'} (Venceu dia ${actualDueDay})`
               : daysRemaining === 0
-              ? `Fatura vence hoje! (Dia ${card.dueDay})`
-              : `Vencimento em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (Dia ${card.dueDay})`,
+              ? `Fatura vence hoje! (Dia ${actualDueDay})`
+              : `Vencimento em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (Dia ${actualDueDay})`,
           amount: invoice.invoicePendingAmount,
           dueDate,
           urgency,

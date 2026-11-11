@@ -68,9 +68,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('overview')}
+            aria-current={activeTab === 'overview' ? 'page' : undefined}
             className={`flex flex-1 flex-col items-center justify-center py-1 transition-colors ${
               activeTab === 'overview'
-                ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
             }`}
           >
@@ -82,9 +83,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('transactions')}
+            aria-current={activeTab === 'transactions' ? 'page' : undefined}
             className={`flex flex-1 flex-col items-center justify-center py-1 transition-colors ${
               activeTab === 'transactions'
-                ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
             }`}
           >
@@ -98,7 +100,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               type="button"
               onClick={() => onOpenNewTransaction('expense')}
               aria-label="Novo lançamento"
-              className="flex h-13 w-13 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 active:scale-95 transition-transform ring-4 ring-white dark:ring-slate-900"
+              className="flex h-13 w-13 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30 active:scale-95 transition-transform ring-4 ring-white dark:ring-slate-900"
             >
               <Plus className="h-6 w-6 stroke-[2.5]" />
             </button>
@@ -108,9 +110,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             type="button"
             onClick={() => handleTabClick('cards')}
+            aria-current={activeTab === 'cards' ? 'page' : undefined}
             className={`flex flex-1 flex-col items-center justify-center py-1 transition-colors ${
               activeTab === 'cards'
-                ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
             }`}
           >
@@ -122,9 +125,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             type="button"
             onClick={() => setShowMoreMenu(true)}
+            aria-expanded={showMoreMenu}
+            aria-controls="mobile-more-modules"
             className={`flex flex-1 flex-col items-center justify-center py-1 transition-colors ${
               isMoreTabActive || showMoreMenu
-                ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
             }`}
           >
@@ -137,9 +142,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       {/* Mobile "Mais" Bottom Sheet Drawer */}
       {showMoreMenu && (
         <div
+          id="mobile-more-modules"
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:p-4 backdrop-blur-[2px] lg:hidden overflow-hidden modal-shell"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="mobile-more-modules-title"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowMoreMenu(false);
           }}
@@ -150,7 +157,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white font-display">
+                <h3 id="mobile-more-modules-title" className="text-sm font-bold text-slate-900 dark:text-white font-display">
                   Mais Módulos & Ferramentas
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -179,11 +186,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('accounts')}
                     className={`col-span-2 flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'accounts'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <Landmark className="h-4.5 w-4.5" />
                     </div>
                     <div>
@@ -201,11 +208,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('investments')}
                     className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'investments'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <TrendingUp className="h-4 w-4" />
                     </div>
                     <div>
@@ -223,11 +230,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('goals')}
                     className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'goals'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <PiggyBank className="h-4 w-4" />
                     </div>
                     <div>
@@ -253,11 +260,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('trips')}
                     className={`col-span-2 flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'trips'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <Plane className="h-4.5 w-4.5" />
                     </div>
                     <div>
@@ -275,7 +282,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('budgets')}
                     className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'budgets'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -297,7 +304,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('shared')}
                     className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'shared'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -319,11 +326,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     onClick={() => handleTabClick('reports')}
                     className={`col-span-2 flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
                       activeTab === 'reports'
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <PieChart className="h-4 w-4" />
                     </div>
                     <div>

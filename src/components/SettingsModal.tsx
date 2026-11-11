@@ -227,7 +227,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900 px-5 sm:px-6 py-3.5 sm:py-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs shrink-0">
               <Settings className="h-4.5 w-4.5" />
             </div>
             <div className="min-w-0">
@@ -352,14 +352,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => onUpdateSettings({ theme: 'light' })}
                     className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${
                       settings.theme === 'light'
-                        ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-600'
+                        ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-600'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}
                   >
                     <div
                       className={`mt-0.5 rounded-lg p-2 ${
                         settings.theme === 'light'
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'bg-slate-100 text-slate-600'
                       }`}
                     >
@@ -371,7 +371,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           Modo Claro Editorial
                         </span>
                         {settings.theme === 'light' && (
-                          <Check className="h-4 w-4 text-emerald-600" />
+                          <Check className="h-4 w-4 text-blue-600" />
                         )}
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
@@ -385,14 +385,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => onUpdateSettings({ theme: 'dark' })}
                     className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-all ${
                       settings.theme === 'dark'
-                        ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-600'
+                        ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-600'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}
                   >
                     <div
                       className={`mt-0.5 rounded-lg p-2 ${
                         settings.theme === 'dark'
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'bg-slate-100 text-slate-600'
                       }`}
                     >
@@ -404,7 +404,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           Modo Escuro Noturno
                         </span>
                         {settings.theme === 'dark' && (
-                          <Check className="h-4 w-4 text-emerald-600" />
+                          <Check className="h-4 w-4 text-blue-600" />
                         )}
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
@@ -780,7 +780,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`rounded-xl border p-3 text-left transition-all ${
                           (settings.defaultCascadeMode || 'this_and_future') ===
                           opt.id
-                            ? 'border-emerald-600 bg-emerald-50/80 ring-1 ring-emerald-600'
+                            ? 'border-blue-600 bg-blue-50/80 ring-1 ring-blue-600'
                             : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
@@ -862,7 +862,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           }
                           className={`rounded-lg border py-1.5 text-xs font-mono font-bold transition-colors ${
                             settings.budgetWarningPercent === pct
-                              ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
+                              ? 'border-blue-600 bg-blue-50 text-blue-800'
                               : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                           }`}
                         >

@@ -72,7 +72,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         {/* iOS Guided Install Modal */}
         {showIOSGuide && (
           <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]"
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px] modal-shell"
             role="dialog"
             aria-modal="true"
             onClick={(e) => {
@@ -165,7 +165,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
 
         {showIOSGuide && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px] modal-shell"
             role="dialog"
             aria-modal="true"
             onClick={(e) => {

@@ -98,7 +98,7 @@ export interface Transaction {
   description: string;
   amount: number;
   date: string; // YYYY-MM-DD
-  competenceMonth: string; // YYYY-MM (for bank transactions, month of date; for credit card, invoice month)
+  competenceMonth: string; // YYYY-MM (bank transaction month; credit-card invoice due month)
   type: TransactionType;
   status: TransactionStatus;
   categoryId: string;
@@ -111,11 +111,13 @@ export interface Transaction {
   installmentGroupId?: string;
   installmentNumber?: number;
   installmentTotal?: number;
+  installmentPurchaseTotal?: number; // Original price of the purchase, repeated across its scheduled invoice rows
   notes?: string;
   /** Custom user-defined tags for granular expense/income categorization beyond standard categories (e.g. ['reembolsavel', 'imposto-renda', 'projeto-x']) */
   tags?: string[];
   isInvoicePayment?: boolean; // True when this bank expense pays off a credit card invoice
   settledCardId?: string; // CreditCard ID whose invoice was settled by this payment
+  settledInvoiceMonth?: string; // Invoice month settled; competenceMonth remains the bank cash-out month
   invoicePaymentId?: string; // Invoice payment that settled this card purchase row
   partialSplitOriginalId?: string; // Original card transaction ID when split by partial invoice payment
   // Installment anticipation metadata (allows 1-click reversal of anticipated installments)

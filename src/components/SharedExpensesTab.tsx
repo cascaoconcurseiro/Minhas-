@@ -30,6 +30,7 @@ import {
   formatShortDateBR,
 } from '../utils/financeRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { InstitutionMark } from './InstitutionMark';
 
 interface SharedExpensesTabProps {
   selectedMonth: string;
@@ -116,6 +117,8 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   } | null>(null);
 
   const [settleAccountId, setSettleAccountId] = useState(accounts[0]?.id || '');
+  const selectedSettlementAccount =
+    accounts.find((account) => account.id === settleAccountId) ?? accounts[0] ?? null;
   useEffect(() => {
     if (
       (!settleAccountId || !accounts.some((a) => a.id === settleAccountId)) &&
@@ -439,7 +442,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="module-page space-y-6">
       {/* Incoming Family Invitations Banner */}
       {pendingIncomingInvites.length > 0 && (
         <div
@@ -1247,7 +1250,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
       {/* Settlement Confirmation Modal */}
       {settlementTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px] modal-shell"
           role="dialog"
           aria-modal="true"
           onClick={(e) => {
@@ -1302,6 +1305,17 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                       </option>
                     ))}
                   </select>
+                  {selectedSettlementAccount && (
+                    <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+                      <InstitutionMark
+                        institution={selectedSettlementAccount.institution}
+                        accountName={selectedSettlementAccount.name}
+                        color={selectedSettlementAccount.color}
+                        size="xs"
+                      />
+                      <span>Acerto pela conta {selectedSettlementAccount.name}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1342,7 +1356,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
       {/* Add / Edit Family Member + Email Invite Modal */}
       {showMemberModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-[2px] modal-shell"
           role="dialog"
           aria-modal="true"
           onClick={(e) => {

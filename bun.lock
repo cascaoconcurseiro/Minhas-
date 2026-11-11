@@ -16,6 +16,7 @@
         "nodemailer": "^10.3.1",
         "pg": "^8.23.1",
         "react": "^19.0.1",
+        "react-bancos": "0.11.0",
         "react-dom": "^19.0.1",
         "recharts": "^3.10.1",
         "vite": "^8.3.0",
@@ -1087,6 +1088,8 @@
     "raw-body": ["raw-body@2.5.3", "", { "dependencies": { "bytes": "~3.1.2", "http-errors": "~2.0.1", "iconv-lite": "~0.4.24", "unpipe": "~1.0.0" } }, "sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA=="],
 
     "react": ["react@19.3.1", "", {}, "sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw=="],
+
+    "react-bancos": ["react-bancos@0.11.0", "", { "peerDependencies": { "react": ">=17" } }, "sha512-qCKyR0pAC4RiXZm1X5ssrQvWHn217iFqqOKwkAzJBLZDSb1qbdxmsA+HbmaWtXIdPtJ4u7L43z+5jdNPhy559w=="],
 
     "react-dom": ["react-dom@19.3.1", "", { "dependencies": { "scheduler": "^0.28.0" }, "peerDependencies": { "react": "^19.3.1" } }, "sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ=="],
 

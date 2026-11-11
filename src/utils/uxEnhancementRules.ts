@@ -5,6 +5,7 @@ import {
   Transaction,
 } from '../types/finance';
 import { getEffectiveExpenseAmountForUser } from './financeRules';
+import { matchCategoryByDescription } from './ofxParser';
 
 export interface BudgetImpactPreview {
   hasBudget: boolean;
@@ -546,6 +547,8 @@ export function predictCategoryFromDescription(
   categories: Category[],
   entryMode: 'expense' | 'income' | 'credit_card' | 'transfer' = 'expense'
 ): SmartCategorySuggestion | null {
+  if (entryMode === 'transfer') return null;
+
   const suggestions = getCategorySuggestionsForDescription(
     description,
     transactions,
@@ -553,7 +556,39 @@ export function predictCategoryFromDescription(
     entryMode,
     1
   );
-  return suggestions.length > 0 ? suggestions[0] : null;
+  const historicalSuggestion = suggestions[0];
+  if (historicalSuggestion && historicalSuggestion.confidence >= 0.65) {
+    return historicalSuggestion;
+  }
+
+  const targetType = entryMode === 'income' ? 'income' : 'expense';
+  const merchantMatch = matchCategoryByDescription(description, categories, targetType);
+  const merchantCategory = merchantMatch
+    ? categories.find((category) => category.id === merchantMatch.categoryId)
+    : undefined;
+  if (merchantMatch && merchantCategory) {
+    const normalizedSubcategoryName = normalizeText(merchantMatch.subcategoryName || '');
+    const matchedSubcategory = (merchantCategory.subcategories || []).find(
+      (subcategory) => normalizeText(subcategory.name) === normalizedSubcategoryName
+    );
+    return {
+      categoryId: merchantCategory.id,
+      categoryName: merchantCategory.name,
+      categoryColor: merchantCategory.color,
+      categoryIcon: merchantCategory.icon,
+      subcategoryId: matchedSubcategory?.id,
+      subcategoryName: matchedSubcategory?.name || merchantMatch.subcategoryName,
+      confidence: 0.9,
+      frequency: 0,
+      totalMatches: 1,
+      matchType: 'token',
+      matchedKeywords: [description.trim()],
+      sampleDescription: description.trim(),
+      reason: 'Categoria automática pela descrição do estabelecimento',
+    };
+  }
+
+  return historicalSuggestion || null;
 }
 
 /**

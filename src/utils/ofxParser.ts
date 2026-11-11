@@ -1,4 +1,4 @@
-import { Category, Transaction } from '../types/finance';
+import { Category, CreditCard, CurrencyCode, Transaction } from '../types/finance';
 
 export interface ParsedBankStatementItem {
   fitid?: string;
@@ -23,10 +23,17 @@ export interface ReconciliationCandidate {
   fitid?: string;
   date: string;
   amount: number;
+  sourceAmount?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
   type: 'income' | 'expense';
   description: string;
   memo?: string;
   suggestedCategoryId: string;
+  isPotentialInvoicePayment?: boolean;
+  isInvoicePayment?: boolean;
+  settledCardId?: string;
+  settledInvoiceMonth?: string;
   isDuplicate: boolean;
   duplicateReason?: string;
   selected: boolean;
@@ -140,7 +147,7 @@ export function parseOFX(rawText: string): ParseStatementResult {
   const metadata: BankStatementMetadata = {
     bankId: extractOfxTag(rawText, 'BANKID'),
     accountId: extractOfxTag(rawText, 'ACCTID'),
-    currency: extractOfxTag(rawText, 'CURDEF') || 'BRL',
+    currency: extractOfxTag(rawText, 'CURDEF')?.toUpperCase(),
     statementStart: normalizeOfxDate(extractOfxTag(rawText, 'DTSTART') || ''),
     statementEnd: normalizeOfxDate(extractOfxTag(rawText, 'DTEND') || ''),
   };
@@ -382,7 +389,12 @@ export function parseBankStatement(rawContent: string): ParseStatementResult {
 /**
  * Smart categorization dictionary based on common Brazilian bank statement descriptions.
  */
-const CATEGORY_KEYWORDS: Array<{ categoryIdHint: string; keywords: string[] }> = [
+const CATEGORY_KEYWORDS: Array<{
+  categoryIdHint: string;
+  fallbackCategoryIdHint?: string;
+  subcategoryNameHint?: string;
+  keywords: string[];
+}> = [
   {
     categoryIdHint: 'cat-alimentacao',
     keywords: [
@@ -491,15 +503,14 @@ const CATEGORY_KEYWORDS: Array<{ categoryIdHint: string; keywords: string[] }> =
     ],
   },
   {
+    categoryIdHint: 'cat-assinaturas',
+    fallbackCategoryIdHint: 'cat-lazer',
+    subcategoryNameHint: 'Streaming & Música',
+    keywords: ['amazon prime', 'prime video', 'netflix', 'spotify', 'disney', 'hbo max', 'max.com'],
+  },
+  {
     categoryIdHint: 'cat-lazer',
     keywords: [
-      'netflix',
-      'spotify',
-      'amazon prime',
-      'prime video',
-      'disney',
-      'hbo max',
-      'max.com',
       'cinema',
       'cinemark',
       'uci cinema',
@@ -542,6 +553,7 @@ const CATEGORY_KEYWORDS: Array<{ categoryIdHint: string; keywords: string[] }> =
   },
   {
     categoryIdHint: 'cat-compras',
+    subcategoryNameHint: 'Lojas online',
     keywords: [
       'amazon',
       'mercado livre',
@@ -609,6 +621,56 @@ const CATEGORY_KEYWORDS: Array<{ categoryIdHint: string; keywords: string[] }> =
   },
 ];
 
+export interface DescriptionCategoryMatch {
+  categoryId: string;
+  subcategoryName?: string;
+}
+
+/** Returns only confident merchant/description rules; unknown text has no match. */
+export function matchCategoryByDescription(
+  description: string,
+  categories: Category[],
+  type: 'income' | 'expense' = 'expense'
+): DescriptionCategoryMatch | null {
+  const normDesc = ` ${description.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()} `;
+
+  for (const group of CATEGORY_KEYWORDS) {
+    for (const kw of group.keywords) {
+      const normKw = kw.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+      if (normDesc.includes(` ${normKw} `)) {
+        // Find existing category matching either the hint ID or the name
+        const match = categories.find(
+          (c) =>
+            c.type === type &&
+            (c.id === group.categoryIdHint ||
+              ` ${c.name.toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim()} `.includes(` ${normKw} `))
+        );
+        const fallbackMatch = group.fallbackCategoryIdHint
+          ? categories.find((c) => c.type === type && c.id === group.fallbackCategoryIdHint)
+          : undefined;
+        if (match || fallbackMatch) {
+          const resolvedMatch = match || fallbackMatch!;
+          return { categoryId: resolvedMatch.id, subcategoryName: group.subcategoryNameHint };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Infers the best category for a transaction based on description keywords.
  */
@@ -617,24 +679,8 @@ export function inferCategoryByDescription(
   categories: Category[],
   type: 'income' | 'expense' = 'expense'
 ): string {
-  const normDesc = description.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-  for (const group of CATEGORY_KEYWORDS) {
-    for (const kw of group.keywords) {
-      const normKw = kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      if (normDesc.includes(normKw)) {
-        // Find existing category matching either the hint ID or the name
-        const match = categories.find(
-          (c) =>
-            c.id === group.categoryIdHint ||
-            c.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normKw)
-        );
-        if (match) {
-          return match.id;
-        }
-      }
-    }
-  }
+  const match = matchCategoryByDescription(description, categories, type);
+  if (match) return match.categoryId;
 
   // Fallback: match by transaction type
   const fallbackCat = categories.find((c) => c.type === type);
@@ -660,7 +706,9 @@ function cleanDescriptionForComparison(desc: string): string {
 export function checkItemDuplicate(
   item: ParsedBankStatementItem,
   existingTransactions: Transaction[],
-  targetAccountId?: string
+  targetAccountId?: string,
+  statementCurrency = 'BRL',
+  exchangeRate?: number
 ): { isDuplicate: boolean; reason?: string } {
   // 1. Exact FITID match
   if (item.fitid) {
@@ -675,12 +723,24 @@ export function checkItemDuplicate(
 
   // 2. Exact Date + Amount match on same account (or matching description)
   const normImportDesc = cleanDescriptionForComparison(item.description);
+  const amountInBrlCents = Math.round(item.amount * (exchangeRate || 1) * 100);
+  const comparableAmount = statementCurrency === 'BRL' || !Number.isFinite(exchangeRate) ||
+    !Number.isSafeInteger(amountInBrlCents)
+    ? item.amount
+    : amountInBrlCents / 100;
   const potentialMatches = existingTransactions.filter((tx) => {
     if (targetAccountId && tx.accountId && tx.accountId !== targetAccountId) {
       return false;
     }
     const isSameDate = tx.date === item.date;
-    const isSameAmount = Math.abs(tx.amount - item.amount) < 0.01;
+    const txComparableAmount = statementCurrency !== 'BRL' && tx.originalCurrency === statementCurrency &&
+      Number.isFinite(tx.originalAmount)
+      ? tx.originalAmount as number
+      : tx.amount;
+    const itemComparableAmount = statementCurrency !== 'BRL' && tx.originalCurrency === statementCurrency
+      ? item.amount
+      : comparableAmount;
+    const isSameAmount = Math.abs(txComparableAmount - itemComparableAmount) < 0.01;
     const isSameType = tx.type === item.rawType;
     return isSameDate && isSameAmount && isSameType;
   });
@@ -719,24 +779,92 @@ export function prepareReconciliationCandidates(
   items: ParsedBankStatementItem[],
   existingTransactions: Transaction[],
   categories: Category[],
-  targetAccountId?: string
+  targetAccountId?: string,
+  cards: CreditCard[] = [],
+  fx: { currency?: string; exchangeRate?: number } = {}
 ): ReconciliationCandidate[] {
+  const statementCurrency = fx.currency || 'BRL';
+  const exchangeRate = statementCurrency === 'BRL' ? 1 : fx.exchangeRate;
+  const hasValidExchangeRate = Number.isFinite(exchangeRate) && (exchangeRate || 0) > 0;
+  const cardIds = new Set(cards.map((card) => card.id));
+  const pendingInvoicesByCard = new Map<string, Map<string, number>>();
+  for (const tx of existingTransactions) {
+    if (
+      !tx.creditCardId || !cardIds.has(tx.creditCardId) || tx.status !== 'pending' ||
+      tx.isInvoicePayment || tx.isCompanionOnlyExpense || tx.sharedPaidBy === 'member'
+    ) continue;
+    const months = pendingInvoicesByCard.get(tx.creditCardId) || new Map<string, number>();
+    months.set(tx.competenceMonth, Math.round(((months.get(tx.competenceMonth) || 0) + tx.amount) * 100) / 100);
+    pendingInvoicesByCard.set(tx.creditCardId, months);
+  }
+  const pendingInvoices = cards.flatMap((card) =>
+    [...(pendingInvoicesByCard.get(card.id) || new Map<string, number>())]
+      .filter(([, amount]) => amount > 0)
+      .map(([invoiceMonth, amount]) => ({
+        cardId: card.id,
+        cardName: cleanDescriptionForComparison(card.name),
+        invoiceMonth,
+        amount,
+      }))
+  );
+
+  const seenFitIds = new Set<string>();
   return items.map((item, idx) => {
-    const dupCheck = checkItemDuplicate(item, existingTransactions, targetAccountId);
+    const dupCheck = checkItemDuplicate(item, existingTransactions, targetAccountId, statementCurrency, exchangeRate);
+    const normalizedFitId = item.fitid?.trim();
+    const repeatedInStatement = Boolean(normalizedFitId && seenFitIds.has(normalizedFitId));
+    if (normalizedFitId) seenFitIds.add(normalizedFitId);
     const suggestedCategoryId = inferCategoryByDescription(item.description, categories, item.rawType);
+    const normalizedDescription = cleanDescriptionForComparison(item.description);
+    const convertedCents = Math.round(item.amount * (exchangeRate || 1) * 100);
+    const hasSafeConversion = statementCurrency === 'BRL' ||
+      (hasValidExchangeRate && Number.isSafeInteger(convertedCents) && convertedCents > 0);
+    const amountBrl = statementCurrency === 'BRL' || !hasSafeConversion
+      ? item.amount
+      : convertedCents / 100;
+    const isPotentialInvoicePayment = item.rawType === 'expense' &&
+      (/(^|\s)fatura(\s|$)/.test(normalizedDescription) ||
+        /\b(pagamento|pagto|pgto) cartao( de credito)?\b/.test(normalizedDescription));
+    const invoiceMatches: Array<{ cardId: string; invoiceMonth: string }> = [];
+
+    if (isPotentialInvoicePayment) {
+      for (const invoice of pendingInvoices) {
+        const descriptionNamesCard = invoice.cardName.length > 0 &&
+          ` ${normalizedDescription} `.includes(` ${invoice.cardName} `);
+        const amountMatchesInvoice = Math.abs(invoice.amount - amountBrl) < 0.01;
+        const amountFitsInvoice = amountBrl > 0 && amountBrl <= invoice.amount;
+        if (amountFitsInvoice && (amountMatchesInvoice || descriptionNamesCard)) {
+          invoiceMatches.push({ cardId: invoice.cardId, invoiceMonth: invoice.invoiceMonth });
+        }
+      }
+    }
+
+    const invoiceMatch = invoiceMatches.length === 1 ? invoiceMatches[0] : undefined;
 
     return {
-      id: `reconcile-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+      id: `reconcile-${idx}-${normalizedFitId || item.date}`,
       fitid: item.fitid,
       date: item.date,
-      amount: item.amount,
+      amount: amountBrl,
+      sourceAmount: statementCurrency === 'BRL' ? undefined : item.amount,
+      originalCurrency: statementCurrency === 'BRL' ? undefined : statementCurrency,
+      exchangeRate: statementCurrency !== 'BRL' && hasSafeConversion ? exchangeRate : undefined,
       type: item.rawType,
       description: item.description,
       memo: item.memo,
-      suggestedCategoryId,
-      isDuplicate: dupCheck.isDuplicate,
-      duplicateReason: dupCheck.reason,
-      selected: !dupCheck.isDuplicate, // Default to unchecked if duplicate
+      suggestedCategoryId: invoiceMatch
+        ? categories.find((category) => category.id === 'cat-fatura')?.id || suggestedCategoryId
+        : suggestedCategoryId,
+      isPotentialInvoicePayment,
+      isInvoicePayment: Boolean(invoiceMatch),
+      settledCardId: invoiceMatch?.cardId,
+      settledInvoiceMonth: invoiceMatch?.invoiceMonth,
+      isDuplicate: dupCheck.isDuplicate || repeatedInStatement,
+      duplicateReason: repeatedInStatement
+        ? `FITID repetido neste arquivo (${normalizedFitId})`
+        : dupCheck.reason,
+      selected: !dupCheck.isDuplicate && !repeatedInStatement &&
+        (!isPotentialInvoicePayment || Boolean(invoiceMatch)),
     };
   });
 }
@@ -752,7 +880,7 @@ export function convertCandidatesToTransactions(
   const currentBatchId = batchId || `batch-ofx-${Date.now().toString(36)}`;
 
   return candidates
-    .filter((c) => c.selected && c.amount > 0)
+    .filter((c) => c.selected && c.amount > 0 && (!c.isInvoicePayment || Boolean(c.settledCardId && c.settledInvoiceMonth)))
     .map((c) => {
       const competenceMonth = c.date.slice(0, 7);
       return {
@@ -771,6 +899,14 @@ export function convertCandidatesToTransactions(
         fitid: c.fitid,
         importBatchId: currentBatchId,
         reconciled: true,
+        isInvoicePayment: c.isInvoicePayment || undefined,
+        settledCardId: c.isInvoicePayment ? c.settledCardId : undefined,
+        settledInvoiceMonth: c.isInvoicePayment ? c.settledInvoiceMonth : undefined,
+        originalAmount: c.originalCurrency ? c.sourceAmount : undefined,
+        originalCurrency: c.originalCurrency as CurrencyCode | undefined,
+        exchangeRate: c.originalCurrency ? c.exchangeRate : undefined,
+        effectiveExchangeRate: c.originalCurrency ? c.exchangeRate : undefined,
+        currencyRegime: c.originalCurrency ? 'global_account' : undefined,
       };
     });
 }

@@ -437,6 +437,100 @@ test('API workspace rejeita coleções inválidas e revisão coercível antes de
   assert.equal(malformedCoreCollection.status, 400);
   assert.match((await malformedCoreCollection.json() as { error: string }).error, /Payload ou revisão esperada inválida/);
 
+  const malformedTransactionAmount = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, transactionsJson: JSON.stringify([
+        { id: 'tx-invalid-amount', type: 'expense', amount: '100,00' },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(malformedTransactionAmount.status, 400, 'valor monetário precisa ser número não negativo seguro em centavos');
+
+  const duplicateTransactionIds = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, transactionsJson: JSON.stringify([
+        { id: 'tx-duplicate-id', type: 'expense', amount: 10, date: '2026-11-11', competenceMonth: '2026-11', status: 'pending' },
+        { id: 'tx-duplicate-id', type: 'expense', amount: 15, date: '2026-11-12', competenceMonth: '2026-11', status: 'pending' },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(duplicateTransactionIds.status, 400, 'IDs de transação repetidos tornam a edição e os vínculos ambíguos');
+
+  const missingTransactionAmount = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, transactionsJson: JSON.stringify([
+        { id: 'tx-missing-amount', type: 'expense' },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(missingTransactionAmount.status, 400, 'transação tipada precisa conter valor numérico');
+
+  const malformedTransactionDate = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, transactionsJson: JSON.stringify([
+        { id: 'tx-invalid-date', type: 'expense', amount: 100, date: '2026-02-30', competenceMonth: '2026-02', status: 'pending' },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(malformedTransactionDate.status, 400, 'data impossível deve ser recusada antes de gravar');
+
+  const malformedGoalValue = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, goalsJson: JSON.stringify([
+        { id: 'goal-invalid-cents', targetAmount: 12.345, currentAmount: 0, monthlyContribution: 1, deadline: '2027-01-01' },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(malformedGoalValue.status, 400, 'meta em BRL com fração menor que um centavo deve ser recusada');
+
+  const malformedInvestmentQuantity = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, investmentsJson: JSON.stringify([
+        { id: 'asset-negative-quantity', quantity: -1, averagePrice: 10, currentPrice: 10 },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(malformedInvestmentQuantity.status, 400, 'quantidade negativa de ativo deve ser recusada');
+
+  const malformedExchangeRate = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, tripsJson: JSON.stringify([
+        { id: 'trip-invalid-rate', defaultExchangeRate: 0, budgetForeign: 100, exchangeLots: [], settlements: [] },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(malformedExchangeRate.status, 400, 'taxa de referência nula deve ser recusada');
+
+  const excessiveTripIof = await originalFetch(`${baseUrl}/api/workspace`, {
+    method: 'PUT', headers,
+    body: JSON.stringify({
+      payload: { ...validPayload, tripsJson: JSON.stringify([
+        {
+          id: 'trip-excessive-iof', name: 'Viagem', startDate: '2026-11-11', endDate: '2026-11-15',
+          defaultExchangeRate: 5, budgetForeign: 100,
+          exchangeLots: [{ id: 'lot-1', date: '2026-11-11', foreignAmount: 100, rateBase: 5, iofPercent: 100.01 }],
+          settlements: [],
+        },
+      ]) },
+      expectedRevision: originalRevision,
+    }),
+  });
+  assert.equal(excessiveTripIof.status, 400, 'IOF fora da faixa usada pelo cálculo deve ser recusado');
+
   const malformedTripCollection = await originalFetch(`${baseUrl}/api/workspace`, {
     method: 'PUT', headers,
     body: JSON.stringify({ payload: { ...validPayload, tripsJson: '{"bad":"shape"}' }, expectedRevision: originalRevision }),

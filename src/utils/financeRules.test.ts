@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addMonthsToYearMonth,
+  applyReconciledBankTransactions,
   applyCascadeAccountDelete,
   applyCascadeTransactionDelete,
   applyCascadeTransactionEdit,
   calculate503020Rule,
   calculateAccountBalances,
+  calculateCalendarDaySummary,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
   calculateDailyCashFlow,
@@ -17,7 +19,11 @@ import {
   createTransactionBatch,
   extractAvailableTransactionTags,
   getBudgetAlerts,
+  getPendingBankMovements,
   getLocalDateISO,
+  getTransactionsLinkedToCreditCard,
+  getTransactionsLinkedToCategory,
+  getClampedMonthDate,
   getEffectiveExpenseAmountForUser,
   normalizeSearchText,
   normalizeTransactionTag,
@@ -46,6 +52,85 @@ test('parseBRLInput parses Brazilian and standard decimal strings accurately', (
 
 test('card invoice payment dates use the local calendar date, not the card due date', () => {
   assert.equal(getLocalDateISO(new Date(2026, 10, 7, 23, 30)), '2026-11-07');
+});
+
+test('card due dates clamp to the last valid day in shorter months', () => {
+  assert.equal(getClampedMonthDate('2026-11', 31), '2026-11-30');
+  assert.equal(getClampedMonthDate('2026-02', 31), '2026-02-28');
+  assert.equal(getClampedMonthDate('2028-02', 31), '2028-02-29');
+});
+
+test('calendar day spending counts the purchase once and keeps invoice settlement out of purchase totals', () => {
+  const summary = calculateCalendarDaySummary([
+    {
+      id: 'card-purchase', description: 'Parcela compra', amount: 100,
+      date: '2026-11-10', competenceMonth: '2026-11', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-1',
+      paymentMethod: 'credit_card', recurrence: 'installment',
+    },
+    {
+      id: 'invoice-payment', description: 'Pagamento Fatura', amount: 100,
+      date: '2026-11-10', competenceMonth: '2026-11', type: 'expense',
+      status: 'paid', categoryId: 'cat-fatura', accountId: 'account-1',
+      paymentMethod: 'boleto', recurrence: 'single', isInvoicePayment: true,
+    },
+    {
+      id: 'bank-bill', description: 'Conta de luz', amount: 25,
+      date: '2026-11-10', competenceMonth: '2026-11', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', accountId: 'account-1',
+      paymentMethod: 'debit', recurrence: 'single',
+    },
+  ] as Transaction[]);
+
+  assert.deepEqual(summary, {
+    pendingExpense: 125,
+    paidExpense: 0,
+    income: 0,
+    dayBalance: -125,
+  });
+});
+
+test('card deletion lookup includes purchases and current or legacy invoice payments', () => {
+  const card: CreditCard = {
+    id: 'card-qa',
+    name: 'Cartão QA',
+    brand: 'Visa',
+    limit: 5000,
+    closingDay: 20,
+    dueDay: 28,
+    defaultAccountId: 'account-1',
+    color: '#123456',
+  };
+  const transactions = [
+    { id: 'purchase-1', creditCardId: card.id, description: 'Compra', isInvoicePayment: false },
+    { id: 'invoice-linked', settledCardId: card.id, description: 'Pagamento', isInvoicePayment: true },
+    { id: 'tx-inv-card-qa-2026-11-1', description: 'Pagamento legado', isInvoicePayment: true },
+    { id: 'invoice-other', settledCardId: 'card-other', description: 'Outro cartão', isInvoicePayment: true },
+    { id: 'unrelated', description: 'Compra do cartão QA em dinheiro', isInvoicePayment: false },
+  ] as Transaction[];
+
+  assert.deepEqual(
+    getTransactionsLinkedToCreditCard(card, transactions).map((tx) => tx.id),
+    ['purchase-1', 'invoice-linked', 'tx-inv-card-qa-2026-11-1']
+  );
+});
+
+test('category deletion lookup finds linked transactions without matching sibling subcategories', () => {
+  const transactions = [
+    { id: 'tx-sub-1', categoryId: 'cat-food', subcategoryId: 'sub-market' },
+    { id: 'tx-sub-2', categoryId: 'cat-food', subcategoryId: 'sub-restaurant' },
+    { id: 'tx-category-2', categoryId: 'cat-home', subcategoryId: 'sub-rent' },
+  ] as Transaction[];
+
+  assert.deepEqual(
+    getTransactionsLinkedToCategory('cat-food', transactions).map((tx) => tx.id),
+    ['tx-sub-1', 'tx-sub-2']
+  );
+  assert.deepEqual(
+    getTransactionsLinkedToCategory('cat-food', transactions, 'sub-market').map((tx) => tx.id),
+    ['tx-sub-1']
+  );
+  assert.deepEqual(getTransactionsLinkedToCategory('cat-missing', transactions), []);
 });
 
 test('card invoice settlement uses the same eligible purchases as its summary', () => {
@@ -106,6 +191,147 @@ test('card invoice settlement uses the same eligible purchases as its summary', 
   assert.equal(calculateCreditCardSummary(card, settled, '2026-11').invoicePendingAmount, 0);
 });
 
+test('card invoice payment is filed against its invoice but debits cash in the actual payment month', () => {
+  const account: BankAccount = {
+    id: 'acc-1', name: 'Conta principal', institution: 'Banco QA', type: 'checking',
+    initialBalance: 1000, color: '#0f172a', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-cash-month', name: 'Cartão QA', brand: 'Visa', limit: 2000,
+    closingDay: 20, dueDay: 5, defaultAccountId: account.id, color: '#0f172a',
+  };
+  const purchases = createTransactionBatch({
+    description: 'Compra do mês anterior', amount: 200, date: '2026-09-18',
+    competenceMonth: '2026-10', type: 'expense', status: 'pending', categoryId: 'cat-compras',
+    creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const settled = payCreditCardInvoice(card, purchases, '2026-10', account.id, '2026-11-02');
+  const payment = settled.find((tx) => tx.isInvoicePayment);
+  assert.equal(payment?.settledInvoiceMonth, '2026-10');
+  assert.equal(payment?.competenceMonth, '2026-11');
+  assert.equal(calculateAccountBalances([account], settled, '2026-10')[0].currentBalance, 1000);
+  assert.equal(calculateAccountBalances([account], settled, '2026-11')[0].currentBalance, 800);
+  const octoberFlow = calculateDailyCashFlow([account], [card], settled, '2026-10');
+  const novemberFlow = calculateDailyCashFlow([account], [card], settled, '2026-11');
+  assert.equal(octoberFlow[octoberFlow.length - 1].cumulativeBalance, 1000);
+  assert.equal(novemberFlow[1].cumulativeBalance, 800);
+
+  const legacyPayment = settled.map((tx) => tx.isInvoicePayment
+    ? { ...tx, competenceMonth: '2026-10', settledInvoiceMonth: undefined }
+    : tx);
+  assert.equal(calculateAccountBalances([account], legacyPayment, '2026-10')[0].currentBalance, 1000);
+  assert.equal(calculateAccountBalances([account], legacyPayment, '2026-11')[0].currentBalance, 800);
+});
+
+test('paying a card invoice reduces bank cash once without duplicating purchase spending', () => {
+  const account: BankAccount = {
+    id: 'acc-card-payment', name: 'Conta principal', institution: 'Banco QA', type: 'checking',
+    initialBalance: 1000, color: '#0f172a', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-payment-semantics', name: 'Cartão QA', brand: 'Visa', limit: 2000,
+    closingDay: 20, dueDay: 25, defaultAccountId: account.id, color: '#0f172a',
+  };
+  const purchase = createTransactionBatch({
+    description: 'Compra de mercado', amount: 100, date: '2026-10-21',
+    competenceMonth: '2026-11', type: 'expense', status: 'pending', categoryId: 'cat-outros',
+    creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const beforePayment = calculateMonthlySummary([account], [card], purchase, '2026-11');
+  assert.equal(beforePayment.totalCurrentBalance, 1000);
+  assert.equal(beforePayment.totalProjectedBalance, 900);
+  assert.equal(beforePayment.expensePending, 100);
+
+  const settled = payCreditCardInvoice(card, purchase, '2026-11', account.id, '2026-11-18');
+  const payment = settled.find((tx) => tx.isInvoicePayment);
+  assert.ok(payment);
+  assert.equal(payment.type, 'expense');
+  assert.equal(payment.amount, 100);
+  assert.equal(payment.competenceMonth, '2026-11');
+
+  const afterPayment = calculateMonthlySummary([account], [card], settled, '2026-11');
+  assert.equal(afterPayment.totalCurrentBalance, 900, 'pagamento debita uma vez do dinheiro da conta');
+  assert.equal(afterPayment.totalProjectedBalance, 900);
+  assert.equal(afterPayment.expenseRealized, 100, 'consumo é reconhecido pela compra, não pelo pagamento duplicado');
+  assert.equal(afterPayment.expensePending, 0);
+  assert.equal(afterPayment.expenseTotal, 100);
+  assert.equal(calculateAccountBalances([account], settled, '2026-11')[0].monthExpense, 100);
+
+  const category = calculateCategoryBreakdown(INITIAL_CATEGORIES, settled, '2026-11')
+    .find((item) => item.categoryId === 'cat-outros');
+  assert.equal(category?.spent, 100, 'o total por categoria mantém apenas a compra');
+  const report = calculatePeriodReport(
+    [account], [card], INITIAL_CATEGORIES, settled, '2026-11', '2026-11'
+  );
+  assert.equal(report.totalExpense, 100, 'relatório de período exclui o pagamento da compra já reconhecida');
+  assert.equal(report.expensesByCategory.find((item) => item.id === 'cat-outros')?.amount, 100);
+  assert.equal(report.monthlySeries[0].cumulativeBalance, 900, 'saldo de caixa ainda reflete a liquidação');
+  assert.deepEqual(calculateCalendarDaySummary([payment]), {
+    pendingExpense: 0, paidExpense: 0, income: 0, dayBalance: 0,
+  });
+
+  const cashFlow = calculateDailyCashFlow([account], [card], settled, '2026-11');
+  assert.equal(cashFlow[17].expense, 100, 'a saída de caixa aparece na data real do pagamento');
+  assert.equal(cashFlow.at(-1)?.cumulativeBalance, 900);
+  assert.equal(cashFlow.at(-1)?.projectedBalance, 900);
+});
+
+test('reconciled bank invoice payments settle linked card purchases and preserve bank import identity', () => {
+  const account: BankAccount = {
+    id: 'acc-import', name: 'Conta importada', institution: 'Banco QA', type: 'checking',
+    initialBalance: 1000, color: '#0f172a', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-import', name: 'Cartão importado', brand: 'Visa', limit: 1000,
+    closingDay: 20, dueDay: 28, defaultAccountId: account.id, color: '#123456',
+  };
+  const [purchase] = createTransactionBatch({
+    description: 'Compra importada', amount: 100, date: '2026-10-10',
+    competenceMonth: '2026-10', type: 'expense', status: 'pending', categoryId: 'cat-compras',
+    creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const importedPayment: Transaction = {
+    id: 'tx-ofx-payment-1', description: 'PAGAMENTO FATURA CARTAO', amount: 100,
+    date: '2026-10-28', competenceMonth: '2026-10', type: 'expense', status: 'paid',
+    categoryId: 'cat-fatura', accountId: account.id, paymentMethod: 'pix', recurrence: 'single',
+    fitid: 'FITID-INVOICE-1', importBatchId: 'batch-1', reconciled: true,
+    isInvoicePayment: true, settledCardId: card.id, settledInvoiceMonth: '2026-10',
+    originalAmount: 20, originalCurrency: 'USD', exchangeRate: 5.2,
+    effectiveExchangeRate: 5.2, currencyRegime: 'global_account',
+  };
+
+  const result = applyReconciledBankTransactions([purchase], [importedPayment], [card]);
+  const savedPayment = result.updatedTransactions.find((tx) => tx.isInvoicePayment);
+  const savedPurchase = result.updatedTransactions.find((tx) => tx.id === purchase.id);
+
+  assert.equal(result.importedCount, 1);
+  assert.equal(result.rejectedInvoicePayments, 0);
+  assert.equal(savedPayment?.id, importedPayment.id);
+  assert.equal(savedPayment?.fitid, importedPayment.fitid);
+  assert.equal(savedPayment?.settledCardId, card.id);
+  assert.equal(savedPayment?.originalAmount, importedPayment.originalAmount);
+  assert.equal(savedPayment?.originalCurrency, importedPayment.originalCurrency);
+  assert.equal(savedPayment?.exchangeRate, importedPayment.exchangeRate);
+  assert.equal(savedPayment?.effectiveExchangeRate, importedPayment.effectiveExchangeRate);
+  assert.equal(savedPurchase?.status, 'paid');
+  assert.equal(savedPurchase?.invoicePaymentId, importedPayment.id);
+  assert.equal(calculateCreditCardSummary(card, result.updatedTransactions, '2026-10').invoicePendingAmount, 0);
+
+  const duplicateBatch = applyReconciledBankTransactions(
+    [purchase],
+    [importedPayment, { ...importedPayment, id: 'tx-ofx-payment-duplicate', fitid: 'FITID-INVOICE-2' }],
+    [card]
+  );
+  assert.equal(duplicateBatch.importedCount, 1);
+  assert.equal(duplicateBatch.rejectedInvoicePayments, 1);
+  assert.equal(duplicateBatch.updatedTransactions.filter((tx) => tx.isInvoicePayment).length, 1);
+
+  const rejected = applyReconciledBankTransactions([purchase], [{ ...importedPayment, amount: 101 }], [card]);
+  assert.equal(rejected.importedCount, 0);
+  assert.equal(rejected.rejectedInvoicePayments, 1);
+  assert.deepEqual(rejected.updatedTransactions, [purchase]);
+});
+
 test('card invoice settlement rejects invalid custom payments instead of treating them as full payment', () => {
   const card: CreditCard = {
     id: 'card-invalid-payment',
@@ -159,10 +385,96 @@ test('createTransactionBatch creates accurate installments with remainder on 1st
   assert.equal(batch[0].amount, 1000.01);
   assert.equal(batch[1].amount, 1000.0);
   assert.equal(batch[2].amount, 1000.0);
+  assert.equal(batch.every((tx) => tx.installmentPurchaseTotal === 3000.01), true);
   assert.equal(batch[0].subcategoryId, 'sub-mor-manut');
   assert.equal(batch[0].competenceMonth, '2026-10');
   assert.equal(batch[1].competenceMonth, '2026-11');
   assert.equal(batch[2].competenceMonth, '2026-12');
+});
+
+test('createTransactionBatch divides purchase and shared portions with integer cents and spreads remainders', () => {
+  const batch = createTransactionBatch({
+    description: 'Compra pequena',
+    amount: 0.08,
+    amountMode: 'total_divided',
+    date: '2026-11-11',
+    competenceMonth: '2026-11',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-moradia',
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentTotal: 5,
+    isShared: true,
+    sharedAmount: 0.07,
+  });
+
+  assert.deepEqual(batch.map((tx) => tx.amount), [0.02, 0.02, 0.02, 0.01, 0.01]);
+  assert.deepEqual(batch.map((tx) => tx.sharedAmount), [0.02, 0.02, 0.01, 0.01, 0.01]);
+  assert.equal(batch.reduce((sum, tx) => sum + Math.round(tx.amount * 100), 0), 8);
+  assert.equal(batch.reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0), 7);
+
+  const evenlyDivided = createTransactionBatch({
+    description: 'Compra de cinquenta e oito centavos',
+    amount: 0.58,
+    amountMode: 'total_divided',
+    date: '2026-11-11',
+    type: 'expense',
+    status: 'pending',
+    categoryId: 'cat-moradia',
+    paymentMethod: 'credit_card',
+    recurrence: 'installment',
+    installmentTotal: 2,
+  });
+  assert.deepEqual(evenlyDivided.map((tx) => tx.amount), [0.29, 0.29]);
+});
+
+test('editing a recurring series start date shifts future dates and competence by month', () => {
+  const batch = createTransactionBatch({
+    description: 'Internet residencial', amount: 120, date: '2026-08-10',
+    competenceMonth: '2026-08', type: 'expense', status: 'paid',
+    categoryId: 'cat-moradia', accountId: 'acc-1', paymentMethod: 'boleto',
+    recurrence: 'fixed', fixedMonthsCount: 3,
+  });
+  const edited = {
+    ...batch[0],
+    date: '2026-09-15',
+    competenceMonth: '2026-09',
+  };
+  const result = applyCascadeTransactionEdit(batch, edited, 'all_series');
+  assert.deepEqual(
+    result.updatedTransactions.map((tx) => [tx.date, tx.competenceMonth]),
+    [['2026-09-15', '2026-09'], ['2026-10-15', '2026-10'], ['2026-11-15', '2026-11']]
+  );
+});
+
+test('editing the original installment purchase total reallocates pending installments in cents and preserves paid rows', () => {
+  const batch = createTransactionBatch({
+    description: 'Compra parcelada sintética', amount: 1000, amountMode: 'total_divided',
+    date: '2026-10-11', competenceMonth: '2026-10', type: 'expense', status: 'pending',
+    categoryId: 'cat-compras', creditCardId: 'card-1', paymentMethod: 'credit_card',
+    recurrence: 'installment', installmentTotal: 3,
+  });
+  const withFirstInstallmentPaid = batch.map((tx, index) => index === 0 ? { ...tx, status: 'paid' as const } : tx);
+  const edited = {
+    ...withFirstInstallmentPaid[0],
+    amount: 1200,
+    installmentPurchaseTotal: 1200,
+    date: '2026-10-12',
+    competenceMonth: '2026-10',
+  };
+
+  const result = applyCascadeTransactionEdit(withFirstInstallmentPaid, edited, 'all_series');
+  const series = result.updatedTransactions.sort((a, b) => (a.installmentNumber || 0) - (b.installmentNumber || 0));
+  assert.equal(result.error, undefined);
+  assert.equal(series[0].amount, 333.34);
+  assert.equal(series[0].status, 'paid');
+  assert.equal(series[1].amount, 433.33);
+  assert.equal(series[2].amount, 433.33);
+  assert.equal(series.reduce((sum, tx) => sum + tx.amount, 0), 1200);
+  assert.deepEqual(series.map((tx) => tx.date), ['2026-10-12', '2026-11-12', '2026-12-12']);
+  assert.deepEqual(series.map((tx) => tx.competenceMonth), ['2026-10', '2026-11', '2026-12']);
+  assert.ok(series.every((tx) => tx.installmentPurchaseTotal === 1200));
 });
 
 test('calculateCreditCardSummary accounts for all unpaid future installments in usedLimit and payCreditCardInvoice settles current month', () => {
@@ -270,6 +582,95 @@ test('calculateAccountBalances and calculateMonthlySummary separate realized vs 
   assert.equal(monthly.expenseRealized, 2500);
   assert.equal(monthly.expensePending, 500);
   assert.equal(monthly.netResultProjected, 5000);
+});
+
+test('calculateAccountBalances includes overdue pending cash movements in projection, without changing monthly totals', () => {
+  const accounts: BankAccount[] = [
+    { id: 'acc-source', name: 'Conta origem', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true },
+    { id: 'acc-destination', name: 'Conta destino', institution: 'Banco', type: 'checking', initialBalance: 100, color: '#000', includeInTotal: true },
+  ];
+  const transactions: Transaction[] = [
+    {
+      id: 'overdue-expense', description: 'Conta vencida', amount: 100, date: '2026-10-10', competenceMonth: '2026-10',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', accountId: 'acc-source', paymentMethod: 'boleto', recurrence: 'single',
+    },
+    {
+      id: 'overdue-income', description: 'Recebimento atrasado', amount: 50, date: '2026-10-15', competenceMonth: '2026-10',
+      type: 'income', status: 'pending', categoryId: 'cat-salario', accountId: 'acc-destination', paymentMethod: 'pix', recurrence: 'single',
+    },
+    {
+      id: 'overdue-transfer', description: 'Transferência pendente', amount: 200, date: '2026-10-20', competenceMonth: '2026-10',
+      type: 'transfer', status: 'pending', categoryId: 'cat-outros', accountId: 'acc-source', destinationAccountId: 'acc-destination',
+      paymentMethod: 'transfer', recurrence: 'single',
+    },
+    {
+      id: 'current-expense', description: 'Conta atual', amount: 25, date: '2026-11-05', competenceMonth: '2026-11',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', accountId: 'acc-source', paymentMethod: 'boleto', recurrence: 'single',
+    },
+    {
+      id: 'future-expense', description: 'Conta futura', amount: 40, date: '2026-12-05', competenceMonth: '2026-12',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', accountId: 'acc-source', paymentMethod: 'boleto', recurrence: 'single',
+    },
+  ];
+
+  const balances = calculateAccountBalances(accounts, transactions, '2026-11');
+  assert.equal(balances[0].currentBalance, 1000);
+  assert.equal(balances[0].projectedBalance, 675);
+  assert.equal(balances[0].monthExpense, 25);
+  assert.equal(balances[1].currentBalance, 100);
+  assert.equal(balances[1].projectedBalance, 350);
+  assert.equal(balances[1].monthIncome, 0);
+});
+
+test('monthly projected balance subtracts open card invoices through the month, but not future installments', () => {
+  const account: BankAccount = {
+    id: 'acc-cash', name: 'Conta', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-1', name: 'Cartão', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: account.id, color: '#000',
+  };
+  const transactions: Transaction[] = [
+    {
+      id: 'card-overdue', description: 'Fatura anterior', amount: 300, date: '2026-10-10', competenceMonth: '2026-10',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+    },
+    {
+      id: 'card-current', description: 'Fatura atual', amount: 200, date: '2026-11-10', competenceMonth: '2026-11',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+    },
+    {
+      id: 'card-future', description: 'Parcela futura', amount: 400, date: '2026-12-10', competenceMonth: '2026-12',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'installment',
+    },
+  ];
+
+  const summary = calculateMonthlySummary([account], [card], transactions, '2026-11');
+  assert.equal(summary.totalCurrentBalance, 1000);
+  assert.equal(summary.totalProjectedBalance, 500);
+  assert.equal(summary.creditCardMonthTotal, 200);
+});
+
+test('pending bank list includes current and overdue receivables/payables but excludes transfers and card purchases', () => {
+  const transaction = (id: string, overrides: Partial<Transaction>): Transaction => ({
+    id, description: id, amount: 10, date: '2026-10-10', competenceMonth: '2026-10',
+    type: 'expense', status: 'pending', categoryId: 'cat-outros', accountId: 'acc-1',
+    paymentMethod: 'boleto', recurrence: 'single', ...overrides,
+  });
+  const items = [
+    transaction('overdue', {}),
+    transaction('current', { date: '2026-11-20', competenceMonth: '2026-11' }),
+    transaction('future-month', { date: '2026-12-01', competenceMonth: '2026-12' }),
+    transaction('transfer', { type: 'transfer', destinationAccountId: 'acc-2' }),
+    transaction('income', { type: 'income', categoryId: 'cat-salario' }),
+    transaction('card', { creditCardId: 'card-1' }),
+    transaction('invalid-date', { date: '2026-02-30', competenceMonth: '2026-02' }),
+  ];
+
+  const currentMonthItems = getPendingBankMovements(items, '2026-11', '2026-11-11');
+  assert.deepEqual(currentMonthItems.map((tx) => tx.id), ['overdue', 'income', 'current']);
+  assert.deepEqual(getPendingBankMovements(items, '2026-10', '2026-11-11').map((tx) => tx.id), ['overdue', 'income']);
+  assert.deepEqual(getPendingBankMovements(null, '2026-11', '2026-11-11'), []);
+  assert.deepEqual(getPendingBankMovements(items, '2026-13', '2026-11-11'), []);
 });
 
 test('simulateFixedIncomeBR applies Brazilian regressive IR rate and outperforms poupanca', () => {
@@ -878,7 +1279,7 @@ test('keeps legacy reversal behavior when one invoice payment is unambiguous', (
   assert.equal(restored?.status, 'pending');
 });
 
-test('resolveCreditCardInvoiceMonth advances competenceMonth when purchase day is after card closingDay', () => {
+test('resolveCreditCardInvoiceMonth accounts for both the card closing and due days', () => {
   const card: CreditCard = {
     id: 'card-closing',
     name: 'Nubank Ultravioleta',
@@ -894,6 +1295,16 @@ test('resolveCreditCardInvoiceMonth advances competenceMonth when purchase day i
   assert.equal(resolveCreditCardInvoiceMonth('2026-10-20', card), '2026-10');
   assert.equal(resolveCreditCardInvoiceMonth('2026-10-21', card), '2026-11');
   assert.equal(resolveCreditCardInvoiceMonth('2026-12-25', card), '2027-01');
+
+  const dueBeforeClosing: CreditCard = { ...card, dueDay: 5 };
+  assert.equal(resolveCreditCardInvoiceMonth('2026-10-15', dueBeforeClosing), '2026-11');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-10-20', dueBeforeClosing), '2026-11');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-10-21', dueBeforeClosing), '2026-12');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-12-25', dueBeforeClosing), '2027-02');
+
+  const dueAfterClosing: CreditCard = { ...card, closingDay: 5, dueDay: 20 };
+  assert.equal(resolveCreditCardInvoiceMonth('2026-09-05', dueAfterClosing), '2026-09');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-09-06', dueAfterClosing), '2026-10');
 });
 
 test('shared expenses paid by member count only user share while pending and avoid double counting once settled', () => {
@@ -1011,9 +1422,10 @@ test('shared expenses paid by member count only user share while pending and avo
   assert.equal(afterDelete.updatedTransactions.length, 0);
 });
 
-test('INITIAL_CATEGORIES includes cat-aportes and cat-outros, and deleting a shared tx from a consolidated tx-reimb-all batch reopens sibling shared expenses', () => {
+test('INITIAL_CATEGORIES includes core financial categories, and deleting a shared tx from a consolidated tx-reimb-all batch reopens sibling shared expenses', () => {
   assert.ok(INITIAL_CATEGORIES.some((c) => c.id === 'cat-aportes' && c.type === 'expense'));
   assert.ok(INITIAL_CATEGORIES.some((c) => c.id === 'cat-outros' && c.type === 'expense'));
+  assert.ok(INITIAL_CATEGORIES.some((c) => c.id === 'cat-fatura' && c.type === 'expense'));
 
   const sharedA: Transaction = {
     id: 'tx-sh-a',
@@ -1258,9 +1670,21 @@ test('deleting an account reassigns linked records and removes transfers that co
   assert.equal(result.updatedTransactions[0]?.sharedSettledAccountId, 'acc-fallback');
   assert.equal(result.updatedTransactions[1]?.accountId, 'acc-fallback');
   assert.equal(result.updatedTransactions[2]?.destinationAccountId, 'acc-fallback');
+  assert.equal(result.updatedAccounts[0]?.initialBalance, 30);
+  const balanceBefore = calculateAccountBalances(
+    accounts,
+    [expense, collapseTransfer, survivingTransfer, incomingTransfer],
+    '2026-11'
+  ).reduce((sum, balance) => sum + balance.currentBalance, 0);
+  const balanceAfter = calculateAccountBalances(
+    result.updatedAccounts,
+    result.updatedTransactions,
+    '2026-11'
+  ).reduce((sum, balance) => sum + balance.currentBalance, 0);
+  assert.equal(balanceAfter, balanceBefore);
 });
 
-test('deleting the last account unassigns ordinary transactions and removes related transfers', () => {
+test('deleting the last account is blocked while it has linked transactions', () => {
   const account: BankAccount = {
     id: 'acc-last', name: 'Última conta', institution: 'Banco', type: 'checking', initialBalance: 0,
     currency: 'BRL', color: '#000', includeInTotal: true,
@@ -1275,10 +1699,23 @@ test('deleting the last account unassigns ordinary transactions and removes rela
 
   const result = applyCascadeAccountDelete([account], [], [expense, transfer], account.id);
 
-  assert.deepEqual(result.updatedAccounts, []);
-  assert.equal(result.updatedTransactions.length, 1);
-  assert.equal(result.updatedTransactions[0]?.accountId, undefined);
-  assert.equal(result.deletedTransactionCount, 1);
+  assert.equal(result.deletedAccount, undefined);
+  assert.match(result.error || '', /última conta/);
+  assert.deepEqual(result.updatedAccounts, [account]);
+  assert.deepEqual(result.updatedTransactions, [expense, transfer]);
+  assert.equal(result.deletedTransactionCount, 0);
+});
+
+test('deleting an account is blocked when no compatible consolidation account exists', () => {
+  const accounts: BankAccount[] = [
+    { id: 'acc-delete-usd', name: 'Conta USD', institution: 'A', type: 'international', currency: 'USD', initialBalance: 0, initialBalanceForeign: 100, color: '#000', includeInTotal: true },
+    { id: 'acc-main-brl', name: 'Conta BRL', institution: 'B', type: 'checking', currency: 'BRL', initialBalance: 0, color: '#000', includeInTotal: true },
+  ];
+  const result = applyCascadeAccountDelete(accounts, [], [], 'acc-delete-usd');
+
+  assert.equal(result.deletedAccount, undefined);
+  assert.match(result.error || '', /mesma moeda/);
+  assert.deepEqual(result.updatedAccounts, accounts);
 });
 
 test('deleting an unknown account does not rewrite financial records', () => {
@@ -1497,10 +1934,52 @@ test('calculateDailyCashFlow reconciles end-of-month balance with calculateAccou
   // Starting included balance = 5000 + 1000 = 6000. Minus 800 investment contribution = 5200.
   assert.equal(includedRealizedEnd, 5200);
 
-  const cashFlowPoints = calculateDailyCashFlow(accounts, txs, '2026-10');
+  const cashFlowPoints = calculateDailyCashFlow(accounts, [], txs, '2026-10');
   const lastDayPoint = cashFlowPoints[cashFlowPoints.length - 1];
   assert.equal(lastDayPoint.cumulativeBalance, includedRealizedEnd);
   assert.equal(lastDayPoint.projectedBalance, includedRealizedEnd);
+});
+
+test('daily cash flow projects open card invoices and member-paid shares without changing realized balance', () => {
+  const account: BankAccount = {
+    id: 'acc-cash-flow', name: 'Conta principal', institution: 'Banco', type: 'checking',
+    initialBalance: 1000, color: '#000000', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-cash-flow', name: 'Cartão', brand: 'Visa', limit: 5000,
+    closingDay: 20, dueDay: 15, defaultAccountId: account.id, color: '#000000',
+  };
+  const purchases: Transaction[] = [
+    {
+      id: 'purchase-overdue', description: 'Fatura anterior', amount: 50,
+      date: '2026-10-05', competenceMonth: '2026-10', type: 'expense', status: 'pending',
+      categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+    },
+    {
+      id: 'purchase-current', description: 'Fatura atual', amount: 100,
+      date: '2026-11-05', competenceMonth: '2026-11', type: 'expense', status: 'pending',
+      categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+    },
+    {
+      id: 'shared-debt-current', description: 'Parte paga pela família', amount: 80,
+      date: '2026-11-20', competenceMonth: '2026-11', type: 'expense', status: 'paid',
+      categoryId: 'cat-outros', paymentMethod: 'pix', recurrence: 'single',
+      isShared: true, sharedPaidBy: 'member', sharedAmount: 25, sharedStatus: 'pending',
+    },
+  ];
+
+  const flow = calculateDailyCashFlow([account], [card], purchases, '2026-11');
+  assert.equal(flow[0].expense, 50);
+  assert.equal(flow[0].projectedBalance, 950);
+  assert.equal(flow[13].projectedBalance, 950);
+  assert.equal(flow[14].expense, 100);
+  assert.equal(flow[14].projectedBalance, 850);
+  assert.equal(flow[14].cumulativeBalance, 1000, 'unpaid invoices do not change the realized balance');
+  assert.equal(flow[19].expense, 25);
+  assert.equal(flow[19].projectedBalance, 825);
+
+  const monthly = calculateMonthlySummary([account], [card], purchases, '2026-11');
+  assert.equal(flow.at(-1)?.projectedBalance, monthly.totalProjectedBalance);
 });
 
 test('calculateFinancialHealthScore360 computes 0-1000 score, net worth, runway months, and safe-to-spend per day', () => {

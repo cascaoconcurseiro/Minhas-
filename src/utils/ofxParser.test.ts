@@ -5,6 +5,7 @@ import {
   convertCandidatesToTransactions,
   extractOfxTag,
   inferCategoryByDescription,
+  matchCategoryByDescription,
   normalizeCsvDate,
   normalizeOfxDate,
   parseBankAmount,
@@ -13,7 +14,8 @@ import {
   parseOFX,
   prepareReconciliationCandidates,
 } from './ofxParser';
-import { Category, Transaction } from '../types/finance';
+import { Category, CreditCard, Transaction } from '../types/finance';
+import { INITIAL_CATEGORIES } from './seedData';
 
 const MOCK_CATEGORIES: Category[] = [
   {
@@ -211,6 +213,7 @@ NEWFILEUID:NONE
     assert.strictEqual(result.fileFormat, 'ofx');
     assert.strictEqual(result.metadata.bankId, '341');
     assert.strictEqual(result.metadata.accountId, '12345-6');
+    assert.strictEqual(result.metadata.currency, 'BRL');
     assert.strictEqual(result.items.length, 3);
 
     // Carrefour debit
@@ -227,6 +230,12 @@ NEWFILEUID:NONE
     assert.strictEqual(result.totalCredits, 5800);
     assert.strictEqual(result.totalDebits, 187.8);
     assert.strictEqual(result.netFlow, 5612.2);
+  });
+
+  it('keeps OFX currency unknown when CURDEF is absent', () => {
+    const result = parseOFX('<OFX><BANKTRANLIST><STMTTRN><TRNTYPE>DEBIT</TRNTYPE><DTPOSTED>20261106</DTPOSTED><TRNAMT>-12.50</TRNAMT></STMTTRN></BANKTRANLIST></OFX>');
+    assert.equal(result.metadata.currency, undefined);
+    assert.equal(result.items.length, 1);
   });
 
   it('parses Brazilian CSV with semicolon and Brazilian currency', () => {
@@ -307,6 +316,19 @@ Data;Descrição;Valor;Identificador
       inferCategoryByDescription('TED SALARIO FOLHA', MOCK_CATEGORIES, 'income'),
       'cat-salario'
     );
+  });
+
+  it('matches common merchants to a category and a useful subcategory when available', () => {
+    assert.deepStrictEqual(
+      matchCategoryByDescription('Compra na Amazon', INITIAL_CATEGORIES, 'expense'),
+      { categoryId: 'cat-compras', subcategoryName: 'Lojas online' }
+    );
+    assert.deepStrictEqual(
+      matchCategoryByDescription('AMAZON PRIME VIDEO', INITIAL_CATEGORIES, 'expense'),
+      { categoryId: 'cat-assinaturas', subcategoryName: 'Streaming & Música' }
+    );
+    assert.strictEqual(matchCategoryByDescription('BARCLAYS SERVICOS FINANCEIROS', INITIAL_CATEGORIES, 'expense'), null);
+    assert.strictEqual(matchCategoryByDescription('Estabelecimento sem regra', INITIAL_CATEGORIES, 'expense'), null);
   });
 
   it('detects duplicate transactions by FITID and by Date/Amount match', () => {
@@ -422,6 +444,98 @@ Data;Descrição;Valor;Identificador
     assert.strictEqual(txs[0].fitid, 'FIT-1');
     assert.strictEqual(txs[0].importBatchId, 'batch-test-1');
     assert.strictEqual(txs[0].reconciled, true);
+  });
+
+  it('selects only the first occurrence of a repeated FITID in the same statement', () => {
+    const candidates = prepareReconciliationCandidates(
+      [
+        { fitid: 'BANK-ROW-1', date: '2026-10-20', amount: 25.5, description: 'Mercado', rawType: 'expense' },
+        { fitid: ' BANK-ROW-1 ', date: '2026-10-20', amount: 25.5, description: 'Mercado', rawType: 'expense' },
+      ],
+      [],
+      MOCK_CATEGORIES,
+      'acc-itaú'
+    );
+
+    assert.equal(candidates[0].selected, true);
+    assert.equal(candidates[0].isDuplicate, false);
+    assert.equal(candidates[1].selected, false);
+    assert.equal(candidates[1].isDuplicate, true);
+    assert.ok(candidates[1].duplicateReason?.includes('repetido neste arquivo'));
+  });
+
+  it('converts foreign statement rows to BRL, preserves source currency/rate, and matches duplicates by original amount', () => {
+    const item = {
+      fitid: 'USD-ROW-1', date: '2026-11-06', amount: 12.5,
+      description: 'Compra internacional', rawType: 'expense' as const,
+    };
+    const existing: Transaction = {
+      id: 'existing-usd', description: item.description, amount: 62.5,
+      originalAmount: 12.5, originalCurrency: 'USD', exchangeRate: 5,
+      date: item.date, competenceMonth: '2026-11', type: 'expense',
+      status: 'paid', categoryId: 'cat-outros', accountId: 'acc-usd',
+      paymentMethod: 'debit_card', recurrence: 'single',
+    };
+
+    const [candidate] = prepareReconciliationCandidates(
+      [item], [], MOCK_CATEGORIES, 'acc-usd', [], { currency: 'USD', exchangeRate: 5.2 }
+    );
+    assert.equal(candidate.amount, 65);
+    assert.equal(candidate.sourceAmount, 12.5);
+    assert.equal(candidate.originalCurrency, 'USD');
+    assert.equal(candidate.exchangeRate, 5.2);
+
+    const [transaction] = convertCandidatesToTransactions([candidate], 'acc-usd', 'usd-import');
+    assert.equal(transaction.amount, 65);
+    assert.equal(transaction.originalAmount, 12.5);
+    assert.equal(transaction.originalCurrency, 'USD');
+    assert.equal(transaction.exchangeRate, 5.2);
+    assert.equal(transaction.currencyRegime, 'global_account');
+
+    const [duplicate] = prepareReconciliationCandidates(
+      [item], [existing], MOCK_CATEGORIES, 'acc-usd', [], { currency: 'USD', exchangeRate: 5.2 }
+    );
+    assert.equal(duplicate.isDuplicate, true);
+    assert.equal(duplicate.selected, false);
+  });
+
+  it('recognizes a uniquely matching statement row as a card invoice settlement', () => {
+    const card: CreditCard = {
+      id: 'card-nubank', name: 'Nubank', brand: 'Mastercard', limit: 5000,
+      closingDay: 20, dueDay: 28, defaultAccountId: 'acc-nubank', color: '#820ad1',
+    };
+    const purchase: Transaction = {
+      id: 'purchase-nubank', description: 'Compra online', amount: 100,
+      date: '2026-10-10', competenceMonth: '2026-10', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', creditCardId: card.id,
+      paymentMethod: 'credit_card', recurrence: 'single',
+    };
+    const [candidate] = prepareReconciliationCandidates(
+      [{ fitid: 'FIT-INVOICE-1', date: '2026-10-28', amount: 100, description: 'PAGAMENTO FATURA NUBANK', rawType: 'expense' }],
+      [purchase], INITIAL_CATEGORIES, 'acc-nubank', [card]
+    );
+
+    assert.equal(candidate.isPotentialInvoicePayment, true);
+    assert.equal(candidate.isInvoicePayment, true);
+    assert.equal(candidate.settledCardId, card.id);
+    assert.equal(candidate.settledInvoiceMonth, '2026-10');
+    assert.equal(candidate.selected, true);
+
+    const [imported] = convertCandidatesToTransactions([candidate], 'acc-nubank', 'import-test');
+    assert.equal(imported.isInvoicePayment, true);
+    assert.equal(imported.settledCardId, card.id);
+    assert.equal(imported.settledInvoiceMonth, '2026-10');
+
+    const secondCard: CreditCard = { ...card, id: 'card-second', name: 'Outro Cartão' };
+    const ambiguous = prepareReconciliationCandidates(
+      [{ date: '2026-10-28', amount: 100, description: 'PAGAMENTO FATURA', rawType: 'expense' }],
+      [purchase, { ...purchase, id: 'purchase-second', creditCardId: secondCard.id }],
+      INITIAL_CATEGORIES, 'acc-nubank', [card, secondCard]
+    )[0];
+    assert.equal(ambiguous.isPotentialInvoicePayment, true);
+    assert.equal(ambiguous.isInvoicePayment, false);
+    assert.equal(ambiguous.settledCardId, undefined);
+    assert.equal(ambiguous.selected, false);
   });
 
   it('compacts transaction for storage, stripping redundant falsy/empty fields', () => {

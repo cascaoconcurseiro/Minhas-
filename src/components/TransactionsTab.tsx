@@ -28,6 +28,8 @@ import {
 } from '../utils/financeRules';
 import { groupTransactionsByDate } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { CardNetworkMark } from './CardNetworkMark';
+import { InstitutionMark } from './InstitutionMark';
 import { MonthlyCalendarView } from './MonthlyCalendarView';
 import { SwipeableTransactionCard } from './SwipeableTransactionCard';
 import { TransactionActionSheet } from './TransactionActionSheet';
@@ -129,6 +131,45 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const accMap = useMemo(() => new Map(accounts.map((a) => [a.id, a.name])), [accounts]);
   const cardMap = useMemo(() => new Map(cards.map((c) => [c.id, c.name])), [cards]);
+  const selectedSourceAccount = accounts.find((account) => account.id === sourceFilter) ?? null;
+  const selectedSourceCard = cards.find((card) => card.id === sourceFilter) ?? null;
+  const getTransactionOriginMarks = (transaction: Transaction) => {
+    const sourceAccount = transaction.creditCardId
+      ? null
+      : accounts.find((account) => account.id === transaction.accountId) ?? null;
+    const sourceCard = transaction.creditCardId
+      ? cards.find((card) => card.id === transaction.creditCardId) ?? null
+      : null;
+    const destinationAccount = transaction.type === 'transfer'
+      ? accounts.find((account) => account.id === transaction.destinationAccountId) ?? null
+      : null;
+
+    return (
+      <span className="inline-flex items-center gap-1">
+        {sourceCard ? (
+          <CardNetworkMark brand={sourceCard.brand} compact />
+        ) : sourceAccount ? (
+          <InstitutionMark
+            institution={sourceAccount.institution}
+            accountName={sourceAccount.name}
+            color={sourceAccount.color}
+            size="xs"
+          />
+        ) : null}
+        {destinationAccount && (
+          <>
+            <span aria-hidden="true">→</span>
+            <InstitutionMark
+              institution={destinationAccount.institution}
+              accountName={destinationAccount.name}
+              color={destinationAccount.color}
+              size="xs"
+            />
+          </>
+        )}
+      </span>
+    );
+  };
 
   const groupsWithFutureInstallments = useMemo(() => {
     const set = new Set<string>();
@@ -312,7 +353,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="module-page space-y-6">
       {/* Top View Mode Switcher: Extrato em Lista vs. Calendário Mensal */}
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
         <div className="flex flex-col 2xl:flex-row 2xl:items-center 2xl:justify-between gap-4">
@@ -525,28 +566,45 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             ))}
           </select>
 
-          <select
-            aria-label="Filtrar por conta ou cartão"
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
-          >
-            <option value="all">Todas as Contas e Cartões</option>
-            <optgroup label="Contas e Carteiras">
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  Conta: {acc.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Cartões de Crédito">
-              {cards.map((card) => (
-                <option key={card.id} value={card.id}>
-                  Cartão: {card.name}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+          <div className="min-w-0">
+            <select
+              aria-label="Filtrar por conta ou cartão"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+            >
+              <option value="all">Todas as Contas e Cartões</option>
+              <optgroup label="Contas e Carteiras">
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    Conta: {acc.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Cartões de Crédito">
+                {cards.map((card) => (
+                  <option key={card.id} value={card.id}>
+                    Cartão: {card.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+            {(selectedSourceAccount || selectedSourceCard) && (
+              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                {selectedSourceAccount ? (
+                  <InstitutionMark
+                    institution={selectedSourceAccount.institution}
+                    accountName={selectedSourceAccount.name}
+                    color={selectedSourceAccount.color}
+                    size="xs"
+                  />
+                ) : selectedSourceCard ? (
+                  <CardNetworkMark brand={selectedSourceCard.brand} compact />
+                ) : null}
+                <span>{selectedSourceAccount?.name || selectedSourceCard?.name}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {usedTagsInLedger.length > 0 && (
@@ -770,6 +828,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                     <div className="divide-y divide-slate-100">
                       {group.transactions.map((tx) => {
                         const cat = catMap.get(tx.categoryId);
+                        const originMarks = getTransactionOriginMarks(tx);
                         const originLabel = tx.creditCardId
                           ? `Cartão ${cardMap.get(tx.creditCardId) || ''}`
                           : tx.type === 'transfer'
@@ -801,6 +860,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                                 transaction={tx}
                                 category={cat}
                                 originLabel={originLabel}
+                                originMarks={originMarks}
                                 installmentMeta={installmentMeta}
                                 onToggleStatus={onToggleStatus}
                                 onEdit={onEditTransaction}
@@ -869,6 +929,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                           accMap.get(tx.destinationAccountId || '') || 'Destino'
                         }`
                       : accMap.get(tx.accountId || '') || 'Carteira';
+                    const originMarks = getTransactionOriginMarks(tx);
 
                     const installmentMeta =
                       tx.installmentTotal && tx.installmentTotal > 1
@@ -936,6 +997,14 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                                 <span>{getMethodLabel(tx.paymentMethod)}</span>
                                 <span aria-hidden="true">·</span>
                                 <span className="font-mono tabular-nums">{installmentMeta}</span>
+                                {tx.installmentPurchaseTotal !== undefined && (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="font-medium text-violet-700">
+                                      Compra total {formatBRL(tx.installmentPurchaseTotal)}
+                                    </span>
+                                  </>
+                                )}
                                 {tx.notes && (
                                   <>
                                     <span aria-hidden="true">·</span>
@@ -972,7 +1041,10 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                         </td>
 
                         <td className="py-3 px-3 text-xs text-slate-700 whitespace-nowrap">
-                          {originLabel}
+                          <span className="inline-flex items-center gap-1.5">
+                            {originMarks}
+                            {originLabel}
+                          </span>
                         </td>
 
                         <td className="py-3 px-3 whitespace-nowrap">

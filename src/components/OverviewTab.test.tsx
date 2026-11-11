@@ -96,7 +96,7 @@ test('OverviewTab renders honest zero-state metrics without demo records', () =>
   const text = page.textContent ?? '';
 
   assert.match(text, /Visão Geral|Boa tarde|Bom dia|Boa noite/);
-  assert.match(text, /Contas em dia em Novembro de 2026/);
+  assert.match(text, /Sem pendências bancárias em Novembro de 2026/);
   assert.match(text, /Saldo em Contas \(Hoje\)/);
   assert.match(text, /Previsto Fim do Mês/);
   assert.match(text, /Receitas do Mês/);

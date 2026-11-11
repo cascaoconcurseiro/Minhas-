@@ -47,6 +47,7 @@ import {
   syncAssetsWithGoogleFinance,
 } from '../utils/investmentRules';
 import { CurrencyInput } from './CurrencyInput';
+import { InstitutionMark } from './InstitutionMark';
 
 interface InvestmentsTabProps {
   getAuthToken: () => Promise<string>;
@@ -532,7 +533,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
   );
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full" data-testid="investments-tab-view">
+    <div className="module-page space-y-6 min-w-0 max-w-full" data-testid="investments-tab-view">
       {/* Row 1: 4 Executive Wealth & Passive Income KPIs (2x2 on Mobile, 4 Columns on Desktop) */}
       <section
         aria-label="Indicadores da Carteira de Investimentos"
@@ -1112,14 +1113,17 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 <label htmlFor="investment-form-institution" className="block text-xs font-semibold text-slate-700 mb-1">
                   Instituição / Corretora
                 </label>
-                <input
-                  type="text"
-                  id="investment-form-institution"
-                  value={institution}
-                  onChange={(e) => setInstitution(e.target.value)}
-                  placeholder="Ex: XP, BTG, Itaú, NuInvest"
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900"
-                />
+                <div className="flex min-w-0 items-center gap-2">
+                  <InstitutionMark institution={institution} size="sm" />
+                  <input
+                    type="text"
+                    id="investment-form-institution"
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                    placeholder="Ex: XP, BTG, Itaú, NuInvest"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1356,6 +1360,15 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                       </option>
                     ))}
                   </select>
+                  {(() => {
+                    const selectedAccount = accounts.find((account) => account.id === opAccountId);
+                    return selectedAccount ? (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                        <InstitutionMark institution={selectedAccount.institution} accountName={selectedAccount.name} color={selectedAccount.color} size="xs" />
+                        <span>Conta selecionada: {selectedAccount.name}</span>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               )}
 
@@ -1408,7 +1421,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                     <p className="text-xs font-medium text-slate-700 mt-0.5">
                       {asset.name}
                     </p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                      <InstitutionMark institution={asset.institution} size="xs" />
                       {asset.institution} · {asset.indexerLabel}
                     </p>
                   </div>
@@ -1541,7 +1555,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                             )}
                           </div>
                           <p className="text-xs font-medium text-slate-700">{asset.name}</p>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                            <InstitutionMark institution={asset.institution} size="xs" />
                             {asset.institution} · {asset.indexerLabel}
                           </p>
                         </div>

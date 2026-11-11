@@ -100,6 +100,28 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     assert.strictEqual(reminders[1].amount, 350.5);
   });
 
+  test('credit-card reminder uses the last valid day when configured due day is 31 in February', () => {
+    const card: CreditCard = {
+      id: 'card-end-of-month', name: 'Cartão fim do mês', brand: 'Visa',
+      limit: 1000, closingDay: 20, dueDay: 31, defaultAccountId: 'acc-main', color: '#123456',
+    };
+    const transaction: Transaction = {
+      id: 'purchase-feb', description: 'Compra parcelada', amount: 100,
+      date: '2026-02-10', competenceMonth: '2026-02', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', creditCardId: card.id,
+      paymentMethod: 'credit_card', recurrence: 'single',
+    };
+
+    const reminders = calculateDailyReminders({
+      transactions: [transaction], cards: [card], selectedMonth: '2026-02',
+      referenceDate: '2026-02-28',
+    });
+
+    assert.equal(reminders[0].dueDate, '2026-02-28');
+    assert.equal(reminders[0].daysRemaining, 0);
+    assert.match(reminders[0].description, /Dia 28/);
+  });
+
   test('calculateDailyReminders identifies pending bills and recurring fixed entries', () => {
     const transactions: Transaction[] = [
       {

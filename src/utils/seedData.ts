@@ -184,6 +184,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     subcategories: [
       { id: 'sub-comp-roupas', name: 'Vestuário & Calçados' },
       { id: 'sub-comp-eletr', name: 'Eletrônicos & Utensílios' },
+      { id: 'sub-comp-online', name: 'Lojas online' },
     ],
   },
   {
@@ -213,6 +214,16 @@ export const INITIAL_CATEGORIES: Category[] = [
       { id: 'sub-apo-selic', name: 'Tesouro Selic / Reserva' },
       { id: 'sub-apo-metas', name: 'Caixinhas de Objetivos' },
     ],
+  },
+  {
+    id: 'cat-fatura',
+    name: 'Pagamento de Fatura de Cartão',
+    type: 'expense',
+    bucket: 'financial',
+    monthlyBudget: 0,
+    color: '#7c3aed',
+    icon: 'file-text',
+    subcategories: [],
   },
   {
     id: 'cat-impostos',

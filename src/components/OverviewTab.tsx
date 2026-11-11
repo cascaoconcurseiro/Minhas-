@@ -30,10 +30,15 @@ import {
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
+  getLocalDateISO,
+  getPendingBankMovements,
   getBudgetAlerts,
 } from '../utils/financeRules';
 import { calculateMonthBurnRateMarker } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { CardNetworkMark } from './CardNetworkMark';
+import { InstitutionMark } from './InstitutionMark';
+import { CreditCardFace } from './CreditCardFace';
 
 interface OverviewTabProps {
   selectedMonth: string;
@@ -112,16 +117,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
 
-  const pendingBills = transactions
-    .filter(
-      (tx) =>
-        tx.competenceMonth === selectedMonth &&
-        tx.status === 'pending' &&
-        !tx.creditCardId &&
-        !tx.isCompanionOnlyExpense &&
-        tx.sharedPaidBy !== 'member'
-    )
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const todayDate = getLocalDateISO();
+  const todayMonth = todayDate.slice(0, 7);
+  const pendingBills = getPendingBankMovements(transactions, selectedMonth, todayDate);
 
   const paidBankBills = transactions
     .filter(
@@ -171,7 +169,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const topCategories = categoryBreakdown.filter((c) => c.spent > 0 || c.budget > 0).slice(0, 6);
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full">
+    <div className="overview-dashboard space-y-6 min-w-0 max-w-full">
       {/* Clean Executive Greeting Header */}
       <header
         data-testid="user-welcome-greeting"
@@ -182,8 +180,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {pendingBills.length > 0
-            ? `${pendingBills.length} conta(s) pendente(s) em ${formatMonthYearPT(selectedMonth)}`
-            : `Contas em dia em ${formatMonthYearPT(selectedMonth)}`}
+            ? `${pendingBills.length} lançamento(s) a pagar/receber em ${formatMonthYearPT(selectedMonth)}${selectedMonth === todayMonth && pendingBills.some((tx) => tx.competenceMonth < selectedMonth) ? ', incluindo atrasados' : ''}`
+            : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
 
@@ -457,6 +455,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {showOverviewAlerts && budgetAlerts.length > 0 && (
         <section
           aria-label="Alertas de orçamento do mês"
+          data-testid="overview-budget-alerts"
           className="min-w-0 max-w-full rounded-xl border border-slate-200 bg-white overflow-hidden"
         >
           {/* Alert Header Bar: Desktop Layout */}
@@ -671,9 +670,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       )}
 
       {/* Row 2: Accounts & Pending Bills (2-Column Split) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch min-w-0">
+      <div data-testid="overview-accounts-bills-row" className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch min-w-0">
         {/* Left: Contas & Carteiras */}
-        <section className="lg:col-span-5 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
+        <section data-testid="overview-account-balances" className="lg:col-span-6 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
@@ -742,26 +741,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       }}
                       className="group cursor-pointer flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 hover:bg-emerald-50/50 transition-colors"
                     >
-                      <div className="min-w-0 pr-2">
-                        <p className="text-sm font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
-                          {acc.name}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5 truncate">
-                          <span>{acc.institution}</span>
-                          <span aria-hidden="true"> · </span>
-                          <span>{typeLabel}</span>
-                          <span aria-hidden="true"> · </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleAccountInTotal(acc.id);
-                            }}
-                            className="text-slate-600 underline hover:text-slate-900"
-                          >
-                            {acc.includeInTotal ? 'No giro mensal' : 'Fora do giro'}
-                          </button>
-                        </p>
+                      <div className="flex min-w-0 items-center gap-3 pr-2">
+                        <InstitutionMark institution={acc.institution} accountName={acc.name} color={acc.color} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
+                            {acc.name}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            <span>{acc.institution}</span>
+                            <span aria-hidden="true"> · </span>
+                            <span>{typeLabel}</span>
+                            <span aria-hidden="true"> · </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleAccountInTotal(acc.id);
+                              }}
+                              className="text-slate-600 underline hover:text-slate-900"
+                            >
+                              {acc.includeInTotal ? 'No giro mensal' : 'Fora do giro'}
+                            </button>
+                          </p>
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
                         <p
@@ -798,12 +800,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </section>
 
         {/* Right: Contas a Pagar e a Receber Pendentes (Baixa Rápida & Reversão) */}
-        <section className="lg:col-span-7 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
+        <section data-testid="overview-pending-bills" className="lg:col-span-6 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
           <div className="min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
                 <h2 className="text-base font-bold text-slate-900 truncate">
-                  Contas a Pagar e a Receber no Mês
+                  Contas a Pagar e a Receber
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5 truncate">
                   {billsFilterMode === 'pending'
@@ -844,7 +846,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="px-4 sm:px-6 py-12 text-center">
                   <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
                   <p className="text-sm font-semibold text-slate-900">
-                    Todas as contas bancárias deste mês estão efetivadas!
+                    Não há contas a pagar ou receber pendentes neste período.
                   </p>
                   {paidBankBills.length > 0 && (
                     <p className="text-xs text-slate-500 mt-1">
@@ -888,6 +890,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               <span className="font-mono tabular-nums">
                                 Vence {formatShortDateBR(tx.date)}
                               </span>
+                              {selectedMonth === todayMonth && tx.competenceMonth < selectedMonth && (
+                                <span className="ml-1.5 rounded bg-rose-100 px-1 py-0.5 text-[10px] font-bold text-rose-700">
+                                  Atrasada
+                                </span>
+                              )}
                               <span aria-hidden="true"> · </span>
                               <span>
                                 {catName}
@@ -995,7 +1002,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           <div className="border-t border-slate-200 px-4 sm:px-6 py-3.5 bg-slate-50/60 flex flex-wrap items-center justify-between gap-2 rounded-b-xl">
             <span className="text-xs text-slate-600">
-              {pendingBills.length} lançamento(s) bancário(s) aguardando baixa neste mês
+              {pendingBills.length} lançamento(s) bancário(s) aguardando baixa
             </span>
             <button
               type="button"
@@ -1009,9 +1016,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       </div>
 
       {/* Row 3: Credit Cards & Budget Thermometer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch min-w-0">
+      <div data-testid="overview-cards-budgets-row" className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch min-w-0">
         {/* Credit Cards Summary */}
-        <section className="lg:col-span-6 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
+        <section data-testid="overview-credit-card-summary" className="lg:col-span-6 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
@@ -1067,27 +1074,30 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         }
                       }
                     }}
-                    className="group cursor-pointer p-4 sm:p-6 space-y-3 hover:bg-violet-50/40 transition-colors"
+                    className="group cursor-pointer p-4 sm:p-6 space-y-3 hover:bg-blue-50/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <CreditCardIcon className="h-4 w-4 text-slate-700 group-hover:text-violet-700 shrink-0" />
-                          <h3 className="text-sm font-bold text-slate-900 group-hover:text-violet-700 transition-colors truncate">
-                            {card.name}
-                          </h3>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <CreditCardFace card={card} size="compact" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <CreditCardIcon className="h-4 w-4 text-slate-700 group-hover:text-blue-700 shrink-0" />
+                            <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
+                              {card.name}
+                            </h3>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            <CardNetworkMark brand={card.brand} />
+                            <span aria-hidden="true"> · </span>
+                            <span>Fecha dia {card.closingDay}</span>
+                            <span aria-hidden="true"> · </span>
+                            <span>Vence dia {card.dueDay}</span>
+                            <span aria-hidden="true"> · </span>
+                            <span className={summary.isInvoicePaid ? 'text-emerald-700 font-medium' : 'text-amber-700 font-medium'}>
+                              {summary.isInvoicePaid ? 'Fatura Paga' : 'Fatura Aberta'}
+                            </span>
+                          </p>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5 truncate">
-                          <span>{card.brand}</span>
-                          <span aria-hidden="true"> · </span>
-                          <span>Fecha dia {card.closingDay}</span>
-                          <span aria-hidden="true"> · </span>
-                          <span>Vence dia {card.dueDay}</span>
-                          <span aria-hidden="true"> · </span>
-                          <span className={summary.isInvoicePaid ? 'text-emerald-700 font-medium' : 'text-amber-700 font-medium'}>
-                            {summary.isInvoicePaid ? 'Fatura Paga' : 'Fatura Aberta'}
-                          </span>
-                        </p>
                       </div>
 
                       <div className="text-right shrink-0">
@@ -1095,7 +1105,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         <p className="text-base font-bold font-mono tabular-nums text-slate-900">
                           {formatBRL(summary.invoiceTotal)}
                         </p>
-                        <p className="text-[11px] font-semibold text-violet-700">
+                        <p className="text-[11px] font-semibold text-blue-700">
                           Abrir fatura →
                         </p>
                       </div>
@@ -1136,7 +1146,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </section>
 
         {/* Budget Thermometer */}
-        <section className="lg:col-span-6 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
+        <section data-testid="overview-category-budgets" className="lg:col-span-6 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">

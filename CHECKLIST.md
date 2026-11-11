@@ -1,18 +1,110 @@
 # Checklist — Minhas Economias
 
+## Auditoria da lógica financeira — 2026-11-11
+- [x] Corrigir data inicial de lançamento para hoje no calendário local, preservando data explícita.
+- [x] Inferir competência de cartão pelo fechamento e vencimento; aplicar também quando data/cartão de compra existente é editado.
+- [x] Separar mês da fatura e mês do débito bancário ao quitar fatura; fluxo de caixa usa data real e o histórico fica ligado à fatura quitada.
+- [x] Permitir selecionar a fatura que será paga, sugerir o saldo pendente como valor e impedir edição genérica da liquidação automática.
+- [x] Persistir o valor original da compra parcelada, exibi-lo junto às parcelas e permitir redistribuir valores futuros sem alterar parcelas pagas.
+- [x] Ao editar uma série fixa em cascata, reposicionar datas futuras junto à nova data/competência inicial.
+- [x] Unificar compra por conta e por cartão dentro da aba Despesa; manter campos de cartão condicionais e chamar as demais operações de Movimentações.
+- [x] Interpretar dígitos monetários não separados como centavos; preservar formatos explícitos colados e rejeitar texto/precisão inválida.
+- [x] Classificar descrições conhecidas por categoria/subcategoria e permitir criar subcategoria no próprio formulário sem persistir durante digitação/cancelamento.
+- [x] Exigir correspondência de palavra/frase completa em regras de comerciante para evitar categoria errada por trecho incidental (ex.: “bar” em “BARCLAYS”).
+- [x] Ocultar status normal de sincronização da navegação e manter falha visível com acesso à nuvem; conservar fila e repetição automática existentes.
+- [x] Registrar auditoria, prioridade, riscos e situação em `docs/AUDITORIA_LOGICA_FINANCEIRA.md`.
+- [x] Validar suíte completa após regra de comerciante (391/391, 56 arquivos), `bun run lint`, `bun run build` (87 entradas PWA) e `git diff --check`.
+- [x] Reforçar a serialização local/Neon para compra parcelada e quitação de fatura; validar junto aos fluxos financeiros relacionados (50 testes direcionados aprovados).
+- [x] Impedir exclusão de cartão com compras ou pagamentos de fatura no histórico; revalidar suíte completa (395/395, 57 arquivos), lint, build e diff-check.
+- [x] Preservar saldo inicial e histórico ao consolidar uma conta; bloquear exclusão sem conta de destino compatível ou da última conta com lançamentos/saldo; revalidar a suíte completa, lint, build e diff-check.
+- [x] Bloquear exclusão de categoria/subcategoria quando houver transações vinculadas, sem reclassificar ou apagar a classificação histórica; validar a suíte completa, lint, build e diff-check.
+- [x] Implementar CSV de revisão histórica e preenchimento confirmado apenas de totais parcelados de alta confiança, com backup JSON antes e undo; manter competência e séries ambíguas para revisão.
+- [x] Revalidar a etapa financeira completa após incluir relatório/aplicação histórica: `bun test` (406 testes, 58 arquivos), lint, build PWA (87 entradas) e `git diff --check` aprovados.
+- [x] Corrigir o resumo diário do calendário para não somar compras e fatura como consumo duplicado; preservar a fatura separada e o pagamento na data real; validar a suíte completa (407 testes, 58 arquivos), lint, build e diff-check.
+- [x] Ajustar vencimentos configurados em dias 29–31 para o último dia do mês em calendário e lembretes; revalidar a suíte completa (409 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Reconhecer pagamentos de fatura na conciliação OFX/CSV, permitir conferir cartão/competência e aplicar baixa em cascata preservando FITID/data; validar suíte completa (412 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Evitar importar duas vezes uma linha repetida com o mesmo FITID dentro do próprio arquivo; marcar ocorrências seguintes como duplicadas e preservar linhas distintas sem FITID; validar suíte completa (413 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Incluir pendências vencidas na projeção até sua quitação, mantendo os totais mensais limitados à competência escolhida; validar suíte completa (414 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Corrigir a lista de contas a pagar/receber: trazer atrasados para o mês atual, excluir transferências e compras de cartão, e sinalizar vencidas; validar suíte completa (415 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Descontar na projeção as faturas de cartão pendentes vencidas/até o mês escolhido e manter parcelas de meses futuros fora do caixa previsto; validar suíte completa (416 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Rejeitar casas decimais acima da precisão da moeda em despesas internacionais, saldo de conta global e orçamento da viagem; preservar precisão de até oito casas em taxas de câmbio e validar IOF; validar suíte completa (421 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [x] Validar overflow em conversões de moeda estrangeira e impedir que despesas/lotes gravem conversões fora da faixa segura; validar suíte completa (422 testes, 58 arquivos), lint, build PWA (87 entradas) e diff-check.
+- [ ] Validar visualmente o fluxo em navegador autenticado com dados sintéticos e confirmar readback no workspace Neon QA.
+- [x] Documentar critérios para prévia/revisão e migração reversível dos históricos, sem executar nem aplicar alterações em lote.
+
+## Redesign visual global — 2026-11-11
+- [x] Conferir sincronização Git antes do trabalho: branch de feature sincronizada com o upstream; `origin/main` contém a branch local no histórico, dois commits adiante.
+- [x] Iniciar tokens compartilhados de cor, superfície e raio; aplicar canvas, campos, foco e transições globais em `src/index.css`.
+- [x] Padronizar campos e estados de foco, botões primários, superfícies dos cartões de todos os módulos e cantos dos diálogos com CSS compartilhado.
+- [x] Aplicar identidade azul ao cabeçalho, navegação desktop/mobile, CTA, tela de login e estados ativos principais; manter dados e handlers.
+- [x] Criar marca visual original compartilhada; exibir Visa/Mastercard/Elo nos cartões cadastrados com contraste no tema escuro e nome acessível.
+- [x] Validar TypeScript (`bun run lint`), build PWA (`bun run build`) e whitespace (`git diff --check`). Nenhum teste foi executado.
+- [x] Compor a Visão Geral em telas largas: saldo previsto em destaque, contas pendentes na lateral e contas/cartões/orçamento na linha seguinte; sem duplicar dados ou alterar ações (CSS a partir de 1366px).
+- [x] Alinhar o ícone SVG do PWA à nova marca azul e atualizar a cor de tema do navegador.
+- [x] Regenerar os ícones PNG PWA/Apple touch e conferir dimensões (180×180, 192×192 e 512×512); inspecionar visualmente o ícone 512×512.
+- [x] Revisar visualmente login em desktop e 390×844 na versão anterior do painel escuro; registro histórico mantido.
+- [x] Renderizar login e cadastro após a alteração para painel claro/azul em 1440×900 e 390×844; selecionar cada modo e conferir os campos/CTAs sem enviar formulário.
+- [x] Restringir estilos globais aos inputs editáveis e não sobrescrever inputs de arquivo/faixa/submit nem classes de botões secundários translúcidos; build, lint e diff-check passam.
+- [x] Preservar indicação visível de foco por teclado, cursor de controles desabilitados e movimento reduzido nas transições/animações globais.
+- [x] Alinhar manifesto PWA ao tema: azul de navegador, canvas claro da tela inicial e metadado `pt-BR`.
+- [x] Padronizar no azul as ações e estados ativos de colagem/importação OFX/CSV; deixar o input nativo oculto e intocado, sem alterar parsing nem handlers.
+- [x] Unificar botões sólidos de ação de destaque verde/índigo/violeta/azul-celeste no azul principal, mantendo as cores de status em tags e painéis não interativos.
+- [x] Expor estado atual da navegação móvel e do drawer “Mais”, e modo selecionado de login/cadastro para tecnologias assistivas, sem alterar handlers; lint, build e diff-check passaram.
+- [x] Aplicar a cor de ação compartilhada a checkbox/radio, além dos campos textuais e range, sem alterar valores ou handlers.
+- [x] Remover o foco verde residual de campos no tema escuro e alinhar superfície/borda/texto aos tokens compartilhados.
+- [x] Exibir preview de cartão na listagem usando cor/nome salvos e marca Visa/Mastercard/Elo, sem alteração de fluxo ou dados.
+- [x] Permitir personalizar a cor do cartão ao criar/editar, persistindo pelo campo `CreditCard.color` já existente.
+- [x] Exibir logotipos de instituições nas seleções de conta dos formulários de cartões, aporte em metas, operações de investimento, importação CSV, conciliação, rateio, viagem e transação; manter o mesmo `<select>` e seus handlers.
+- [x] Validar TypeScript (`bun run lint`), build PWA (`bun run build`, 86 itens em precache) e whitespace (`git diff --check`) após a cobertura adicional de formulários; nenhum teste executado.
+- [x] Aplicar o padrão de página também à subpágina de extrato/detalhe da conta, que antes não tinha a classe `module-page`.
+- [x] Harmonizar links de ação ainda verdes/índigo/violeta com o azul do app sem alterar links neutros nem cores de dados financeiros semânticos; manter seleção por cor de membros intacta.
+- [x] Revalidar TypeScript, build PWA (86 itens em precache) e diff-check após os estilos globais; nenhum teste executado.
+- [x] Mostrar marca da instituição ou bandeira do cartão nas origens de lançamentos exibidas na busca global e no filtro do extrato.
+- [x] Mostrar a instituição nas contas destino de transferência e origem internacional em viagem, sem alterar valores, regras ou handlers existentes.
+- [x] Validar TypeScript, build PWA (87 itens em precache) e diff-check; nenhum teste executado.
+- [x] Inventariar cobertura estática: os módulos raiz estão sob `module-page`/`overview-dashboard`; modais usam o escopo compartilhado de diálogo.
+- [x] Cobrir com `modal-shell` todos os papéis de diálogo/alertdialog em componentes de produção e alinhar a superfície escura ao tema compartilhado.
+- [x] Uniformizar os estados selecionados dos controles ARIA e acento de checkbox/radio/range em azul, preservando os estados semânticos financeiros.
+- [x] Incluir mini preview da bandeira e cor do cartão também na Visão Geral, mantendo status de fatura semânticos.
+- [x] Alinhar estados selecionados de troca de cartão/grupo de parcelas/viagem ao azul e expor `aria-pressed` nos controles.
+- [x] Aumentar contraste dos previews de cartão para cores claras, preservando fallback para cores antigas inválidas.
+- [x] Alinhar também ações em botões de texto/contorno verdes, índigo, violetas e celestes ao azul global, mantendo semântica fora dos botões.
+- [x] Aplicar as cores de ação azuis aos cartões/linhas clicáveis com `role="button"` e às legendas de hover associadas.
+- [x] Uniformizar em azul os ícones dos módulos no drawer móvel, preservando indicadores semânticos de sincronização.
+- [x] Exibir monogramas da instituição nas listas de contas e na Visão Geral, aproveitando instituição/nome/cor já cadastrados.
+- [x] Reutilizar a marca da instituição também nas linhas de investimentos desktop/mobile, com variante pequena e fallback para instituições não mapeadas.
+- [x] Mostrar preview da logo/monograma ao digitar a instituição no formulário de conta, sem alterar o dado persistido nem o fluxo de edição.
+- [x] Mostrar preview da logo/monograma ao digitar a corretora no formulário de investimento, preservando instituições digitadas livremente.
+- [x] Exibir a face visual do cartão escolhido nos formulários de compra no crédito, quitação de fatura e lançamento de gasto internacional, mantendo os mesmos `<select>` e handlers.
+- [x] Exibir a instituição da conta selecionada nos formulários de conciliação OFX/CSV, acerto compartilhado e débito de câmbio, sem substituir os `<select>`.
+- [x] Exibir a instituição selecionada no campo principal de origem da transação e na conta internacional vinculada a uma viagem.
+- [x] Exibir também a instituição escolhida no acerto de PIX de uma viagem quando habilita o registro no saldo bancário.
+- [x] Reutilizar uma mesma face visual de cartão na listagem, dashboard e página detalhada do cartão.
+- [x] Substituir monogramas por logos locais de instituições financeiras conhecidas nas contas e na Visão Geral, mantendo fallback para instituições sem logo; registrar atribuição e escopo de marcas em `THIRD_PARTY_NOTICES.md`.
+- [x] Mostrar marca da instituição, nome e tipo no cabeçalho da subpágina de conta.
+- [x] Padronizar ao azul os SVGs de ícones de ação dentro de `<button>` e `[role="button"]`.
+- [x] Unificar botões sólidos de ação cinza-escuros (`slate-700/800`) com o azul principal e hover.
+- [x] Aplicar tema escuro à navegação lateral desktop/drawer móvel e azul ao módulo selecionado em ambos.
+- [ ] Conferir o encaixe móvel dos monogramas e previews de cartão.
+- [ ] Revisar preview dos cartões em desktop/mobile e conferir contraste com cores de cartão variadas.
+- [ ] Revisar a composição da Visão Geral renderizada e ajustar fidelidade/overflow nas larguras desktop e mobile (página autenticada; ainda não observada; grid wide-screen recém-ajustado).
+- [ ] Revisar visualmente cada página/subpágina, formulário e modal em desktop/mobile; corrigir diferenças encontradas. A revisão ainda não cobriu sessões autenticadas.
+
 ## Gate de liberação para produção — estado atual
 - [x] Publicar o código de integração readiness/status no commit `0e080c7`; CI `42425025978` passou e Vercel deployment `minhaseconomias-ggrb646vu` ficou Ready.
 - [x] Verificar o smoke público: `/api/status` retornou 200 com Auth/Neon configurados e `neon: not_checked`; `/api/readiness` sem autorização retornou 401.
 - [x] Cadastrar `CRON_SECRET` como variável sensível em Production; não foi lido nem exposto.
-- [ ] Validar `/api/readiness` autenticado (200/Neon ok/role restrita) e observar execução agendada do cron; `vercel env run` não disponibilizou o valor sensível localmente, por isso o GET autenticado ainda não foi provado.
-- [ ] Comprovar execução automática `schedule` do backup cifrado; as execuções conhecidas continuam `workflow_dispatch`.
+- [ ] Validar `/api/readiness` autenticado (200/Neon ok/role restrita) e observar execução agendada do cron; `vercel env run` não disponibilizou o valor sensível localmente. Auditoria externa em 2026-11-08 confirmou `/api/readiness` `15 12 * * *` UTC, mas a janela de hoje (09:15 BRT) ainda não ocorreu; GETs 401 observados foram smoke sem bearer, não evidência de Cron.
+- [ ] Comprovar execução automática `schedule` do backup cifrado; último backup conhecido `workflow_dispatch` em 2026-11-07 20:54 UTC. Auditoria read-only em 2026-11-08 confirmou próximo schedule configurado para 13:17 UTC (10:17 BRT), ainda futuro na consulta.
 - [x] Implementar máscara em campos monetários editáveis: contas/saldos, lançamentos e rateios exatos, cartões/pagamentos, orçamentos, metas/simulador, investimentos, viagens e conversor; a moeda selecionada controla casas decimais, inclusive JPY/CLP. `1000` agrupa ao digitar e finaliza como `1.000,00`; moeda fica no prefixo já existente.
 - [x] Validar utilitário e componente de moeda: digitação, cursor, substituição de seleção, colagem BR/US/Europa, backspace, precisão por moeda, valores negativos e conservação de casas excedentes para validação; full suite `bun test` **380/380 em 56 arquivos**, `bun run lint`, `bun run build` e `git diff --check` passaram em 2026-11-08.
-- [ ] Publicar a máscara monetária e validar no site servido; esta alteração segue local e ainda não passou pelo CI/deploy.
+- [x] Publicar a máscara no PR [#2](https://github.com/cascaoconcurseiro/Minhas-/pull/2), merge commit `63c439f`; CI `42476104819` passou e deployment Vercel `dpl_GhpQLu1yRWgs2jad3ya7TcMvPQem` ficou Ready em Production.
+- [x] Fazer smoke após deploy: página e `/api/status` HTTP 200; `/api/readiness` sem credencial HTTP 401; chunk publicado de lançamentos importa o componente `CurrencyInput`.
+- [ ] Validar visualmente com sessão real de QA a digitação/blur nos formulários publicados; smoke de rota e inspeção de bundle não exercitam campos pela interface autenticada. Tentativa no Ego Lite em 2026-11-08 não iniciou porque a ferramenta não conseguiu conexão ao bootstrap do navegador neste ambiente; nenhum outro perfil foi usado.
 - [ ] Validar cadastro/login/logout e reload com sessão de QA, mais CRUD → reload/readback Neon para cada entidade e isolamento entre titulares.
 - [ ] Validar restore/import/export pela UI em branch Neon QA descartável, com readback independente e limpeza.
 - [ ] Concluir revisão visual/accessibilidade em desktop e mobile; guardar a chave privada `age` fora deste computador e comprovar recuperação em outro dispositivo.
-- [ ] Após publicar a máscara, validar no site servido digitação e blur em campos BRL e internacionais, incluindo um valor com zero casas decimais; registrar CI/Vercel.
+- [ ] Após publicar a máscara, validar pela interface a digitação e blur em campos BRL e internacionais, incluindo um valor com zero casas decimais; registrar o resultado.
 
 ## Correções e integração de segurança — 2026-11-07
 - [x] Validar revogação/desativação Firebase no Identity Toolkit, falhar fechado sem `FIREBASE_API_KEY` e mapear erros conhecidos de conta/token para 401; erros de configuração, rede ou desconhecidos retornam 503.
@@ -752,3 +844,37 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Logout real (token_version) implementado e testado localmente.
 - [x] Migration 009 aplicada no Neon de produção.
 - [ ] Commitar e publicar na main.
+
+## Acesso autenticado à Preview com banco QA — 2026-11-11
+- [x] Criar projeto Neon QA isolado (`minhas-preview-qa`) e aplicar migrations 001–009 sem dados de produção.
+- [x] Criar role runtime de menor privilégio e configurar `DATABASE_URL` sensível somente para Preview do Vercel.
+- [x] Reconstruir a implantação de Preview usada pelo usuário e confirmar estado Ready.
+- [ ] Revogar a chave API temporária no painel Neon; o perfil foi removido localmente, mas a chave recusou auto-revogação por escopo.
+- [ ] Usuário criar sua conta pelo formulário do Preview e confirmar login visual com o link compartilhável.
+
+## Continuação da auditoria financeira — 2026-11-11
+- [x] Validar e proteger médias ponderadas e análises por lote/mês de câmbio contra dados não finitos e valores fora da faixa segura de centavos; suíte completa, lint, build e diff-check aprovados.
+- [x] Corrigir saldo de conta internacional para separar despesas pagas de pendentes, ignorar lotes cambiais futuros/inválidos e respeitar a competência selecionada; suíte completa (424), lint, build e diff-check aprovados.
+- [x] Recalcular duplicatas quando muda a conta de conciliação e bloquear extrato OFX não-BRL/sem moeda até haver conversão segura; suíte completa (427), lint, build e diff-check aprovados.
+- [x] Implementar conversão OFX estrangeira com taxa explícita por arquivo e persistir valor/moeda/taxa originais por lançamento; prévia mostra a conversão.
+- [x] Incluir receitas pagas e pendentes no saldo internacional e no custo médio cambial quando houver origem/taxa válida.
+- [x] Impedir que respostas de gravação atrasadas da sessão antiga alterem revisão e estado da conta nova.
+- [x] Ratear compras parceladas em centavos inteiros e distribuir os centavos restantes sem viés de ponto flutuante.
+- [x] Reexecutar suíte completa (430/430), lint, build PWA (88 entradas) e diff-check após as correções.
+- [x] Validar valores financeiros no payload persistido antes de usar no cálculo ou aceitar gravação no backend; cobrir API e hidratação local.
+- [x] Exigir data real, competência mensal e status válido em transações tipadas persistidas, com cobertura local e no endpoint.
+- [x] Reexecutar suíte completa (431/431), lint, build PWA (88 entradas) e diff-check após a validação do payload.
+- [x] Fazer o fluxo de caixa diário refletir faturas abertas no vencimento e faturas antigas como atraso, sem mexer no saldo efetivado.
+- [x] Reexecutar suíte completa (432/432), lint, build PWA (88 entradas) e diff-check após reconciliar a projeção diária.
+- [x] Confirmar a suíte completa (432/432), lint, build PWA (88 entradas) e diff-check também após validar data, competência e status das transações persistidas.
+- [x] Estender a validação compartilhada de payload para valores de metas, investimentos, lotes cambiais e liquidações de viagens.
+- [x] Cobrir validação de metas/ativos/viagens, precisão decimal por moeda e faixas de rendimento/IOF no parser e no endpoint; suíte completa (433/433), lint, build PWA (88 entradas) e diff-check aprovados.
+- [x] Proteger leitura, refresh de conflito e resolução “manter local” contra troca de UID durante chamadas assíncronas; regressões integradas passaram para UID novo com mesmo e-mail e conflitos atrasados.
+- [x] Conferir pagamento de fatura entre saldo da conta, caixa diário, despesa por competência/categoria, relatório e calendário; garantir redução de caixa única sem duplicar consumo. Suíte final: 434/434, lint, build PWA e diff-check aprovados.
+- [x] Corrigir a sugestão automática de subcategoria ao mudar o estabelecimento, limpar subcategoria incompatível, ignorar IDs históricos removidos e respeitar seleção manual; regressões do formulário incluídas.
+- [x] Reabrir e salvar o valor total original ao editar uma compra parcelada; regressão do modal incluída.
+- [x] Reexecutar validação local após estas correções: 437/437 testes em 58 arquivos, lint/TypeScript, build PWA (88 entradas) e diff-check aprovados.
+- [x] Corrigir inferência de total em série legada incompleta com parcela parcialmente paga; não estimar o total original, restringir a edição à parcela selecionada e cobrir com regressão sintética. Suíte completa: 438/438, lint, build PWA (88 entradas) e diff-check aprovados.
+- [x] Separar o download do backup da alteração dos metadados históricos; só aplicar após segunda confirmação de que o arquivo foi salvo. Regressão confirma que o primeiro clique não altera os lançamentos.
+- [x] Rejeitar IDs repetidos nas coleções persistidas antes da hidratação local ou gravação pela API; cobrir parser e endpoint para evitar edição/liquidação ambígua.
+- [ ] Seguir a auditoria dos demais fluxos financeiros e completar QA autenticado/readback no Neon Preview.

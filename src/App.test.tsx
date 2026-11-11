@@ -16,5 +16,5 @@ test('App auth-to-Neon orchestration and load retry run in an isolated Bun proce
     0,
     [result.stdout, result.stderr].filter(Boolean).join('\n') || 'isolated App harness failed'
   );
-  assert.match(result.stdout, /4 pass/);
+  assert.match(result.stdout, /8 pass/);
 });

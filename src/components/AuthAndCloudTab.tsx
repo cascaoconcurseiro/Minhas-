@@ -252,7 +252,7 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="module-page space-y-5">
       {/* Top Banner: Automatic Cloud Status + Prominent Login/Logout State */}
       <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 text-white p-5 shadow-md">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">

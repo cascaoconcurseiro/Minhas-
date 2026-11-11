@@ -101,6 +101,12 @@ function isCreditCardInvoicePurchase(tx: Transaction): boolean {
   return !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member';
 }
 
+function getCashMovementMonth(tx: Transaction): string {
+  return tx.isInvoicePayment && /^\d{4}-\d{2}-\d{2}$/.test(tx.date)
+    ? tx.date.slice(0, 7)
+    : tx.competenceMonth;
+}
+
 export function addMonthsToYearMonth(yearMonth: string, offset: number): string {
   const [yStr, mStr] = yearMonth.split('-');
   const year = Number(yStr);
@@ -109,6 +115,14 @@ export function addMonthsToYearMonth(yearMonth: string, offset: number): string 
   const newYear = d.getUTCFullYear();
   const newMonth = String(d.getUTCMonth() + 1).padStart(2, '0');
   return `${newYear}-${newMonth}`;
+}
+
+/** Returns a card/bill date using the month's last day when its configured day is unavailable. */
+export function getClampedMonthDate(yearMonth: string, day: number): string {
+  const [year, month] = yearMonth.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const safeDay = Math.min(Math.max(1, Math.trunc(day || 1)), daysInMonth);
+  return `${yearMonth}-${String(safeDay).padStart(2, '0')}`;
 }
 
 export function addMonthsToDateString(dateStr: string, offset: number): string {
@@ -190,6 +204,7 @@ export interface CreateTransactionBatchInput {
   description: string;
   amount: number;
   amountMode?: 'per_installment' | 'total_divided';
+  installmentPurchaseTotal?: number;
   date: string; // YYYY-MM-DD
   competenceMonth?: string; // YYYY-MM
   type: TransactionType;
@@ -362,34 +377,42 @@ export function createTransactionBatch(
   if (input.recurrence === 'installment' && (input.installmentTotal || 1) > 1) {
     const totalCount = Math.max(2, Math.min(48, Math.floor(input.installmentTotal || 2)));
     const mode = input.amountMode || 'total_divided';
-    const basePart =
-      mode === 'total_divided'
-        ? Math.floor((input.amount / totalCount) * 100) / 100
-        : Math.round(input.amount * 100) / 100;
-    const remainderCents =
-      mode === 'total_divided'
-        ? Math.round((input.amount - basePart * totalCount) * 100) / 100
-        : 0;
+    const amountCents = Math.round(input.amount * 100);
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+      throw new RangeError('O valor da compra parcelada precisa caber em centavos seguros.');
+    }
+    const basePartCents = mode === 'total_divided'
+      ? Math.floor(amountCents / totalCount)
+      : amountCents;
+    const remainderCents = mode === 'total_divided'
+      ? amountCents % totalCount
+      : 0;
+    const purchaseTotalCents = Math.round((input.installmentPurchaseTotal ?? (
+      mode === 'total_divided' ? amountCents / 100 : (amountCents * totalCount) / 100
+    )) * 100);
+    if (!Number.isSafeInteger(purchaseTotalCents) || purchaseTotalCents < 0) {
+      throw new RangeError('O total da compra parcelada precisa caber em centavos seguros.');
+    }
+    const purchaseTotal = purchaseTotalCents / 100;
 
     const totalShared = input.sharedAmount || 0;
-    const baseSharedPart =
-      mode === 'total_divided'
-        ? Math.floor((totalShared / totalCount) * 100) / 100
-        : Math.round(totalShared * 100) / 100;
-    const remainderSharedCents =
-      mode === 'total_divided'
-        ? Math.round((totalShared - baseSharedPart * totalCount) * 100) / 100
-        : 0;
+    const totalSharedCents = Math.round(totalShared * 100);
+    if (!Number.isSafeInteger(totalSharedCents) || totalSharedCents < 0) {
+      throw new RangeError('O valor compartilhado precisa caber em centavos seguros.');
+    }
+    const baseSharedPartCents = mode === 'total_divided'
+      ? Math.floor(totalSharedCents / totalCount)
+      : totalSharedCents;
+    const remainderSharedCents = mode === 'total_divided'
+      ? totalSharedCents % totalCount
+      : 0;
 
     const results: Transaction[] = [];
     for (let i = 0; i < totalCount; i++) {
       const instNumber = i + 1;
-      const instAmount =
-        i === 0 ? Math.round((basePart + remainderCents) * 100) / 100 : basePart;
+      const instAmount = (basePartCents + (i < remainderCents ? 1 : 0)) / 100;
       const instSharedAmount =
-        i === 0
-          ? Math.round((baseSharedPart + remainderSharedCents) * 100) / 100
-          : baseSharedPart;
+        (baseSharedPartCents + (i < remainderSharedCents ? 1 : 0)) / 100;
       const instDate = addMonthsToDateString(input.date, i);
       const instMonth = addMonthsToYearMonth(baseMonth, i);
       const instStatus: TransactionStatus = i === 0 ? input.status : 'pending';
@@ -412,6 +435,7 @@ export function createTransactionBatch(
         installmentGroupId: groupId,
         installmentNumber: instNumber,
         installmentTotal: totalCount,
+        installmentPurchaseTotal: purchaseTotal,
         notes: input.notes,
         tags: cleanTags,
         isShared: input.isShared,
@@ -517,17 +541,18 @@ export function calculateAccountBalances(
         continue;
       }
 
-      if (tx.competenceMonth > selectedMonth) {
+      const cashMovementMonth = getCashMovementMonth(tx);
+      if (cashMovementMonth > selectedMonth) {
         continue;
       }
 
-      const isSelectedMonth = tx.competenceMonth === selectedMonth;
+      const isSelectedMonth = cashMovementMonth === selectedMonth;
 
       if (tx.type === 'income' && tx.accountId === acc.id) {
         if (tx.status === 'paid') {
           currentBalance += tx.amount;
           projectedBalance += tx.amount;
-        } else if (isSelectedMonth) {
+        } else {
           projectedBalance += tx.amount;
         }
         if (isSelectedMonth) {
@@ -537,7 +562,7 @@ export function calculateAccountBalances(
         if (tx.status === 'paid') {
           currentBalance -= tx.amount;
           projectedBalance -= tx.amount;
-        } else if (isSelectedMonth) {
+        } else {
           projectedBalance -= tx.amount;
         }
         if (isSelectedMonth) {
@@ -548,7 +573,7 @@ export function calculateAccountBalances(
           if (tx.status === 'paid') {
             currentBalance -= tx.amount;
             projectedBalance -= tx.amount;
-          } else if (isSelectedMonth) {
+          } else {
             projectedBalance -= tx.amount;
           }
         }
@@ -556,7 +581,7 @@ export function calculateAccountBalances(
           if (tx.status === 'paid') {
             currentBalance += tx.amount;
             projectedBalance += tx.amount;
-          } else if (isSelectedMonth) {
+          } else {
             projectedBalance += tx.amount;
           }
         }
@@ -571,6 +596,47 @@ export function calculateAccountBalances(
       monthExpense: Math.round(monthExpense * 100) / 100,
     };
   });
+}
+
+/** Returns unpaid bank income/expense movements for the selected month, including overdue items in the current month. */
+export function getPendingBankMovements(
+  transactions: Transaction[] | null | undefined,
+  selectedMonth: string,
+  todayDate: string = getLocalDateISO()
+): Transaction[] {
+  const isValidISODate = (value: string) => {
+    if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value)) return false;
+    const parsedDate = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
+  };
+  if (
+    !Array.isArray(transactions) ||
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(selectedMonth) ||
+    !isValidISODate(todayDate)
+  ) {
+    return [];
+  }
+  const currentMonth = todayDate.slice(0, 7);
+  return transactions
+    .filter((tx) => {
+      if (
+        !tx ||
+        tx.status !== 'pending' ||
+        tx.type === 'transfer' ||
+        tx.creditCardId ||
+        tx.isCompanionOnlyExpense ||
+        tx.sharedPaidBy === 'member' ||
+        !isValidISODate(tx.date)
+      ) return false;
+
+      const competenceMonth = tx.competenceMonth || tx.date.slice(0, 7);
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(competenceMonth)) return false;
+      if (competenceMonth === selectedMonth) return true;
+      return selectedMonth === currentMonth &&
+        competenceMonth < selectedMonth &&
+        tx.date <= todayDate;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function calculateCreditCardSummary(
@@ -736,6 +802,9 @@ export function payCreditCardInvoice(
     }
   }
 
+  const paymentCashMonth = /^\d{4}-\d{2}-\d{2}$/.test(paymentDate)
+    ? paymentDate.slice(0, 7)
+    : invoiceMonth;
   const invoicePaymentTx: Transaction = {
     id: invoicePaymentId,
     description: isPartial
@@ -743,7 +812,7 @@ export function payCreditCardInvoice(
       : `Pagamento Fatura ${card.name} (${invoiceMonth})`,
     amount: targetPayAmount,
     date: paymentDate,
-    competenceMonth: invoiceMonth,
+    competenceMonth: paymentCashMonth,
     type: 'expense',
     status: 'paid',
     categoryId: 'cat-fatura',
@@ -752,6 +821,7 @@ export function payCreditCardInvoice(
     recurrence: 'single',
     isInvoicePayment: true,
     settledCardId: card.id,
+    settledInvoiceMonth: invoiceMonth,
     notes: isPartial
       ? `Abatimento parcial de fatura (${formatBRL(targetPayAmount)} de ${formatBRL(totalPending)})`
       : 'Baixa integral automática de fatura de cartão de crédito',
@@ -760,28 +830,135 @@ export function payCreditCardInvoice(
   return [invoicePaymentTx, ...updatedTransactions];
 }
 
+export interface ReconciledImportResult {
+  updatedTransactions: Transaction[];
+  importedCount: number;
+  rejectedInvoicePayments: number;
+}
+
+/** Imports bank rows and applies invoice rows through the normal card settlement cascade. */
+export function applyReconciledBankTransactions(
+  existingTransactions: Transaction[],
+  importedTransactions: Transaction[],
+  cards: CreditCard[]
+): ReconciledImportResult {
+  let updatedTransactions = [...existingTransactions];
+  let importedCount = 0;
+  let rejectedInvoicePayments = 0;
+
+  for (const imported of importedTransactions) {
+    if (!imported.isInvoicePayment) {
+      updatedTransactions = [imported, ...updatedTransactions];
+      importedCount += 1;
+      continue;
+    }
+
+    const card = cards.find((candidate) => candidate.id === imported.settledCardId);
+    const invoiceMonth = imported.settledInvoiceMonth;
+    if (!card || !invoiceMonth || !imported.accountId) {
+      rejectedInvoicePayments += 1;
+      continue;
+    }
+
+    const settledTransactions = payCreditCardInvoice(
+      card,
+      updatedTransactions,
+      invoiceMonth,
+      imported.accountId,
+      imported.date,
+      imported.amount
+    );
+    if (settledTransactions === updatedTransactions) {
+      rejectedInvoicePayments += 1;
+      continue;
+    }
+
+    const generatedPayment = settledTransactions[0];
+    if (!generatedPayment?.isInvoicePayment) {
+      rejectedInvoicePayments += 1;
+      continue;
+    }
+
+    updatedTransactions = settledTransactions.map((transaction) => {
+      if (transaction.id === generatedPayment.id) {
+        return {
+          ...generatedPayment,
+          id: imported.id,
+          description: imported.description,
+          fitid: imported.fitid,
+          importBatchId: imported.importBatchId,
+          reconciled: true,
+          originalAmount: imported.originalAmount,
+          originalCurrency: imported.originalCurrency,
+          exchangeRate: imported.exchangeRate,
+          effectiveExchangeRate: imported.effectiveExchangeRate,
+          currencyRegime: imported.currencyRegime,
+          notes: [generatedPayment.notes, imported.notes].filter(Boolean).join(' · '),
+        };
+      }
+      return transaction.invoicePaymentId === generatedPayment.id
+        ? { ...transaction, invoicePaymentId: imported.id }
+        : transaction;
+    });
+    importedCount += 1;
+  }
+
+  return { updatedTransactions, importedCount, rejectedInvoicePayments };
+}
+
 /**
- * Determina automaticamente o mês de competência da fatura do cartão de crédito (`YYYY-MM`)
- * com base na data da compra e no Dia de Fechamento (`closingDay` / "Melhor Dia de Compra"):
- * - Compras realizadas até o dia de fechamento (`day <= closingDay`) entram na fatura do próprio mês.
- * - Compras realizadas após o fechamento (`day > closingDay`) entram automaticamente na fatura do mês seguinte.
+ * Determina o mês de vencimento da fatura em que a compra será cobrada (`YYYY-MM`).
+ * Primeiro localiza o fechamento aplicável e então considera se o vencimento cai
+ * antes ou depois do fechamento no calendário. Ex.: fecha dia 20 e vence dia 5:
+ * compras até dia 20 vencem no mês seguinte; compras após dia 20 vencem em dois meses.
  */
 export function resolveCreditCardInvoiceMonth(
   purchaseDate: string,
-  card?: Pick<CreditCard, 'closingDay'> | null
+  card?: Pick<CreditCard, 'closingDay'> & Partial<Pick<CreditCard, 'dueDay'>> | null
 ): string {
   const yearMonth =
-    purchaseDate && /^\d{4}-\d{2}/.test(purchaseDate)
+    typeof purchaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate)
       ? purchaseDate.slice(0, 7)
-      : new Date().toISOString().slice(0, 7);
+      : getLocalDateISO().slice(0, 7);
   if (!card || !card.closingDay) {
     return yearMonth;
   }
-  const dayPart = Number(purchaseDate.slice(8, 10));
-  if (Number.isFinite(dayPart) && dayPart > card.closingDay) {
-    return addMonthsToYearMonth(yearMonth, 1);
-  }
-  return yearMonth;
+  const dayPart = Number(typeof purchaseDate === 'string' ? purchaseDate.slice(8, 10) : NaN);
+  const purchaseAfterClosing = Number.isFinite(dayPart) && dayPart > card.closingDay;
+  const dueDay = card.dueDay ?? card.closingDay + 1;
+  const invoiceDueAfterClosingMonth = dueDay <= card.closingDay;
+  const monthOffset = Number(purchaseAfterClosing) + Number(invoiceDueAfterClosingMonth);
+  return addMonthsToYearMonth(yearMonth, monthOffset);
+}
+
+/** Returns purchases and invoice payments tied to a card, including legacy payment IDs. */
+export function getTransactionsLinkedToCreditCard(
+  card: CreditCard,
+  transactions: Transaction[]
+): Transaction[] {
+  const normalizedCardName = card.name.trim().toLocaleLowerCase();
+  return transactions.filter((tx) => {
+    if (tx.creditCardId === card.id || tx.settledCardId === card.id) return true;
+    if (!tx.isInvoicePayment) return false;
+    return (
+      tx.id.startsWith(`tx-inv-${card.id}-`) ||
+      (normalizedCardName.length > 0 &&
+        tx.description.toLocaleLowerCase().includes(normalizedCardName))
+    );
+  });
+}
+
+/** Returns transactions that would lose a category or subcategory if it were deleted. */
+export function getTransactionsLinkedToCategory(
+  categoryId: string,
+  transactions: Transaction[],
+  subcategoryId?: string
+): Transaction[] {
+  return transactions.filter(
+    (tx) =>
+      tx.categoryId === categoryId &&
+      (subcategoryId === undefined || tx.subcategoryId === subcategoryId)
+  );
 }
 
 /**
@@ -879,12 +1056,18 @@ export function calculateMonthlySummary(
     }
   }
 
-  const unpaidCardInvoicesThisMonth = cards.reduce((acc, card) => {
-    const summary = calculateCreditCardSummary(card, transactions, selectedMonth);
-    return acc + summary.invoicePendingAmount;
+  const unpaidCardInvoicesThroughMonthCents = transactions.reduce((cents, tx) => {
+    if (
+      !tx.creditCardId ||
+      tx.competenceMonth > selectedMonth ||
+      tx.status !== 'pending' ||
+      !isCreditCardInvoicePurchase(tx)
+    ) return cents;
+    return cents + Math.round(tx.amount * 100);
   }, 0);
+  const unpaidCardInvoicesThroughMonth = unpaidCardInvoicesThroughMonthCents / 100;
 
-  totalProjectedBalance -= unpaidCardInvoicesThisMonth + unsettledMemberSharedThisMonth;
+  totalProjectedBalance -= unpaidCardInvoicesThroughMonth + unsettledMemberSharedThisMonth;
 
   const incomeTotal = Math.round((incomeRealized + incomePending) * 100) / 100;
   const expenseTotal = Math.round((expenseRealized + expensePending) * 100) / 100;
@@ -1274,6 +1457,7 @@ export function calculatePeriodReport(
 
 export function calculateDailyCashFlow(
   accounts: BankAccount[],
+  cards: CreditCard[],
   transactions: Transaction[],
   selectedMonth: string
 ): DailyCashFlowPoint[] {
@@ -1293,11 +1477,53 @@ export function calculateDailyCashFlow(
 
   const monthBankTxs = transactions.filter(
     (tx) =>
-      tx.competenceMonth === selectedMonth &&
+      getCashMovementMonth(tx) === selectedMonth &&
       (!tx.creditCardId || tx.isInvoicePayment) &&
       !tx.isCompanionOnlyExpense &&
       tx.sharedPaidBy !== 'member'
   );
+  const cardById = new Map(cards.map((card) => [card.id, card]));
+  const cardInvoiceOutflowsByDate = new Map<string, number>();
+  for (const tx of transactions) {
+    if (
+      !tx.creditCardId ||
+      tx.status !== 'pending' ||
+      !isCreditCardInvoicePurchase(tx) ||
+      tx.competenceMonth > selectedMonth ||
+      !/^\d{4}-(0[1-9]|1[0-2])$/.test(tx.competenceMonth) ||
+      !Number.isFinite(tx.amount) ||
+      tx.amount <= 0
+    ) continue;
+
+    // Older unpaid invoices are overdue at the start of this month's cash forecast.
+    const dueDate = tx.competenceMonth < selectedMonth
+      ? `${selectedMonth}-01`
+      : getClampedMonthDate(selectedMonth, cardById.get(tx.creditCardId)?.dueDay ?? 1);
+    const amountCents = Math.round(tx.amount * 100);
+    if (!Number.isSafeInteger(amountCents)) continue;
+    cardInvoiceOutflowsByDate.set(
+      dueDate,
+      (cardInvoiceOutflowsByDate.get(dueDate) || 0) + amountCents
+    );
+  }
+  for (const tx of transactions) {
+    if (
+      tx.type !== 'expense' ||
+      tx.sharedPaidBy !== 'member' ||
+      tx.competenceMonth !== selectedMonth
+    ) continue;
+    const effectiveExpense = getEffectiveExpenseAmountForUser(tx);
+    if (!effectiveExpense) continue;
+    const scheduledDate = /^\d{4}-\d{2}-\d{2}$/.test(tx.date) && tx.date.slice(0, 7) === selectedMonth
+      ? tx.date
+      : `${selectedMonth}-01`;
+    const amountCents = Math.round(effectiveExpense.amount * 100);
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) continue;
+    cardInvoiceOutflowsByDate.set(
+      scheduledDate,
+      (cardInvoiceOutflowsByDate.get(scheduledDate) || 0) + amountCents
+    );
+  }
 
   const points: DailyCashFlowPoint[] = [];
 
@@ -1337,6 +1563,11 @@ export function calculateDailyCashFlow(
       }
     }
 
+    const dueCardInvoiceCents = cardInvoiceOutflowsByDate.get(dayStr) || 0;
+    const dueCardInvoiceAmount = dueCardInvoiceCents / 100;
+    dayExpense += dueCardInvoiceAmount;
+    runningProjected -= dueCardInvoiceAmount;
+
     points.push({
       day: d,
       date: dayStr,
@@ -1348,6 +1579,57 @@ export function calculateDailyCashFlow(
   }
 
   return points;
+}
+
+export interface CalendarDaySummary {
+  pendingExpense: number;
+  paidExpense: number;
+  income: number;
+  dayBalance: number;
+}
+
+/**
+ * Summarizes the expenses and income recorded on a calendar day.
+ * Credit-card purchases stay on their purchase date; invoice due cards are
+ * shown separately by the calendar and must not be added to these totals.
+ * Invoice payment transactions are cash settlements of those purchases, so
+ * they also stay out of spending totals to avoid counting the same purchase twice.
+ */
+export function calculateCalendarDaySummary(
+  dayTransactions: Transaction[]
+): CalendarDaySummary {
+  let pendingExpense = 0;
+  let paidExpense = 0;
+  let income = 0;
+
+  for (const tx of dayTransactions) {
+    if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) {
+      continue;
+    }
+    if (tx.type === 'income') {
+      if (tx.sharedPaidBy !== 'member') income += tx.amount;
+      continue;
+    }
+    if (tx.type !== 'expense') continue;
+
+    const effectiveExpense = getEffectiveExpenseAmountForUser(tx);
+    if (!effectiveExpense) continue;
+    if (effectiveExpense.status === 'pending') {
+      pendingExpense += effectiveExpense.amount;
+    } else {
+      paidExpense += effectiveExpense.amount;
+    }
+  }
+
+  const roundedPending = Math.round(pendingExpense * 100) / 100;
+  const roundedPaid = Math.round(paidExpense * 100) / 100;
+  const roundedIncome = Math.round(income * 100) / 100;
+  return {
+    pendingExpense: roundedPending,
+    paidExpense: roundedPaid,
+    income: roundedIncome,
+    dayBalance: Math.round((roundedIncome - roundedPending - roundedPaid) * 100) / 100,
+  };
 }
 
 export interface FixedIncomeSimulationResult {
@@ -1691,6 +1973,7 @@ export function reverseCreditCardInvoicePayment(
     cards.find((c) => target.id.includes(c.id));
 
   const targetCardId = target.settledCardId || matchedCard?.id;
+  const targetInvoiceMonth = target.settledInvoiceMonth || target.competenceMonth;
   const cardName = matchedCard?.name || 'Cartão de Crédito';
 
   // Restrict new-format reversals to purchases settled by this specific payment.
@@ -1699,7 +1982,11 @@ export function reverseCreditCardInvoicePayment(
   const hasLinkedPurchases = transactions.some((tx) => getInvoicePaymentId(tx) === target.id);
   const hasLegacyAmbiguousPayments = !hasLinkedPurchases && transactions.filter((tx) =>
     {
-      if (!tx.isInvoicePayment || tx.id === target.id || tx.competenceMonth !== target.competenceMonth) {
+      if (
+        !tx.isInvoicePayment ||
+        tx.id === target.id ||
+        (tx.settledInvoiceMonth || tx.competenceMonth) !== targetInvoiceMonth
+      ) {
         return false;
       }
       if (!targetCardId) return true;
@@ -1719,7 +2006,7 @@ export function reverseCreditCardInvoicePayment(
   }
   const isTargetPurchase = (tx: Transaction) => hasLinkedPurchases
     ? getInvoicePaymentId(tx) === target.id
-    : tx.competenceMonth === target.competenceMonth &&
+    : tx.competenceMonth === targetInvoiceMonth &&
       (!targetCardId || tx.creditCardId === targetCardId);
 
   // Detect partial split rows settled by this payment (legacy rows have no payment link).
@@ -1859,9 +2146,13 @@ export function applyCascadeTransactionEdit(
 ): {
   updatedTransactions: Transaction[];
   affectedCount: number;
+  error?: string;
 } {
   const original = transactions.find((t) => t.id === editedTx.id);
-  if (!original || scope === 'single' || !original.installmentGroupId) {
+  const isPurchaseTotalEdit = Boolean(
+    original && original.recurrence === 'installment' && Number.isFinite(editedTx.installmentPurchaseTotal)
+  );
+  if (!original || (scope === 'single' && !isPurchaseTotalEdit) || !original.installmentGroupId) {
     return {
       updatedTransactions: transactions.map((t) =>
         t.id === editedTx.id ? editedTx : t
@@ -1871,7 +2162,105 @@ export function applyCascadeTransactionEdit(
   }
 
   const groupId = original.installmentGroupId;
+  const groupTransactions = transactions
+    .filter((tx) => tx.installmentGroupId === groupId)
+    .sort((a, b) => (a.installmentNumber || 0) - (b.installmentNumber || 0));
+  if (isPurchaseTotalEdit) {
+    const inScope = (tx: Transaction) =>
+      scope === 'all_series' ||
+      (scope === 'this_and_future' && tx.competenceMonth >= original.competenceMonth) ||
+      (scope === 'single' && tx.id === original.id);
+    const logicalInstallments = new Map<string, Transaction[]>();
+    for (const tx of groupTransactions) {
+      const key = tx.installmentNumber === undefined ? tx.id : String(tx.installmentNumber);
+      logicalInstallments.set(key, [...(logicalInstallments.get(key) || []), tx]);
+    }
+    const recalculatedInstallments = [...logicalInstallments.values()].filter(
+      (rows) => rows.length === 1 && rows[0].status !== 'paid' && inScope(rows[0])
+    );
+    const recalculatedIds = new Set(recalculatedInstallments.map((rows) => rows[0].id));
+    const fixedCents = groupTransactions
+      .filter((tx) => !recalculatedIds.has(tx.id))
+      .reduce((sum, tx) => sum + Math.round(tx.amount * 100), 0);
+    const requestedCents = Math.round((editedTx.installmentPurchaseTotal || 0) * 100);
+    const amountToAllocate = requestedCents - fixedCents;
+
+    if (amountToAllocate < 0) {
+      return {
+        updatedTransactions: transactions,
+        affectedCount: 0,
+        error: 'O total da compra não pode ficar abaixo das parcelas já preservadas.',
+      };
+    }
+    if (recalculatedInstallments.length === 0 && amountToAllocate > 0) {
+      return {
+        updatedTransactions: transactions,
+        affectedCount: 0,
+        error: 'Não há parcelas pendentes para ajustar o total desta compra.',
+      };
+    }
+
+    const baseCents = recalculatedInstallments.length > 0
+      ? Math.floor(amountToAllocate / recalculatedInstallments.length)
+      : 0;
+    const remainderCents = amountToAllocate - baseCents * recalculatedInstallments.length;
+    const amountById = new Map(
+      recalculatedInstallments.map((rows, index) => [
+        rows[0].id,
+        (baseCents + (index < remainderCents ? 1 : 0)) / 100,
+      ])
+    );
+    const getScheduledDates = (tx: Transaction) => {
+      if (!inScope(tx) || tx.installmentNumber === undefined) return {};
+      const monthOffset = tx.installmentNumber - (editedTx.installmentNumber || tx.installmentNumber);
+      return {
+        date: addMonthsToDateString(editedTx.date, monthOffset),
+        competenceMonth: addMonthsToYearMonth(editedTx.competenceMonth, monthOffset),
+      };
+    };
+    const updatedIds = new Set<string>();
+    const updatedTransactions = transactions.map((tx) => {
+      if (tx.installmentGroupId !== groupId) return tx;
+      const isEdited = tx.id === editedTx.id;
+      const isInScope = inScope(tx);
+      if (isEdited || isInScope) updatedIds.add(tx.id);
+      const amount = amountById.get(tx.id);
+      if (isEdited) {
+        return {
+          ...editedTx,
+          amount: amount ?? tx.amount,
+          installmentPurchaseTotal: requestedCents / 100,
+          ...getScheduledDates(tx),
+        };
+      }
+      return {
+        ...tx,
+        ...(isInScope
+          ? {
+              description: editedTx.description,
+              categoryId: editedTx.categoryId,
+              subcategoryId: editedTx.subcategoryId,
+              accountId: editedTx.accountId,
+              destinationAccountId: editedTx.destinationAccountId,
+              creditCardId: editedTx.creditCardId,
+              paymentMethod: editedTx.paymentMethod,
+              notes: editedTx.notes,
+              tags: editedTx.tags,
+            }
+          : {}),
+        ...(amount !== undefined ? { amount } : {}),
+        installmentPurchaseTotal: requestedCents / 100,
+        ...getScheduledDates(tx),
+      };
+    });
+    return { updatedTransactions, affectedCount: updatedIds.size };
+  }
+
   let affectedCount = 0;
+  const monthIndex = (month: string) => {
+    const [year, monthNumber] = month.split('-').map(Number);
+    return year * 12 + monthNumber - 1;
+  };
 
   const updatedTransactions = transactions.map((tx) => {
     if (tx.id === editedTx.id) {
@@ -1887,6 +2276,7 @@ export function applyCascadeTransactionEdit(
 
       if (inScope) {
         affectedCount++;
+        const monthOffset = monthIndex(tx.competenceMonth) - monthIndex(original.competenceMonth);
         return {
           ...tx,
           description: editedTx.description,
@@ -1899,6 +2289,8 @@ export function applyCascadeTransactionEdit(
           paymentMethod: editedTx.paymentMethod,
           notes: editedTx.notes,
           tags: editedTx.tags,
+          date: addMonthsToDateString(editedTx.date, monthOffset),
+          competenceMonth: addMonthsToYearMonth(editedTx.competenceMonth, monthOffset),
         };
       }
     }
@@ -2096,6 +2488,7 @@ export interface CascadeAccountDeleteResult {
   updatedTransactions: Transaction[];
   deletedAccount?: BankAccount;
   deletedTransactionCount: number;
+  error?: string;
 }
 
 export function applyCascadeAccountDelete(
@@ -2114,7 +2507,42 @@ export function applyCascadeAccountDelete(
     };
   }
 
-  const fallback = accounts.find((account) => account.id !== accountId);
+  const otherAccounts = accounts.filter((account) => account.id !== accountId);
+  const fallback = otherAccounts.find(
+    (account) =>
+      (account.currency || 'BRL') === (deletedAccount.currency || 'BRL') &&
+      account.includeInTotal === deletedAccount.includeInTotal
+  );
+  if (otherAccounts.length > 0 && !fallback) {
+    return {
+      updatedAccounts: accounts,
+      updatedCards: cards,
+      updatedTransactions: transactions,
+      deletedTransactionCount: 0,
+      error: 'Não há outra conta com a mesma moeda e a mesma regra de inclusão nos totais para receber o histórico e o saldo inicial.',
+    };
+  }
+  if (!fallback) {
+    const hasLinkedTransactions = transactions.some(
+      (tx) =>
+        tx.accountId === accountId ||
+        tx.destinationAccountId === accountId ||
+        tx.sharedSettledAccountId === accountId
+    );
+    if (
+      hasLinkedTransactions ||
+      deletedAccount.initialBalance !== 0 ||
+      (deletedAccount.initialBalanceForeign || 0) !== 0
+    ) {
+      return {
+        updatedAccounts: accounts,
+        updatedCards: cards,
+        updatedTransactions: transactions,
+        deletedTransactionCount: 0,
+        error: 'Esta é a última conta e ainda tem saldo ou lançamentos vinculados. Mantenha-a para preservar o histórico financeiro.',
+      };
+    }
+  }
   let deletedTransactionCount = 0;
   const updatedTransactions = transactions
     .filter((tx) => {
@@ -2153,7 +2581,28 @@ export function applyCascadeAccountDelete(
     });
 
   return {
-    updatedAccounts: accounts.filter((account) => account.id !== accountId),
+    updatedAccounts: fallback
+      ? accounts
+          .filter((account) => account.id !== accountId)
+          .map((account) =>
+            account.id === fallback.id
+              ? {
+                  ...account,
+                  initialBalance:
+                    Math.round((account.initialBalance + deletedAccount.initialBalance) * 100) / 100,
+                  initialBalanceForeign:
+                    account.initialBalanceForeign === undefined &&
+                    deletedAccount.initialBalanceForeign === undefined
+                      ? undefined
+                      : Math.round(
+                          ((account.initialBalanceForeign || 0) +
+                            (deletedAccount.initialBalanceForeign || 0)) *
+                            100
+                        ) / 100,
+                }
+              : account
+          )
+      : accounts.filter((account) => account.id !== accountId),
     updatedCards: cards.map((card) =>
       card.defaultAccountId === accountId
         ? { ...card, defaultAccountId: fallback?.id ?? '' }

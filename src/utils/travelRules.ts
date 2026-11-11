@@ -167,6 +167,7 @@ export function formatExchangeRateBR(rate: number): string {
 }
 
 export interface ConvertedBrlResult {
+  isValid: boolean;
   foreignAmount: number;
   baseRate: number;
   iofPercent: number;
@@ -185,19 +186,40 @@ export function calculateConvertedBrlAmount(
   baseRate: number,
   iofPercent = 0
 ): ConvertedBrlResult {
-  const safeForeign = Math.max(0, Number.isFinite(foreignAmount) ? foreignAmount : 0);
-  const safeRate = Math.max(0, Number.isFinite(baseRate) ? baseRate : 0);
-  const safeIof = Math.max(0, Number.isFinite(iofPercent) ? iofPercent : 0);
+  const invalidResult: ConvertedBrlResult = {
+    isValid: false,
+    foreignAmount: Number.isFinite(foreignAmount) && foreignAmount > 0 ? foreignAmount : 0,
+    baseRate: Number.isFinite(baseRate) && baseRate > 0 ? baseRate : 0,
+    iofPercent: Number.isFinite(iofPercent) && iofPercent >= 0 && iofPercent <= 100 ? iofPercent : 0,
+    effectiveRate: 0,
+    baseBrlAmount: 0,
+    iofBrlAmount: 0,
+    totalBrl: 0,
+  };
+  if (
+    !Number.isFinite(foreignAmount) || foreignAmount <= 0 ||
+    !Number.isFinite(baseRate) || baseRate <= 0 ||
+    !Number.isFinite(iofPercent) || iofPercent < 0 || iofPercent > 100
+  ) return invalidResult;
 
-  const effectiveRate = Math.round(safeRate * (1 + safeIof / 100) * 10000) / 10000;
-  const baseBrlAmount = Math.round(safeForeign * safeRate * 100) / 100;
-  const totalBrl = Math.round(safeForeign * safeRate * (1 + safeIof / 100) * 100) / 100;
-  const iofBrlAmount = Math.round((totalBrl - baseBrlAmount) * 100) / 100;
+  const baseBrlCents = Math.round(foreignAmount * baseRate * 100);
+  const totalBrlCents = Math.round(foreignAmount * baseRate * (1 + iofPercent / 100) * 100);
+  const effectiveRate = Math.round(baseRate * (1 + iofPercent / 100) * 10000) / 10000;
+  if (
+    !Number.isSafeInteger(baseBrlCents) || baseBrlCents <= 0 ||
+    !Number.isSafeInteger(totalBrlCents) || totalBrlCents <= 0 ||
+    !Number.isSafeInteger(Math.round(effectiveRate * 10000)) || effectiveRate <= 0
+  ) return invalidResult;
+
+  const baseBrlAmount = baseBrlCents / 100;
+  const totalBrl = totalBrlCents / 100;
+  const iofBrlAmount = (totalBrlCents - baseBrlCents) / 100;
 
   return {
-    foreignAmount: safeForeign,
-    baseRate: safeRate,
-    iofPercent: safeIof,
+    isValid: true,
+    foreignAmount,
+    baseRate,
+    iofPercent,
     effectiveRate,
     baseBrlAmount,
     iofBrlAmount,
@@ -218,9 +240,11 @@ export function calculateTripWeightedAverageRate(
   totalForeignPurchased: number;
   totalBrlPaid: number;
 } {
-  if (!exchangeLots || exchangeLots.length === 0) {
+  const validLots = (exchangeLots || []).filter(isUsableExchangeLot);
+  const fallbackRate = Number.isFinite(fallbackDefaultRate) && fallbackDefaultRate > 0 ? fallbackDefaultRate : 1;
+  if (validLots.length === 0) {
     return {
-      weightedAverageRate: fallbackDefaultRate > 0 ? fallbackDefaultRate : 1,
+      weightedAverageRate: fallbackRate,
       totalForeignPurchased: 0,
       totalBrlPaid: 0,
     };
@@ -229,16 +253,21 @@ export function calculateTripWeightedAverageRate(
   let totalForeign = 0;
   let totalBrl = 0;
 
-  for (const lot of exchangeLots) {
-    if (lot.foreignAmount > 0 && lot.totalBrlPaid > 0) {
-      totalForeign += lot.foreignAmount;
-      totalBrl += lot.totalBrlPaid;
-    }
+  for (const lot of validLots) {
+    totalForeign += lot.foreignAmount;
+    const rate = Number.isFinite(lot.effectiveRateBrl) && lot.effectiveRateBrl > 0
+      ? lot.effectiveRateBrl
+      : Number.isFinite(lot.rateBase) && lot.rateBase > 0
+      ? lot.rateBase
+      : lot.totalBrlPaid / lot.foreignAmount;
+    totalBrl += Number.isFinite(lot.totalBrlPaid) && lot.totalBrlPaid > 0
+      ? lot.totalBrlPaid
+      : lot.foreignAmount * rate;
   }
 
-  if (totalForeign <= 0) {
+  if (!Number.isFinite(totalForeign) || !Number.isFinite(totalBrl) || totalForeign <= 0 || totalBrl <= 0) {
     return {
-      weightedAverageRate: fallbackDefaultRate > 0 ? fallbackDefaultRate : 1,
+      weightedAverageRate: fallbackRate,
       totalForeignPurchased: 0,
       totalBrlPaid: 0,
     };
@@ -251,6 +280,19 @@ export function calculateTripWeightedAverageRate(
     totalForeignPurchased: Math.round(totalForeign * 100) / 100,
     totalBrlPaid: Math.round(totalBrl * 100) / 100,
   };
+}
+
+function isUsableExchangeLot(lot: TripExchangeLot): boolean {
+  if (!lot || !Number.isFinite(lot.foreignAmount) || lot.foreignAmount <= 0 ||
+      !Number.isSafeInteger(Math.round(lot.foreignAmount * 100))) return false;
+  if (!Number.isFinite(lot.totalBrlPaid) ||
+      (lot.totalBrlPaid > 0 && !Number.isSafeInteger(Math.round(lot.totalBrlPaid * 100)))) return false;
+  if (lot.totalBrlPaid > 0) return true;
+  const rate = Number.isFinite(lot.effectiveRateBrl) && lot.effectiveRateBrl > 0
+    ? lot.effectiveRateBrl
+    : lot.rateBase;
+  const derivedCents = lot.foreignAmount * rate * 100;
+  return Number.isFinite(rate) && rate > 0 && Number.isSafeInteger(Math.round(derivedCents)) && derivedCents > 0;
 }
 
 export interface LotSavingsItem {
@@ -311,13 +353,14 @@ export function calculateExchangeSavingsAnalysis(
   // Cotação comercial de referência do período: usa o fallback (ex: defaultExchangeRate da viagem)
   // ou a cotação padrão comercial do catálogo.
   const benchmarkRate =
-    fallbackBenchmarkRate > 0
+    Number.isFinite(fallbackBenchmarkRate) && fallbackBenchmarkRate > 0
       ? fallbackBenchmarkRate
       : meta.defaultCommercialRateBrl > 0
       ? meta.defaultCommercialRateBrl
       : 1.0;
 
-  if (!exchangeLots || exchangeLots.length === 0) {
+  const validLots = (exchangeLots || []).filter(isUsableExchangeLot);
+  if (validLots.length === 0) {
     return {
       lotSeries: [],
       monthlySeries: [],
@@ -333,10 +376,14 @@ export function calculateExchangeSavingsAnalysis(
   }
 
   // Ordena os lotes cronologicamente para a série histórica
-  const sortedLots = [...exchangeLots].sort((a, b) => a.date.localeCompare(b.date));
+  const sortedLots = validLots.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
   const lotSeries: LotSavingsItem[] = sortedLots.map((lot, idx) => {
-    const effectiveRate = lot.effectiveRateBrl > 0 ? lot.effectiveRateBrl : lot.rateBase;
+    const effectiveRate = Number.isFinite(lot.effectiveRateBrl) && lot.effectiveRateBrl > 0
+      ? lot.effectiveRateBrl
+      : Number.isFinite(lot.rateBase) && lot.rateBase > 0
+      ? lot.rateBase
+      : lot.totalBrlPaid / lot.foreignAmount;
     const savingsPerUnitBrl = Math.round((benchmarkRate - effectiveRate) * 10000) / 10000;
     const benchmarkBrlTotal = Math.round(lot.foreignAmount * benchmarkRate * 100) / 100;
     const actualBrlTotal = lot.totalBrlPaid > 0 ? lot.totalBrlPaid : Math.round(lot.foreignAmount * effectiveRate * 100) / 100;
@@ -382,7 +429,14 @@ export function calculateExchangeSavingsAnalysis(
       let totalBrlPaid = 0;
       for (const l of lots) {
         totalForeign += l.foreignAmount;
-        totalBrlPaid += l.totalBrlPaid > 0 ? l.totalBrlPaid : l.foreignAmount * (l.effectiveRateBrl || l.rateBase);
+        const rate = Number.isFinite(l.effectiveRateBrl) && l.effectiveRateBrl > 0
+          ? l.effectiveRateBrl
+          : Number.isFinite(l.rateBase) && l.rateBase > 0
+          ? l.rateBase
+          : l.totalBrlPaid / l.foreignAmount;
+        totalBrlPaid += Number.isFinite(l.totalBrlPaid) && l.totalBrlPaid > 0
+          ? l.totalBrlPaid
+          : l.foreignAmount * rate;
       }
       const weightedEffectiveRate = totalForeign > 0 ? Math.round((totalBrlPaid / totalForeign) * 10000) / 10000 : benchmarkRate;
       const benchmarkBrlTotal = Math.round(totalForeign * benchmarkRate * 100) / 100;

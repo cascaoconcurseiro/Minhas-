@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { parseQuickCsvLines } from '../utils/quickCsvImport';
 import {
   BarChart3,
@@ -33,7 +33,12 @@ import {
 } from '../utils/financeRules';
 import { generateMonthlyFinancialReportPdf } from '../utils/reportPdfGenerator';
 import { exportTransactionsToSafeCSV } from '../utils/transactionsCsv';
+import {
+  auditLegacyFinancialRecords,
+  exportFinancialHistoryAuditCsv,
+} from '../utils/legacyFinancialAudit';
 import { CategoryIconBadge } from './CategoryIconBadge';
+import { InstitutionMark } from './InstitutionMark';
 import { MonthlyComparisonBarChart } from './MonthlyComparisonBarChart';
 
 interface ReportsAndDataTabProps {
@@ -51,6 +56,7 @@ interface ReportsAndDataTabProps {
   onUpdateAccountInitialBalance?: (accountId: string, newInitial: number) => void;
   onImportQuickCsvLines: (linesText: string, targetAccountId: string) => number;
   onOpenReconciliation?: () => void;
+  onApplyHistoricalInstallmentTotals?: () => void;
   onResetWorkspaceData: () => void;
 }
 
@@ -140,6 +146,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   onExportFullBackupJson,
   onImportQuickCsvLines,
   onOpenReconciliation,
+  onApplyHistoricalInstallmentTotals,
   onResetWorkspaceData,
 }) => {
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('semiannual');
@@ -149,11 +156,31 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   const [customEndMonth, setCustomEndMonth] = useState(selectedMonth);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmApplyHistoryTotals, setConfirmApplyHistoryTotals] = useState(false);
+  const [historyBackupPrepared, setHistoryBackupPrepared] = useState(false);
+
+  useEffect(() => {
+    setHistoryBackupPrepared(false);
+  }, [transactions, cards]);
 
   // Quick CSV paste import state
   const [csvPasteText, setCsvPasteText] = useState('');
   const [importTargetAccId, setImportTargetAccId] = useState(accounts[0]?.id || '');
   const [importFeedback, setImportFeedback] = useState('');
+  const historyAuditRows = useMemo(
+    () => auditLegacyFinancialRecords(transactions, cards),
+    [transactions, cards]
+  );
+  const highConfidenceHistoryGroups = useMemo(
+    () =>
+      historyAuditRows.filter(
+        (row) =>
+          row.issue === 'installment_total' &&
+          row.confidence === 'high' &&
+          row.suggestedPurchaseTotal !== null
+      ),
+    [historyAuditRows]
+  );
 
   // Personal DRE & Consolidated Wealth calculation for selectedMonth
   const personalDre = useMemo(() => {
@@ -276,8 +303,8 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   );
 
   const dailyFlow = useMemo(
-    () => calculateDailyCashFlow(accounts, transactions, selectedMonth),
-    [accounts, transactions, selectedMonth]
+    () => calculateDailyCashFlow(accounts, cards, transactions, selectedMonth),
+    [accounts, cards, transactions, selectedMonth]
   );
 
   const activeFlowDays = useMemo(() => {
@@ -310,6 +337,17 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     const a = document.createElement('a');
     a.href = url;
     a.download = `minhas-economias-extrato-${selectedMonth}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadHistoryAudit = () => {
+    const csvContent = exportFinancialHistoryAuditCsv(historyAuditRows);
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `minhas-auditoria-historica-${selectedMonth}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -420,7 +458,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   }, [periodReport.monthlySeries]);
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="module-page space-y-6 sm:space-y-8">
       {/* Period Selector & Summary KPIs */}
       <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-5">
         <div className="flex flex-col gap-4 border-b border-slate-200 pb-4">
@@ -1225,6 +1263,82 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               )}
             </div>
 
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-amber-950">
+                <p className="font-semibold">Revisão de lançamentos históricos</p>
+                <p className="mt-0.5 text-amber-900">
+                  {historyAuditRows.length === 0
+                    ? 'Nenhuma divergência detectada nas séries parceladas e competências verificadas.'
+                    : `${historyAuditRows.length} apontamento(s) para revisar. Competências são comparadas com os dados atuais do cartão.`}{' '}
+                  O relatório não altera lançamentos.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="download-financial-history-audit"
+                onClick={handleDownloadHistoryAudit}
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-950 hover:bg-amber-100 transition-colors"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar revisão CSV
+              </button>
+              {onApplyHistoricalInstallmentTotals && highConfidenceHistoryGroups.length > 0 && (
+                <button
+                  type="button"
+                  data-testid="apply-high-confidence-history-totals"
+                  onClick={() => setConfirmApplyHistoryTotals(true)}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800 transition-colors"
+                >
+                  Preencher {highConfidenceHistoryGroups.length} total(is) confiável(is)
+                </button>
+              )}
+            </div>
+            {confirmApplyHistoryTotals && onApplyHistoricalInstallmentTotals && (
+              <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-3 text-xs text-amber-950">
+                <span>
+                  {historyBackupPrepared
+                    ? `Confirme que o arquivo de backup JSON foi salvo. Só então o app preencherá o total original em ${highConfidenceHistoryGroups.length} série(s) completa(s) de alta confiança. Valores das parcelas e competências não serão alterados; também será possível desfazer pelo aviso nesta sessão.`
+                    : `Primeiro baixe o backup JSON completo. Confira se o navegador salvou o arquivo; o histórico não será alterado nesta etapa. Depois confirme o preenchimento do total original em ${highConfidenceHistoryGroups.length} série(s) de alta confiança.`}
+                </span>
+                {historyBackupPrepared ? (
+                  <button
+                    type="button"
+                    data-testid="confirm-apply-history-totals"
+                    onClick={() => {
+                      onApplyHistoricalInstallmentTotals();
+                      setHistoryBackupPrepared(false);
+                      setConfirmApplyHistoryTotals(false);
+                    }}
+                    className="rounded-md bg-amber-700 px-2.5 py-1.5 font-bold text-white hover:bg-amber-800"
+                  >
+                    Já salvei o backup; preencher totais
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid="download-history-backup-before-apply"
+                    onClick={() => {
+                      onExportFullBackupJson();
+                      setHistoryBackupPrepared(true);
+                    }}
+                    className="rounded-md bg-amber-700 px-2.5 py-1.5 font-bold text-white hover:bg-amber-800"
+                  >
+                    Baixar backup JSON
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryBackupPrepared(false);
+                    setConfirmApplyHistoryTotals(false);
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleRunImport} className="space-y-3 pt-2 border-t border-slate-100">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label htmlFor="csv-paste-box" className="text-xs font-bold text-slate-800">
@@ -1242,6 +1356,15 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                     </option>
                   ))}
                 </select>
+                {(() => {
+                  const selectedAccount = accounts.find((account) => account.id === importTargetAccId);
+                  return selectedAccount ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                      <InstitutionMark institution={selectedAccount.institution} accountName={selectedAccount.name} color={selectedAccount.color} size="xs" />
+                      {selectedAccount.name}
+                    </span>
+                  ) : null;
+                })()}
               </div>
               <textarea
                 id="csv-paste-box"

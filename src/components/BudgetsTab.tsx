@@ -237,7 +237,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   const displayedCategoriesForManager = categories.filter((c) => c.type === catTypeTab);
 
   return (
-    <div className="space-y-6">
+    <div className="module-page space-y-6">
       {/* Sub-navigation between Monthly Budgets and Custom Category & Subcategory Manager */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <div
@@ -271,7 +271,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
           </button>
         </div>
 
-        <button
+          <button
           type="button"
           onClick={() => openNewCategoryForm('expense')}
           className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"

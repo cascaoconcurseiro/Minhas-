@@ -12,6 +12,7 @@ import {
   predictCategoryFromDescription,
 } from './uxEnhancementRules';
 import { Category, Transaction } from '../types/finance';
+import { INITIAL_CATEGORIES } from './seedData';
 
 test('calculateBudgetImpactPreview computes accurate before/after budget metrics and over-limit status', () => {
   const supermercadoCat: Category = {
@@ -515,6 +516,16 @@ test('predictCategoryFromDescription suggests the most probable category and sub
   );
   assert.ok(multi.length >= 1);
   assert.equal(multi[0].categoryId, 'cat-alimentacao');
+});
+
+test('known merchant descriptions auto-suggest their seeded category and subcategory', () => {
+  const amazon = predictCategoryFromDescription('Compra na Amazon', [], INITIAL_CATEGORIES, 'expense');
+  assert.equal(amazon?.categoryId, 'cat-compras');
+  assert.equal(amazon?.subcategoryId, 'sub-comp-online');
+
+  const streaming = predictCategoryFromDescription('Amazon Prime Video', [], INITIAL_CATEGORIES, 'expense');
+  assert.equal(streaming?.categoryId, 'cat-assinaturas');
+  assert.equal(streaming?.subcategoryId, 'sub-ass-stream');
 });
 
 

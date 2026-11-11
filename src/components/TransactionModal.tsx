@@ -37,10 +37,12 @@ import {
 } from '../types/finance';
 import {
   addMonthsToYearMonth,
+  calculateCreditCardSummary,
   CascadeScope,
   CreateTransactionBatchInput,
   extractAvailableTransactionTags,
   formatBRL,
+  getLocalDateISO,
   formatMonthYearPT,
   normalizeSearchText,
   normalizeTransactionTags,
@@ -68,7 +70,14 @@ import {
 } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { CurrencyInput } from './CurrencyInput';
-import { parseCurrencyInput } from '../utils/currencyInput';
+import { CreditCardFace } from './CreditCardFace';
+import { InstitutionMark } from './InstitutionMark';
+import {
+  isCurrencyInputValid,
+  isExchangeRateInputValid,
+  parseCurrencyInput,
+  parseExchangeRateInput,
+} from '../utils/currencyInput';
 
 type DomesticSharedSplitMode = 'half' | 'percentage' | 'custom';
 
@@ -87,6 +96,7 @@ interface TransactionModalProps {
   transactions: Transaction[];
   familyMembers: FamilyMember[];
   onAddFamilyMember?: (newMember: Omit<FamilyMember, 'id'>) => FamilyMember | void;
+  onAddSubcategory?: (categoryId: string, name: string) => string | void;
   investments?: InvestmentAsset[];
   trips?: Trip[];
   selectedMonth: string;
@@ -119,6 +129,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   transactions,
   familyMembers,
   onAddFamilyMember,
+  onAddSubcategory,
   investments = [],
   trips = [],
   selectedMonth,
@@ -135,15 +146,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [amountMode, setAmountMode] = useState<
     'total_divided' | 'per_installment'
   >('total_divided');
-  const [date, setDate] = useState(`${selectedMonth}-15`);
+  const [legacyInstallmentTotalUnknown, setLegacyInstallmentTotalUnknown] =
+    useState(false);
+  const [date, setDate] = useState(getLocalDateISO());
   const [status, setStatus] = useState<TransactionStatus>('paid');
   const [categoryId, setCategoryId] = useState('');
   const [subcategoryId, setSubcategoryId] = useState('');
+  const [isAddingSubcategory, setIsAddingSubcategory] = useState(false);
+  const [newSubcategoryName, setNewSubcategoryName] = useState('');
   const [accountId, setAccountId] = useState('');
   const [destinationAccountId, setDestinationAccountId] = useState('');
   const [creditCardId, setCreditCardId] = useState('');
   const [invoiceCompetenceMonth, setInvoiceCompetenceMonth] =
     useState<string>(selectedMonth);
+  const [isInvoiceMonthOverrideOpen, setIsInvoiceMonthOverrideOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [recurrence, setRecurrence] = useState<RecurrenceType>('single');
   const [installmentTotal, setInstallmentTotal] = useState<number>(2);
@@ -205,6 +221,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     'bank_to_bank' | 'investment_contribution' | 'card_bill_payment'
   >('bank_to_bank');
   const [billPaymentCardId, setBillPaymentCardId] = useState<string>('');
+  const [billPaymentInvoiceMonth, setBillPaymentInvoiceMonth] = useState(selectedMonth);
+  const selectedCreditCard = cards.find((card) => card.id === creditCardId) ?? cards[0] ?? null;
+  const selectedBillPaymentCard = cards.find((card) => card.id === billPaymentCardId) ?? cards[0] ?? null;
+  const billPaymentInvoiceSummary = selectedBillPaymentCard
+    ? calculateCreditCardSummary(selectedBillPaymentCard, transactions, billPaymentInvoiceMonth)
+    : null;
+  const selectedPaymentAccount = accounts.find((account) => account.id === accountId) ?? null;
+  const selectedDestinationAccount = accounts.find((account) => account.id === destinationAccountId) ?? null;
 
   // Intelligent Category Suggestion based on historical transactions
   const [userManuallySelectedCategory, setUserManuallySelectedCategory] = useState(false);
@@ -255,6 +279,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     prevIsOpenRef.current = true;
     prevEditingIdRef.current = editingTransaction?.id;
     setError('');
+    setIsInvoiceMonthOverrideOpen(false);
 
     if (editingTransaction) {
       if (editingTransaction.type === 'transfer') {
@@ -268,8 +293,39 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
 
       setDescription(editingTransaction.description);
-      setAmountStr(editingTransaction.amount.toFixed(2).replace('.', ','));
-      setAmountMode('per_installment');
+      const isInstallmentPurchase =
+        editingTransaction.recurrence === 'installment' &&
+        Boolean(editingTransaction.installmentGroupId);
+      const existingInstallments = isInstallmentPurchase
+        ? transactions.filter((tx) => tx.installmentGroupId === editingTransaction.installmentGroupId)
+        : [];
+      const expectedInstallments = editingTransaction.installmentTotal || 0;
+      const installmentNumbers = new Set(
+        existingInstallments
+          .map((tx) => tx.installmentNumber)
+          .filter((value): value is number => Number.isInteger(value) && value! > 0)
+      );
+      const hasCompleteInstallmentSeries =
+        expectedInstallments > 0 &&
+        Array.from({ length: expectedInstallments }, (_, index) => index + 1)
+          .every((number) => installmentNumbers.has(number));
+      const inferredInstallmentTotal = hasCompleteInstallmentSeries
+        ? Math.round(existingInstallments.reduce((sum, tx) => sum + tx.amount, 0) * 100) / 100
+        : undefined;
+      const savedInstallmentTotal = editingTransaction.installmentPurchaseTotal;
+      const hasReliableInstallmentTotal =
+        isInstallmentPurchase &&
+        (Number.isFinite(savedInstallmentTotal) || inferredInstallmentTotal !== undefined);
+      const installmentPurchaseTotal = isInstallmentPurchase
+        ? (Number.isFinite(savedInstallmentTotal)
+            ? savedInstallmentTotal!
+            : inferredInstallmentTotal)
+        : editingTransaction.amount;
+      setLegacyInstallmentTotalUnknown(isInstallmentPurchase && !hasReliableInstallmentTotal);
+      setAmountStr(
+        (installmentPurchaseTotal ?? editingTransaction.amount).toFixed(2).replace('.', ',')
+      );
+      setAmountMode(hasReliableInstallmentTotal ? 'total_divided' : 'per_installment');
       setDate(editingTransaction.date);
       setStatus(editingTransaction.status);
       setCategoryId(editingTransaction.categoryId);
@@ -300,7 +356,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setRecurrence(editingTransaction.recurrence);
       setInstallmentTotal(editingTransaction.installmentTotal || 2);
       setFixedMonthsCount(editingTransaction.installmentTotal || 12);
-      setCascadeScope('this_and_future');
+      setCascadeScope(
+        isInstallmentPurchase && !hasReliableInstallmentTotal
+          ? 'single'
+          : 'this_and_future'
+      );
       setNotes(editingTransaction.notes || '');
       setTags(normalizeTransactionTags(editingTransaction.tags));
       setTagInput('');
@@ -406,7 +466,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setAutoAppliedCategoryNotice(null);
     setAmountStr('');
     setAmountMode('total_divided');
-    setDate(initialDate || `${selectedMonth}-15`);
+    setLegacyInstallmentTotalUnknown(false);
+    setDate(initialDate || getLocalDateISO());
+    setIsInvoiceMonthOverrideOpen(false);
     setRecurrence('single');
     setInstallmentTotal(2);
     setFixedMonthsCount(12);
@@ -422,6 +484,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setSharedCustomAmountStr('');
     setTransferSubMode('bank_to_bank');
     setBillPaymentCardId(cards[0]?.id || '');
+    setBillPaymentInvoiceMonth(selectedMonth);
 
     const foundTrip = initialTripId ? trips.find((t) => t.id === initialTripId) : undefined;
     if (foundTrip) {
@@ -490,7 +553,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setPaymentMethod('credit_card');
       const firstCard = cards[0];
       setCreditCardId(firstCard?.id || '');
-      const initialPurchaseDate = initialDate || `${selectedMonth}-15`;
+      const initialPurchaseDate = initialDate || getLocalDateISO();
       setInvoiceCompetenceMonth(
         resolveCreditCardInvoiceMonth(initialPurchaseDate, firstCard)
       );
@@ -547,14 +610,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     cards,
     categories,
     familyMembers,
+    transactions,
     initialDate,
     initialTripId,
     trips,
   ]);
 
-  // Automatically recalculate credit card invoice competence month when date or card changes on a new transaction
+  // Automatically recalculate the invoice due month when the purchase date or card changes.
   useEffect(() => {
-    if (!isOpen || editingTransaction || entryMode !== 'credit_card') return;
+    if (!isOpen || entryMode !== 'credit_card') return;
     const chosenCard = cards.find((c) => c.id === creditCardId) || cards[0];
     setInvoiceCompetenceMonth(resolveCreditCardInvoiceMonth(date, chosenCard));
   }, [isOpen, editingTransaction, entryMode, date, creditCardId, cards]);
@@ -588,7 +652,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Live Multi-Currency Conversion Effect
   const parsedForeignAmount = parseCurrencyInput(originalAmountStr, originalCurrency);
-  const parsedExchangeRate = parseBRLInput(exchangeRateStr);
+  const parsedExchangeRate = parseExchangeRateInput(exchangeRateStr);
   const parsedIofPercent = parseBRLInput(iofPercentStr);
 
   const fxConversionPreview = useMemo(() => {
@@ -619,7 +683,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       parsedForeignAmount > 0 &&
       fxConversionPreview
     ) {
-      setAmountStr(fxConversionPreview.totalBrl.toFixed(2).replace('.', ','));
+      setAmountStr(
+        fxConversionPreview.isValid
+          ? fxConversionPreview.totalBrl.toFixed(2).replace('.', ',')
+          : ''
+      );
     }
   }, [
     isMultiCurrencyOpen,
@@ -896,9 +964,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } else if (sub === 'card_bill_payment') {
       const targetCard =
         cards.find((c) => c.id === billPaymentCardId) || cards[0];
+      setBillPaymentInvoiceMonth(selectedMonth);
       if (targetCard) {
         setBillPaymentCardId(targetCard.id);
         setDescription(`Pagamento Fatura ${targetCard.name}`);
+        const pending = calculateCreditCardSummary(targetCard, transactions, selectedMonth).invoicePendingAmount;
+        setAmountStr(pending > 0 ? pending.toFixed(2).replace('.', ',') : '');
       }
       const fallbackDest =
         accounts.find((a) => a.id !== accountId)?.id || accounts[0]?.id || '';
@@ -932,6 +1003,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const tripSplitValidationError = useMemo(() => {
     if (!selectedTrip || selectedTrip.participants.length <= 1) return null;
+    if (tripSplitMethod === 'exact' && originalCurrency !== 'BRL') {
+      const hasInvalidPrecision = selectedTrip.participants.some((participant) => {
+        if (!selectedTripParticipantIds.includes(participant.id)) return false;
+        const rawValue = tripCustomInputs[participant.id] || '';
+        return rawValue.trim() !== '' && !isCurrencyInputValid(rawValue, originalCurrency);
+      });
+      if (hasInvalidPrecision) {
+        return `Informe os valores individuais com até ${CURRENCY_CATALOG[originalCurrency].decimals} casa(s) decimal(is).`;
+      }
+    }
     const totalForeign =
       originalCurrency !== 'BRL' && parsedForeignAmount > 0
         ? parsedForeignAmount
@@ -1048,6 +1129,25 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     );
   }, [description, transactions, categories, entryMode, editingTransaction]);
 
+  const smartCategoryTarget = useMemo(() => {
+    if (!smartCategorySuggestion) return null;
+    const suggestedCategory = categories.find(
+      (category) => category.id === smartCategorySuggestion.categoryId
+    );
+    if (!suggestedCategory) return null;
+    const suggestedSubcategory = (suggestedCategory.subcategories || []).find(
+      (subcategory) =>
+        subcategory.id === smartCategorySuggestion.subcategoryId ||
+        (Boolean(smartCategorySuggestion.subcategoryName) &&
+          subcategory.name.trim().toLocaleLowerCase() ===
+            smartCategorySuggestion.subcategoryName?.trim().toLocaleLowerCase())
+    );
+    return {
+      categoryId: suggestedCategory.id,
+      subcategoryId: suggestedSubcategory?.id || '',
+    };
+  }, [smartCategorySuggestion, categories]);
+
   // Auto-apply category suggestion when confidence is high and user hasn't manually overridden
   useEffect(() => {
     if (
@@ -1056,18 +1156,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       entryMode === 'transfer' ||
       userManuallySelectedCategory ||
       !smartCategorySuggestion ||
+      !smartCategoryTarget ||
       smartCategorySuggestion.confidence < 0.65
     ) {
       return;
     }
 
-    if (categoryId !== smartCategorySuggestion.categoryId) {
-      setCategoryId(smartCategorySuggestion.categoryId);
-      if (smartCategorySuggestion.subcategoryId) {
-        setSubcategoryId(smartCategorySuggestion.subcategoryId);
-      }
+    if (
+      categoryId !== smartCategoryTarget.categoryId ||
+      subcategoryId !== smartCategoryTarget.subcategoryId
+    ) {
+      setCategoryId(smartCategoryTarget.categoryId);
+      setSubcategoryId(smartCategoryTarget.subcategoryId);
       setAutoAppliedCategoryNotice(
-        `Categoria "${smartCategorySuggestion.categoryName}" sugerida com base no histórico`
+        `Categoria "${smartCategorySuggestion.categoryName}" sugerida automaticamente`
       );
     }
   }, [
@@ -1076,7 +1178,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     entryMode,
     userManuallySelectedCategory,
     smartCategorySuggestion,
+    smartCategoryTarget,
     categoryId,
+    subcategoryId,
+    categories,
   ]);
 
   const handleApplySmartSuggestion = (sug: SmartTransactionSuggestion) => {
@@ -1216,11 +1321,34 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
+  const handleCreateSubcategory = () => {
+    if (!selectedCategoryObj || !onAddSubcategory) return;
+    const name = newSubcategoryName.trim();
+    if (!name) {
+      setError('Informe o nome da subcategoria.');
+      return;
+    }
+    const createdId = onAddSubcategory(selectedCategoryObj.id, name);
+    if (createdId) setSubcategoryId(createdId);
+    setNewSubcategoryName('');
+    setIsAddingSubcategory(false);
+    setError('');
+  };
+
   const handleApplySmartCategory = (sug: SmartCategorySuggestion) => {
     setCategoryId(sug.categoryId);
-    if (sug.subcategoryId) {
-      setSubcategoryId(sug.subcategoryId);
-    }
+    const suggestedCategory = categories.find((category) => category.id === sug.categoryId);
+    const subcategoryById = (suggestedCategory?.subcategories || []).find(
+      (subcategory) => subcategory.id === sug.subcategoryId
+    );
+    const existingSubcategory = sug.subcategoryName
+      ? (suggestedCategory?.subcategories || []).find(
+          (subcategory) => subcategory.name.trim().toLocaleLowerCase() === sug.subcategoryName?.trim().toLocaleLowerCase()
+        )
+      : undefined;
+    const subcategoryId = subcategoryById?.id || existingSubcategory?.id ||
+      (sug.subcategoryName ? onAddSubcategory?.(sug.categoryId, sug.subcategoryName) : undefined);
+    setSubcategoryId(subcategoryId || '');
     setUserManuallySelectedCategory(false);
     setAutoAppliedCategoryNotice(
       `Categoria "${sug.categoryName}" aplicada com base no histórico!`
@@ -1266,11 +1394,41 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const numericAmount = parseBRLInput(amountStr);
+    const activeMultiCurrency =
+      (isTripLinked || isMultiCurrencyOpen) &&
+      entryMode !== 'transfer' &&
+      (originalCurrency !== 'BRL' || Boolean(tripId));
 
     if (!description.trim()) {
       setError(
         'Informe uma descrição para o lançamento (ex: Supermercado, Salário, Jantar em Roma).'
       );
+      return;
+    }
+    if (
+      activeMultiCurrency &&
+      originalCurrency !== 'BRL' &&
+      (!isCurrencyInputValid(originalAmountStr, originalCurrency) || parsedForeignAmount <= 0)
+    ) {
+      setError(`Informe um valor válido em ${originalCurrency}, usando até ${CURRENCY_CATALOG[originalCurrency].decimals} casa(s) decimal(is).`);
+      return;
+    }
+    if (activeMultiCurrency && originalCurrency !== 'BRL' && !isExchangeRateInputValid(exchangeRateStr)) {
+      setError('Informe uma cotação válida maior que zero.');
+      return;
+    }
+    if (
+      activeMultiCurrency && originalCurrency !== 'BRL' &&
+      (!isCurrencyInputValid(iofPercentStr, 'BRL') || parsedIofPercent < 0 || parsedIofPercent > 100)
+    ) {
+      setError('Informe um IOF válido entre 0% e 100%, com até duas casas decimais.');
+      return;
+    }
+    if (
+      activeMultiCurrency && originalCurrency !== 'BRL' && parsedForeignAmount > 0 &&
+      (!fxConversionPreview || !fxConversionPreview.isValid)
+    ) {
+      setError('A conversão excede o limite de cálculo seguro. Reduza o valor ou a cotação.');
       return;
     }
     if (numericAmount <= 0) {
@@ -1312,11 +1470,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
     }
 
-    const activeMultiCurrency =
-      (isTripLinked || isMultiCurrencyOpen) &&
-      entryMode !== 'transfer' &&
-      (originalCurrency !== 'BRL' || Boolean(tripId));
-
     if (activeMultiCurrency && tripId && tripSplitValidationError) {
       setError(tripSplitValidationError);
       return;
@@ -1340,6 +1493,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       amount: numericAmount,
       amountMode:
         safeRecurrence === 'installment' ? amountMode : 'per_installment',
+      installmentPurchaseTotal:
+        safeRecurrence === 'installment' && !legacyInstallmentTotalUnknown
+          ? Math.round(
+              (amountMode === 'total_divided'
+                ? numericAmount
+                : numericAmount * installmentTotal) * 100
+            ) / 100
+          : undefined,
       date,
       competenceMonth:
         entryMode === 'credit_card'
@@ -1348,6 +1509,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               date,
               cards.find((c) => c.id === creditCardId)
             )
+          : isCardBillSettlement
+          ? billPaymentInvoiceMonth
           : date.slice(0, 7) || selectedMonth,
       type:
         entryMode === 'transfer' && !isCardBillSettlement
@@ -1480,7 +1643,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/65 p-0 sm:p-4 overflow-hidden"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/65 p-0 sm:p-4 overflow-hidden modal-shell"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-transaction-title"
@@ -1539,34 +1702,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </button>
           </div>
 
-          {/* Smart 4-Mode Segmented Selector */}
+          {/* Expense, income and movement tabs; card is a payment method within expenses. */}
           {!editingTransaction && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-xl bg-slate-200/70 dark:bg-slate-800 p-1 border border-slate-200/80 dark:border-slate-700/80">
+            <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-slate-200/70 dark:bg-slate-800 p-1 border border-slate-200/80 dark:border-slate-700/80">
               <button
                 type="button"
                 data-testid="mode-expense-btn"
                 onClick={() => handleModeSwitch('expense')}
                 className={`py-2 px-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  entryMode === 'expense'
+                  entryMode === 'expense' || entryMode === 'credit_card'
                     ? 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 shadow-xs border border-rose-200/80 dark:border-rose-900/60'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Wallet className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">Despesa Conta</span>
-              </button>
-              <button
-                type="button"
-                data-testid="mode-credit-card-btn"
-                onClick={() => handleModeSwitch('credit_card')}
-                className={`py-2 px-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  entryMode === 'credit_card'
-                    ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-400 shadow-xs border border-violet-200/80 dark:border-violet-900/60'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <CreditCardIcon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">Cartão Crédito</span>
+                <span className="truncate">Despesa</span>
               </button>
               <button
                 type="button"
@@ -1592,7 +1742,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 }`}
               >
                 <Repeat className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">Transferir / Fatura</span>
+                <span className="truncate">Movimentações</span>
               </button>
             </div>
           )}
@@ -1611,6 +1761,31 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             data-testid="transaction-modal-scroll-body"
             className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar native-scroll modal-form-scroll bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-4"
           >
+            {(entryMode === 'expense' || entryMode === 'credit_card') && !editingTransaction && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                <span className="mr-1 text-xs font-bold text-slate-700 dark:text-slate-300">Forma de pagamento</span>
+                <button
+                  type="button"
+                  data-testid="payment-method-account"
+                  aria-pressed={entryMode === 'expense'}
+                  onClick={() => handleModeSwitch('expense')}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${entryMode === 'expense' ? 'border-rose-300 bg-white text-rose-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
+                >
+                  Conta / débito
+                </button>
+                <button
+                  type="button"
+                  data-testid="payment-method-card"
+                  aria-pressed={entryMode === 'credit_card'}
+                  onClick={() => handleModeSwitch('credit_card')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${entryMode === 'credit_card' ? 'border-violet-300 bg-white text-violet-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
+                >
+                  <CreditCardIcon className="h-3.5 w-3.5" />
+                  Cartão de crédito
+                </button>
+              </div>
+            )}
+
             {/* Editing Mode Banner: Quick 1-Click Status Revert + Cascade Scope */}
             {editingTransaction && (
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/50 p-3.5 space-y-3">
@@ -1676,8 +1851,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       </button>
                       <button
                         type="button"
+                        disabled={legacyInstallmentTotalUnknown}
                         onClick={() => setCascadeScope('this_and_future')}
-                        className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition-all ${
+                        className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-45 ${
                           cascadeScope === 'this_and_future'
                             ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-200 font-bold'
                             : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
@@ -1687,8 +1863,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       </button>
                       <button
                         type="button"
+                        disabled={legacyInstallmentTotalUnknown}
                         onClick={() => setCascadeScope('all_series')}
-                        className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition-all ${
+                        className={`rounded-lg border px-2.5 py-2 text-left text-[11px] font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-45 ${
                           cascadeScope === 'all_series'
                             ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-200 font-bold'
                             : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
@@ -1716,6 +1893,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               data-testid="hero-calculator-value-box"
               className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 sm:p-4 space-y-3"
             >
+              {legacyInstallmentTotalUnknown && (
+                <p
+                  data-testid="legacy-installment-total-warning"
+                  className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                  O total original não está salvo e a série está incompleta. Este campo mostra apenas esta parcela; para evitar alterar pagamentos ou outras parcelas com um total estimado, a edição está limitada a este mês. Revise o histórico antes de ajustar o total da compra.
+                </p>
+              )}
               {isMultiCurrencyOpen && originalCurrency !== 'BRL' ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
@@ -2256,6 +2441,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         </option>
                       ))}
                     </select>
+                    {selectedPaymentAccount && (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                        <InstitutionMark
+                          institution={selectedPaymentAccount.institution}
+                          accountName={selectedPaymentAccount.name}
+                          color={selectedPaymentAccount.color}
+                          size="xs"
+                        />
+                        <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                      </div>
+                    )}
                   </div>
 
                   {transferSubMode === 'card_bill_payment' ? (
@@ -2272,6 +2468,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           const cObj = cards.find((c) => c.id === cid);
                           if (cObj) {
                             setDescription(`Pagamento Fatura ${cObj.name}`);
+                            const pending = calculateCreditCardSummary(
+                              cObj,
+                              transactions,
+                              billPaymentInvoiceMonth
+                            ).invoicePendingAmount;
+                            setAmountStr(pending > 0 ? pending.toFixed(2).replace('.', ',') : '');
                           }
                         }}
                         className="w-full rounded-lg border border-violet-300 dark:border-violet-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white"
@@ -2282,6 +2484,49 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           </option>
                         ))}
                       </select>
+                      {selectedBillPaymentCard && (
+                        <div className="mt-2 flex items-center gap-3">
+                          <CreditCardFace card={selectedBillPaymentCard} size="compact" />
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Cartão selecionado para quitar a fatura
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-3">
+                        <label htmlFor="tx-bill-invoice-month" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Fatura que será quitada
+                        </label>
+                        <select
+                          id="tx-bill-invoice-month"
+                          data-testid="bill-invoice-month-select"
+                          value={billPaymentInvoiceMonth}
+                          onChange={(e) => {
+                            const month = e.target.value;
+                            setBillPaymentInvoiceMonth(month);
+                            if (selectedBillPaymentCard) {
+                              const pending = calculateCreditCardSummary(
+                                selectedBillPaymentCard,
+                                transactions,
+                                month
+                              ).invoicePendingAmount;
+                              setAmountStr(pending > 0 ? pending.toFixed(2).replace('.', ',') : '');
+                            }
+                          }}
+                          className="w-full rounded-lg border border-violet-300 dark:border-violet-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-900 dark:text-white"
+                        >
+                          {Array.from({ length: 7 }, (_, index) =>
+                            addMonthsToYearMonth(selectedMonth, index - 3)
+                          ).map((month) => (
+                            <option key={month} value={month}>{formatMonthYearPT(month)}</option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          Em aberto nesta fatura: <strong>{formatBRL(billPaymentInvoiceSummary?.invoicePendingAmount || 0)}</strong>. O valor é preenchido automaticamente; você pode informar um pagamento parcial.
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                          O pagamento debita a conta selecionada e quita o cartão. As compras já contam como despesas por categoria, então esta liquidação não duplica os gastos.
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <div>
@@ -2330,6 +2575,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           </optgroup>
                         )}
                       </select>
+                      {selectedDestinationAccount && (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                          <InstitutionMark
+                            institution={selectedDestinationAccount.institution}
+                            accountName={selectedDestinationAccount.name}
+                            color={selectedDestinationAccount.color}
+                            size="xs"
+                          />
+                          <span>Destino: {selectedDestinationAccount.name}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2377,7 +2633,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         ))}
                       </select>
                     </div>
-                    {smartCategorySuggestion && categoryId !== smartCategorySuggestion.categoryId && (
+                    {smartCategorySuggestion && smartCategoryTarget &&
+                      (categoryId !== smartCategoryTarget.categoryId ||
+                        subcategoryId !== smartCategoryTarget.subcategoryId ||
+                        Boolean(smartCategorySuggestion.subcategoryName && !smartCategoryTarget.subcategoryId)) && (
                       <button
                         type="button"
                         onClick={() => handleApplySmartCategory(smartCategorySuggestion)}
@@ -2389,26 +2648,72 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     )}
                   </div>
 
-                  {availableSubcategories.length > 0 && (
-                    <div>
-                      <label htmlFor="tx-subcategory-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Subcategoria
-                      </label>
-                      <select
-                        id="tx-subcategory-select"
-                        value={subcategoryId}
-                        onChange={(e) => setSubcategoryId(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
-                      >
-                        <option value="">Geral / Sem subcategoria</option>
-                        {availableSubcategories.map((sub) => (
-                          <option key={sub.id} value={sub.id}>
-                            {sub.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="space-y-1.5">
+                    {availableSubcategories.length > 0 && (
+                      <>
+                        <label htmlFor="tx-subcategory-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          Subcategoria
+                        </label>
+                        <select
+                          id="tx-subcategory-select"
+                          value={subcategoryId}
+                          onChange={(e) => {
+                            setSubcategoryId(e.target.value);
+                            setUserManuallySelectedCategory(true);
+                            setAutoAppliedCategoryNotice(null);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
+                        >
+                          <option value="">Geral / Sem subcategoria</option>
+                          {availableSubcategories.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.name}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+                    {onAddSubcategory && (
+                      <div>
+                        {!isAddingSubcategory ? (
+                          <button
+                            type="button"
+                            data-testid="open-quick-add-subcategory"
+                            onClick={() => setIsAddingSubcategory(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Criar subcategoria
+                          </button>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <input
+                              data-testid="quick-add-subcategory-name"
+                              aria-label="Nome da nova subcategoria"
+                              autoFocus
+                              maxLength={60}
+                              value={newSubcategoryName}
+                              onChange={(e) => setNewSubcategoryName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleCreateSubcategory();
+                                }
+                              }}
+                              placeholder="Nome da subcategoria"
+                              className="min-w-[150px] flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                            />
+                            <button type="button" data-testid="save-quick-add-subcategory" onClick={handleCreateSubcategory} className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white">
+                              Adicionar
+                            </button>
+                            <button type="button" onClick={() => { setIsAddingSubcategory(false); setNewSubcategoryName(''); }} className="rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <label htmlFor="tx-payment-source-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -2434,6 +2739,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             </option>
                           ))}
                         </select>
+                        {selectedCreditCard && (
+                          <div className="flex items-center gap-3">
+                            <CreditCardFace card={selectedCreditCard} size="compact" />
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Bandeira {selectedCreditCard.brand}
+                            </span>
+                          </div>
+                        )}
                         {(() => {
                           const chosenCard =
                             cards.find((c) => c.id === creditCardId) || cards[0];
@@ -2445,7 +2758,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             chosenCard
                           );
                           const isAfterClosing =
-                            autoInvoiceMonth !== purchaseMonth;
+                            Number(date.slice(8, 10)) > (chosenCard?.closingDay || 0);
+                          const hasManualInvoiceMonth =
+                            invoiceCompetenceMonth !== autoInvoiceMonth;
                           const monthOptions = Array.from(
                             new Set([
                               prevMonth,
@@ -2462,23 +2777,49 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             <div className="flex flex-wrap items-center justify-between gap-1.5 rounded-lg border border-violet-200 dark:border-violet-800/70 bg-violet-50/70 dark:bg-violet-950/30 px-2.5 py-1.5 text-[11px]">
                               <span className="font-semibold text-violet-900 dark:text-violet-200">
                                 {isAfterClosing
-                                  ? `Após fechamento (dia ${chosenCard?.closingDay}) → Fatura:`
-                                  : 'Fatura de Competência:'}
+                                  ? `Compra após o fechamento (dia ${chosenCard?.closingDay}); fatura:`
+                                  : hasManualInvoiceMonth
+                                  ? 'Fatura ajustada manualmente:'
+                                  : 'Fatura estimada automaticamente:'}
                               </span>
-                              <select
-                                aria-label="Fatura de Competência"
-                                value={invoiceCompetenceMonth}
-                                onChange={(e) =>
-                                  setInvoiceCompetenceMonth(e.target.value)
-                                }
-                                className="rounded border border-violet-300 dark:border-violet-700 bg-white dark:bg-slate-900 px-1.5 py-0.5 text-[11px] font-bold text-violet-900 dark:text-violet-200"
+                              <span data-testid="auto-invoice-month" className="font-bold text-violet-900 dark:text-violet-100">
+                                {formatMonthYearPT(invoiceCompetenceMonth)}
+                              </span>
+                              <button
+                                type="button"
+                                data-testid="toggle-invoice-month-override"
+                                aria-expanded={isInvoiceMonthOverrideOpen}
+                                onClick={() => {
+                                  if (hasManualInvoiceMonth) {
+                                    setInvoiceCompetenceMonth(autoInvoiceMonth);
+                                    setIsInvoiceMonthOverrideOpen(false);
+                                  } else {
+                                    setIsInvoiceMonthOverrideOpen((open) => !open);
+                                  }
+                                }}
+                                className="rounded px-1.5 py-0.5 font-semibold text-violet-700 underline decoration-violet-300 underline-offset-2 hover:text-violet-900 dark:text-violet-300 dark:hover:text-white"
                               >
-                                {monthOptions.map((m) => (
-                                  <option key={m} value={m}>
-                                    {formatMonthYearPT(m)}
-                                  </option>
-                                ))}
-                              </select>
+                                {hasManualInvoiceMonth
+                                  ? 'Usar estimativa'
+                                  : isInvoiceMonthOverrideOpen
+                                  ? 'Ocultar ajuste'
+                                  : 'Ajustar fatura'}
+                              </button>
+                              {isInvoiceMonthOverrideOpen && (
+                                <select
+                                  aria-label="Ajuste manual da fatura"
+                                  data-testid="invoice-month-override"
+                                  value={invoiceCompetenceMonth}
+                                  onChange={(e) => setInvoiceCompetenceMonth(e.target.value)}
+                                  className="rounded border border-violet-300 dark:border-violet-700 bg-white dark:bg-slate-900 px-1.5 py-0.5 text-[11px] font-bold text-violet-900 dark:text-violet-200"
+                                >
+                                  {monthOptions.map((m) => (
+                                    <option key={m} value={m}>
+                                      {formatMonthYearPT(m)}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
                           );
                         })()}
@@ -2498,64 +2839,90 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           );
                         }
                         return (
-                          <select
-                            id="tx-payment-source-select"
-                            value={accountId}
-                            onChange={(e) => setAccountId(e.target.value)}
-                            className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-sky-50/60 dark:bg-slate-900 px-2.5 py-2 text-xs font-bold text-sky-950 dark:text-white"
-                          >
-                            <option value="">
-                              {matchingIntl.length > 0
-                                ? `— Selecionar conta em ${selectedTrip.currency} —`
-                                : `Bolso Câmbio da Viagem (${selectedTrip.currency})`}
-                            </option>
-                            {matchingIntl.map((acc) => (
-                              <option key={acc.id} value={acc.id}>
-                                {CURRENCY_CATALOG[selectedTrip.currency]?.flag} {acc.name} ({selectedTrip.currency})
+                          <div className="space-y-2">
+                            <select
+                              id="tx-payment-source-select"
+                              value={accountId}
+                              onChange={(e) => setAccountId(e.target.value)}
+                              className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-sky-50/60 dark:bg-slate-900 px-2.5 py-2 text-xs font-bold text-sky-950 dark:text-white"
+                            >
+                              <option value="">
+                                {matchingIntl.length > 0
+                                  ? `— Selecionar conta em ${selectedTrip.currency} —`
+                                  : `Bolso Câmbio da Viagem (${selectedTrip.currency})`}
                               </option>
-                            ))}
-                          </select>
+                              {matchingIntl.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {CURRENCY_CATALOG[selectedTrip.currency]?.flag} {acc.name} ({selectedTrip.currency})
+                                </option>
+                              ))}
+                            </select>
+                            {selectedPaymentAccount && (
+                              <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                <InstitutionMark
+                                  institution={selectedPaymentAccount.institution}
+                                  accountName={selectedPaymentAccount.name}
+                                  color={selectedPaymentAccount.color}
+                                  size="xs"
+                                />
+                                <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                              </div>
+                            )}
+                          </div>
                         );
                       })()
                     ) : (
-                      <select
-                        id="tx-payment-source-select"
-                        value={accountId}
-                        onChange={(e) => {
-                          const nextId = e.target.value;
-                          setAccountId(nextId);
-                          const chosen = accounts.find((a) => a.id === nextId);
-                          if (
-                            chosen &&
-                            chosen.type === 'international' &&
-                            chosen.currency &&
-                            chosen.currency !== 'BRL'
-                          ) {
-                            setIsMultiCurrencyOpen(true);
-                            setOriginalCurrency(chosen.currency);
-                            setCurrencyRegime('global_account');
-                            const defRate =
-                              CURRENCY_CATALOG[chosen.currency]
-                                ?.defaultCommercialRateBrl || 5.8;
-                            setExchangeRateStr(
-                              defRate.toFixed(4).replace('.', ',')
-                            );
-                            setIofPercentStr('1,10');
-                          } else if (!isTripLinked) {
-                            setIsMultiCurrencyOpen(false);
-                            setOriginalCurrency('BRL');
-                          }
-                        }}
-                        className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
-                      >
-                        {accounts.map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.type === 'international' && acc.currency
-                              ? `${CURRENCY_CATALOG[acc.currency]?.flag || '🌎'} ${acc.name} (${acc.currency})`
-                              : acc.name}
-                          </option>
-                        ))}
-                      </select>
+                      <>
+                        <select
+                          id="tx-payment-source-select"
+                          value={accountId}
+                          onChange={(e) => {
+                            const nextId = e.target.value;
+                            setAccountId(nextId);
+                            const chosen = accounts.find((a) => a.id === nextId);
+                            if (
+                              chosen &&
+                              chosen.type === 'international' &&
+                              chosen.currency &&
+                              chosen.currency !== 'BRL'
+                            ) {
+                              setIsMultiCurrencyOpen(true);
+                              setOriginalCurrency(chosen.currency);
+                              setCurrencyRegime('global_account');
+                              const defRate =
+                                CURRENCY_CATALOG[chosen.currency]
+                                  ?.defaultCommercialRateBrl || 5.8;
+                              setExchangeRateStr(
+                                defRate.toFixed(4).replace('.', ',')
+                              );
+                              setIofPercentStr('1,10');
+                            } else if (!isTripLinked) {
+                              setIsMultiCurrencyOpen(false);
+                              setOriginalCurrency('BRL');
+                            }
+                          }}
+                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
+                        >
+                          {accounts.map((acc) => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.type === 'international' && acc.currency
+                                ? `${CURRENCY_CATALOG[acc.currency]?.flag || '🌎'} ${acc.name} (${acc.currency})`
+                                : acc.name}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedPaymentAccount && (
+                          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                            <InstitutionMark
+                              institution={selectedPaymentAccount.institution}
+                              accountName={selectedPaymentAccount.name}
+                              color={selectedPaymentAccount.color}
+                              size="xs"
+                            />
+                            <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -3099,22 +3466,35 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                         a.currency === selectedTrip.currency
                                     );
                                     return matchingIntl.length > 0 ? (
-                                      <select
-                                        data-testid="tx-trip-intl-account-select"
-                                        value={accountId}
-                                        onChange={(e) => setAccountId(e.target.value)}
-                                        className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-sky-950 dark:text-white"
-                                      >
-                                        <option value="">
-                                          — Abater apenas da carteira de câmbio da viagem —
-                                        </option>
-                                        {matchingIntl.map((acc) => (
-                                          <option key={acc.id} value={acc.id}>
-                                            {CURRENCY_CATALOG[selectedTrip.currency]?.flag}{' '}
-                                            {acc.name} ({acc.institution} · {selectedTrip.currency})
+                                      <>
+                                        <select
+                                          data-testid="tx-trip-intl-account-select"
+                                          value={accountId}
+                                          onChange={(e) => setAccountId(e.target.value)}
+                                          className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-sky-950 dark:text-white"
+                                        >
+                                          <option value="">
+                                            — Abater apenas da carteira de câmbio da viagem —
                                           </option>
-                                        ))}
-                                      </select>
+                                          {matchingIntl.map((acc) => (
+                                            <option key={acc.id} value={acc.id}>
+                                              {CURRENCY_CATALOG[selectedTrip.currency]?.flag}{' '}
+                                              {acc.name} ({acc.institution} · {selectedTrip.currency})
+                                            </option>
+                                          ))}
+                                        </select>
+                                        {selectedPaymentAccount?.type === 'international' && (
+                                          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                            <InstitutionMark
+                                              institution={selectedPaymentAccount.institution}
+                                              accountName={selectedPaymentAccount.name}
+                                              color={selectedPaymentAccount.color}
+                                              size="xs"
+                                            />
+                                            <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                                          </div>
+                                        )}
+                                      </>
                                     ) : (
                                       <p className="text-[11px] text-sky-800 dark:text-sky-300">
                                         Debitando do saldo de câmbio da viagem em{' '}
@@ -3143,6 +3523,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                       </option>
                                     ))}
                                   </select>
+                                  {selectedCreditCard && (
+                                    <div className="flex items-center gap-3">
+                                      <CreditCardFace card={selectedCreditCard} size="compact" />
+                                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        Bandeira {selectedCreditCard.brand}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 

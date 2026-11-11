@@ -61,10 +61,13 @@ import {
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
   calculateMonthlySummary,
+  applyReconciledBankTransactions,
   CascadeScope,
   CreateTransactionBatchInput,
   createTransactionBatch,
   formatBRL,
+  getTransactionsLinkedToCreditCard,
+  getTransactionsLinkedToCategory,
   getLocalDateISO,
   formatMonthYearPT,
   payCreditCardInvoice,
@@ -96,6 +99,7 @@ import {
   isRetryableWorkspaceSaveError,
   updateWorkspaceConflictLocalPayload,
 } from './utils/workspaceSyncRecovery';
+import { applyHighConfidenceInstallmentTotals } from './utils/legacyFinancialAudit';
 import {
   clearWorkspaceCacheForVault,
   isWorkspaceLoadedForUser,
@@ -551,6 +555,7 @@ export default function App() {
         loadedWorkspaceUidRef.current = null;
         setWorkspaceLoadState(nextUid ? 'loading' : 'error');
         setCloudSyncStatus(nextUid ? 'syncing' : 'local');
+        setIsResolvingWorkspaceConflict(false);
       }
       authenticatedUidRef.current = nextUid;
       setCurrentUser(user);
@@ -617,6 +622,9 @@ export default function App() {
       if (revision === null) {
         try {
           const existing = await loadNeonWorkspace();
+          if (authenticatedUidRef.current !== authenticatedUser.uid) {
+            throw new Error('A conta ativa mudou durante a leitura do workspace.');
+          }
           revision = existing.revision;
           neonWorkspaceRevisionRef.current = revision;
         } catch (error) {
@@ -625,6 +633,9 @@ export default function App() {
           }
           try {
             const created = await createNeonWorkspace(payload);
+            if (authenticatedUidRef.current !== authenticatedUser.uid) {
+              throw new Error('A conta ativa mudou durante a criação do workspace.');
+            }
             neonWorkspaceRevisionRef.current = created.revision;
             return;
           } catch (importError) {
@@ -635,6 +646,9 @@ export default function App() {
               throw importError;
             }
             const existing = await loadNeonWorkspace();
+            if (authenticatedUidRef.current !== authenticatedUser.uid) {
+              throw new Error('A conta ativa mudou durante a leitura do workspace.');
+            }
             const conflict = {
               localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
               remoteSnapshot: existing,
@@ -654,11 +668,15 @@ export default function App() {
 
       try {
         const saved = await saveNeonWorkspace(payload, revision);
+        if (authenticatedUidRef.current !== authenticatedUser.uid) {
+          throw new Error('A conta ativa mudou durante a gravação do workspace.');
+        }
         neonWorkspaceRevisionRef.current = saved.revision;
       } catch (error) {
         if (error instanceof NeonWorkspaceError && error.status === 409) {
           try {
             const remoteSnapshot = await loadNeonWorkspace();
+            if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
             const conflict = {
               localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
               remoteSnapshot,
@@ -668,6 +686,7 @@ export default function App() {
             setWorkspaceConflictError(null);
             setIsWorkspaceConflictOpen(true);
           } catch (refreshError) {
+            if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
             console.error(
               'Não foi possível carregar a versão atual do Neon para resolver o conflito.',
               refreshError instanceof Error ? refreshError.message : String(refreshError)
@@ -681,6 +700,7 @@ export default function App() {
               true
             );
           }
+          if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
           setCloudSyncStatus('error');
         }
         throw error;
@@ -719,6 +739,7 @@ export default function App() {
     setCloudSyncStatus('syncing');
     try {
       await queueNeonWorkspaceSave(payload);
+      if (authenticatedUidRef.current !== authenticatedUid) return;
       cancelSaveRetry(true);
       setCloudSyncStatus('synced');
       setLastSyncedAt(
@@ -728,6 +749,7 @@ export default function App() {
         showNotice('Sincronização em nuvem concluída agora!', undefined, true);
       }
     } catch (error) {
+      if (authenticatedUidRef.current !== authenticatedUid) return;
       setCloudSyncStatus('error');
       console.error(
         'Falha ao salvar workspace no Neon; alterações locais foram mantidas.',
@@ -786,18 +808,25 @@ export default function App() {
 
   const handleKeepLocalWorkspaceVersion = async () => {
     const conflict = workspaceConflictRef.current;
-    if (!conflict || isResolvingWorkspaceConflict) return;
+    const ownerUid = authenticatedUidRef.current;
+    if (!conflict || !ownerUid || isResolvingWorkspaceConflict) return;
 
     setIsResolvingWorkspaceConflict(true);
     setWorkspaceConflictError(null);
     setCloudSyncStatus('syncing');
     const save = neonSaveQueueRef.current.then(async () => {
+      if (authenticatedUidRef.current !== ownerUid) {
+        throw new Error('A conta ativa mudou durante a resolução do conflito.');
+      }
       const latestConflict = workspaceConflictRef.current;
       if (!latestConflict) return null;
       const saved = await saveNeonWorkspace(
         latestConflict.localPayload,
         latestConflict.remoteSnapshot.revision
       );
+      if (authenticatedUidRef.current !== ownerUid) {
+        throw new Error('A conta ativa mudou durante a gravação do conflito.');
+      }
       neonWorkspaceRevisionRef.current = saved.revision;
       return latestConflict;
     });
@@ -808,6 +837,7 @@ export default function App() {
 
     try {
       const resolvedConflict = await save;
+      if (authenticatedUidRef.current !== ownerUid) return;
       if (!resolvedConflict) return;
 
       setCloudSyncStatus('synced');
@@ -820,9 +850,11 @@ export default function App() {
       setWorkspaceConflict(null);
       setIsWorkspaceConflictOpen(false);
     } catch (error) {
+      if (authenticatedUidRef.current !== ownerUid) return;
       if (error instanceof NeonWorkspaceError && error.status === 409) {
         try {
           const latest = await loadNeonWorkspace();
+          if (authenticatedUidRef.current !== ownerUid) return;
           const updatedConflict = {
             ...conflict,
             remoteSnapshot: latest,
@@ -833,6 +865,7 @@ export default function App() {
             'O Neon mudou novamente antes de salvar. Baixe uma nova cópia das duas versões e escolha novamente.'
           );
         } catch {
+          if (authenticatedUidRef.current !== ownerUid) return;
           setWorkspaceConflictError(
             'O Neon mudou novamente e a versão mais recente não pôde ser carregada. Suas duas versões continuam preservadas; verifique a conexão e tente outra vez.'
           );
@@ -846,7 +879,7 @@ export default function App() {
       }
       setCloudSyncStatus('error');
     } finally {
-      setIsResolvingWorkspaceConflict(false);
+      if (authenticatedUidRef.current === ownerUid) setIsResolvingWorkspaceConflict(false);
     }
   };
 
@@ -862,6 +895,9 @@ export default function App() {
   // Neon is the sole financial data store; the own Neon login supplies identity only.
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated || !effectiveUserEmail) return;
+
+    const loadUid = currentUser?.uid;
+    if (!loadUid) return;
 
     hasLoadedRemoteOnceRef.current = false;
     loadedWorkspaceUidRef.current = null;
@@ -879,6 +915,10 @@ export default function App() {
           throw error;
         }
 
+        if (!active || authenticatedUidRef.current !== loadUid) {
+          throw new Error('A conta ativa mudou antes de inicializar o workspace.');
+        }
+
         try {
           await createNeonWorkspace(buildCloudPayload(autoVaultId));
         } catch (createError) {
@@ -889,20 +929,23 @@ export default function App() {
             throw createError;
           }
         }
+        if (!active || authenticatedUidRef.current !== loadUid) {
+          throw new Error('A conta ativa mudou durante a inicialização do workspace.');
+        }
         return loadNeonWorkspace();
       }
     })();
 
     void initialNeonLoad
       .then(async (snapshot) => {
-        if (!active) return;
+        if (!active || authenticatedUidRef.current !== loadUid) return;
         const cleaned = stripLegacyMockItemsFromWorkspace(snapshot.payload);
         const data = cleaned.payload;
         const [familyInvitations, sharedPayloads] = await Promise.all([
           loadNeonFamilyInvitations().catch(() => []),
           loadNeonSharedTransactions().catch(() => []),
         ]);
-        if (!active) return;
+        if (!active || authenticatedUidRef.current !== loadUid) return;
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
         const rawAccounts = parseWorkspaceArray<BankAccount>(data.accountsJson, INITIAL_ACCOUNTS, 'accountsJson');
@@ -913,7 +956,7 @@ export default function App() {
           : [...INITIAL_CATEGORIES];
         for (const coreCategory of INITIAL_CATEGORIES) {
           if (
-            (coreCategory.id === 'cat-outros' || coreCategory.id === 'cat-aportes') &&
+            (coreCategory.id === 'cat-outros' || coreCategory.id === 'cat-aportes' || coreCategory.id === 'cat-fatura') &&
             !nextCategories.some((category) => category.id === coreCategory.id)
           ) {
             nextCategories.push(coreCategory);
@@ -1005,7 +1048,7 @@ export default function App() {
         setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
         setSettings(parsePersistedSettings(data.settingsJson, DEFAULT_SETTINGS));
         hasLoadedRemoteOnceRef.current = true;
-        loadedWorkspaceUidRef.current = currentUser?.uid ?? null;
+        loadedWorkspaceUidRef.current = loadUid;
         isApplyingRemoteSnapshotRef.current = false;
         setWorkspaceLoadState('ready');
         setCloudSyncStatus('synced');
@@ -1016,7 +1059,7 @@ export default function App() {
         );
       })
       .catch((error) => {
-        if (!active) return;
+        if (!active || authenticatedUidRef.current !== loadUid) return;
         isApplyingRemoteSnapshotRef.current = false;
         setWorkspaceLoadState('error');
         setCloudSyncStatus('error');
@@ -1033,7 +1076,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, autoVaultId, workspaceLoadAttempt]);
+  }, [isAuthReady, isUserAuthenticated, effectiveUserEmail, currentUser?.uid, autoVaultId, workspaceLoadAttempt]);
 
   useEffect(() => {
     if (workspaceLoadState !== 'error') return;
@@ -1326,6 +1369,24 @@ export default function App() {
     setIsModalOpen(true);
   };
 
+  const handleEditTransaction = (tx: Transaction) => {
+    if (tx.isInvoicePayment) {
+      showNotice(
+        'Pagamentos de fatura são liquidações vinculadas às compras do cartão. Estorne a fatura e registre o pagamento novamente para corrigir data, conta ou valor.',
+        undefined,
+        true
+      );
+      return;
+    }
+    setEditingTransaction(tx);
+    setModalDefaultMode(
+      tx.creditCardId ? 'credit_card' :
+        tx.type === 'income' ? 'income' :
+          tx.type === 'transfer' ? 'transfer' : 'expense'
+    );
+    setIsModalOpen(true);
+  };
+
   const handleDuplicateTransaction = (tx: Transaction) => {
     const cloned: Transaction = {
       ...tx,
@@ -1396,6 +1457,8 @@ export default function App() {
           ...targetTx,
           description: input.description,
           amount: input.amount,
+          installmentPurchaseTotal:
+            input.installmentPurchaseTotal ?? targetTx.installmentPurchaseTotal,
           date: input.date,
           competenceMonth: input.competenceMonth || input.date.slice(0, 7),
           type: input.type,
@@ -1430,12 +1493,19 @@ export default function App() {
           isCompanionOnlyExpense: input.isCompanionOnlyExpense,
         };
 
-        if (targetTx.installmentGroupId && cascadeScope !== 'single') {
+        if (
+          targetTx.installmentGroupId &&
+          (cascadeScope !== 'single' || updatedSingleTx.installmentPurchaseTotal !== undefined)
+        ) {
           const res = applyCascadeTransactionEdit(
             transactions,
             updatedSingleTx,
             cascadeScope
           );
+          if (res.error) {
+            showNotice(res.error, undefined, true);
+            return;
+          }
           setTransactions(res.updatedTransactions);
           if (updatedSingleTx.isShared || targetTx.isShared) {
             triggerCrossAccountSharedTxSync(res.updatedTransactions);
@@ -1697,17 +1767,21 @@ export default function App() {
     showNotice(`Cartão ${updatedCard.name} atualizado.`);
   };
 
-  const handleDeleteCard = (cardId: string) => {
+  const handleDeleteCard = (cardId: string): boolean => {
     const target = cards.find((c) => c.id === cardId);
+    if (!target) return false;
+    const linkedTransactions = getTransactionsLinkedToCreditCard(target, transactions);
+    if (linkedTransactions.length > 0) {
+      showNotice(
+        `Este cartão tem ${linkedTransactions.length} lançamento(s) no histórico. Para preservar compras e pagamentos já registrados, mantenha o cartão no histórico.`,
+        undefined,
+        true
+      );
+      return false;
+    }
     setCards((prev) => prev.filter((c) => c.id !== cardId));
-    setTransactions((prev) =>
-      prev.filter(
-        (tx) =>
-          tx.creditCardId !== cardId &&
-          !(tx.isInvoicePayment && tx.settledCardId === cardId)
-      )
-    );
-    showNotice(`Cartão ${target?.name || ''} e seus lançamentos foram removidos.`);
+    showNotice(`Cartão ${target.name} removido.`);
+    return true;
   };
 
   // Trips & Multi-Currency Handlers
@@ -1867,42 +1941,67 @@ export default function App() {
   const handleDeleteCategory = (categoryId: string) => {
     const target = categories.find((c) => c.id === categoryId);
     if (!target) return;
-    const fallbackCategory = categories.find(
-      (c) => c.id !== categoryId && c.type === target.type
-    );
-    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
-    if (fallbackCategory) {
-      setTransactions((prev) =>
-        prev.map((tx) =>
-          tx.categoryId === categoryId
-            ? { ...tx, categoryId: fallbackCategory.id, subcategoryId: undefined }
-            : tx
-        )
+    const linkedTransactions = getTransactionsLinkedToCategory(categoryId, transactions);
+    if (linkedTransactions.length > 0) {
+      showNotice(
+        `A categoria "${target.name}" está em ${linkedTransactions.length} lançamento(s). Reclassifique esses lançamentos antes de excluir para preservar os relatórios.`,
+        undefined,
+        true
       );
+      return;
     }
+    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
     showNotice(`Categoria "${target.name}" removida.`);
   };
 
-  const handleAddSubcategory = (categoryId: string, subcategoryName: string) => {
+  const handleAddSubcategory = (categoryId: string, subcategoryName: string): string | undefined => {
     const trimmed = subcategoryName.trim();
-    if (!trimmed) return;
+    if (!trimmed) return undefined;
+    const target = categories.find((category) => category.id === categoryId);
+    const existing = (target?.subcategories || []).find(
+      (subcategory) => subcategory.name.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase()
+    );
+    if (existing) return existing.id;
+    const subcategorySlug = trimmed
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+    const subcategoryId = `sub-${categoryId}-${subcategorySlug || 'custom'}`;
     setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === categoryId
-          ? {
-              ...cat,
-              subcategories: [
-                ...(cat.subcategories ?? []),
-                { id: `sub-${Date.now()}`, name: trimmed },
-              ],
-            }
-          : cat
-      )
+      prev.map((cat) => {
+        if (cat.id !== categoryId) return cat;
+        const subcategories = cat.subcategories ?? [];
+        if (subcategories.some((subcategory) => subcategory.id === subcategoryId)) return cat;
+        return {
+          ...cat,
+          subcategories: [...subcategories, { id: subcategoryId, name: trimmed }],
+        };
+      })
     );
     showNotice(`Subcategoria "${trimmed}" adicionada.`);
+    return subcategoryId;
   };
 
   const handleDeleteSubcategory = (categoryId: string, subcategoryId: string) => {
+    const target = categories
+      .find((category) => category.id === categoryId)
+      ?.subcategories?.find((subcategory) => subcategory.id === subcategoryId);
+    if (!target) return;
+    const linkedTransactions = getTransactionsLinkedToCategory(
+      categoryId,
+      transactions,
+      subcategoryId
+    );
+    if (linkedTransactions.length > 0) {
+      showNotice(
+        `A subcategoria "${target.name}" está em ${linkedTransactions.length} lançamento(s). Reclassifique esses lançamentos antes de excluir para preservar o histórico.`,
+        undefined,
+        true
+      );
+      return;
+    }
     setCategories((prev) =>
       prev.map((cat) =>
         cat.id === categoryId
@@ -1915,14 +2014,21 @@ export default function App() {
           : cat
       )
     );
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.categoryId === categoryId && tx.subcategoryId === subcategoryId
-          ? { ...tx, subcategoryId: undefined }
-          : tx
-      )
+    showNotice(`Subcategoria "${target.name}" removida.`);
+  };
+
+  const handleApplyHistoricalInstallmentTotals = () => {
+    const previousTransactions = [...transactions];
+    const result = applyHighConfidenceInstallmentTotals(transactions, cards);
+    if (result.updatedRows === 0) {
+      showNotice('Nenhum total de parcelamento de alta confiança precisa ser preenchido.', undefined, true);
+      return;
+    }
+    setTransactions(result.updatedTransactions);
+    showNotice(
+      `Total original preenchido em ${result.updatedRows} parcela(s) de ${result.updatedGroups} série(s). Valores das parcelas e competências preservados. Use Desfazer no aviso se precisar reverter.`,
+      previousTransactions
     );
-    showNotice('Subcategoria removida.');
   };
 
   const handleContributeGoal = (
@@ -2430,6 +2536,10 @@ export default function App() {
     }
 
     const result = applyCascadeAccountDelete(accounts, cards, transactions, accountId);
+    if (result.error) {
+      showNotice(result.error, undefined, true);
+      return;
+    }
     if (!result.deletedAccount) return;
 
     setAccounts(result.updatedAccounts);
@@ -2632,14 +2742,22 @@ export default function App() {
     accountId: string
   ) => {
     if (newTxs.length === 0) return;
-    setTransactions((prev) => [...newTxs, ...prev]);
+    const result = applyReconciledBankTransactions(transactions, newTxs, cards);
+    if (result.importedCount === 0) {
+      showNotice('Nenhum lançamento válido foi importado. Revise os vínculos de cartão e fatura.', undefined, true);
+      return 0;
+    }
+    setTransactions(result.updatedTransactions);
     const acc = accounts.find((a) => a.id === accountId);
     showNotice(
-      `${newTxs.length} lançamento(s) conciliado(s) com sucesso na conta ${
+      `${result.importedCount} lançamento(s) conciliado(s) com sucesso na conta ${
         acc?.name || 'selecionada'
-      }!`
+      }!${result.rejectedInvoicePayments > 0 ? ` ${result.rejectedInvoicePayments} pagamento(s) de fatura não puderam ser vinculados e foram ignorados.` : ''}`,
+      undefined,
+      result.rejectedInvoicePayments > 0
     );
     triggerDataLoadingTransition(220);
+    return result.importedCount;
   };
 
   const handleExportFullBackupJson = () => {
@@ -2670,7 +2788,7 @@ export default function App() {
     a.href = url;
     a.download = `minhas-economias-backup-${selectedMonth}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     showNotice('Backup do workspace (.JSON) exportado com sucesso.', undefined, true);
   };
 
@@ -3137,7 +3255,7 @@ export default function App() {
   if (!isAuthReady || !isUserAuthenticated) {
     return (
       <div
-        className={`min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-slate-50 text-slate-900 transition-colors duration-200 ${
+        className={`min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-[var(--app-canvas)] text-slate-900 transition-colors duration-200 ${
           settings.theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : ''
         }`}
       >
@@ -3155,7 +3273,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen w-full max-w-full overflow-x-hidden flex bg-slate-50 text-slate-900 transition-colors duration-200 ${
+      className={`min-h-screen w-full max-w-full overflow-x-hidden flex bg-[var(--app-canvas)] text-slate-900 transition-colors duration-200 ${
         settings.theme === 'dark' ? 'dark' : ''
       } ${settings.privacyMode ? 'privacy-mode' : ''} ${
         settings.density === 'compact' ? 'density-compact' : ''
@@ -3250,8 +3368,8 @@ export default function App() {
       {/* Right Workspace Column */}
       <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Single Unified, Clean Top Header Bar */}
-        <header className="sticky top-0 z-30 w-full max-w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs px-3.5 sm:px-6 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)]">
-          <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-2 sm:gap-4">
+        <header className="sticky top-0 z-30 w-full max-w-full bg-[color:var(--app-canvas)]/90 dark:bg-slate-950/90 backdrop-blur-md px-3.5 sm:px-6 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)]">
+          <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-2 sm:gap-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-2 shadow-sm">
             {/* Zone 1 (Left): Mobile Menu Trigger + Active Page Title */}
             <div className="flex items-center gap-2.5 min-w-0 shrink-0">
               <button
@@ -3307,7 +3425,7 @@ export default function App() {
                     type="button"
                     onClick={() => handleSelectMonth(DEFAULT_MONTH)}
                     title={`Voltar para o mês atual (${formatMonthYearPT(DEFAULT_MONTH)})`}
-                    className="ml-1 inline-flex items-center rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors shrink-0"
+                    className="ml-1 inline-flex items-center rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-2 py-1 text-[11px] font-semibold text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
                   >
                     Mês atual
                   </button>
@@ -3331,7 +3449,7 @@ export default function App() {
                   onChange={(e) => setGlobalSearchQuery(e.target.value)}
                   aria-label="Busca global por descrição, categoria ou nota"
                   placeholder="Buscar... (/)"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/80 pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-colors"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/80 pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-colors"
                 />
                 {globalSearchQuery && (
                   <button
@@ -3362,7 +3480,7 @@ export default function App() {
                 title="Buscar lançamentos"
                 className={`xl:hidden rounded-lg border p-1.5 transition-colors ${
                   isMobileSearchOpen || globalSearchQuery
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    ? 'border-blue-300 bg-blue-50 text-blue-700'
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -3451,7 +3569,7 @@ export default function App() {
                 onClick={() => handleOpenNewTransaction('expense')}
                 aria-label="Novo lançamento"
                 title="Criar novo lançamento"
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden xl:inline">Novo Lançamento</span>
@@ -3711,10 +3829,7 @@ export default function App() {
               cards={cards}
               familyMembers={familyMembers}
               onToggleStatus={(id) => handleToggleTransactionStatus(id, 'single')}
-              onEditTransaction={(tx) => {
-                setEditingTransaction(tx);
-                setIsModalOpen(true);
-              }}
+              onEditTransaction={handleEditTransaction}
               onJumpToTransactionInLedger={handleJumpToTransactionInLedger}
             />
           </Suspense>
@@ -3806,10 +3921,7 @@ export default function App() {
                   onToggleTransactionStatus={(id) =>
                     handleToggleTransactionStatus(id, 'single')
                   }
-                  onEditTransaction={(tx) => {
-                    setEditingTransaction(tx);
-                    setIsModalOpen(true);
-                  }}
+                  onEditTransaction={handleEditTransaction}
                   onDuplicateTransaction={handleDuplicateTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
                   onOpenNewTransaction={(mode) => handleOpenNewTransaction(mode)}
@@ -3854,10 +3966,7 @@ export default function App() {
                   onBatchSettleTransactions={handleBatchSettleTransactions}
                   onAnticipateInstallments={handleAnticipateInstallments}
                   onReverseAnticipation={handleReverseAnticipation}
-                  onEditTransaction={(tx) => {
-                    setEditingTransaction(tx);
-                    setIsModalOpen(true);
-                  }}
+                  onEditTransaction={handleEditTransaction}
                   onDuplicateTransaction={handleDuplicateTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
                   onOpenNewTransaction={(mode) => handleOpenNewTransaction(mode)}
@@ -3927,10 +4036,7 @@ export default function App() {
                   onOpenNewTripExpense={(tripId) =>
                     handleOpenNewTransaction('expense', tripId)
                   }
-                  onEditTransaction={(tx) => {
-                    setEditingTransaction(tx);
-                    setIsModalOpen(true);
-                  }}
+                  onEditTransaction={handleEditTransaction}
                   onDeleteTransaction={(id) => handleDeleteTransaction(id, false)}
                   onAddAccount={handleAddAccount}
                 />
@@ -3979,6 +4085,7 @@ export default function App() {
                   onUpdateAccountInitialBalance={handleUpdateAccountInitialBalance}
                   onImportQuickCsvLines={handleImportQuickCsvLines}
                   onOpenReconciliation={handleOpenReconciliation}
+                  onApplyHistoricalInstallmentTotals={handleApplyHistoricalInstallmentTotals}
                   onResetWorkspaceData={handleResetWorkspaceData}
                 />
               )}
@@ -4072,6 +4179,7 @@ export default function App() {
         transactions={transactions}
         familyMembers={familyMembers}
         onAddFamilyMember={handleAddFamilyMember}
+        onAddSubcategory={handleAddSubcategory}
         investments={investments}
         trips={trips}
         selectedMonth={selectedMonth}
@@ -4128,9 +4236,7 @@ export default function App() {
         onEditTransaction={(txId) => {
           const target = transactions.find((t) => t.id === txId);
           if (target) {
-            setEditingTransaction(target);
-            setModalDefaultMode(target.type === 'expense' && target.creditCardId ? 'credit_card' : target.type === 'income' ? 'income' : 'expense');
-            setIsModalOpen(true);
+            handleEditTransaction(target);
           }
         }}
         onOpenSettingsTab={(tab) => {
@@ -4165,6 +4271,7 @@ export default function App() {
         isOpen={isReconciliationModalOpen}
         onClose={() => setIsReconciliationModalOpen(false)}
         accounts={accounts}
+        cards={cards}
         categories={categories}
         existingTransactions={transactions}
         defaultAccountId={reconciliationTargetAccountId}

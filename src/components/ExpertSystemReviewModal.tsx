@@ -185,7 +185,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-6 overflow-y-auto modal-shell"
       role="dialog"
       aria-modal="true"
       aria-labelledby="expert-review-modal-title"

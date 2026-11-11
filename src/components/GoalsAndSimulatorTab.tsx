@@ -17,6 +17,7 @@ import {
   simulateFixedIncomeBR,
 } from '../utils/financeRules';
 import { CurrencyInput } from './CurrencyInput';
+import { InstitutionMark } from './InstitutionMark';
 
 interface GoalsAndSimulatorTabProps {
   goals: SavingsGoal[];
@@ -44,6 +45,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   const [activeGoalContributeId, setActiveGoalContributeId] = useState<string | null>(null);
   const [contributeAmountStr, setContributeAmountStr] = useState('500,00');
   const [contributeAccountId, setContributeAccountId] = useState<string>('');
+  const contributeAccount = accounts.find((account) => account.id === contributeAccountId) ?? null;
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
 
@@ -202,7 +204,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 min-w-0 max-w-full">
+    <div className="module-page space-y-6 sm:space-y-8 min-w-0 max-w-full">
       {/* Header & Summary */}
       <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -557,19 +559,29 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                       className="w-24 rounded-lg border border-emerald-600 px-2.5 py-1 text-xs font-mono tabular-nums text-slate-900"
                     />
                     {accounts.length > 0 && (
-                      <select
-                        aria-label="Conta para debitar o aporte"
-                        value={contributeAccountId}
-                        onChange={(e) => setContributeAccountId(e.target.value)}
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
-                      >
-                        <option value="">Apenas atualizar saldo da meta</option>
-                        {accounts.map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            Debitar: {acc.name}
-                          </option>
-                        ))}
-                      </select>
+                      <>
+                        <select
+                          aria-label="Conta para debitar o aporte"
+                          value={contributeAccountId}
+                          onChange={(e) => setContributeAccountId(e.target.value)}
+                          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
+                        >
+                          <option value="">Apenas atualizar saldo da meta</option>
+                          {accounts.map((acc) => (
+                            <option key={acc.id} value={acc.id}>
+                              Debitar: {acc.name}
+                            </option>
+                          ))}
+                        </select>
+                        {contributeAccount && (
+                          <InstitutionMark
+                            institution={contributeAccount.institution}
+                            accountName={contributeAccount.name}
+                            color={contributeAccount.color}
+                            size="xs"
+                          />
+                        )}
+                      </>
                     )}
                     <button
                       type="button"

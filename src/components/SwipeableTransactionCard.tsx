@@ -20,6 +20,7 @@ interface SwipeableTransactionCardProps {
   transaction: Transaction;
   category?: Category;
   originLabel: string;
+  originMarks?: React.ReactNode;
   installmentMeta?: string | null;
   onToggleStatus: (txId: string) => void;
   onEdit: (tx: Transaction) => void;
@@ -32,6 +33,7 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
   transaction,
   category,
   originLabel,
+  originMarks,
   installmentMeta,
   onToggleStatus,
   onEdit,
@@ -346,7 +348,10 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
                   {subName ? ` › ${subName}` : ''}
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="truncate max-w-[130px]">{originLabel}</span>
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  {originMarks}
+                  <span className="truncate max-w-[130px]">{originLabel}</span>
+                </span>
               </div>
               {transaction.tags && transaction.tags.length > 0 && (
                 <div className="mt-1 flex flex-wrap items-center gap-1">

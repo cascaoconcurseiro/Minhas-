@@ -6,6 +6,8 @@ export interface CurrencyInputOptions {
   focused: boolean;
   /** Previous displayed value, used to disambiguate a grouping dot during edits. */
   previousValue?: string;
+  /** Interpret an unseparated digit sequence as minor units (for example 1255 → 12,55). */
+  digitEntryAsMinorUnits?: boolean;
 }
 
 interface ParsedCurrencyText {
@@ -112,10 +114,6 @@ function normalizeNumberText(raw: string, decimals: number, previousValue?: stri
 
   if (!/^\d*$/.test(integerPart) || !/^\d*$/.test(fractionPart)) return null;
   integerPart = integerPart.replace(/^0+(?=\d)/, '') || '0';
-  if (decimals === 0) {
-    fractionPart = '';
-    decimalWasTrailing = false;
-  }
   return {
     negative: negative && (integerPart !== '0' || /[1-9]/.test(fractionPart)),
     integer: integerPart,
@@ -142,6 +140,12 @@ function roundAndPadFraction(integer: string, fraction: string, decimals: number
   };
 }
 
+function hasSafeMinorUnitAmount(integer: string, fraction: string, decimals: number): boolean {
+  const scale = 10n ** BigInt(decimals);
+  const minorUnits = BigInt(integer || '0') * scale + BigInt(fraction || '0');
+  return minorUnits <= BigInt(Number.MAX_SAFE_INTEGER);
+}
+
 /**
  * Formats an editable money string using Brazilian separators, without a
  * currency symbol. Currency symbols should remain in a separate visual prefix.
@@ -152,6 +156,13 @@ export function formatCurrencyInput(
   options: CurrencyInputOptions
 ): string {
   const decimals = CURRENCY_CATALOG[currency].decimals;
+  const stripped = stripCurrencyAffixes(raw);
+  if (options.digitEntryAsMinorUnits && decimals > 0 && /^\d+$/.test(stripped)) {
+    const padded = stripped.padStart(decimals + 1, '0');
+    const integer = padded.slice(0, -decimals).replace(/^0+(?=\d)/, '') || '0';
+    const fraction = padded.slice(-decimals);
+    return `${groupInteger(integer)},${fraction}`;
+  }
   const parsed = normalizeNumberText(raw, decimals, options.previousValue);
   if (!parsed) return '';
   if (parsed.incompleteSign) return options.focused ? '-' : '';
@@ -180,16 +191,63 @@ export function formatCurrencyInput(
 
 /** Parses a masked currency value without changing the shared BRL parser. */
 export function parseCurrencyInput(raw: string, currency: CurrencyCode): number {
+  if (typeof raw !== 'string' || !CURRENCY_CATALOG[currency]) return 0;
   const decimals = CURRENCY_CATALOG[currency].decimals;
   const parsed = normalizeNumberText(raw, decimals);
-  if (!parsed || parsed.incompleteSign) return 0;
+  if (!parsed || parsed.incompleteSign || parsed.fraction.length > decimals) return 0;
   const rounded = roundAndPadFraction(parsed.integer, parsed.fraction, decimals);
+  if (!hasSafeMinorUnitAmount(rounded.integer, rounded.fraction, decimals)) return 0;
   const normalized = decimals > 0
     ? `${rounded.integer}.${rounded.fraction}`
     : rounded.integer;
   const amount = Number(normalized);
-  if (!Number.isFinite(amount)) return 0;
   return parsed.negative ? -amount : amount;
+}
+
+/** Validates the entered currency precision before a form persists the parsed amount. */
+export function isCurrencyInputValid(raw: string, currency: CurrencyCode): boolean {
+  if (typeof raw !== 'string' || !CURRENCY_CATALOG[currency]) return false;
+  const decimals = CURRENCY_CATALOG[currency].decimals;
+  const parsed = normalizeNumberText(raw, decimals);
+  if (!parsed || parsed.incompleteSign || parsed.fraction.length > decimals) return false;
+  const rounded = roundAndPadFraction(parsed.integer, parsed.fraction, decimals);
+  return hasSafeMinorUnitAmount(rounded.integer, rounded.fraction, decimals);
+}
+
+/** Parses a positive localized exchange rate with up to eight decimal places. */
+export function parseExchangeRateInput(raw: string): number {
+  if (typeof raw !== 'string') return 0;
+  let value = stripCurrencyAffixes(raw);
+  if (!value || value.startsWith('-') || value.startsWith('+')) return 0;
+  if (!/^[\d.,]+$/.test(value)) return 0;
+
+  const lastComma = value.lastIndexOf(',');
+  const lastDot = value.lastIndexOf('.');
+  let fraction = '';
+  let integer = value;
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? ',' : '.';
+    const groupingSeparator = decimalSeparator === ',' ? '.' : ',';
+    const decimalIndex = Math.max(lastComma, lastDot);
+    integer = value.slice(0, decimalIndex);
+    fraction = value.slice(decimalIndex + 1);
+    if (!new RegExp(`^\\d{1,3}(?:\\${groupingSeparator}\\d{3})+$`).test(integer)) return 0;
+    integer = integer.replaceAll(groupingSeparator, '');
+  } else if (lastComma >= 0 || lastDot >= 0) {
+    const separator = lastComma >= 0 ? ',' : '.';
+    const parts = value.split(separator);
+    if (parts.length !== 2) return 0;
+    [integer, fraction] = parts;
+  }
+
+  if (!/^\d+$/.test(integer) || !/^\d{0,8}$/.test(fraction)) return 0;
+  const normalized = `${integer}.${fraction || '0'}`;
+  const rate = Number(normalized);
+  return Number.isFinite(rate) && rate > 0 ? rate : 0;
+}
+
+export function isExchangeRateInputValid(raw: string): boolean {
+  return parseExchangeRateInput(raw) > 0;
 }
 
 /** Maps a caret by counting digits before it, so inserted separators don't jump the cursor. */
