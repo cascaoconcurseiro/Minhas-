@@ -872,7 +872,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
             </div>
           </div>
 
-          <div className="mx-auto w-full max-w-sm">
+          <div className="mx-auto w-full max-w-80">
             <CreditCardFace card={activeCard} />
           </div>
 

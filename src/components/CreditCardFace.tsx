@@ -17,15 +17,15 @@ export const CreditCardFace: React.FC<CreditCardFaceProps> = ({
   return (
     <div
       aria-hidden="true"
-      className={`relative isolate flex w-full flex-col justify-between overflow-hidden bg-slate-900 text-white shadow-md ${
-        compact ? 'h-12 w-[4.75rem] shrink-0 rounded-lg p-2 sm:h-14 sm:w-24' : 'h-28 rounded-xl p-4'
+      className={`relative isolate flex aspect-[1.586/1] flex-col justify-between overflow-hidden bg-slate-900 text-white shadow-sm ${
+        compact ? 'w-[4.75rem] shrink-0 rounded-lg p-2 sm:w-24' : 'w-full max-w-80 self-start rounded-2xl p-5'
       }`}
       style={{
         background: `linear-gradient(125deg, color-mix(in srgb, ${card.color || '#1e293b'} 38%, #0f172a) 0%, #0f172a 82%)`,
       }}
     >
       {!compact && (
-        <div className="pointer-events-none absolute right-[-1.75rem] top-[-2.5rem] z-0 h-32 w-32 rounded-full bg-white/10 blur-xl" />
+        <div className="pointer-events-none absolute -right-8 -top-10 z-0 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
       )}
       <div className="relative z-10 flex items-center justify-between gap-3">
         <span className={`max-w-[75%] truncate font-bold tracking-wide text-white/90 ${compact ? 'text-[8px] sm:text-[9px]' : 'text-xs'}`}>

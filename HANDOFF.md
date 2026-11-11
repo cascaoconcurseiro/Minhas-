@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Proporção visual do cartão — 11/11
+
+Usuário mostrou CreditCardFace achatado. Componente usava largura total com altura fixa h-28; compact também misturava w-full com largura específica. Agora ambas as variantes usam aspect 1.586/1; standard limita largura a 320px e detalhe em CreditCardsTab usa wrapper com mesmo limite. Sombra reduzida e cantos/proporção ajustados.
+
+Verificação visual local com o componente real renderizado via React + CSS do build: desktop 320x201,75 e mobile 390px com cartão 300x189,14, sem overflow. PNGs em `C:/Users/Wesley/AppData/Local/Temp/minhas-card-visual/`; fixture e servidor temporários fora do Git, servidor encerrado. Lint e build PWA (86 entradas) passaram. Não representa QA visual de toda a tela em produção. Espaço Ego 1 devolvido ao usuário, aba temporária p2 fechada. Próximo passo: confirmar deploy e renderização na listagem real; persistem pendências da lógica financeira documentadas abaixo.
+
 ## Central de notificações simplificada — 11/11
 
 Pedido do usuário: sino deve ter só notificações; configurações ficam no local próprio. `ReminderCenterModal` agora contém lista/filtros/ações dos avisos e atalho acessível para a aba reminders em `SettingsModal`. Retirados painel de canais/horários, SMTP, permissões/testes de envio, cartões de resumo financeiro e estado dos canais no rodapé. Configurações já existiam em SettingsModal; nenhuma preferência ou dado persistido foi removido. Removidas props e lógica duplicadas de configuração/envio no modal e no App.
