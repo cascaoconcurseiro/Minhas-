@@ -920,7 +920,8 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [x] Persistir recibos locais de acerto dos espelhos no workspace/backup e restaurar vínculos ao recarregar; polling não substitui baixa local por estado remoto, com regressões.
 - [x] Validar recibos na API/cliente/backup e deixar de tratar falha de leitura compartilhada como lista vazia na inicialização.
 - [x] Preparar job com PostgreSQL descartável, migrations reais e API sob papel restrito para QA de RLS, acertos, readback e concorrência.
-- [ ] Executar e conferir logs do novo job PostgreSQL real no GitHub antes de considerar esses cenários verificados.
+- [x] Executar e conferir logs do job PostgreSQL real: run43123175391 passou migrations, API sob papel restrito, RLS/terceiro, acerto/reenvio/readback/reload/reabertura, concorrência200/409 e revogação. QA visual/Neon produtivo segue separado.
+- [x] Corrigir migration007 para tolerar ausência de nomes de constraints NOT NULL e comprovar a sequência de 9 migrations em banco vazio.
 - [x] Confirmar conclusão do deploy Vercel `f723328` do patrimônio compartilhado.
 - [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

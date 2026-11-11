@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## PostgreSQL real verificado — 11/11
+
+Job real concluído com sucesso: GitHub run 43123175391 no commit 3d40aef (job PostgreSQL ID 130868518475 e suíte/build ID 130868518319). Log contém PASS para 9 migrations reais, 3 cadastros com papel restrito, compartilhamento/RLS de terceiro, acerto bilateral preservado em upsert, recibo persistido + leitura independente + reload + baixa repetida + reabertura, concorrência 200/409 e revogação removendo cópias/avisos. Fonte: https://github.com/cascaoconcurseiro/Minhas-/actions/runs/43123175391 . Banco PostgreSQL17 descartável no CI, sem dados reais.
+
+Falha real encontrada/corrigida: migration007 renomeava NOT NULL inexistente no PG17 (run43122819874, erro42704). Agora condicional via pg_constraint. Run seguinte aplicou migrations, mas roteiro esperava200 no POST de convite; corrigido para201 sem mudança de produto. Run final passou. Relatório atualizado para58 achados. Deploy c47c029 de recibos confirmado success; deploy3d40aef ainda pending na última consulta. Nenhuma SQL executada na produção.
+
+Próximo passo concreto: ampliar prova para compensação zero persistida, rollback/concorrência de revogação, e ciclo visual com duas identidades QA; seguir inventário de contas/metas/investimentos/viagens/importação. Não confundir integração API real no CI com QA de todas as telas/Neon produtivo. Convite real Fran permanece fora de fixtures e não foi aceito em nome dela.
+
 ## QA PostgreSQL real no CI — 11/11
 
 Preparado job `postgres` em `.github/workflows/ci.yml`: serviço PostgreSQL 17 descartável, banco neondb vazio, sem credenciais de produção. `scripts/qa-postgres.ts` exige CI=true, host localhost/127.0.0.1 e banco vazio antes de aplicar todas as migrations reais. Cria três usuários sintéticos pela API sob papel restrito, testa convite/espelho/RLS, retorno e reenvio do acerto, recibo persistido/reload/reabertura, conflito de revisão e revogação. Lint e diff-check passaram; execução real ainda pendente até terminar o job no GitHub. Não considerar cenário concluído antes de examinar log/conclusão desse job. A próxima etapa concreta é acompanhar esse run e corrigir qualquer SQL/comportamento que falhar. Nenhum dado de usuário real é usado.
