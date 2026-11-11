@@ -36,7 +36,7 @@ const owner = await request('/api/auth/register', '', 'POST', { email:'owner@qa.
 const recipient = await request('/api/auth/register', '', 'POST', { email:'recipient@qa.example',password:'qa-only-password',name:'QA Recipient' },201);
 const outsider = await request('/api/auth/register', '', 'POST', { email:'outsider@qa.example',password:'qa-only-password',name:'QA Outsider' },201);
 console.log('PASS: three separate authenticated identities registered with real runtime role');
-const invite = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'recipient@qa.example',ownerMemberId:'qa-member',ownerName:'QA Owner'});
+const invite = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'recipient@qa.example',ownerMemberId:'qa-member',ownerName:'QA Owner'},201);
 await request(`/api/family/invitations/${invite.invitation.invitation_id}/respond`,recipient.token,'POST',{action:'accepted'});
 const purchase = { id:'qa-purchase',description:'QA purchase',amount:100,date:'2026-11-11',competenceMonth:'2026-11',type:'expense',status:'pending',categoryId:'food',paymentMethod:'pix',recurrence:'single',isShared:true,sharedAmount:50,sharedMemberId:'qa-member',sharedPaidBy:'me',sharedStatus:'pending' };
 await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'recipient@qa.example',transactions:[purchase]});
