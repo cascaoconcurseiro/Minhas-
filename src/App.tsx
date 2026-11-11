@@ -1,4 +1,4 @@
-import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports } from './utils/sharedFinanceRules';
+import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
@@ -594,6 +594,7 @@ export default function App() {
         transactions.filter((transaction) => !transaction.id.startsWith('tx-mirror-'))
       )
     ),
+    sharedSettlementReceiptsJson: JSON.stringify(collectSharedSettlementReceipts(transactions)),
     goalsJson: JSON.stringify(goals),
     familyMembersJson: JSON.stringify(familyMembers),
     investmentsJson: JSON.stringify(investments),
@@ -944,7 +945,7 @@ export default function App() {
         const data = cleaned.payload;
         const [familyInvitations, sharedSnapshot] = await Promise.all([
           loadNeonFamilyInvitations().catch(() => []),
-          loadNeonSharedSnapshot().catch(() => ({ transactions: [], outgoingSettlements: [] })),
+          loadNeonSharedSnapshot(),
         ]);
         if (!active || authenticatedUidRef.current !== loadUid) return;
 
@@ -1041,7 +1042,8 @@ export default function App() {
         setAccounts(stripLegacyMockItems(rawAccounts));
         setCards(stripLegacyMockItems(rawCards));
         setCategories(nextCategories);
-        setTransactions([...applyRemoteSettlementReports(localTransactions, sharedSnapshot.outgoingSettlements), ...sharedById.values()]);
+        setTransactions([...applyRemoteSettlementReports(localTransactions, sharedSnapshot.outgoingSettlements),
+          ...restoreSharedSettlementReceipts([...sharedById.values()], data.sharedSettlementReceiptsJson, localTransactions)]);
         setGoals(stripLegacyMockItems(parseWorkspaceArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS, 'goalsJson')));
         setFamilyMembers(familyMembers);
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
@@ -2614,6 +2616,7 @@ export default function App() {
       cards,
       categories,
       transactions: getPortableBackupTransactions(transactions),
+      sharedSettlementReceiptsJson: JSON.stringify(collectSharedSettlementReceipts(transactions)),
       goals,
       familyMembers: getPortableBackupFamilyMembers(familyMembers),
       investments,
@@ -2670,7 +2673,11 @@ export default function App() {
         transactions,
         repaired.transactions
       );
-      setTransactions(restoredTransactions);
+      const restoredWithReceipts = sameOwner && parsed.sharedSettlementReceiptsJson
+        ? [...restoredTransactions.filter((tx) => !tx.id.startsWith('tx-mirror-')),
+          ...restoreSharedSettlementReceipts(restoredTransactions.filter((tx) => tx.id.startsWith('tx-mirror-')), parsed.sharedSettlementReceiptsJson, restoredTransactions)]
+        : restoredTransactions;
+      setTransactions(restoredWithReceipts);
       setFamilyMembers(restoredFamilyMembers);
       setInvestments(repaired.investments);
       setTrips(repaired.trips);

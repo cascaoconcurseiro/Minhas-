@@ -26,6 +26,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
+| 2026-11-11 | Separar dados de compra compartilhada de recibos bancários locais em `sharedSettlementReceiptsJson` no workspace do titular | Espelhos são atualizados pelo servidor; conta/grupo/status da baixa local precisam sobreviver ao reload sem vazar identidade bancária para outro usuário. Campo JSON opcional, sem migration SQL |
 | 2026-11-11 | Centralizar regras monetárias em `financeRules.ts` e seleção/resumo/liquidação/reabertura de compartilhamentos em `sharedFinanceRules.ts`; App e telas consomem essas funções | Evitar filtros, somas e cascatas divergentes entre tela e gravação. Cada novo acerto recebe `sharedSettlementId` no JSON do workspace, incluindo compensações de saldo zero; sem migration SQL |
 | 2026-11-07 (superada em 2026-11-08) | Usar Firebase Auth somente para identidade e Neon PostgreSQL para toda persistência operacional | Manter o login Firebase sem devolver dados financeiros ao Firestore |
 | 2026-11-07 | Derivar o workspace do UID estável Firebase, nunca do e-mail | Preservar associações UID e permitir mudança de e-mail sem trocar o titular |

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { BankAccount, Transaction } from '../types/finance';
-import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses, replaceIncomingSharedTransactions, applyRemoteSettlementReports } from './sharedFinanceRules';
+import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts, parseSharedSettlementReceipts } from './sharedFinanceRules';
 import { applyCascadeTransactionDelete, calculateAccountBalances } from './financeRules';
 import { prepareRestoredBackupTransactions } from './fullBackup';
 
@@ -10,6 +10,38 @@ const base: Transaction = { id: 'owed-to-me', description: 'Synthetic shared', a
   type: 'expense', status: 'pending', categoryId: 'food', paymentMethod: 'cash', recurrence: 'single',
   isShared: true, sharedMemberId: 'member', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending' };
 const input = { memberId: 'member', month: '2026-11', memberName: 'Synthetic member', accountId: account.id, date: '2026-11-12', settlementId: 'batch-one' };
+
+test('local receipts survive reload and reopen a zero-net mirror settlement as one group', () => {
+  const a={...base,id:'tx-mirror-a'};
+  const b={...base,id:'tx-mirror-b',sharedPaidBy:'member' as const};
+  const settled=settleSharedExpenses([a,b],[account],input).transactions;
+  const receipts=JSON.stringify(collectSharedSettlementReceipts(settled));
+  const reloaded=restoreSharedSettlementReceipts([a,b],receipts,[]);
+  assert.ok(reloaded.every(tx=>tx.sharedSettlementId===input.settlementId && tx.sharedSettledAccountId===account.id));
+  assert.equal(reopenSharedSettlement(reloaded,a.id).affectedCount,2);
+});
+
+test('remote settlement never confirms own cash after reload, and local receipt wins over stale remote state', () => {
+  const mirror={...base,id:'tx-mirror-one',sharedPaidBy:'member' as const};
+  const remote={...mirror,sharedStatus:'received' as const};
+  const newLocal=restoreSharedSettlementReceipts([remote],undefined,[]);
+  assert.equal(newLocal[0].sharedStatus,'pending');
+  assert.equal(newLocal[0].sharedRemoteStatus,'received');
+  const settled=settleSharedExpenses([mirror],[account],{...input,txId:mirror.id}).transactions;
+  const localMovements=settled.filter(tx=>!tx.id.startsWith('tx-mirror-'));
+  const restored=restoreSharedSettlementReceipts([mirror],JSON.stringify(collectSharedSettlementReceipts(settled)),localMovements);
+  assert.equal(restored[0].sharedStatus,'received');
+  assert.equal(restored[0].sharedSettlementId,input.settlementId);
+  assert.equal(reopenSharedSettlement([...localMovements,...restored],mirror.id).transactions.length,1);
+  const legacy=restoreSharedSettlementReceipts([mirror],undefined,localMovements);
+  assert.equal(legacy[0].sharedSettledAccountId,account.id);
+});
+
+test('receipt parser rejects malformed, duplicated and impossible-date records', () => {
+  assert.throws(()=>parseSharedSettlementReceipts('{}'));
+  assert.throws(()=>parseSharedSettlementReceipts([{id:'tx-mirror-a',status:'received',date:'2026-02-30'}]));
+  assert.throws(()=>parseSharedSettlementReceipts([{id:'tx-mirror-a',status:'pending'},{id:'tx-mirror-a',status:'received'}]));
+});
 
 test('remote settlement informs the owner without confirming cash or overwriting local settlement identity', () => {
   const reported=applyRemoteSettlementReports([base],[{shared_sync_id:base.id,status:'received',date:'2026-11-12'}]);
@@ -45,7 +77,10 @@ test('successful incoming refresh replaces the snapshot and removes revoked or d
   const updated = { ...base, id: 'tx-mirror-current', sharedAmount: 20 };
   const before = [base, removed, { ...updated, sharedAmount: 10 }];
   const next = replaceIncomingSharedTransactions(before, [updated]);
-  assert.deepEqual(next, [base, updated]);
+  assert.equal(next.length,2);
+  assert.equal(next[0],base);
+  assert.equal(next[1].id,updated.id);
+  assert.equal(next[1].sharedAmount,20);
   assert.deepEqual(replaceIncomingSharedTransactions(next, []), [base]);
   assert.equal(before[2].sharedAmount, 10);
 });

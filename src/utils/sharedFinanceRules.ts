@@ -12,12 +12,61 @@ export function replaceIncomingSharedTransactions(previous: Transaction[], incom
   for (const tx of incoming) {
     if (!tx.id?.startsWith('tx-mirror-')) continue;
     const local = previousById.get(tx.id);
-    const next = local?.sharedStatus === 'received' && tx.sharedStatus === 'received'
-      ? { ...tx, sharedSettlementId: local.sharedSettlementId, sharedSettledAccountId: local.sharedSettledAccountId }
-      : tx;
+    const next = local ? { ...tx, sharedStatus: local.sharedStatus,
+      sharedSettlementId: local.sharedSettlementId, sharedSettledAccountId: local.sharedSettledAccountId,
+      sharedSettledDate: local.sharedSettledDate,
+      sharedRemoteStatus: tx.sharedStatus, sharedRemoteSettledDate: tx.sharedSettledDate }
+      : { ...tx, sharedStatus: 'pending' as const, sharedSettledDate: undefined,
+        sharedRemoteStatus: tx.sharedStatus, sharedRemoteSettledDate: tx.sharedSettledDate };
     mirrors.set(tx.sharedSyncId || tx.id.slice('tx-mirror-'.length), next);
   }
   return [...previous.filter((tx) => !tx.id.startsWith('tx-mirror-')), ...mirrors.values()];
+}
+
+export interface SharedSettlementReceipt {
+  id: string;
+  status: 'pending' | 'received';
+  settlementId?: string;
+  accountId?: string;
+  date?: string;
+}
+
+export function parseSharedSettlementReceipts(raw: unknown): SharedSettlementReceipt[] {
+  if (raw === undefined) return [];
+  const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!Array.isArray(parsed)) throw new Error('Recibos de acerto inválidos.');
+  const ids = new Set<string>();
+  for (const row of parsed) {
+    if (!row || typeof row !== 'object' || typeof row.id !== 'string' || !row.id.startsWith('tx-mirror-') || ids.has(row.id) ||
+      !['pending','received'].includes(row.status) ||
+      ['settlementId','accountId','date'].some((key) => row[key] !== undefined && typeof row[key] !== 'string')) throw new Error('Recibo de acerto inválido.');
+    if (row.date) {
+      const date = new Date(`${row.date}T00:00:00.000Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== row.date) throw new Error('Data do acerto inválida.');
+    }
+    ids.add(row.id);
+  }
+  return parsed as SharedSettlementReceipt[];
+}
+
+export function collectSharedSettlementReceipts(transactions: Transaction[]): SharedSettlementReceipt[] {
+  return transactions.filter((tx) => tx.id.startsWith('tx-mirror-')).map((tx) => ({ id: tx.id,
+    status: tx.sharedStatus === 'received' ? 'received' : 'pending', settlementId: tx.sharedSettlementId,
+    accountId: tx.sharedSettledAccountId, date: tx.sharedSettledDate }));
+}
+
+export function restoreSharedSettlementReceipts(incoming: Transaction[], raw: unknown, localTransactions: Transaction[]): Transaction[] {
+  const receipts = parseSharedSettlementReceipts(raw);
+  const byId = new Map(receipts.map((receipt) => [receipt.id, receipt]));
+  return incoming.map((tx) => {
+    const receipt = byId.get(tx.id);
+    const legacy = localTransactions.find((movement) => movement.id.startsWith('tx-reimb-') && movement.notes?.includes(`[ref:${tx.id}]`));
+    return { ...tx, sharedRemoteStatus: tx.sharedStatus, sharedRemoteSettledDate: tx.sharedSettledDate,
+      sharedStatus: receipt?.status || (legacy ? 'received' as const : 'pending' as const),
+      sharedSettlementId: receipt?.settlementId || legacy?.sharedSettlementId,
+      sharedSettledAccountId: receipt?.accountId || legacy?.accountId,
+      sharedSettledDate: receipt?.date || legacy?.date };
+  });
 }
 
 export function applyRemoteSettlementReports(transactions: Transaction[], reports: Array<{ shared_sync_id: string; status: 'pending' | 'received'; date?: string | null }>): Transaction[] {

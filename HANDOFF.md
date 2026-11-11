@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Recibos locais dos acertos recebidos — 11/11
+
+Reproduzida perda de sharedSettlementId/conta em espelhos após reload: espelhos não entram em transactionsJson. Adicionado campo opcional `sharedSettlementReceiptsJson` ao JSON do workspace, computado das cópias atuais. Apenas identidade do espelho, status local, grupo, conta e data; sem duplicar dados da compra. App restaura recibos ao hidratar e os inclui no backup; restauração só aplica recibos do mesmo titular. `parseSharedSettlementReceipts` valida API/cliente/backup. Snapshot remoto agora preserva status/grupo/conta/data locais e transforma status do outro usuário em aviso. Legado com movimento `[ref:...]` reconstrói vínculo; compensações antigas de zero sem recibo continuam sem reconstrução confiável.
+
+Inicialização não transforma mais falha de leitura compartilhada em lista vazia; falha leva ao tratamento de erro/retry do carregamento. Regressões de reload zero/baixa/reabertura, ausência de auto-confirmação de caixa e validação do recibo. Suíte completa 463/463 em 59 arquivos + lint/build PWA 85 entradas; adicionado depois teste de backup, 17 testes de backup passaram. Não acessado banco real; Docker local foi sondado e está sem daemon disponível, então não há PostgreSQL real validado. QA remoto e confirmação do deploy 68dc3e8 ainda pendentes na última consulta.
+
+Próximo passo: confirmar deploy e testar ciclo em banco QA com duas identidades (não usar convite real da Fran como fixture). Conferir recibo após fechar/reabrir, baixa repetida e reabertura do grupo, RLS do remetente/destinatário e falha de rede no carregamento. Sem migration SQL: recibos são campo JSON opcional. Atualizar prova de execução SQL independente antes de fechar sincronização bilateral.
+
 ## Retorno bilateral de acerto implementado — 11/11
 
 Deploy 23a4c02 confirmado success via GitHub. Backend agora mantém `recipientSharedStatus`/`recipientSettledDate` no JSON de compartilhamento, separados do estado do remetente. PUT do espelho só muda esses campos; upsert do remetente os preserva. GET de recebidos resolve estado do destinatário no payload e retorna `outgoingSettlements` só para `sender_user_id` autenticado. `loadNeonSharedSnapshot` e App consomem os avisos no carregamento e polling. `applyRemoteSettlementReports` grava apenas aviso remoto, nunca cria/estorna caixa ou sobrescreve sharedStatus/conta/acerto local. SharedExpensesTab mostra aviso de acerto ou reabertura pela outra pessoa com orientação para conferir. Snapshot de espelho mantém IDs de conta/acerto locais se ambos os estados permanecem received. Backup de outro titular e duplicação removem metadados remotos.

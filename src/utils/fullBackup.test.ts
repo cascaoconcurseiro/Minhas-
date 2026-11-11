@@ -45,6 +45,13 @@ test('accepts a complete version 5 backup', () => {
   assert.equal(result?.categories[0]?.id, 'cat-food');
 });
 
+test('backup preserves valid local mirror settlement receipts and rejects corrupted receipt data', () => {
+  const receipts=JSON.stringify([{id:'tx-mirror-one',status:'received',settlementId:'group',accountId:'account',date:'2026-11-11'}]);
+  const result=parseFullFinanceBackup(JSON.stringify({...validBackup(),sharedSettlementReceiptsJson:receipts}));
+  assert.equal(result?.sharedSettlementReceiptsJson,receipts);
+  assert.equal(parseFullFinanceBackup(JSON.stringify({...validBackup(),sharedSettlementReceiptsJson:'{}'})),null);
+});
+
 test('accepts version 6 only when it is bound to the authenticated user UID', () => {
   const backup = { ...validBackup(), version: 6, ownerUserId: 'neon-user-1' };
   assert.equal(parseFullFinanceBackup(JSON.stringify(backup))?.ownerUserId, 'neon-user-1');

@@ -11,6 +11,7 @@ import type {
   Trip,
 } from '../types/finance';
 import { removeSmtpPasswordsFromSettings } from './secureSettings';
+import { parseSharedSettlementReceipts } from './sharedFinanceRules';
 
 export interface FullBackupDefaults {
   familyMembers: FamilyMember[];
@@ -32,6 +33,7 @@ export interface FullFinanceBackup {
   familyMembers?: FamilyMember[];
   investmentTargets?: InvestmentTargetMap;
   settings?: AppSettings;
+  sharedSettlementReceiptsJson?: string;
 }
 
 export function getPortableBackupTransactions<T extends { id: string }>(
@@ -215,6 +217,7 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
       return null;
     }
 
+    parseSharedSettlementReceipts(parsed.sharedSettlementReceiptsJson);
     const sanitized = { ...parsed };
     if (isRecord(sanitized.settings)) {
       sanitized.settings = removeSmtpPasswordsFromSettings(

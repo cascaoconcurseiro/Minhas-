@@ -13,6 +13,7 @@ import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
 import { parseWorkspaceArray } from '../src/utils/workspacePayload.ts';
+import { parseSharedSettlementReceipts } from '../src/utils/sharedFinanceRules.ts';
 import {
   createAttemptLimiter,
   hashPassword,
@@ -85,6 +86,7 @@ function getRequestWorkspacePayload(
 ): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const payload = value as Record<string, unknown>;
+  try { parseSharedSettlementReceipts(payload.sharedSettlementReceiptsJson); } catch { return null; }
   const requiredJsonFields = [
     'accountsJson',
     'cardsJson',
