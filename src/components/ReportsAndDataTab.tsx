@@ -27,6 +27,7 @@ import {
   calculateDailyCashFlow,
   calculatePeriodReport,
   calculatePersonalDre,
+  calculateCreditCardSummary,
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
@@ -184,8 +185,9 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   );
 
   const personalDre = useMemo(
-    () => calculatePersonalDre(transactions, selectedMonth, accountBalances, investments),
-    [transactions, selectedMonth, accountBalances, investments]
+    () => calculatePersonalDre(transactions, selectedMonth, accountBalances, investments,
+      cards.map((card) => calculateCreditCardSummary(card, transactions, selectedMonth))),
+    [transactions, selectedMonth, accountBalances, investments, cards]
   );
 
   const { activeStartMonth, activeEndMonth } = useMemo(() => {
@@ -1073,12 +1075,12 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             {/* Consolidated Wealth Strip inside DRE */}
             <div className="rounded-xl border border-slate-200 bg-slate-900 text-white p-3.5 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-300 font-medium">Patrimônio Consolidado Total</span>
+                <span className="text-slate-300 font-medium">Patrimônio Líquido Consolidado</span>
                 <span className="font-mono tabular-nums text-sm font-bold text-emerald-400">
                   {formatBRL(personalDre.totalNetWorth)}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-800 text-[11px] font-mono tabular-nums">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1.5 border-t border-slate-800 text-[11px] font-mono tabular-nums">
                 <div>
                   <span className="block font-sans text-slate-400">Liquidez em Contas</span>
                   <span className="font-semibold text-white">
@@ -1090,6 +1092,10 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   <span className="font-semibold text-emerald-300">
                     {formatBRL(personalDre.investedAssetsValue)}
                   </span>
+                </div>
+                <div>
+                  <span className="block font-sans text-slate-400">Dívida dos Cartões</span>
+                  <span className="font-semibold text-rose-300">{formatBRL(personalDre.creditCardDebt)}</span>
                 </div>
               </div>
             </div>

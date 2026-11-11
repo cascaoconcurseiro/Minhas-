@@ -100,7 +100,7 @@ test('personal DRE uses the same shared-expense and income exclusions as monthly
     { ...base, id: 'future', competenceMonth: '2026-12' },
     { ...base, id: 'salary', type: 'income', sharedPaidBy: undefined, isShared: false, amount: 200 },
   ];
-  const dre = calculatePersonalDre(rows, '2026-11', [], []);
+  const dre = calculatePersonalDre(rows, '2026-11', [], [], []);
   const monthly = calculateMonthlySummary([], [], rows, '2026-11');
   assert.equal(dre.consumptionExpenses, 30);
   assert.equal(dre.consumptionExpenses, monthly.expenseTotal);
@@ -2182,6 +2182,24 @@ test('calculateFinancialHealthScore360 computes 0-1000 score, net worth, runway 
   assert.equal(activeHealth.safeToSpendPerDay, 400);
   assert.ok(activeHealth.score >= 850);
   assert.equal(activeHealth.grade, 'excellent');
+});
+
+test('card debt is deducted consistently from DRE and health even without bank accounts or a current invoice', () => {
+  const card: CreditCard = { id: 'debt-card', name: 'Synthetic card', brand: 'Visa', limit: 10000, closingDay: 30, dueDay: 5, color: '#000000', defaultAccountId: '' };
+  const rows = createTransactionBatch({ description: 'Synthetic purchase', amount: 1435, date: '2026-11-11',
+    competenceMonth: '2026-12', type: 'expense', status: 'pending', categoryId: 'shopping',
+    creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'installment', installmentTotal: 12 });
+  const summaries = [calculateCreditCardSummary(card, rows, '2026-11')];
+  const monthly = calculateMonthlySummary([], [card], rows, '2026-11');
+  assert.equal(summaries[0].invoiceTotal, 0);
+  const health = calculateFinancialHealthScore360({ selectedMonth: '2026-11', monthlySummary: monthly,
+    accounts: [], accountBalances: [], cards: [card], cardSummaries: summaries, categoryBreakdown: [], referenceDateIso: '2026-11-11' });
+  const dre = calculatePersonalDre(rows, '2026-11', [], [], summaries);
+  assert.equal(health.isCleanStart, false);
+  assert.equal(health.creditCardDebt, 1435);
+  assert.equal(health.netWorth, -1435);
+  assert.equal(dre.totalNetWorth, health.netWorth);
+  assert.equal(dre.creditCardDebt, health.creditCardDebt);
 });
 
 test('custom tags: normalizeTransactionTag, normalizeTransactionTags, createTransactionBatch, applyCascadeTransactionEdit, and searchTransactionsGlobal', () => {

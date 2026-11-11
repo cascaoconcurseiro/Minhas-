@@ -133,10 +133,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     )
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  const totalPatrimonyAllAccounts = accountBalances.reduce(
-    (sum, b) => sum + b.currentBalance,
-    0
-  );
 
   const health360 = useMemo(
     () =>
@@ -198,7 +194,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             {formatBRL(monthlySummary.totalCurrentBalance)}
           </p>
           <p className="mt-1 sm:mt-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
-            <span>Patrimônio contas: {formatBRL(totalPatrimonyAllAccounts)}</span>
+            <span>Patrimônio contas: {formatBRL(health360.liquidBalance)}</span>
           </p>
         </div>
 

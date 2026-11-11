@@ -890,4 +890,6 @@ Nota: itens em seções históricas abaixo registram decisões e provedores de s
 - [ ] Consolidar seleção, somas e invariantes financeiros de todos os módulos no domínio compartilhado, comprovando resultados coerentes após uma mesma edição e readback remoto.
 - [x] Extrair DRE do componente para regra de domínio e alinhar despesas/receitas de familiar ao resumo mensal, com regressão de consistência.
 - [x] Consolidar prévia de orçamento e rodapé do formulário com geração/edição de parcelas do domínio, removendo cálculo duplicado e resumo de mês incorreto; cobrir competência de fatura, centavos, preservação de parcela paga, limite e categoria sem orçamento.
+- [x] Centralizar patrimônio do DRE e saúde financeira, descontando dívida dos cartões; impedir modo inicial com dívida existente e cobrir compra parcelada sem conta/fatura no mês.
+- [x] Confirmar conclusão do deploy Vercel `fdcad78` da prévia de orçamento.
 - [x] Confirmar deploy Vercel do extrato `0a33f83` concluído com sucesso.

@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Patrimônio compartilhado — continuação de 11/11
+
+Deploy `fdcad78` da prévia de orçamento confirmado com sucesso na verificação Vercel. Extraído `calculateNetWorth` em `financeRules.ts` para DRE/saúde financeira: contas + investimentos - dívida dos cartões. `ReportsAndDataTab` agora passa os mesmos resumos de cartão do domínio e exibe dívida na composição do patrimônio líquido. Overview reutiliza a liquidez calculada pelo domínio. Corrigido o estado inicial da saúde financeira para não zerar dívida quando ainda não há conta bancária/investimento nem despesa no mês da fatura selecionado.
+
+Regressão reproduz compra parcelada de R$ 1.435,00 em novembro com primeira competência dezembro e nenhuma conta: os dois relatórios retornam patrimônio líquido -R$ 1.435,00, dívida R$ 1.435,00, fatura novembro zero e saúde fora do modo inicial. Próximos pontos concretos: avaliar `calculateCreditCardSummary:usedLimit` para separar recorrências futuras planejadas de parcelas de compra já contratada; conferir seleção de dividendos em `InvestmentsTab.tsx:monthDividendTransactions`, ainda filtrada localmente. Não há alteração de registros produtivos nesta continuação.
+
 ## Prévia de orçamento consolidada — continuação de 11/11
 
 `TransactionModal` não recebe mais `categoryBreakdown` do mês aberto. Usa `previewCategoryBudget` em `financeRules.ts`, com a competência que será salva. A prévia reutiliza a geração de parcelas, edição em cascata (com parcelas pagas preservadas) e soma por categoria. O rodapé usa o valor da parcela resultante, inclusive ao editar o total original; categorias sem orçamento continuam fornecendo impacto mensal. A função duplicada `calculateBudgetImpactPreview` foi removida de `uxEnhancementRules`, e suas verificações de alerta foram portadas para a regra atual.

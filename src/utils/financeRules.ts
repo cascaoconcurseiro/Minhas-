@@ -2778,6 +2778,18 @@ export interface FinancialHealthScore360 {
  * Autonomia de Reserva de Emergência (Runway em meses) e o indicador "Livre para Gastar por Dia"
  * (Safe-to-Spend).
  */
+export function calculateNetWorth(
+  accountBalances: AccountBalanceSummary[],
+  investments: InvestmentAsset[],
+  cardSummaries: CreditCardSummary[]
+) {
+  const liquidAccountsBalance = Math.round(accountBalances.reduce((sum, item) => sum + item.currentBalance, 0) * 100) / 100;
+  const investedAssetsValue = investments.reduce((sum, asset) => sum + Math.round(Math.max(0, asset.quantity) * Math.max(0, asset.currentPrice) * 100), 0) / 100;
+  const creditCardDebt = Math.round(cardSummaries.reduce((sum, card) => sum + Math.max(0, card.usedLimit), 0) * 100) / 100;
+  return { liquidAccountsBalance, investedAssetsValue, creditCardDebt,
+    totalNetWorth: Math.round((liquidAccountsBalance + investedAssetsValue - creditCardDebt) * 100) / 100 };
+}
+
 export function calculateFinancialHealthScore360(params: {
   selectedMonth: string;
   monthlySummary: MonthlyFinancialSummary;
@@ -2801,18 +2813,9 @@ export function calculateFinancialHealthScore360(params: {
     referenceDateIso,
   } = params;
 
-  const liquidBalance =
-    Math.round(
-      accountBalances.reduce((sum, b) => sum + b.currentBalance, 0) * 100
-    ) / 100;
-
-  const investmentsTotal =
-    Math.round(
-      investments.reduce(
-        (sum, inv) => sum + Math.max(0, inv.quantity) * Math.max(0, inv.currentPrice),
-        0
-      ) * 100
-    ) / 100;
+  const wealth = calculateNetWorth(accountBalances, investments, cardSummaries);
+  const liquidBalance = wealth.liquidAccountsBalance;
+  const investmentsTotal = wealth.investedAssetsValue;
 
   const liquidInvestmentsTotal =
     Math.round(
@@ -2824,10 +2827,7 @@ export function calculateFinancialHealthScore360(params: {
         ) * 100
     ) / 100;
 
-  const creditCardDebt =
-    Math.round(
-      cardSummaries.reduce((sum, c) => sum + Math.max(0, c.usedLimit), 0) * 100
-    ) / 100;
+  const creditCardDebt = wealth.creditCardDebt;
 
   const totalCreditLimit = cards.reduce((sum, c) => sum + Math.max(0, c.limit), 0);
   const creditUsagePercent =
@@ -2835,8 +2835,7 @@ export function calculateFinancialHealthScore360(params: {
       ? Math.round((creditCardDebt / totalCreditLimit) * 1000) / 10
       : 0;
 
-  const netWorth =
-    Math.round((liquidBalance + investmentsTotal - creditCardDebt) * 100) / 100;
+  const netWorth = wealth.totalNetWorth;
 
   // Days remaining in selectedMonth
   const [yStr, mStr] = selectedMonth.split('-');
@@ -2890,6 +2889,7 @@ export function calculateFinancialHealthScore360(params: {
       : 0;
 
   const isCleanStart =
+    creditCardDebt === 0 &&
     accounts.length === 0 &&
     investments.length === 0 &&
     monthlySummary.incomeTotal === 0 &&
@@ -3125,7 +3125,8 @@ export function calculatePersonalDre(
   transactions: Transaction[],
   selectedMonth: string,
   accountBalances: AccountBalanceSummary[],
-  investments: InvestmentAsset[]
+  investments: InvestmentAsset[],
+  cardSummaries: CreditCardSummary[]
 ) {
   const monthTxs = transactions.filter(
     (tx) =>
@@ -3172,15 +3173,7 @@ export function calculatePersonalDre(
   const netSurplusAfterInvestments =
     freeCashFlowBeforeInvestments - investmentContributions;
 
-  const liquidAccountsBalance = accountBalances.reduce(
-    (sum, b) => sum + b.currentBalance,
-    0
-  );
-  const investedAssetsValue = investments.reduce(
-    (sum, a) => sum + Math.round(a.quantity * a.currentPrice * 100) / 100,
-    0
-  );
-  const totalNetWorth = liquidAccountsBalance + investedAssetsValue;
+  const { liquidAccountsBalance, investedAssetsValue, creditCardDebt, totalNetWorth } = calculateNetWorth(accountBalances, investments, cardSummaries);
 
   return {
     operationalIncome,
@@ -3192,6 +3185,7 @@ export function calculatePersonalDre(
     netSurplusAfterInvestments,
     liquidAccountsBalance,
     investedAssetsValue,
+    creditCardDebt,
     totalNetWorth,
   };
 }
