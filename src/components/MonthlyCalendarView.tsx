@@ -380,10 +380,10 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-xs font-bold text-slate-900">
-              Movimentações por Semana
+              Compras por Semana
             </h3>
             <p className="text-[11px] text-slate-500">
-              Compras e lançamentos pela data no calendário; faturas seguem o mês de vencimento
+              Valor total das compras na semana da compra, contado uma vez. Orçamento e faturas continuam por parcela.
             </p>
           </div>
           <span className="text-[11px] font-mono tabular-nums text-slate-500">

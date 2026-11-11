@@ -7,6 +7,8 @@ Esta auditoria catalogou **52 falhas confirmadas no código (14 P0 e 38 P1)**, c
 
 ## Resumo
 
+**Decisão do quadro semanal:** por solicitação explícita após captura, “Compras por Semana” mostra o total original na semana da compra, uma vez por série. `getPurchaseTransactionsForMonth` fornece essa seleção sem alterar os lançamentos. As parcelas seguintes continuam no orçamento e nas faturas por competência, mas não contam como novas compras semanais. Uma série legada incompleta e sem total salvo não tem preço inferido; precisa de revisão histórica. Regressões cobrem compra/fatura em meses distintos e parcela dividida por pagamento parcial.
+
 **Correção do caso Fran após captura:** revisão 43 continha cota 717,50 na primeira parcela Amazon de 119,59. Após backup integral, apenas cotas foram redistribuídas: duas de 59,80 e dez de 59,79, somando 717,50. GET revisão 44 e navegador confirmaram dezembro cobrando 59,80. Atualização da cópia remota retornou 403 por convite `invited`; não houve confirmação de correção na conta da Fran. Tela passa a separar futuros, identificar cota/parcela e consultar status em vez de afirmar convite aceito/sincronização. Esse caso concretiza a falha P0 já registrada na edição de cota total, não é contado como novo achado.
 
 ### Consolidação de fonte de dados e regras solicitada pelo usuário

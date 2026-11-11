@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Compras semanais pelo total original — 11/11
+
+Usuário esclareceu pela captura que o quadro semanal deve representar o total da compra, e não a parcela. `getPurchaseTransactionsForMonth` em `financeRules.ts` agrupa séries, conta uma compra na data da primeira parcela e usa `installmentPurchaseTotal`. Sem esse metadado, só infere por soma se todos os números de parcela estiverem presentes; série incompleta não vira preço presumido. Linhas de parcela divididas por pagamento parcial não duplicam o total salvo. Próximas parcelas não geram nova compra nas semanas futuras. `calculateWeeklyCashPulse` consome essa seleção; título/texto explicam “Compras por Semana”. Orçamento e faturas continuam por parcela, por decisão expressa do usuário. Nenhum registro do banco alterado nesta etapa.
+
+Regressões: compra novembro/fatura dezembro retorna total 1435 na semana 2; primeira parcela dividida + segunda parcela contam total 300 uma única vez em novembro e zero compras em dezembro; fallback de série completa e rejeição de série incompleta. Próximo passo: conferir deploy e quadro semanal no navegador após o usuário devolver controle; continuar pendências de sincronização bilateral e convite Fran registradas abaixo.
+
 ## Correção real da cota da Fran — 11/11
 
 Captura do usuário mostrou parcela 119,59 cobrando cota total 717,50 em dezembro. GET autenticado confirmou revisão 43 com primeira cota 717,50 e demais 59,79, todas pending. Backup completo em `C:/Users/Wesley/Documents/CodexBackups/Minhas-20261111/fran-before.json`. Corrigidas somente cotas da série Amazon para somar 717,50 em 12 meses (primeiras duas 59,80, demais 59,79), preservando demais campos. PUT revisão esperada 43 e GET independente confirmaram revisão 44, salvo em `fran-after.json`. Navegador autenticado confirmou dezembro recebendo 59,80 sem cobrança 717,50.

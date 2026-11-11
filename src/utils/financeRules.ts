@@ -1586,6 +1586,36 @@ export function getCalendarTransactionsForMonth(transactions: Transaction[], mon
   return transactions.filter((tx) => tx.date.slice(0, 7) === month);
 }
 
+export function getPurchaseTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
+  const groups = new Map<string, Transaction[]>();
+  const purchases: Transaction[] = [];
+  for (const tx of transactions) {
+    if (tx.recurrence !== 'installment' || !tx.installmentGroupId) {
+      if (tx.recurrence !== 'installment') purchases.push(tx);
+      else if (tx.installmentNumber === 1 && tx.installmentPurchaseTotal !== undefined) {
+        purchases.push({ ...tx, amount: tx.installmentPurchaseTotal });
+      }
+      continue;
+    }
+    const group = groups.get(tx.installmentGroupId) || [];
+    group.push(tx);
+    groups.set(tx.installmentGroupId, group);
+  }
+  for (const rows of groups.values()) {
+    const first = rows.filter((tx) => tx.installmentNumber === 1)
+      .sort((a, b) => (a.originalDateBeforeAnticipation || a.date).localeCompare(b.originalDateBeforeAnticipation || b.date))[0];
+    if (!first) continue;
+    const total = rows.find((tx) => tx.installmentPurchaseTotal !== undefined)?.installmentPurchaseTotal;
+    const numbers = new Set(rows.map((tx) => tx.installmentNumber));
+    const complete = first.installmentTotal && Array.from({ length: first.installmentTotal }, (_, i) => i + 1).every((i) => numbers.has(i));
+    const amount = total ?? (complete ? rows.reduce((sum, tx) => sum + Math.round(tx.amount * 100), 0) / 100 : undefined);
+    if (amount === undefined) continue;
+    purchases.push({ ...first, date: first.originalDateBeforeAnticipation || first.date, amount,
+      status: rows.some((tx) => tx.status === 'pending') ? 'pending' : 'paid' });
+  }
+  return getCalendarTransactionsForMonth(purchases, month);
+}
+
 export interface CalendarDaySummary {
   pendingExpense: number;
   paidExpense: number;

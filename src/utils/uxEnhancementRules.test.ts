@@ -255,8 +255,26 @@ test('calendar weeks include a purchase dated this month even when its invoice i
   const nextDated = { ...purchase, id: 'next-date', date: '2026-12-11', competenceMonth: '2026-11' };
   const weeks = calculateWeeklyCashPulse([purchase, nextDated], '2026-11');
   assert.equal(weeks[1].txCount, 1);
-  assert.equal(weeks[1].expense, 119.62);
+  assert.equal(weeks[1].expense, 1435);
   assert.equal(weeks.reduce((sum, week) => sum + week.txCount, 0), 1);
+});
+
+test('weekly purchases count the original total once across installments and split payment rows', () => {
+  const first: Transaction = { id:'first', description:'Synthetic purchase', amount:50, date:'2026-11-11', competenceMonth:'2026-12',
+    type:'expense', status:'paid', categoryId:'shopping', paymentMethod:'credit_card', recurrence:'installment',
+    installmentGroupId:'series', installmentNumber:1, installmentTotal:2, installmentPurchaseTotal:300 };
+  const split = { ...first, id:'first-remainder', amount:100, status:'pending' as const, partialSplitOriginalId:first.id };
+  const second = { ...first, id:'second', amount:150, status:'pending' as const, installmentNumber:2, date:'2026-12-11', competenceMonth:'2027-01' };
+  const rows = [first, split, second];
+  const november = calculateWeeklyCashPulse(rows,'2026-11');
+  assert.equal(november[1].expense,300);
+  assert.equal(november[1].txCount,1);
+  assert.equal(november[1].pendingCount,1);
+  assert.equal(calculateWeeklyCashPulse(rows,'2026-12').reduce((sum,week)=>sum+week.expense,0),0);
+  assert.equal(rows[0].amount,50);
+  const legacy = rows.map(tx=>({...tx,installmentPurchaseTotal:undefined}));
+  assert.equal(calculateWeeklyCashPulse(legacy,'2026-11')[1].expense,300);
+  assert.equal(calculateWeeklyCashPulse([legacy[0]],'2026-11')[1].txCount,0);
 });
 
 test('calculateAccountStatementWithRunningBalance computes opening balance and running balance after each entry', () => {
