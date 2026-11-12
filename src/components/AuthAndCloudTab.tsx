@@ -31,6 +31,7 @@ import { runFinancialIntegrityAudit } from '../utils/travelRules';
 import { summarizeBackendHealth } from '../utils/backendHealth';
 import { getAuthErrorMessage } from '../lib/authClient';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
+import { ScreenDiagnostics } from './ScreenDiagnostics';
 
 interface AuthAndCloudTabProps {
   userEmail: string | null;
@@ -800,6 +801,8 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
           </div>
         </div>
       </div>
+
+      <ScreenDiagnostics />
 
       {/* Complete Project, Database & GitHub Sync Documentation Panel */}
       <ProjectAndDatabaseDocsPanel
