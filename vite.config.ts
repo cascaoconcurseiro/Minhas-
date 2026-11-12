@@ -28,6 +28,13 @@ function disableViteClientWebSocketPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
+    // Identifica a versão publicada (código curto do commit na Vercel) para o app mostrar qual versão está rodando.
+    define: {
+      __APP_BUILD__: JSON.stringify({
+        sha: (process.env.VERCEL_GIT_COMMIT_SHA ?? 'local').slice(0, 7),
+        builtAt: new Date().toISOString(),
+      }),
+    },
     plugins: [
       disableViteClientWebSocketPlugin(),
       react(),

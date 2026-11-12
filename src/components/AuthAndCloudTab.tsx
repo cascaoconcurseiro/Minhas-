@@ -32,6 +32,7 @@ import { summarizeBackendHealth } from '../utils/backendHealth';
 import { getAuthErrorMessage } from '../lib/authClient';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
 import { FaceIdCard } from './FaceIdCard';
+import { AppVersionCard } from './AppVersionCard';
 import { ScreenDiagnostics } from './ScreenDiagnostics';
 
 interface AuthAndCloudTabProps {
@@ -804,6 +805,8 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
       </div>
 
       {!isAnonymousUser && <FaceIdCard />}
+
+      <AppVersionCard />
 
       <ScreenDiagnostics />
 

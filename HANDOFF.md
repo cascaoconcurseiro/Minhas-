@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Atualização do app mais rápida e visível — 12/11/2026
+
+Pergunta do usuário: por que não força a atualização para todo mundo? Situação: já existia atualização automática silenciosa (`src/pwa/PwaUpdateNotice.tsx` + `updateGate.ts`), que só aplica a versão nova quando é seguro (sem campo editado, sem janela/formulário aberto, sem salvar na nuvem e com a pessoa parada), de propósito, para ninguém perder o que está digitando; por isso NÃO é forçada de qualquer jeito. Estava lenta (esperava 20 s sem tocar, conferia a cada 10 min e ao voltar para a aba) e a pessoa não via qual versão roda.
+
+Mudanças: espera sem tocar 20 s → 5 s e recheck 5 s → 2 s; procura versão nova também ao abrir o app (`onRegisteredSW`), ao voltar o foco e no `pageshow`. Novo `src/pwa/pwaControl.ts` (`checkAndApplyUpdate`, `getAppBuild`) e `AppVersionCard` na aba Conta, Login & Nuvem: mostra a versão (7 primeiros caracteres do commit, `VERCEL_GIT_COMMIT_SHA`, definida no build em `vite.config.ts` como `__APP_BUILD__`; "local" fora da Vercel) e a data da publicação, e o botão "Buscar atualização agora" procura e aplica na hora (recarrega o app), com mensagens para "já está na mais recente", sem conexão e navegador sem suporte. Não força nada com formulário aberto ou editado.
+
+Validação: `tsc`, 624 testes (novos: `pwaControl.test.ts`, `AppVersionCard.test.tsx`), build. Não verificado em iPhone; no iOS o app em segundo plano pode ficar suspenso e só confere a versão quando volta à tela. Se algum dia for preciso forçar mesmo com formulário aberto, seria uma mudança consciente no `updateGate` (arrisca perder dados digitados).
+
 ## Comprometimento do cartão mês a mês — 12/11/2026
 
 Pedido do usuário: ver, mês a mês, quanto (R$ e % da renda) está comprometido com parcelamentos/cartão, com um limite configurável e aviso. Decisões dele: renda do mês = só o que está LANÇADO OU PREVISTO naquele mês (nunca média nem estimativa); conta TODAS as compras do cartão (à vista, parceladas e fixas), com a parte de parcelas mostrada separada; mês sem renda lançada mostra só o valor em R$ ("sem renda lançada", sem porcentagem); aviso antes da compra não serve (já comprou), então só um aviso informativo depois do lançamento.
