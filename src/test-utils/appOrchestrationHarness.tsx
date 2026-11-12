@@ -300,8 +300,9 @@ test('auth loads the synthetic Neon snapshot before exposing synchronized worksp
   loadWorkspace = () => new Promise((resolve) => { resolveLoad = resolve; });
   const page = renderApp();
 
-  await waitFor(() => assert.match(page.textContent ?? '', /Conectando ao Neon/));
-  assert.match(page.querySelector('[role="alertdialog"]')?.textContent ?? '', /Carregando seus dados/);
+  await waitFor(() => assert.ok(page.querySelector('[role="status"][aria-label="Abrindo"]'), 'primeira abertura mostra só um indicador discreto'));
+  assert.doesNotMatch(page.textContent ?? '', /Conectando ao Neon|Carregando seus dados/);
+  assert.equal(page.querySelector('[role="alertdialog"]'), null);
   assert.equal(createCalls, 0, 'a pending load must not initialize or overwrite a workspace');
   assert.equal(saveCalls, 0, 'a pending load must not persist initial local state');
 
@@ -317,6 +318,61 @@ test('auth loads the synthetic Neon snapshot before exposing synchronized worksp
   assert.equal(loadCalls, 1);
   assert.equal(createCalls, 0);
   assert.equal(unsubscribeAuth instanceof Function, true);
+});
+
+const cacheKey = 'minhas_economias_br_state_v6_vault_uid_qa-app-user-001';
+function seedLocalCopy(accountName: string) {
+  localStorage.setItem(cacheKey, JSON.stringify({
+    accounts: [{ id: 'acc-cache', name: accountName, institution: 'Banco', type: 'checking', initialBalance: 0, color: '#000', includeInTotal: true }],
+    cards: [], categories: [], transactions: [], goals: [], familyMembers: [], investments: [], trips: [],
+    settings: {},
+  }));
+}
+
+test('opens instantly with the last saved copy, silently, and Neon replaces it without any loading notice', async () => {
+  seedLocalCopy('Conta salva no aparelho');
+  let resolveLoad!: (snapshot: SyntheticSnapshot) => void;
+  loadWorkspace = () => new Promise((resolve) => { resolveLoad = resolve; });
+  const page = renderApp();
+
+  await waitFor(() => assert.match(page.textContent ?? '', /Conta salva no aparelho/));
+  assert.equal(page.querySelector('[role="alertdialog"]'), null);
+  assert.equal(page.querySelector('[role="status"][aria-label="Abrindo"]'), null);
+  assert.doesNotMatch(page.textContent ?? '', /Conectando ao Neon|Carregando seus dados/);
+  assert.equal(saveCalls, 0, 'nada é gravado antes de o Neon ser lido');
+
+  await act(async () => {
+    resolveLoad(makeSnapshot('Conta do Neon'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => {
+    assert.match(page.textContent ?? '', /Conta do Neon/);
+    assert.doesNotMatch(page.textContent ?? '', /Conta salva no aparelho/);
+    assert.equal(page.querySelector('[data-cloud-sync-status]')?.getAttribute('data-cloud-sync-status'), 'synced');
+  });
+});
+
+test('when Neon is unreachable the saved copy stays visible with a non-blocking notice and retry', async () => {
+  seedLocalCopy('Conta salva no aparelho');
+  let attempts = 0;
+  loadWorkspace = async () => {
+    attempts += 1;
+    if (attempts === 1) throw new SyntheticNeonWorkspaceError('Neon indisponível', 503);
+    return makeSnapshot('Conta recuperada');
+  };
+  console.error = () => {};
+  const page = renderApp();
+
+  await waitFor(() => assert.match(page.textContent ?? '', /Sem conexão com a nuvem\. Você está vendo a última versão salva\./));
+  await waitFor(() => assert.match(page.textContent ?? '', /Conta salva no aparelho/));
+  assert.equal(page.querySelector('[role="alertdialog"]'), null, 'não bloqueia a tela inteira');
+  assert.equal(saveCalls, 0, 'sem Neon não grava a cópia local');
+  assert.equal(createCalls, 0);
+
+  const retry = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Tentar novamente'));
+  assert.ok(retry);
+  await act(async () => { retry.click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  await waitFor(() => assert.match(page.textContent ?? '', /Conta recuperada/));
 });
 
 test('failed Neon load keeps the workspace blocked and the retry loads the next snapshot', async () => {

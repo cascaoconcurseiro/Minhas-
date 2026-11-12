@@ -99,6 +99,7 @@ import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayl
 import {
   parsePersistedSettings,
   removeSmtpPasswordsFromSettings,
+  sanitizeStoredWorkspaceSnapshot,
   serializeSettingsWithoutSmtpSecrets,
 } from './utils/secureSettings';
 import {
@@ -139,6 +140,7 @@ import {
   TransactionsSkeleton,
 } from './components/SkeletonScreens';
 import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
+import { parseCachedWorkspace } from './utils/workspaceCache';
 import {
   anticipateCardInstallments,
   reverseInstallmentAnticipation,
@@ -300,6 +302,8 @@ export default function App() {
   >('syncing');
   const [workspaceLoadState, setWorkspaceLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [workspaceLoadAttempt, setWorkspaceLoadAttempt] = useState(0);
+  // Última versão salva neste aparelho, exibida na hora enquanto o Neon responde (somente leitura).
+  const [isShowingCachedWorkspace, setIsShowingCachedWorkspace] = useState(false);
   const [workspaceConflict, setWorkspaceConflict] = useState<WorkspaceConflictState | null>(null);
   const [isWorkspaceConflictOpen, setIsWorkspaceConflictOpen] = useState(false);
   const [isResolvingWorkspaceConflict, setIsResolvingWorkspaceConflict] = useState(false);
@@ -380,6 +384,11 @@ export default function App() {
   const isUserAuthenticated = Boolean(
     currentUser && !currentUser.isAnonymous && currentUser.email
   );
+  const scopedStorageKey = useMemo(
+    () => `${STORAGE_KEY}_${autoVaultId}`,
+    [autoVaultId]
+  );
+
   const isWorkspaceReadyForCurrentUser =
     workspaceLoadState === 'ready' &&
     isWorkspaceLoadedForUser(loadedWorkspaceUidRef.current, currentUser?.uid ?? null);
@@ -397,15 +406,20 @@ export default function App() {
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
-  // O Neon é a única fonte dos dados: apaga cópias financeiras antigas deixadas neste navegador.
+  // Garante que cópias locais antigas não guardem senha SMTP.
   useEffect(() => {
     try {
       const cacheKeys = Array.from({ length: localStorage.length }, (_, index) =>
         localStorage.key(index)
       ).filter((key): key is string => Boolean(key?.startsWith(STORAGE_KEY)));
-      for (const key of cacheKeys) localStorage.removeItem(key);
+      for (const key of cacheKeys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const sanitized = sanitizeStoredWorkspaceSnapshot(raw);
+        if (sanitized && sanitized !== raw) localStorage.setItem(key, sanitized);
+      }
     } catch {
-      // Navegador sem armazenamento local: nada a limpar.
+      // Sem armazenamento local: o app segue só com o Neon.
     }
   }, []);
 
@@ -549,6 +563,7 @@ export default function App() {
         hasLoadedRemoteOnceRef.current = false;
         loadedWorkspaceUidRef.current = null;
         setWorkspaceLoadState(nextUid ? 'loading' : 'error');
+        setIsShowingCachedWorkspace(false);
         setCloudSyncStatus(nextUid ? 'syncing' : 'local');
         setIsResolvingWorkspaceConflict(false);
       }
@@ -900,9 +915,37 @@ export default function App() {
     isApplyingRemoteSnapshotRef.current = true;
     setWorkspaceLoadState('loading');
 
+    // Abre na hora com a última versão salva neste aparelho; o Neon a substitui em silêncio.
+    try {
+      const cached = parseCachedWorkspace(localStorage.getItem(scopedStorageKey));
+      if (cached) {
+        setAccounts(cached.accounts);
+        setCards(cached.cards);
+        setCategories(cached.categories);
+        setTransactions(cached.transactions);
+        setGoals(cached.goals);
+        setFamilyMembers(cached.familyMembers);
+        setInvestments(cached.investments);
+        setTrips(cached.trips);
+        if (cached.investmentTargets) {
+          setInvestmentTargets(cached.investmentTargets as InvestmentTargetMap);
+        }
+        setSettings(parsePersistedSettings(JSON.stringify(cached.settings), DEFAULT_SETTINGS));
+        setIsShowingCachedWorkspace(true);
+      }
+    } catch {
+      // Cópia local inválida ou indisponível: segue só com o Neon.
+    }
+
     setCloudSyncStatus('syncing');
 
     let active = true;
+    // Convites e compartilhados não dependem do workspace: busca tudo ao mesmo tempo.
+    const extraLoads = Promise.all([
+      loadNeonFamilyInvitations().catch(() => []),
+      loadNeonSharedSnapshot(),
+    ]);
+    extraLoads.catch(() => undefined);
     const initialNeonLoad = (async () => {
       try {
         return await loadNeonWorkspace();
@@ -937,10 +980,7 @@ export default function App() {
         if (!active || authenticatedUidRef.current !== loadUid) return;
         const cleaned = stripLegacyMockItemsFromWorkspace(snapshot.payload);
         const data = cleaned.payload;
-        const [familyInvitations, sharedSnapshot] = await Promise.all([
-          loadNeonFamilyInvitations().catch(() => []),
-          loadNeonSharedSnapshot(),
-        ]);
+        const [familyInvitations, sharedSnapshot] = await extraLoads;
         if (!active || authenticatedUidRef.current !== loadUid) return;
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
@@ -1047,6 +1087,7 @@ export default function App() {
         hasLoadedRemoteOnceRef.current = true;
         loadedWorkspaceUidRef.current = loadUid;
         isApplyingRemoteSnapshotRef.current = false;
+        setIsShowingCachedWorkspace(false);
         setWorkspaceLoadState('ready');
         setCloudSyncStatus('synced');
         setLastSyncedAt(
@@ -1184,9 +1225,31 @@ export default function App() {
     };
   }, [isAuthReady, isUserAuthenticated, effectiveUserEmail]);
 
-  // Persiste o workspace autenticado no Neon (única fonte de dados).
+  // Guarda a última versão neste aparelho (só depois de ler o Neon) e persiste o workspace no Neon.
   useEffect(() => {
     if (!effectiveUserEmail) return;
+    if (hasLoadedRemoteOnceRef.current) {
+      try {
+        localStorage.setItem(
+          scopedStorageKey,
+          JSON.stringify({
+            accounts,
+            cards,
+            categories,
+            transactions,
+            goals,
+            familyMembers,
+            investments,
+            investmentTargets,
+            trips,
+            settings: removeSmtpPasswordsFromSettings(settings),
+          })
+        );
+      } catch {
+        // Sem espaço ou sem armazenamento local: o Neon continua sendo a fonte.
+      }
+    }
+
     if (
       isAuthReady &&
       hasLoadedRemoteOnceRef.current &&
@@ -1204,6 +1267,7 @@ export default function App() {
     isAuthReady,
     effectiveUserEmail,
     autoVaultId,
+    scopedStorageKey,
     accounts,
     cards,
     categories,
@@ -2989,7 +3053,39 @@ export default function App() {
         settings.density === 'compact' ? 'density-compact' : ''
       }`}
     >
-      {isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser && (
+      {isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser &&
+        workspaceLoadState === 'loading' && !isShowingCachedWorkspace && (
+        // Primeira abertura neste aparelho: indicador discreto, sem mensagem técnica.
+        <div
+          role="status"
+          aria-label="Abrindo"
+          className="fixed inset-0 z-[100] grid place-items-center bg-slate-50 dark:bg-slate-950"
+        >
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-emerald-600 border-r-transparent" />
+        </div>
+      )}
+      {isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser &&
+        workspaceLoadState === 'error' && isShowingCachedWorkspace && (
+        // Já há uma versão salva na tela: avisa sem bloquear, só porque não dá para gravar até o Neon voltar.
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-3 z-[100] w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>Sem conexão com a nuvem. Você está vendo a última versão salva.</span>
+            <button
+              type="button"
+              onClick={() => setWorkspaceLoadAttempt((attempt) => attempt + 1)}
+              className="min-h-10 rounded-lg bg-amber-800 px-3 py-1.5 font-semibold text-white hover:bg-amber-900"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      )}
+      {isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser &&
+        workspaceLoadState === 'error' && !isShowingCachedWorkspace && (
         <div
           role="alertdialog"
           aria-modal="true"
@@ -2998,29 +3094,21 @@ export default function App() {
           className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/70 p-4"
         >
           <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            {workspaceLoadState === 'loading' ? (
-              <div role="status" aria-live="polite" className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-4 border-emerald-600 border-r-transparent" />
-            ) : (
-              <div aria-hidden="true" className="mx-auto mb-4 grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-xl font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">!</div>
-            )}
+            <div aria-hidden="true" className="mx-auto mb-4 grid h-10 w-10 place-items-center rounded-full bg-rose-100 text-xl font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">!</div>
             <h1 id="workspace-load-title" className="text-lg font-bold text-slate-900 dark:text-white">
-              {workspaceLoadState === 'loading' ? 'Carregando seus dados' : 'Não foi possível carregar seus dados'}
+              Não foi possível carregar seus dados
             </h1>
             <p id="workspace-load-description" className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              {workspaceLoadState === 'loading'
-                ? 'Conectando ao Neon para abrir seu workspace.'
-                : 'Não vamos abrir um workspace vazio nem gravar dados antes de carregar o Neon. Verifique a conexão e tente novamente.'}
+              Não vamos abrir um workspace vazio nem gravar dados antes de carregar o Neon. Verifique a conexão e tente novamente.
             </p>
-            {workspaceLoadState === 'error' && (
-              <button
-                type="button"
-                autoFocus
-                onClick={() => setWorkspaceLoadAttempt((attempt) => attempt + 1)}
-                className="mt-5 min-h-11 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-              >
-                Tentar novamente
-              </button>
-            )}
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setWorkspaceLoadAttempt((attempt) => attempt + 1)}
+              className="mt-5 min-h-11 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            >
+              Tentar novamente
+            </button>
           </section>
         </div>
       )}
