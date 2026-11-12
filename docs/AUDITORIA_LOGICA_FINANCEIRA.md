@@ -3,9 +3,20 @@
 Data: 2026-11-11
 Escopo: lançamentos, compras parceladas, cartões/faturas, competência, categorias, moeda e sincronização.
 
-Esta auditoria catalogou **58 falhas confirmadas no código (17 P0 e 41 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
+Esta auditoria catalogou **60 falhas confirmadas no código (17 P0 e 43 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
 
 ## Resumo
+
+### Investimentos — principal e data (dois achados adicionais)
+
+Os dois achados abaixo integram o total de 60.
+
+| ID | Sev | Arquivo | Categoria | Problema | Fix e evidência |
+|---|---|---|---|---|---|
+| INV-01 | P1/ALT | `src/App.tsx`, `src/utils/investmentRules.ts`, `src/utils/financeRules.ts` | FIN | A compra era despesa e o resgate inteiro era receita, inflando o resultado com principal. | Novas operações são transferências banco/ativo. Resgate não vira receita nem novo aporte. Teste reconcilia saldo, patrimônio e resultado. Proventos continuam receita. |
+| INV-02 | P1/ALT | `src/App.tsx`, `src/components/InvestmentsTab.tsx` | FIN/UX | Operações usavam dia15 quando mês selecionado diferia de hoje; proventos sempre dia25. | Formulário pede data, inicializada no dia local, e usa seu mês na competência. Testes de data escolhida e rejeição de datas impossíveis, valores não finitos, subcentavos e venda acima da posição. |
+
+Sem migration SQL nem reclassificação histórica nesta etapa. Operações antigas continuam exigindo revisão explícita; não se deduz ganho tributável da venda. QA visual produtivo do formulário permanece pendente.
 
 **Prova em PostgreSQL real:** o [run 43123175391](https://github.com/cascaoconcurseiro/Minhas-/actions/runs/43123175391), commit `3d40aef`, concluiu os jobs de suíte/build e PostgreSQL com sucesso. O job aplica as 9 migrations em PostgreSQL 17 vazio, usa a API sob `minhas_app_runtime` e cria três identidades sintéticas. Confirmou RLS do compartilhamento contra terceiro, acerto bilateral/reenvio, persistência/readback do recibo, reconstrução após reload, baixa repetida, reabertura, duas gravações concorrentes (uma 200, outra 409) e revogação. Não usa dados de produção. É prova de API/domínio/banco no CI; QA visual e particularidades do ambiente Neon produtivo permanecem separados.
 

@@ -3167,7 +3167,7 @@ export function calculatePersonalDre(
       } else {
         consumptionExpenses += effective.amount;
       }
-    } else if (tx.type === 'transfer' && tx.targetInvestmentAssetId) {
+    } else if (tx.type === 'transfer' && tx.targetInvestmentAssetId && tx.accountId && !tx.destinationAccountId) {
       investmentContributions += tx.amount;
     }
   }

@@ -2,6 +2,7 @@ import {
   InvestmentAsset,
   InvestmentAssetClass,
   InvestmentTargetMap,
+  Transaction,
 } from '../types/finance';
 
 export const DEFAULT_INVESTMENT_TARGETS: InvestmentTargetMap = {
@@ -11,6 +12,19 @@ export const DEFAULT_INVESTMENT_TARGETS: InvestmentTargetMap = {
   acoes_br: 15,
   exterior_etf: 10,
 };
+
+export function createInvestmentCashMovement(asset: InvestmentAsset, mode: 'buy' | 'sell', quantity: number, price: number, accountId: string, date: string, id: string): Transaction {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  const cents = Math.round(quantity * price * 100);
+  if (!accountId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== date ||
+    !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(cents) || cents <= 0 || (mode === 'sell' && quantity > asset.quantity)) {
+    throw new RangeError('Confira data, conta, quantidade e valor da operação de investimento.');
+  }
+  return { id, description:`${mode === 'buy' ? 'Aporte' : 'Resgate'} Investimento — ${asset.ticker} (${quantity} un.)`,
+    amount:cents/100, date, competenceMonth:date.slice(0,7), type:'transfer', status:'paid', categoryId:'cat-aportes',
+    ...(mode === 'buy' ? {accountId} : {destinationAccountId:accountId}), targetInvestmentAssetId:asset.id,
+    paymentMethod:'transfer',recurrence:'single',notes:`${mode === 'buy' ? 'Compra' : 'Venda'} de ${asset.name} na corretora ${asset.institution}` };
+}
 
 export interface AssetClassMetadata {
   id: InvestmentAssetClass;

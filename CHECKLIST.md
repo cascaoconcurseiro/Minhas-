@@ -1,5 +1,10 @@
 # Checklist — Minhas Economias
 
+- [x] Corrigir novas compras/resgates de investimento para transferência de principal e impedir resgate como receita/aporte na DRE, com reconciliação de saldo e patrimônio.
+- [x] Permitir data real nas operações/proventos, removendo dias15/25 arbitrários; testar callback da data e valores inválidos.
+- [x] Confirmar deploy Vercel6b7e6f2 concluído.
+- [ ] Conferir visual publicado de investimentos e revisar aporte de metas/arredondamento e exclusão de ativo com histórico.
+
 ## Auditoria da lógica financeira — 2026-11-11
 - [x] Corrigir data inicial de lançamento para hoje no calendário local, preservando data explícita.
 - [x] Inferir competência de cartão pelo fechamento e vencimento; aplicar também quando data/cartão de compra existente é editado.

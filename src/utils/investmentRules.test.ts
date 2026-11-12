@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyAssetOperation,
+  createInvestmentCashMovement,
   applyGoogleFinanceQuotesToAssets,
   calculateAssetPositionMetrics,
   calculatePortfolioSummary,
@@ -14,6 +15,37 @@ import {
   syncAssetsWithGoogleFinance,
 } from './investmentRules';
 import { InvestmentAsset } from '../types/finance';
+import { calculateAccountBalances, calculatePersonalDre } from './financeRules';
+
+test('investment principal moves between bank and asset without becoming revenue or consumption', () => {
+  const asset = { ...SAMPLE_ASSETS[1], quantity: 10, averagePrice: 100, currentPrice: 100 };
+  const account = { id: 'bank', name: 'Banco', institution: 'Teste', type: 'checking' as const, initialBalance: 2000, color: '#000', includeInTotal: true };
+  const buy = createInvestmentCashMovement(asset, 'buy', 2, 100, account.id, '2026-11-11', 'buy');
+  const bought = applyAssetOperation(asset, 'buy', 2, 100);
+  const balances = calculateAccountBalances([account], [buy], '2026-11');
+  assert.equal(balances[0].currentBalance, 1800);
+  const dre = calculatePersonalDre([buy], '2026-11', balances, [bought], []);
+  assert.equal(dre.totalIncome, 0);
+  assert.equal(dre.consumptionExpenses, 0);
+  assert.equal(dre.investmentContributions, 200);
+  assert.equal(dre.totalNetWorth, 3000);
+  const sell = createInvestmentCashMovement(bought, 'sell', 2, 100, account.id, '2026-11-12', 'sell');
+  const sold = applyAssetOperation(bought, 'sell', 2, 100);
+  const finalBalances = calculateAccountBalances([account], [buy, sell], '2026-11');
+  const finalDre = calculatePersonalDre([buy, sell], '2026-11', finalBalances, [sold], []);
+  assert.equal(finalBalances[0].currentBalance, 2000);
+  assert.equal(finalDre.totalIncome, 0);
+  assert.equal(finalDre.investmentContributions, 200);
+  assert.equal(finalDre.totalNetWorth, 3000);
+  assert.equal(sell.date, '2026-11-12');
+  assert.equal(sell.competenceMonth, '2026-11');
+});
+
+test('investment movement rejects impossible dates, excess sales and non-finite or sub-cent amounts', () => {
+  for (const [quantity, price, date] of [[1, 100, '2026-02-30'], [101, 100, '2026-11-11'], [NaN, 100, '2026-11-11'], [1, Infinity, '2026-11-11'], [0.00001, 1, '2026-11-11']] as const) {
+    assert.throws(() => createInvestmentCashMovement(SAMPLE_ASSETS[1], 'sell', quantity, price, 'bank', date, 'invalid'), RangeError);
+  }
+});
 
 const SAMPLE_ASSETS: InvestmentAsset[] = [
   {

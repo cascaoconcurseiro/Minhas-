@@ -32,6 +32,7 @@ import {
 } from '../types/finance';
 import {
   formatBRL,
+  getLocalDateISO,
   formatMonthYearPT,
   formatShortDateBR,
   normalizeSearchText,
@@ -67,12 +68,14 @@ interface InvestmentsTabProps {
     operationType: 'buy' | 'sell' | 'update_quote',
     quantityDelta: number,
     unitPrice: number,
-    settlementAccountId?: string
+    settlementAccountId?: string,
+    operationDate?: string
   ) => void;
   onRecordDividendIncome: (
     asset: InvestmentAsset,
     dividendAmount: number,
-    receivingAccountId: string
+    receivingAccountId: string,
+    operationDate?: string
   ) => void;
   onUpdateTargetMap?: (nextMap: InvestmentTargetMap) => void;
 }
@@ -138,6 +141,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     asset: InvestmentAsset;
     mode: 'buy' | 'sell' | 'update_quote' | 'dividend';
   } | null>(null);
+  const [operationDate, setOperationDate] = useState(getLocalDateISO);
   const [opQtyStr, setOpQtyStr] = useState('1');
   const [opPriceStr, setOpPriceStr] = useState('');
   const [opAccountId, setOpAccountId] = useState<string>(accounts[0]?.id || '');
@@ -437,6 +441,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     mode: 'buy' | 'sell' | 'update_quote' | 'dividend'
   ) => {
     setActiveOperation({ asset, mode });
+    setOperationDate(getLocalDateISO());
     setOperationError('');
     setGoogleFinanceError(null);
     if (mode === 'dividend') {
@@ -462,6 +467,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     if (!activeOperation) return;
     const { asset, mode } = activeOperation;
 
+    const parsedDate = new Date(`${operationDate}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(operationDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== operationDate) { setOperationError('Informe uma data válida.'); return; }
     if (mode === 'dividend') {
       const divAmount = parseBRLInput(opPriceStr);
       if (!Number.isFinite(divAmount) || divAmount <= 0) {
@@ -472,7 +479,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
         setOperationError('Cadastre ou selecione uma conta para receber o provento.');
         return;
       }
-      onRecordDividendIncome(asset, divAmount, opAccountId);
+      onRecordDividendIncome(asset, divAmount, opAccountId, operationDate);
       setActiveOperation(null);
       return;
     }
@@ -497,7 +504,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       mode,
       qty,
       price,
-      opLinkBankAccount && mode !== 'update_quote' ? opAccountId : undefined
+      opLinkBankAccount && mode !== 'update_quote' ? opAccountId : undefined,
+      mode !== 'update_quote' ? operationDate : undefined
     );
     setActiveOperation(null);
   };
@@ -1232,6 +1240,13 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
             onSubmit={handleConfirmOperation}
             className="border-b border-emerald-200 bg-emerald-50/80 px-4 sm:px-6 py-4 space-y-3 animate-expand-in"
           >
+            {activeOperation.mode !== 'update_quote' && (
+              <label className="block text-xs font-semibold text-slate-700 mb-3">
+                Data da operação
+                <input type="date" data-testid="investment-operation-date" value={operationDate} onChange={event=>setOperationDate(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+              </label>
+            )}
+
             {operationError && (
               <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
                 {operationError}

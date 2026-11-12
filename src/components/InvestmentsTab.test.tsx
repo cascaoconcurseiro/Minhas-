@@ -5,6 +5,7 @@ import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import type { BankAccount, InvestmentAsset, InvestmentTargetMap } from '../types/finance';
 import { InvestmentsTab } from './InvestmentsTab';
+import { getLocalDateISO } from '../utils/financeRules';
 
 const { createRoot } = await import('react-dom/client');
 
@@ -31,8 +32,8 @@ function renderInvestmentsTab(options: {
   onAddAsset?: (asset: Omit<InvestmentAsset, 'id'>) => void;
   onUpdateAsset?: (asset: InvestmentAsset) => void;
   onDeleteAsset?: (assetId: string) => void;
-  onRecordDividendIncome?: (asset: InvestmentAsset, amount: number, accountId: string) => void;
-  onOperateAsset?: (assetId: string, operationType: 'buy' | 'sell' | 'update_quote', quantity: number, price: number, accountId?: string) => void;
+  onRecordDividendIncome?: (asset: InvestmentAsset, amount: number, accountId: string, date?: string) => void;
+  onOperateAsset?: (assetId: string, operationType: 'buy' | 'sell' | 'update_quote', quantity: number, price: number, accountId?: string, date?: string) => void;
   accounts?: BankAccount[];
   onUpdateTargetMap?: (targets: InvestmentTargetMap) => void;
   onBatchUpdateAssets?: (assets: InvestmentAsset[]) => void;
@@ -286,13 +287,13 @@ test('selling more units than owned is blocked without sending an operation', as
 });
 
 test('valid buy and sell operations route exact values through their callbacks', async () => {
-  const calls: Array<[string, 'buy' | 'sell' | 'update_quote', number, number, string?]> = [];
+  const calls: Array<[string, 'buy' | 'sell' | 'update_quote', number, number, string?, string?]> = [];
   const page = renderInvestmentsTab({ assets: [existingAsset], onOperateAsset: (...args) => calls.push(args) });
   const buy = [...page.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === '+ Aportar');
   assert.ok(buy);
   await act(async () => { buy.click(); });
   await act(async () => { page.querySelector<HTMLFormElement>('[data-testid="investment-operation-panel"]')!.requestSubmit(); });
-  assert.deepEqual(calls.pop(), [existingAsset.id, 'buy', 1, 105, undefined]);
+  assert.deepEqual(calls.pop(), [existingAsset.id, 'buy', 1, 105, undefined, getLocalDateISO()]);
 
   const sell = [...page.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === 'Resgatar');
   assert.ok(sell);
@@ -304,13 +305,13 @@ test('valid buy and sell operations route exact values through their callbacks',
     setInputValue(inputs[1]!, '110,00');
     panel.requestSubmit();
   });
-  assert.deepEqual(calls.pop(), [existingAsset.id, 'sell', 0.5, 110, undefined]);
+  assert.deepEqual(calls.pop(), [existingAsset.id, 'sell', 0.5, 110, undefined, getLocalDateISO()]);
 });
 
 test('buy operation honors the selected settlement account', async () => {
   const first: BankAccount = { id: 'first', name: 'Conta 1', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#000', includeInTotal: true };
   const second: BankAccount = { ...first, id: 'second', name: 'Conta 2' };
-  const calls: Array<[string, 'buy' | 'sell' | 'update_quote', number, number, string?]> = [];
+  const calls: Array<[string, 'buy' | 'sell' | 'update_quote', number, number, string?, string?]> = [];
   const page = renderInvestmentsTab({ assets: [existingAsset], accounts: [first, second], onOperateAsset: (...args) => calls.push(args) });
   await act(async () => { [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === '+ Aportar')!.click(); });
   const panel = page.querySelector<HTMLFormElement>('[data-testid="investment-operation-panel"]')!;
@@ -320,7 +321,7 @@ test('buy operation honors the selected settlement account', async () => {
     accountSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
     panel.requestSubmit();
   });
-  assert.deepEqual(calls, [[existingAsset.id, 'buy', 1, 105, second.id]]);
+  assert.deepEqual(calls, [[existingAsset.id, 'buy', 1, 105, second.id, getLocalDateISO()]]);
 });
 
 test('valid dividend requires an account and forwards amount and account', async () => {
@@ -334,13 +335,27 @@ test('valid dividend requires an account and forwards amount and account', async
   assert.deepEqual(recorded, { asset: existingAsset, amount: 42.35, accountId: account.id });
 });
 
+test('dividend forwards the chosen date even when it differs from today', async () => {
+  const account: BankAccount = { id: 'bank', name: 'Banco', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#000', includeInTotal: true };
+  let receivedDate: string | undefined;
+  const page = renderInvestmentsTab({ assets: [existingAsset], accounts: [account], onRecordDividendIncome: (_asset, _amount, _account, date) => { receivedDate = date; } });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[title="Lançar dividendo/provento recebido na conta corrente"]')!.click(); });
+  const panel = page.querySelector<HTMLFormElement>('[data-testid="investment-operation-panel"]')!;
+  await act(async () => {
+    setInputValue(panel.querySelector<HTMLInputElement>('input[type="text"]')!, '42,35');
+    setInputValue(panel.querySelector<HTMLInputElement>('input[type="date"]')!, '2026-10-08');
+  });
+  await act(async () => { panel.requestSubmit(); });
+  assert.equal(receivedDate, '2026-10-08');
+});
+
 test('manual quote update submits a positive price without quantity or account', async () => {
-  const calls: Array<[string, 'buy' | 'sell' | 'update_quote', number, number, string?]> = [];
+  const calls: Array<[string, 'buy' | 'sell' | 'update_quote', number, number, string?, string?]> = [];
   const page = renderInvestmentsTab({ assets: [existingAsset], onOperateAsset: (...args) => calls.push(args) });
   await act(async () => { page.querySelector<HTMLButtonElement>('[title="Clique para editar cotação manualmente"]')!.click(); });
   const panel = page.querySelector<HTMLFormElement>('[data-testid="investment-operation-panel"]')!;
   await act(async () => { setInputValue(panel.querySelector<HTMLInputElement>('input[type="text"]')!, '123,45'); panel.requestSubmit(); });
-  assert.deepEqual(calls, [[existingAsset.id, 'update_quote', 1, 123.45, undefined]]);
+  assert.deepEqual(calls, [[existingAsset.id, 'update_quote', 1, 123.45, undefined, undefined]]);
 });
 
 test('targets save, contribution presets, class filter and search respond to controls', async () => {

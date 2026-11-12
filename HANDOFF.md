@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Investimentos: principal e data — 11/11
+
+Corrigido novo aporte/resgate: `createInvestmentCashMovement` produz transferência entre conta e ativo, evitando receita de principal e despesa de consumo. DRE só conta transferência de saída como contribuição. `InvestmentsTab` recebe data escolhida (padrão dia local), repassada a operações/proventos no App; competência segue a data, removendo dias15/25 arbitrários. Validações de conta, quantidade, preço, centavos seguros, oversell e data antes da mutação vinculada. Não reclassificados históricos; sem migration SQL.
+
+Suíte completa passou466 testes/59 arquivos e build PWA85 entradas. Depois da última validação de data de dividendo e teste de data escolhida, testes direcionados passaram e lint precisa ser confirmado no commit final. Deploy anterior6b7e6f2 confirmado success via status Vercel. Relatório60 achados. Próximo passo concreto: revisar `handleContributeGoal` em App.tsx (data do aporte e arredondamento de quantidade versus dinheiro debitado), depois exclusão de ativos com histórico, e QA visual do formulário de investimentos. Pendências bilaterais/Fran permanecem, não declarar auditoria completa.
+
 ## PostgreSQL real verificado — 11/11
 
 Job real concluído com sucesso: GitHub run 43123175391 no commit 3d40aef (job PostgreSQL ID 130868518475 e suíte/build ID 130868518319). Log contém PASS para 9 migrations reais, 3 cadastros com papel restrito, compartilhamento/RLS de terceiro, acerto bilateral preservado em upsert, recibo persistido + leitura independente + reload + baixa repetida + reabertura, concorrência 200/409 e revogação removendo cópias/avisos. Fonte: https://github.com/cascaoconcurseiro/Minhas-/actions/runs/43123175391 . Banco PostgreSQL17 descartável no CI, sem dados reais.

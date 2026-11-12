@@ -88,6 +88,7 @@ import {
 } from './utils/seedData';
 import {
   applyAssetOperation,
+  createInvestmentCashMovement,
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
 import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
@@ -2458,11 +2459,20 @@ export default function App() {
     operationType: 'buy' | 'sell' | 'update_quote',
     quantityDelta: number,
     unitPrice: number,
-    settlementAccountId?: string
+    settlementAccountId?: string,
+    operationDate: string = getLocalDateISO()
   ) => {
     const targetAsset = investments.find((a) => a.id === assetId);
     if (!targetAsset) return;
 
+    let ledgerTx: Transaction | undefined;
+    try {
+      if (operationType !== 'update_quote' && settlementAccountId) {
+        if (!accounts.some((account) => account.id === settlementAccountId)) throw new Error('Selecione uma conta válida.');
+        ledgerTx = createInvestmentCashMovement(targetAsset, operationType, quantityDelta, unitPrice, settlementAccountId, operationDate, `tx-inv-${Date.now()}`);
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0 || (operationType !== 'update_quote' && (!Number.isFinite(quantityDelta) || quantityDelta <= 0)) || (operationType === 'sell' && quantityDelta > targetAsset.quantity)) throw new Error('Confira a quantidade e o preço da operação.');
+    } catch (error) { showNotice(error instanceof Error ? error.message : 'Operação inválida.', undefined, true); return; }
     const updatedAsset = applyAssetOperation(
       targetAsset,
       operationType,
@@ -2476,33 +2486,9 @@ export default function App() {
 
     const financialTotal = Math.round(quantityDelta * unitPrice * 100) / 100;
 
-    if (
-      settlementAccountId &&
-      (operationType === 'buy' || operationType === 'sell') &&
-      financialTotal > 0
-    ) {
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const operationDate =
-        todayIso.slice(0, 7) === selectedMonth ? todayIso : `${selectedMonth}-15`;
-      const ledgerTx: Transaction = {
-        id: `tx-inv-${Date.now()}`,
-        description:
-          operationType === 'buy'
-            ? `Aporte Investimento — ${targetAsset.ticker} (${quantityDelta} un.)`
-            : `Resgate Investimento — ${targetAsset.ticker} (${quantityDelta} un.)`,
-        amount: financialTotal,
-        date: operationDate,
-        competenceMonth: selectedMonth,
-        type: operationType === 'buy' ? 'expense' : 'income',
-        status: 'paid',
-        categoryId: operationType === 'buy' ? 'cat-aportes' : 'cat-rendimentos',
-        accountId: settlementAccountId,
-        targetInvestmentAssetId: assetId,
-        paymentMethod: 'transfer',
-        recurrence: 'single',
-        notes: `${operationType === 'buy' ? 'Compra' : 'Venda'} de ${targetAsset.name} na corretora ${targetAsset.institution}`,
-      };
-      setTransactions((prev) => [ledgerTx, ...prev]);
+    if (ledgerTx) {
+      const movement = ledgerTx;
+      setTransactions((prev) => [movement, ...prev]);
     }
 
     if (operationType === 'buy') {
@@ -2527,15 +2513,17 @@ export default function App() {
   const handleRecordDividendIncome = (
     asset: InvestmentAsset,
     dividendAmount: number,
-    receivingAccountId: string
+    receivingAccountId: string,
+    dividendDate: string = getLocalDateISO()
   ) => {
-    if (dividendAmount <= 0) return;
+    const parsedDate = new Date(`${dividendDate}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dividendDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dividendDate || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId)) return;
     const dividendTx: Transaction = {
       id: `tx-div-${Date.now()}`,
       description: `Proventos / Dividendos — ${asset.ticker} (${asset.name})`,
       amount: Math.round(dividendAmount * 100) / 100,
-      date: `${selectedMonth}-25`,
-      competenceMonth: selectedMonth,
+      date: dividendDate,
+      competenceMonth: dividendDate.slice(0, 7),
       type: 'income',
       status: 'paid',
       categoryId: 'cat-rendimentos',
