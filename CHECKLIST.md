@@ -111,6 +111,11 @@
 - [ ] Revisar visualmente cada página/subpágina, formulário e modal em desktop/mobile; corrigir diferenças encontradas. A revisão ainda não cobriu sessões autenticadas.
 
 ## Gate de liberação para produção — estado atual
+- [x] Corrigir o erro de carregamento em produção extraindo o parser de recibos para `src/utils/sharedSettlementReceipts.ts`; backend passa a importar módulo sem dependências de interface.
+- [x] Incluir o conjunto solicitado de alterações no commit e integrar na `main`: PR #4, merge `920da4d35cda0e5ae64da37f63120e75d2d96a47`; CI e preview aprovados.
+- [x] Fazer deploy Vercel Production e confirmar estado Ready em `https://minhaseconomias-blue.vercel.app`.
+- [x] Validar em sessão real autenticada: `/api/status` 200; após recarga, workspace e Visão Geral renderizados; logs confirmam `GET /api/workspace` 200, `PUT /api/workspace` 200 e endpoints de família 200.
+- [ ] Continuar QA autenticado de leitura nos demais módulos; não declarar todos os fluxos financeiros cobertos até concluir essa verificação.
 - [x] Publicar o código de integração readiness/status no commit `0e080c7`; CI `42425025978` passou e Vercel deployment `minhaseconomias-ggrb646vu` ficou Ready.
 - [x] Verificar o smoke público: `/api/status` retornou 200 com Auth/Neon configurados e `neon: not_checked`; `/api/readiness` sem autorização retornou 401.
 - [x] Cadastrar `CRON_SECRET` como variável sensível em Production; não foi lido nem exposto.
