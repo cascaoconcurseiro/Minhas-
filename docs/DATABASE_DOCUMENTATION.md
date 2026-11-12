@@ -2,15 +2,15 @@
 
 ## Fonte de verdade
 
-Firebase Auth fornece a identidade (Firebase UID) e Neon PostgreSQL é o banco operacional exclusivo. O frontend envia o ID token Firebase à API Express na Vercel; a API verifica localmente sua assinatura RS256 e claims usando os certificados públicos rotativos do Firebase antes de consultar o Neon. Firebase Auth é usado somente para autenticação: o runtime não inicializa Firestore nem persiste dados financeiros no Firebase.
+Neon PostgreSQL é o banco operacional exclusivo e também guarda as contas de login (`app_users`: e-mail, hash scrypt, nome, `email_verified`, `token_version`). O frontend envia o token de sessão (HS256, 30 dias) à API Express na Vercel; a API confere assinatura, expiração e `token_version` no banco antes de consultar os dados. Firebase foi removido por completo.
 
-Após carregar o workspace do Neon, o app ainda grava uma cópia sanitizada redundante em `localStorage`; o código atual não a lê para hidratar a interface. Ela não substitui o Neon como fonte de verdade, mas mantém dados financeiros em repouso no navegador e sua finalidade precisa ser revista antes de removê-la.
+O app guarda no `localStorage` (chave `minhas_economias_br_state_v6_<vault>`) a última versão do workspace, usada só para abrir na hora (`src/utils/workspaceCache.ts`, somente leitura). O Neon continua sendo a única fonte: ao responder, substitui a cópia em silêncio; nada é gravado no Neon nem na cópia antes de o Neon ser lido, e a cópia é apagada ao sair da conta. A senha SMTP é removida da cópia.
 
 Os campos persistidos do workspace são validados antes de aplicar o snapshot à interface. JSON inválido, coleção que não seja array, item sem `id` ou objeto corrompido deixa a sincronização em erro e informa que os dados remotos foram preservados; o app não substitui esses campos por listas vazias e não os grava de volta automaticamente.
 
 O deploy Vercel agenda uma chamada diária a `GET /api/readiness` às 12:15 UTC. Essa rota exige `Authorization: Bearer <CRON_SECRET>`, consulta a tabela operacional `finance_workspaces` e não altera dados. O endpoint público `GET /api/status` não consulta o banco e não representa uma medição de disponibilidade do Neon. No plano Hobby, a invocação pode ocorrer em qualquer momento dentro da hora programada; a execução automática dentro dessa janela ainda precisa ser comprovada. O workflow GitHub de atividade executou por `schedule` em 2026-11-07 (`42397967500`), fazendo `SELECT 1` no Neon.
 
-Se o workspace ainda não existir no Neon, o app cria um workspace vazio diretamente no Neon. Firebase mantém as credenciais e a sessão de autenticação; Neon guarda os workspaces e dados familiares.
+Se o workspace ainda não existir no Neon, o app cria um workspace vazio diretamente no Neon. O Neon guarda as credenciais (hash), os workspaces e os dados familiares.
 
 ## Modelo Neon
 
@@ -18,6 +18,7 @@ As migrations em `db/migrations/` são a referência do schema:
 
 | Tabela | Conteúdo | Proteção |
 |---|---|---|
+| `app_users` | Conta de login: `id` (`usr_…`), e-mail único em minúsculas, hash scrypt, nome, `email_verified`, `token_version` | Acesso só pelo backend (role de runtime com SELECT/INSERT/UPDATE) |
 | `finance_workspaces` | Um snapshot JSONB por usuário, com contas, cartões, categorias, lançamentos, metas, investimentos, viagens e preferências | RLS por `owner_user_id`; cada gravação exige revisão esperada monotônica |
 | `finance_workspace_migrations` | Hash SHA-256, origem histórica, data e contagens da importação inicial | RLS pelo UID do proprietário; não armazena outro workspace |
 | `finance_family_invitations` | Convites, participantes e estado de aceite/recusa/revogação | RLS para proprietário e e-mail convidado autenticado |
@@ -27,16 +28,14 @@ As migrations em `db/migrations/` são a referência do schema:
 
 ## Caminho de acesso
 
-1. Firebase Auth entrega um ID token ao frontend.
-2. A API valida localmente a assinatura RS256 e as claims de projeto, emissor, UID, e-mail, verificação e validade do ID token usando os certificados públicos rotativos do Firebase; nunca confia em ID fornecido pelo corpo da requisição. As chaves são mantidas em cache conforme `Cache-Control` do endpoint de certificados e uma falha de atualização é fechada com 503.
+1. `POST /api/auth/register` ou `/login` devolve o token de sessão ao frontend, que o guarda em `localStorage`.
+2. A API valida assinatura HS256, expiração e `token_version` (consulta a `app_users` a cada requisição); nunca confia em ID fornecido pelo corpo. Token inválido/expirado/revogado retorna 401; falha ao consultar o banco ou segredo ausente retorna 503.
 3. Cada operação PostgreSQL define `app.user_id` e `app.user_email` dentro da transação.
 4. As políticas RLS restringem os registros ao usuário ou participante autorizado.
 5. `GET /api/workspace` lê o snapshot; `POST /api/workspace` cria uma linha inicial sem sobrescrever uma linha concorrente; `PUT /api/workspace` atualiza somente se `expectedRevision` ainda for a atual.
 6. As rotas `/api/family/*` leem e escrevem convites e despesas compartilhadas nas tabelas Neon dedicadas.
 
-`DATABASE_URL`, `FIREBASE_PROJECT_ID` e `FIREBASE_API_KEY` ficam configurados no servidor. O verificador valida a assinatura localmente e consulta o Firebase Identity Toolkit para rejeitar contas desativadas ou sessões revogadas; sem a chave API, a autenticação protegida falha fechada com 503. A chave API Firebase também aparece na configuração pública do SDK web e não é uma senha de banco. O frontend nunca conecta diretamente ao PostgreSQL nem recebe `DATABASE_URL`.
-
-As requisições autenticadas fazem uma consulta remota de estado de conta ao Firebase, além da validação local do ID token. Indisponibilidade ou resposta inválida do Identity Toolkit falha fechada com 503; uma conta desativada, token inválido ou sessão revogada é rejeitada com 401.
+`DATABASE_URL`, `AUTH_SESSION_SECRET` (opcional; sem ela a chave é derivada de `DATABASE_URL`) e `CRON_SECRET` ficam configurados no servidor. O frontend nunca conecta diretamente ao PostgreSQL nem recebe `DATABASE_URL`. O logout incrementa `token_version`, invalidando todos os tokens anteriores da conta.
 
 ## Operação e backup
 

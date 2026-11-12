@@ -1,5 +1,12 @@
 # Checklist — Minhas Economias
 
+## Documentação alinhada ao código — 2026-11-12
+- [x] Remover referências a Firebase/ID token de README, security_spec, docs/* e `.env.example`; documentar login próprio, rotas `/api/auth/*`, variáveis e CI.
+- [x] Lint (sem erros), 575 testes em 77 arquivos e build PWA aprovados.
+- [ ] Reler `docs/AUDITORIA_LOGICA_FINANCEIRA.md` e as seções de backup/ensaios (7/11) e decidir o que arquivar.
+- [ ] Renomear rótulos/testes antigos que ainda citam Firebase (`firebaseAuthConfigured`, títulos em `appOrchestrationHarness.tsx`).
+- [ ] Conferir no Vercel se `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
+
 ## Gasto por mês da compra — 2026-11-12
 - [x] Pizza, orçamento, despesas do mês, 50/30/20 e relatório por mês da compra/parcela; faturas e caixa por vencimento.
 - [x] Corrigir cartões espremidos na Visão Geral acima de 1366 px (CSS).

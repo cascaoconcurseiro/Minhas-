@@ -10,11 +10,11 @@ flowchart TD
         UI["Componentes Modulares (Overview, Transactions, Reports, Trips, Investments)"]
         Charts["Visualização (Recharts 6M BarChart + Custom SVG Charts)"]
         Rules["Motores de Regras Puros (src/utils/*Rules.ts)"]
-        LocalVault["Cache Local Isolado (localStorage por Vault ID)"]
+        LocalVault["Cópia local somente leitura (workspaceCache.ts, por Vault ID) + token de sessão"]
     end
 
-    subgraph Identity ["Firebase Identity"]
-        Auth["Firebase Auth (Email / Password)"]
+    subgraph Identity ["Login próprio (backend/authSession.ts)"]
+        Auth["POST /api/auth/register · login · me · logout (app_users, scrypt, sessão HS256)"]
     end
 
     subgraph Database ["Neon PostgreSQL"]
@@ -24,10 +24,11 @@ flowchart TD
     subgraph Backend ["Servidor Express 4 (backend/app.ts - Porta 3000 ou Function Vercel)"]
         Status["GET /api/status (público, leve)"]
         Readiness["GET /api/readiness (Bearer CRON_SECRET)"]
-        WorkspaceAPI["GET/POST/PUT /api/workspace (Firebase ID token)"]
+        WorkspaceAPI["GET/POST/PUT /api/workspace (token de sessão)"]
         LiveFX["POST /api/fx/live-rate"]
         Quotes["POST /api/investments/sync-quotes"]
         SMTP["POST /api/reminders/send-email"]
+        Family["/api/family/invitations · /api/family/shared"]
     end
 
     subgraph External ["Serviços Externos"]
@@ -42,7 +43,6 @@ flowchart TD
     UI <--> Auth
     UI -->|"HTTP JSON"| Backend
     WorkspaceAPI -->|"ID validado + app.user_id"| Workspace
-    WorkspaceAPI --> MigrationLog
     LiveFX --> Gemini
     Quotes --> GFinance
     Quotes -->|"Fallback Internacional"| Gemini
@@ -76,7 +76,9 @@ no ambiente do projeto.
   "services": {
     "liveFxSearch": true,
     "googleFinanceSync": true,
-    "neonConfigured": true
+    "authConfigured": true,
+    "neonConfigured": true,
+    "neon": "not_checked"
   },
   "checkedAt": "2026-10-31T16:50:00.000Z"
 }
@@ -84,21 +86,37 @@ no ambiente do projeto.
 
 ### 2.2. Rotas autenticadas do workspace Neon
 
-Todas exigem `Authorization: Bearer <Firebase ID token>`. A API valida a
-assinatura RS256 e as claims do token localmente com os certificados públicos
-rotativos do Firebase, depois aplica o UID verificado no contexto RLS da
-transação PostgreSQL. As chaves públicas são atualizadas conforme o `max-age`
-informado pelo Firebase. A validação stateless não consulta revogação; um token
-revogado ou emitido antes de desativar a conta pode ser aceito até expirar.
+Todas exigem `Authorization: Bearer <token de sessão>`. A API valida a
+assinatura HS256 e a expiração do token e confere o `token_version` em
+`app_users` a cada requisição (logout revoga todos os tokens anteriores); depois
+aplica o ID verificado no contexto RLS da transação PostgreSQL. Sessão inválida,
+expirada ou revogada retorna `401`; falha ao consultar o banco ou segredo ausente
+retorna `503`.
 
 - `GET /api/workspace`: carrega o snapshot da conta autenticada; retorna `404`
   quando ainda não há linha para a conta.
 - `POST /api/workspace`: cria o workspace inicial usando `INSERT ... ON CONFLICT DO NOTHING`, sem substituir dados existentes.
 - `PUT /api/workspace`: salva com `expectedRevision`; conflito retorna `409`.
 
-Firebase Auth autentica e emite o ID token; o app não lê ou grava Firestore. Se a
-conta ainda não tiver workspace, o registro inicial é criado no Neon.
+Se a conta ainda não tiver workspace, o registro inicial é criado no Neon.
 Convites e lançamentos compartilhados usam tabelas Neon próprias.
+
+### 2.2.1. Autenticação (`/api/auth/*`)
+
+| Rota | Acesso | Função |
+|---|---|---|
+| `POST /api/auth/register` | público, 10 tentativas/h por IP | Cria conta (`{email, password, name?}`; senha 8–200 caracteres). `201` com `{token, user}`; `409` se o e-mail já existe |
+| `POST /api/auth/login` | público, 8 falhas/15 min por IP+e-mail | `200` com `{token, user}`; `401` e-mail/senha incorretos; `429` bloqueio temporário |
+| `GET /api/auth/me` | sessão | Revalida a sessão e devolve novo token e dados da conta |
+| `POST /api/auth/logout` | sessão | Incrementa `token_version` (revoga todos os tokens); `204` |
+
+Sem verificação de e-mail: o convite familiar dentro do sistema é o vínculo entre contas.
+
+### 2.2.2. Família e compartilhamento (`/api/family/*`, sessão obrigatória)
+
+- `GET/POST /api/family/invitations`: lista e cria convites.
+- `POST /api/family/invitations/:invitationId/respond` e `/revoke`: aceitar/recusar e revogar (`404` convite inexistente para a conta; `409` convite já respondido).
+- `GET/PUT /api/family/shared`: lê e sincroniza despesas compartilhadas (cota validada em centavos; `400` se inválida).
 
 ---
 
@@ -159,7 +177,7 @@ Sincroniza em lote (até 20 tickers por requisição) os preços atuais de merca
 ---
 
 ### 2.5. `POST /api/reminders/send-email`
-Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige `Authorization: Bearer <Firebase ID token>`, restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. As credenciais podem estar incluídas nas configurações persistidas no Neon. Responde `502` se o servidor SMTP recusar a entrega.
+Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige sessão (`Authorization: Bearer <token de sessão>`), restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. As credenciais podem estar incluídas nas configurações persistidas no Neon. Responde `502` se o servidor SMTP recusar a entrega.
 
 - **Payload de Requisição**:
 ```json
@@ -184,7 +202,7 @@ Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos
 
 ## 3. Motores de Regras de Negócio (`src/utils/`)
 
-Toda a lógica matemática e contábil é desacoplada da árvore React e coberta pelos testes automatizados (`node:test`):
+Toda a lógica matemática e contábil é desacoplada da árvore React e coberta pelos testes automatizados (`bun test`, arquivos `*.test.ts(x)`; 575 testes em 77 arquivos em 12/11/2026):
 
 1. **`src/utils/financeRules.ts` (`src/utils/financeRules.test.ts`)**:
    - `createTransactionBatch`: Geração de lançamentos únicos, parcelados (com ajuste de centavos na 1ª parcela) e fixos recorrentes.
@@ -216,3 +234,19 @@ Toda a lógica matemática e contábil é desacoplada da árvore React e coberta
 
 5. **`src/utils/reminderRules.ts` (`src/utils/reminderRules.test.ts`)**:
    - `generateFinancialReminders`, `shouldTriggerDailyNotification`, `shouldTriggerEmailNotification` e `formatEmailReminderDigest`.
+
+6. **Módulos adicionados depois (resumo)**:
+   - `src/utils/financeRules.ts`: centraliza as regras monetárias. Saldo total, investimentos e patrimônio partem da posição de hoje (`calculateCurrentPosition`); gasto, orçamento, 50/30/20 e DRE usam o mês da compra/parcela, enquanto faturas e caixa usam o vencimento. Despesa fixa no cartão aparece no calendário/extrato só no primeiro lançamento do grupo (`getPurchaseTransactionsForMonth`); `getInstallmentAndRecurringItemsForMonth` alimenta o card "Parcelados & Recorrentes".
+   - `src/utils/sharedFinanceRules.ts` e `sharedSettlementReceipts.ts`: seleção, resumo, liquidação e reabertura de compartilhamentos; cada acerto recebe `sharedSettlementId`; recibos bancários locais ficam em `sharedSettlementReceiptsJson` no workspace do titular.
+   - `src/utils/investmentRules.ts`: aportes/resgates como transferência banco↔ativo, aporte de meta vinculado e bloqueio de exclusão de ativo com saldo, histórico ou meta (`getInvestmentDeletionRestriction`).
+   - `src/utils/workspaceCache.ts`, `workspaceSession.ts`, `workspaceSyncRecovery.ts`: abertura imediata com a cópia local e substituição silenciosa pelo Neon; recuperação de erro de carga/sincronização.
+   - `src/utils/fullBackup.ts`: exportação/importação JSON (versões 3 a 6; a v6 exige `ownerUserId` igual à conta autenticada).
+   - `src/pwa/updateGate.ts` e `PwaUpdateNotice.tsx`: atualização automática silenciosa do PWA (checa a cada 10 min, ao voltar à aba e ao reconectar; só aplica sem campo alterado, janela aberta ou gravação em andamento).
+
+---
+
+## 4. Testes e CI
+
+- Local: `bun run lint` (`tsc --noEmit`), `bun test` e `bun run build` (Vite + PWA).
+- `.github/workflows/ci.yml`: job `postgres` (PostgreSQL 17 real com `scripts/qa-postgres.ts`: API, RLS, acertos, readback e revisão concorrente) e job `verify` (lint, suíte completa e build).
+- `.github/workflows/neon-daily-activity.yml` (12:23 UTC, `SELECT 1`) e `neon-backup.yml` (13:17 UTC, dump cifrado com `age`, retenção de 30 dias). Veja `docs/BACKUP_AND_RESTORE.md`.

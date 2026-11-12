@@ -26,6 +26,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
+| 2026-11-12 | Documentação (README, security_spec, docs/*, `.env.example`) reescrita para o login próprio no Neon; variáveis do servidor: `DATABASE_URL`, `AUTH_SESSION_SECRET` (opcional, derivada de `DATABASE_URL` se ausente), `CRON_SECRET`, `GEMINI_API_KEY` (opcional) | Os documentos ainda descreviam Firebase e ID tokens, removidos em 2026-11-08 |
 | 2026-11-12 | Saldo total, investimentos e patrimônio partem da posição de hoje (`calculateCurrentPosition`); avisos usam só a data de hoje. O app abre na hora com a última versão salva no aparelho (`workspaceCache.ts`, somente leitura) e o Neon, que segue sendo a única fonte, a substitui em silêncio; nada é gravado no Neon nem na cópia local antes de o Neon ser lido, e a cópia é apagada ao sair da conta | O mês navegado não pode alterar patrimônio nem sumir com atrasos; abrir instantaneamente sem tela de carregamento, como os grandes apps, sem criar uma segunda fonte de verdade |
 | 2026-11-11 | Separar dados de compra compartilhada de recibos bancários locais em `sharedSettlementReceiptsJson` no workspace do titular | Espelhos são atualizados pelo servidor; conta/grupo/status da baixa local precisam sobreviver ao reload sem vazar identidade bancária para outro usuário. Campo JSON opcional, sem migration SQL |
 | 2026-11-11 | Centralizar regras monetárias em `financeRules.ts` e seleção/resumo/liquidação/reabertura de compartilhamentos em `sharedFinanceRules.ts`; App e telas consomem essas funções | Evitar filtros, somas e cascatas divergentes entre tela e gravação. Cada novo acerto recebe `sharedSettlementId` no JSON do workspace, incluindo compensações de saldo zero; sem migration SQL |
@@ -39,6 +40,6 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 - Nunca expor `DATABASE_URL` no frontend.
 - Toda operação de workspace deve validar a sessão própria e sua versão no banco, restringindo a linha Neon ao ID de usuário autenticado.
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.
-- Não enviar credenciais PostgreSQL ao frontend; o ID token Firebase identifica o titular nas rotas do backend.
-- Não inicializar nem usar Firestore ou Firebase Storage no runtime.
+- Não enviar credenciais PostgreSQL ao frontend; o token de sessão próprio (HS256) identifica o titular nas rotas do backend.
+- Firebase não existe mais no projeto: não reintroduzir Auth, Firestore ou Storage.
 - A existência de `schedule` no workflow ou Vercel config não prova execução diária; exige evento automático comprovado.
