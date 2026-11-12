@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Assinaturas e gastos fixos detectados automaticamente — 12/11/2026
+
+Etapa 1 do plano de "sistema inteligente" (o usuário recusou o lançamento por frase). `src/utils/recurrenceDetection.ts` (`detectRecurringExpenses`) olha o histórico de despesas avulsas (não parceladas, não fixas, sem viagem/pagamento de fatura) e encontra o que se repete: 3+ meses seguidos (último mês é o atual ou o anterior), valor estável (±10%, "assinatura") ou variável (±40%, "conta de consumo"), dia do mês estável (±4 dias). Devolve o preço atual, o dia, a próxima data esperada, se ainda não apareceu neste mês (3 dias de tolerância) e variação de preço (≥5% contra o valor anterior estável). Não sugere o que já é fixo/parcelado nem o que a pessoa ignorou (`settings.dismissedRecurringKeys`). Na Visão Geral, `RecurringSuggestionsCard` mostra até 3 sugestões com "Prever próximos meses (a partir de dd/mm)", que usa o lançamento fixo já existente (12 meses pendentes, conta/cartão/forma de pagamento do histórico e a divisão com familiar quando é hábito, com a mesma confirmação/desfazer de qualquer lançamento) e um "x" para não sugerir de novo.
+
+Validação local: `tsc --noEmit`, testes e build passaram. Não verificado no navegador nem com dados reais. O usuário ainda não tem lançamentos suficientes (só uma compra parcelada no cartão e duas avulsas) para a detecção aparecer; ela só aparece com 3+ meses seguidos. Próximas etapas: previsão do saldo, importação de extrato inteligente, orçamento sugerido, resumo do mês, cartão inteligente, saúde dos dados.
+
 ## Categorias: sem subcategorias e catálogo brasileiro completo — 12/11/2026
 
 Pedido do usuário: só categoria principal e com tudo que o brasileiro usa. Removidas as subcategorias de ponta a ponta: tipos (`Category.subcategories`, `Transaction.subcategoryId`, breakdowns), regras (`financeRules`, sugestão, busca, CSV sem coluna "Subcategoria"), formulário de lançamento, Orçamentos, Configurações e relatórios. Novo catálogo em `seedData.ts` com 47 categorias (12 receitas; despesas essenciais, estilo de vida e financeiras; ícones novos em `CategoryIconBadge`). Os ids existentes foram mantidos (`cat-mercado`, `cat-moradia`, `cat-outros`, `cat-fatura`, `cat-aportes`…); `cat-lazer` agora é só lazer e viagens ganhou `cat-viagens` (lotes de câmbio de viagem usam essa).

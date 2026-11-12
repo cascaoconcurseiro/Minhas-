@@ -76,6 +76,8 @@ import {
   toggleTransactionStatusWithCascade,
   calculateNetWorth,
   calculateCurrentPosition,
+  calculateSharedAmount,
+  resolveCreditCardInvoiceMonth,
 } from './utils/financeRules';
 import {
   DEFAULT_MONTH,
@@ -141,6 +143,8 @@ import {
 } from './components/SkeletonScreens';
 import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
 import { parseCachedWorkspace } from './utils/workspaceCache';
+import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
+import { learnSharingFromHistory } from './utils/learningRules';
 import {
   mergeCategoryCatalog,
   stripLegacySubcategories,
@@ -2747,6 +2751,48 @@ export default function App() {
   const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
   const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
 
+  // Gastos que se repetem todo mês (assinaturas, mensalidades): sugere prever os próximos meses.
+  const recurringSuggestions = useMemo(
+    () => detectRecurringExpenses(transactions, todayDateStr, settings.dismissedRecurringKeys ?? []),
+    [transactions, todayDateStr, settings.dismissedRecurringKeys]
+  );
+
+  const handleScheduleRecurring = (candidate: RecurringCandidate) => {
+    const card = candidate.creditCardId ? cards.find((item) => item.id === candidate.creditCardId) : undefined;
+    const learned = learnSharingFromHistory(candidate.description, transactions, familyMembers);
+    const sharing = learned
+      ? {
+          isShared: true,
+          sharedMemberId: learned.memberId,
+          sharedPaidBy: learned.paidBy,
+          sharedSplitMode: learned.splitMode === 'half' ? ('half' as const) : ('custom' as const),
+          sharedAmount: calculateSharedAmount(candidate.lastAmount, learned.splitMode, learned.percentage),
+        }
+      : {};
+    handleSaveTransactionBatch({
+      description: candidate.description,
+      amount: candidate.lastAmount,
+      date: candidate.nextExpectedDate,
+      competenceMonth: card ? resolveCreditCardInvoiceMonth(candidate.nextExpectedDate, card) : undefined,
+      type: 'expense',
+      status: 'pending',
+      categoryId: candidate.categoryId,
+      accountId: candidate.creditCardId ? undefined : candidate.accountId,
+      creditCardId: candidate.creditCardId,
+      paymentMethod: candidate.paymentMethod,
+      recurrence: 'fixed',
+      fixedMonthsCount: 12,
+      ...sharing,
+    });
+  };
+
+  const handleDismissRecurring = (candidate: RecurringCandidate) => {
+    setSettings((prev) => ({
+      ...prev,
+      dismissedRecurringKeys: [...new Set([...(prev.dismissedRecurringKeys ?? []), candidate.key])],
+    }));
+  };
+
   const dailyReminders = useMemo(() => {
     return calculateDailyReminders({
       transactions,
@@ -3551,6 +3597,9 @@ export default function App() {
                 <OverviewTab
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
+                  recurringSuggestions={recurringSuggestions}
+                  onScheduleRecurring={handleScheduleRecurring}
+                  onDismissRecurring={handleDismissRecurring}
                   userName={
                     settings.userName &&
                     settings.userName !== 'Você' &&
