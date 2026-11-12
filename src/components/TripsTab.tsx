@@ -634,7 +634,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
+      <div className="w-full max-w-lg max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
         <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white font-display">
             {editingTripId
@@ -2457,7 +2457,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
+          <div className="w-full max-w-md max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
             <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white font-display">
                 Comprar Câmbio ({activeTrip.currency}) — Preço Médio
@@ -2627,7 +2627,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
+          <div className="w-full max-w-md max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
             <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white font-display">
@@ -2745,7 +2745,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
+          <div className="w-full max-w-lg max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-slate-900 border-t sm:border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
             <div className="flex items-center justify-between p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white font-display">

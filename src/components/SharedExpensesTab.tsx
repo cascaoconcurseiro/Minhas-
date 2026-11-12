@@ -679,7 +679,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
                   {member.email && (
                     <div className="rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 p-2.5 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2">
-                      <span className="truncate">
+                      <span className="break-words sm:truncate">
                         <strong>E-mail:</strong> {member.email}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -1226,7 +1226,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             if (e.target === e.currentTarget) setSettlementTarget(null);
           }}
         >
-          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-modal-in">
+          <div className="w-full max-w-md max-h-[90dvh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-modal-in">
             <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">
               <div className="flex items-center gap-2 text-emerald-700">
                 <ArrowDownLeft className="h-5 w-5" />
@@ -1332,7 +1332,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             if (e.target === e.currentTarget) setShowMemberModal(false);
           }}
         >
-          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-modal-in">
+          <div className="w-full max-w-md max-h-[90dvh] flex flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-modal-in">
             <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">

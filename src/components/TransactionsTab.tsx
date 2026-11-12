@@ -529,10 +529,10 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              aria-label="Buscar lançamento por descrição, categoria ou subcategoria"
+              aria-label="Buscar lançamento por descrição, categoria ou nota"
               value={effectiveSearchQuery}
               onChange={(e) => handleSearchInputChange(e.target.value)}
-              placeholder="Buscar descrição, subcategoria ou nota..."
+              placeholder="Buscar descrição ou nota..."
               className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
             />
           </div>
@@ -543,7 +543,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'paid' | 'pending')}
             className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
           >
-            <option value="all">Todas as Situações (Efetivados + Pendentes)</option>
+            <option value="all">Todas as situações</option>
             <option value="paid">Somente Efetivados (Pagos / Recebidos)</option>
             <option value="pending">Somente Pendentes (Previstos)</option>
           </select>

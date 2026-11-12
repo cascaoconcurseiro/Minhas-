@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Ajuste para celulares — 12/11/2026
+
+Pedido: a versão no celular não estava ajustada para todos os smartphones. Medido no navegador (Chromium, emulando celular, com dados fictícios e a API simulada) em 320x568, 360x740/2400, 375x667 e 390x844: nenhuma tela tinha rolagem horizontal, mas havia texto cortado com "…" (inclusive valores em reais), cabeçalho empurrando o ícone de configurações para fora, o menu "Mais" cortando texto em 320 px e formulários usando `vh` (que no celular inclui a área atrás da barra do navegador).
+
+Mudanças: `truncate` virou `break-words sm:truncate` na Visão Geral, Cartões, Contas, Orçamentos e Compartilhado (quebra linha no celular, corta só em telas maiores); cabeçalho usa título curto no celular (`MOBILE_TAB_TITLES` em `App.tsx`) e a coluna do título encolhe em vez de empurrar os ícones; linhas de contas a pagar passam valor e botão para a linha de baixo; menu "Mais" com `min-w-0` nos textos; `max-h-[NNvh]` dos formulários virou `dvh`; abas do formulário de lançamento compactas abaixo de 360 px ("Transf." em vez de "Movimentações"); gráfico da previsão do saldo com escala ajustada ao saldo (antes parecia vazio); textos antigos que citavam subcategoria removidos.
+
+Validação: `tsc --noEmit`, 567 testes e build passaram; conferido por captura de tela em 320 e 375 px (Visão Geral, Extrato, Cartões, Contas, Orçamentos, Compartilhado, novo lançamento, configurações, menu Mais). Não testado em aparelho real nem em iOS Safari. Telas de Investimentos, Metas, Relatórios e Viagens só tiveram a verificação de rolagem horizontal, sem conferência visual.
+
 ## Saúde dos dados — 12/11/2026
 
 Etapa 7 (última) do plano de "sistema inteligente". `src/utils/dataHealth.ts` (`assessDataHealth`) só lê os cadastros e aponta: lançamentos sem categoria válida (ignora transferência e pagamento de fatura); lançamentos ligados a conta ou cartão apagados; divisões com familiar removido; parte do familiar maior que o valor; contas incluídas no total sem saldo inicial e sem movimento (informativo); cartão com dia de fechamento/vencimento fora de 1–31 e cartão sem limite. `DataHealthCard` ("Dados para revisar") aparece no topo da Visão Geral e some quando está tudo certo. Não corrige nada sozinho.

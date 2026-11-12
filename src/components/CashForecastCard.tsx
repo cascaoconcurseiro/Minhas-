@@ -20,9 +20,13 @@ export const CashForecastCard: React.FC<CashForecastCardProps> = ({ forecast }) 
   if (!forecast) return null;
 
   const balances = [forecast.startBalance, ...forecast.points.map((point) => point.balance)];
-  const min = Math.min(0, ...balances);
-  const max = Math.max(0, ...balances);
-  const range = max - min || 1;
+  const rawMin = Math.min(...balances);
+  const rawMax = Math.max(...balances);
+  // Escala ajustada ao saldo (não parte de zero), para a curva ocupar o gráfico.
+  const pad = (rawMax - rawMin) * 0.1 || Math.max(1, Math.abs(rawMax) * 0.05);
+  const min = rawMin - pad;
+  const max = rawMax + pad;
+  const range = max - min;
   const x = (index: number) => (index / Math.max(1, balances.length - 1)) * WIDTH;
   const y = (value: number) => HEIGHT - ((value - min) / range) * HEIGHT;
   const line = balances.map((value, index) => `${x(index).toFixed(1)},${y(value).toFixed(1)}`).join(' ');
@@ -63,7 +67,7 @@ export const CashForecastCard: React.FC<CashForecastCardProps> = ({ forecast }) 
         preserveAspectRatio="none"
         className="w-full h-20"
       >
-        {min < 0 && (
+        {min < 0 && max > 0 && (
           <line x1="0" x2={WIDTH} y1={y(0)} y2={y(0)} stroke="currentColor" strokeDasharray="3 3" className="text-slate-300 dark:text-slate-700" />
         )}
         <polyline

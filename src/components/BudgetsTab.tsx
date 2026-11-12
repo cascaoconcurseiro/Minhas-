@@ -414,7 +414,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                     }`}
                   >
                     {renderCategoryIcon(opt.id, 'h-4 w-4')}
-                    <span className="text-[10px] truncate max-w-full">
+                    <span className="text-[10px] break-words sm:truncate max-w-full">
                       {opt.label.split(' ')[0]}
                     </span>
                   </button>
@@ -489,7 +489,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                         color={alert.categoryColor}
                         size="sm"
                       />
-                      <span className="text-xs font-bold text-slate-900 truncate">
+                      <span className="text-xs font-bold text-slate-900 break-words sm:truncate">
                         {alert.categoryName}
                       </span>
                     </div>
@@ -542,12 +542,12 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                   Divisão recomendada da renda líquida mensal ({formatBRL(rule503020.incomeBase)}) entre gastos essenciais, estilo de vida e futuro
                 </p>
               </div>
-              <div className="text-right font-mono tabular-nums text-xs text-slate-600">
-                <span>
+              <div className="text-left sm:text-right font-mono tabular-nums text-xs text-slate-600">
+                <span className="block sm:inline">
                   Orçamento Total Planejado: <strong>{formatBRL(totalBudgeted)}</strong>
                 </span>
-                <span aria-hidden="true"> · </span>
-                <span>
+                <span aria-hidden="true" className="hidden sm:inline"> · </span>
+                <span className="block sm:inline">
                   Realizado + Previsto: <strong>{formatBRL(totalSpent)}</strong>
                 </span>
               </div>

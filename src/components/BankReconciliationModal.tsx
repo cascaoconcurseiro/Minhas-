@@ -389,7 +389,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
       aria-modal="true"
       aria-labelledby="reconciliation-modal-title"
     >
-      <div className="relative flex max-h-[92vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-800 overflow-hidden">
+      <div className="relative flex max-h-[92dvh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900 dark:border dark:border-slate-800 overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-3">
