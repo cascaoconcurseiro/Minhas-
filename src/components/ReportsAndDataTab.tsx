@@ -26,6 +26,7 @@ import {
   type CurrentPosition,
   addMonthsToYearMonth,
   calculateDailyCashFlow,
+  calculateCardTimingForMonth,
   calculatePeriodReport,
   calculatePersonalDre,
   calculateCreditCardSummary,
@@ -191,6 +192,11 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     () => calculatePersonalDre(transactions, selectedMonth, accountBalances, investments,
       cards.map((card) => calculateCreditCardSummary(card, transactions, selectedMonth)), currentPosition),
     [transactions, selectedMonth, accountBalances, investments, cards, currentPosition]
+  );
+
+  const cardTiming = useMemo(
+    () => calculateCardTimingForMonth(transactions, selectedMonth),
+    [transactions, selectedMonth]
   );
 
   const { activeStartMonth, activeEndMonth } = useMemo(() => {
@@ -1080,6 +1086,30 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 </span>
               </div>
             </div>
+
+            {(cardTiming.purchasesInMonth > 0 || cardTiming.invoicesDueInMonth > 0) && (
+              <div
+                data-testid="dre-card-timing"
+                className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-600 space-y-1.5"
+              >
+                <p className="font-bold text-slate-800">Cartão de crédito em {formatMonthYearPT(selectedMonth)}</p>
+                <p>
+                  <strong className="font-mono tabular-nums text-slate-900">{formatBRL(cardTiming.purchasesInMonth)}</strong>{' '}
+                  em compras no cartão neste mês: já estão no gasto acima e só saem do caixa quando a fatura vencer.
+                </p>
+                <p>
+                  <strong className="font-mono tabular-nums text-slate-900">{formatBRL(cardTiming.invoicesDueInMonth)}</strong>{' '}
+                  em faturas vencem neste mês e saem do caixa
+                  {cardTiming.invoicesDueFromEarlierPurchases > 0 && (
+                    <>
+                      ; <strong className="font-mono tabular-nums text-slate-900">{formatBRL(cardTiming.invoicesDueFromEarlierPurchases)}</strong>{' '}
+                      são de compras de meses anteriores, que já foram contadas no gasto daqueles meses
+                    </>
+                  )}
+                  .
+                </p>
+              </div>
+            )}
 
             {/* Consolidated Wealth Strip inside DRE */}
             <div className="rounded-xl border border-slate-200 bg-slate-900 text-white p-3.5 space-y-2">

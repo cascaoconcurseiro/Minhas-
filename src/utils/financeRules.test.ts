@@ -16,6 +16,7 @@ import {
   calculateNetWorth,
   isPendingBankObligation,
   calculateDailyCashFlow,
+  calculateCardTimingForMonth,
   calculateFinancialHealthScore360,
   calculateMonthlySummary,
   calculatePersonalDre,
@@ -2102,6 +2103,26 @@ test('daily cash flow explains each outflow: overdue invoice on day 1 and the mo
   assert.equal(flow[4].expense, 179.59);
   assert.match(flow[4].expenseNotes![0], /Fatura de Janeiro de 2027 do Nubank: vencimento neste dia/);
   assert.equal(flow[1].expenseNotes, undefined, 'dias sem saída não têm aviso');
+});
+
+test('card timing links spending (purchase month) to invoices (due month) like the Dec 599,59 vs 179,59 case', () => {
+  const card: CreditCard = {
+    id: 'card-timing', name: 'Nubank', brand: 'Visa', limit: 5000,
+    closingDay: 20, dueDay: 5, defaultAccountId: 'acc', color: '#000000',
+  };
+  const base = { type: 'expense' as const, status: 'pending' as const, categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card' as const, recurrence: 'single' as const };
+  const txs: Transaction[] = [
+    // compra de novembro antes do fechamento: fatura vence em dezembro
+    { ...base, id: 'nov', description: 'Compra nov', amount: 599.59, date: '2026-11-10', competenceMonth: '2026-12' },
+    // compra de dezembro depois do fechamento: fatura vence em janeiro
+    { ...base, id: 'dez', description: 'Compra dez', amount: 179.59, date: '2026-12-25', competenceMonth: '2027-01' },
+  ];
+  const dec = calculateCardTimingForMonth(txs, '2026-12');
+  assert.deepEqual(dec, { purchasesInMonth: 179.59, invoicesDueInMonth: 599.59, invoicesDueFromEarlierPurchases: 599.59 });
+  const nov = calculateCardTimingForMonth(txs, '2026-11');
+  assert.deepEqual(nov, { purchasesInMonth: 599.59, invoicesDueInMonth: 0, invoicesDueFromEarlierPurchases: 0 });
+  // a fatura de dezembro bate com o cartão e com o fluxo de caixa
+  assert.equal(calculateCreditCardSummary(card, txs, '2026-12').invoiceTotal, dec.invoicesDueInMonth);
 });
 
 test('calculateFinancialHealthScore360 computes 0-1000 score, net worth, runway months, and safe-to-spend per day', () => {

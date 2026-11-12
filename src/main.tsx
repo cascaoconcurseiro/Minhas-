@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import {PwaUpdateNotice} from './pwa/PwaUpdateNotice';
+import {InstantTooltip} from './components/InstantTooltip';
 
 // Depois de uma nova publicação, uma aba aberta pode pedir arquivos antigos que não existem mais (404).
 // Recarrega uma vez para buscar a versão nova; se falhar de novo em 30 s, deixa o erro aparecer.
@@ -24,5 +25,6 @@ createRoot(document.getElementById('root')!).render(
   <>
     <App />
     <PwaUpdateNotice />
+    <InstantTooltip />
   </>
 );
