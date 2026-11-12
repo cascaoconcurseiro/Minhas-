@@ -16,6 +16,7 @@ import {
 } from './ofxParser';
 import { Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
+import { applyReconciledBankTransactions } from './financeRules';
 
 const MOCK_CATEGORIES: Category[] = [
   {
@@ -572,5 +573,98 @@ Data;Descrição;Valor;Identificador
     assert.strictEqual((compacted as any).isInvoicePayment, undefined);
     assert.strictEqual((compacted as any).isAnticipated, undefined);
     assert.strictEqual((compacted as any).notes, undefined);
+  });
+});
+
+describe('smart statement import', () => {
+  const account = 'acc-main';
+  const cats = INITIAL_CATEGORIES;
+  const item = (over: Partial<{ date: string; description: string; amount: number; rawType: 'income' | 'expense'; fitid: string }> = {}) => ({
+    date: '2026-11-10', description: 'APOLO SUPERMERCADO', amount: 135, rawType: 'expense' as const, fitid: 'F1', ...over,
+  });
+  const existing = (over: Partial<Transaction>): Transaction => ({
+    id: 'e1', description: 'Apolo', amount: 135, date: '2026-11-08', competenceMonth: '2026-11', type: 'expense',
+    status: 'paid', categoryId: 'cat-mercado', paymentMethod: 'pix', recurrence: 'single', accountId: account, ...over,
+  });
+  const fran = { id: 'fam-fran', name: 'FRAN', color: '#ec4899', relationship: 'cônjuge' } as never;
+
+  it('uses the person\'s own history to choose the category before generic rules', () => {
+    const history = [
+      existing({ id: 'h1', description: 'Padaria do Zé', categoryId: 'cat-restaurantes', date: '2026-10-01' }),
+      existing({ id: 'h2', description: 'Padaria do Zé', categoryId: 'cat-restaurantes', date: '2026-10-08' }),
+    ];
+    const [candidate] = prepareReconciliationCandidates([item({ description: 'PADARIA DO ZE', amount: 20 })], history, cats, account);
+    assert.equal(candidate.suggestedCategoryId, 'cat-restaurantes', 'o histórico vence a regra de "padaria"');
+    assert.equal(candidate.suggestedCategorySource, 'history');
+
+    const [byRule] = prepareReconciliationCandidates([item({ description: 'SMART FIT ACADEMIA', amount: 99 })], [], cats, account);
+    assert.equal(byRule.suggestedCategoryId, 'cat-academia');
+    assert.equal(byRule.suggestedCategorySource, 'rule');
+  });
+
+  it('settles the pending bill that matches instead of creating a duplicate', () => {
+    const pending = existing({ id: 'p1', description: 'Apolo mercado', status: 'pending', date: '2026-11-12' });
+    const [candidate] = prepareReconciliationCandidates([item()], [pending], cats, account);
+    assert.equal(candidate.matchedPendingId, 'p1');
+    assert.equal(candidate.isDuplicate, false);
+    assert.equal(candidate.selected, true);
+
+    const created = convertCandidatesToTransactions([candidate], account, 'b1');
+    assert.equal(created[0].settlesPendingTransactionId, 'p1');
+    const result = applyReconciledBankTransactions([pending], created, []);
+    assert.equal(result.updatedTransactions.length, 1, 'não duplica o lançamento');
+    assert.equal(result.updatedTransactions[0].status, 'paid');
+    assert.equal(result.updatedTransactions[0].date, '2026-11-10', 'usa a data real do extrato');
+    assert.equal(result.updatedTransactions[0].fitid, 'F1');
+    assert.equal(result.updatedTransactions[0].reconciled, true);
+    assert.equal(result.importedCount, 1);
+  });
+
+  it('does not match when the value, the dates or the type are different, or when it is ambiguous', () => {
+    const base = existing({ id: 'p1', description: 'Apolo mercado', status: 'pending', date: '2026-11-12' });
+    const match = (pending: Transaction[], overrides = {}) =>
+      prepareReconciliationCandidates([item(overrides)], pending, cats, account)[0].matchedPendingId;
+    assert.equal(match([{ ...base, amount: 140 }]), undefined, 'valor diferente');
+    assert.equal(match([{ ...base, date: '2026-12-20' }]), undefined, 'data muito distante');
+    assert.equal(match([{ ...base, type: 'income' }]), undefined, 'tipo diferente');
+    assert.equal(match([base, { ...base, id: 'p2' }]), undefined, 'duas contas iguais: a pessoa decide');
+    assert.equal(match([{ ...base, creditCardId: 'card-1' }]), undefined, 'compra de cartão não é conta pendente');
+  });
+
+  it('a pending bill is claimed by one statement line only', () => {
+    const pending = existing({ id: 'p1', description: 'Apolo mercado', status: 'pending', date: '2026-11-12' });
+    const result = prepareReconciliationCandidates(
+      [item({ fitid: 'F1' }), item({ fitid: 'F2', date: '2026-11-11' })], [pending], cats, account
+    );
+    assert.equal(result.filter((candidate) => candidate.matchedPendingId === 'p1').length, 1);
+  });
+
+  it('applies the split the person usually makes for that place and carries it to the new transaction', () => {
+    const history = ['h1', 'h2', 'h3'].map((id, i) =>
+      existing({ id, description: 'Apolo', date: `2026-10-0${i + 1}`, isShared: true, sharedMemberId: 'fam-fran', sharedAmount: 67.5, sharedPaidBy: 'me', sharedSplitMode: 'half', sharedStatus: 'pending' })
+    );
+    const [candidate] = prepareReconciliationCandidates([item()], history, cats, account, [], {}, [fran]);
+    assert.equal(candidate.learnedSharing?.memberId, 'fam-fran');
+    const [tx] = convertCandidatesToTransactions([candidate], account, 'b1');
+    assert.equal(tx.isShared, true);
+    assert.equal(tx.sharedMemberId, 'fam-fran');
+    assert.equal(tx.sharedAmount, 67.5);
+    assert.equal(tx.sharedSplitMode, 'half');
+    assert.equal(tx.settlesPendingTransactionId, undefined);
+
+    const [income] = prepareReconciliationCandidates([item({ rawType: 'income' })], history, cats, account, [], {}, [fran]);
+    assert.equal(income.learnedSharing, undefined, 'receita não é dividida');
+  });
+
+  it('keeps flagging a real duplicate and never stores the transient settle field', () => {
+    const paid = existing({ id: 'e1', description: 'Apolo', date: '2026-11-10', status: 'paid' });
+    const [dup] = prepareReconciliationCandidates([item()], [paid], cats, account);
+    assert.equal(dup.isDuplicate, true);
+    assert.equal(dup.matchedPendingId, undefined);
+
+    const orphan = { ...existing({ id: 'new1' }), settlesPendingTransactionId: 'gone' };
+    const result = applyReconciledBankTransactions([], [orphan], []);
+    assert.equal(result.updatedTransactions.length, 1);
+    assert.equal('settlesPendingTransactionId' in result.updatedTransactions[0], false);
   });
 });

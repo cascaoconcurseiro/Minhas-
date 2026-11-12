@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { BankAccount, CreditCard, Transaction } from '../types/finance';
+import type { BankAccount, Category, CreditCard, FamilyMember, Transaction } from '../types/finance';
 import { BankReconciliationModal } from './BankReconciliationModal';
 
 const { createRoot } = await import('react-dom/client');
@@ -23,7 +23,7 @@ const account: BankAccount = {
 
 function renderModal(
   onCommitImport: (transactions: Transaction[], accountId: string) => void,
-  options: { accounts?: BankAccount[]; cards?: CreditCard[]; existingTransactions?: Transaction[] } = {}
+  options: { accounts?: BankAccount[]; cards?: CreditCard[]; existingTransactions?: Transaction[]; familyMembers?: FamilyMember[]; categories?: Category[] } = {}
 ) {
   container = document.createElement('div');
   document.body.append(container);
@@ -34,7 +34,8 @@ function renderModal(
       onClose: () => {},
       accounts: options.accounts ?? [account],
       cards: options.cards ?? [],
-      categories: [],
+      categories: options.categories ?? [],
+      familyMembers: options.familyMembers ?? [],
       existingTransactions: options.existingTransactions ?? [],
       onCommitImport,
       defaultAccountId: options.accounts?.[0]?.id ?? account.id,
@@ -270,4 +271,42 @@ test('bank reconciliation imports a uniquely matched card bill as a linked settl
   assert.equal(imported[0]?.isInvoicePayment, true);
   assert.equal(imported[0]?.settledCardId, card.id);
   assert.equal(imported[0]?.settledInvoiceMonth, '2026-10');
+});
+
+test('statement import settles the matching pending bill and applies the usual split, saying so on each row', async () => {
+  const mercado: Category = { id: 'cat-mercado', name: 'Supermercado e Feira', type: 'expense', bucket: 'essential', monthlyBudget: 0, color: '#059669', icon: 'shopping-cart' };
+  const fran = { id: 'fam-fran', name: 'FRAN', color: '#ec4899', relationship: 'cônjuge' } as FamilyMember;
+  const past = (id: string, date: string): Transaction => ({
+    id, description: 'Padaria Doce', amount: 40, date, competenceMonth: '2026-10', type: 'expense', status: 'paid',
+    categoryId: 'cat-mercado', paymentMethod: 'pix', recurrence: 'single', accountId: account.id, isShared: true,
+    sharedMemberId: 'fam-fran', sharedAmount: 20, sharedPaidBy: 'me', sharedSplitMode: 'half', sharedStatus: 'pending',
+  });
+  const pendingBill: Transaction = {
+    id: 'pending-luz', description: 'Conta de luz', amount: 180, date: '2026-11-08', competenceMonth: '2026-11', type: 'expense',
+    status: 'pending', categoryId: 'cat-mercado', paymentMethod: 'boleto', recurrence: 'single', accountId: account.id,
+  };
+  let imported: Transaction[] = [];
+  const page = renderModal((transactions) => { imported = transactions; }, {
+    categories: [mercado], familyMembers: [fran], existingTransactions: [past('h1', '2026-10-01'), past('h2', '2026-10-05'), pendingBill],
+  });
+  const pasteModeButton = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Colar Texto Manual'));
+  assert.ok(pasteModeButton);
+  await act(async () => { pasteModeButton.click(); });
+  const textarea = page.querySelector<HTMLTextAreaElement>('textarea');
+  assert.ok(textarea);
+  await act(async () => {
+    setTextareaValue(textarea, 'Data;Descrição;Valor\n10/11/2026;ENEL ENERGIA LUZ;-180,00\n11/11/2026;Padaria Doce;-55,00');
+  });
+  await act(async () => { [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Processar Linhas Coladas'))?.click(); });
+
+  assert.match(page.textContent ?? '', /Quita a conta pendente "Conta de luz"/);
+  assert.match(page.textContent ?? '', /Dividido com FRAN \(metade\) como nas últimas vezes/);
+  assert.match(page.textContent ?? '', /Categoria pelo seu histórico/);
+
+  await act(async () => { [...page.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('Confirmar e Importar'))?.click(); });
+  const settle = imported.find((tx) => tx.settlesPendingTransactionId === 'pending-luz');
+  const shared = imported.find((tx) => tx.description === 'Padaria Doce');
+  assert.ok(settle, 'a linha da luz quita a pendente');
+  assert.equal(shared?.isShared, true);
+  assert.equal(shared?.sharedAmount, 27.5);
 });

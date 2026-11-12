@@ -93,6 +93,16 @@ function recentSimilar(
     .slice(0, limit);
 }
 
+/** Aprende a categoria usual de um estabelecimento (usada também na importação de extrato). */
+export function learnCategoryHabit(
+  description: string,
+  transactions: Transaction[],
+  type: 'income' | 'expense'
+): Decision<string> | null {
+  const history = recentSimilar(description, transactions, (tx) => tx.type === type);
+  return decideChoice(history.map((tx) => tx.categoryId));
+}
+
 export interface PaymentHabit {
   accountId?: Decision<string>;
   creditCardId?: Decision<string>;

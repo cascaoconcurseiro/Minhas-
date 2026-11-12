@@ -167,6 +167,8 @@ export interface Transaction {
   fitid?: string; // Financial Institution Transaction ID from OFX
   importBatchId?: string; // Batch identifier from bank statement import
   reconciled?: boolean; // Indicates transaction has been reconciled against a bank statement
+  /** Transitório da importação de extrato: quita esta conta pendente em vez de criar um lançamento novo. */
+  settlesPendingTransactionId?: string;
 }
 
 export interface SavingsGoal {
