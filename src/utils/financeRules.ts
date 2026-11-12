@@ -658,6 +658,70 @@ export function getPendingBankMovements(
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+export interface PendingCardInvoice {
+  cardId: string;
+  cardName: string;
+  invoiceMonth: string; // YYYY-MM (mês de vencimento)
+  dueDate: string; // YYYY-MM-DD
+  amount: number; // valor ainda em aberto
+  isOverdue: boolean;
+  defaultAccountId?: string;
+}
+
+/**
+ * Faturas de cartão ainda em aberto para a lista de contas a pagar do mês.
+ * Uma linha por cartão e mês de vencimento, com o valor pendente. No mês atual,
+ * faturas de meses anteriores sem pagamento aparecem como atrasadas.
+ */
+export function getPendingCardInvoices(
+  cards: CreditCard[] | null | undefined,
+  transactions: Transaction[] | null | undefined,
+  selectedMonth: string,
+  todayDate: string = getLocalDateISO()
+): PendingCardInvoice[] {
+  if (
+    !Array.isArray(cards) ||
+    !Array.isArray(transactions) ||
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(selectedMonth) ||
+    !isValidISODate(todayDate)
+  ) {
+    return [];
+  }
+  const currentMonth = todayDate.slice(0, 7);
+  const invoices: PendingCardInvoice[] = [];
+  for (const card of cards) {
+    const months = new Set<string>();
+    for (const tx of transactions) {
+      if (
+        tx.creditCardId === card.id &&
+        tx.status === 'pending' &&
+        isCreditCardInvoicePurchase(tx) &&
+        /^\d{4}-(0[1-9]|1[0-2])$/.test(tx.competenceMonth || '')
+      ) {
+        months.add(tx.competenceMonth);
+      }
+    }
+    for (const month of months) {
+      const isSelected = month === selectedMonth;
+      const isOverdueCarry = selectedMonth === currentMonth && month < selectedMonth;
+      if (!isSelected && !isOverdueCarry) continue;
+      const amount = calculateCreditCardSummary(card, transactions, month, todayDate).invoicePendingAmount;
+      if (!(amount > 0)) continue;
+      const dueDate = getClampedMonthDate(month, card.dueDay);
+      invoices.push({
+        cardId: card.id,
+        cardName: card.name,
+        invoiceMonth: month,
+        dueDate,
+        amount: Math.round(amount * 100) / 100,
+        isOverdue: dueDate < todayDate,
+        defaultAccountId: card.defaultAccountId,
+      });
+    }
+  }
+  return invoices.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
 /** Soma, em centavos, o que há a pagar e a receber numa lista de movimentos bancários pendentes. */
 export function summarizePendingBankMovements(movements: Transaction[] | null | undefined) {
   const list = Array.isArray(movements) ? movements : [];

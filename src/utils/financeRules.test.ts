@@ -45,6 +45,7 @@ import {
   simulateFixedIncomeBR,
   summarizeGlobalSearchResults,
   getConsumptionMonth,
+  getPendingCardInvoices,
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
@@ -2438,4 +2439,29 @@ test('compra de novembro com fatura em dezembro é gasto de novembro e saída de
   assert.equal(november.reduce((sum, day) => sum + day.expense, 0), 0, 'nenhuma saída de caixa em novembro');
   const december = calculateDailyCashFlow([account], [card], all, '2026-12');
   assert.equal(december[4].expense, 300, 'fatura sai do caixa no vencimento, dia 5/12');
+});
+
+test('contas a pagar mostram a fatura do cartão com vencimento e valor em aberto', () => {
+  const card: CreditCard = {
+    id: 'card-pending', name: 'Itaú azul', brand: 'Visa', limit: 10000,
+    closingDay: 30, dueDay: 5, defaultAccountId: 'acc', color: '#0f172a',
+  };
+  const base = {
+    type: 'expense' as const, categoryId: 'cat-outros', creditCardId: card.id,
+    paymentMethod: 'credit_card' as const, recurrence: 'single' as const,
+  };
+  const purchases = [
+    ...createTransactionBatch({ ...base, description: 'A', amount: 400, date: '2026-11-11', competenceMonth: '2026-12', status: 'pending' }),
+    ...createTransactionBatch({ ...base, description: 'B', amount: 199.59, date: '2026-11-20', competenceMonth: '2026-12', status: 'pending' }),
+    ...createTransactionBatch({ ...base, description: 'Já paga', amount: 50, date: '2026-11-02', competenceMonth: '2026-12', status: 'paid' }),
+  ];
+  assert.deepEqual(
+    getPendingCardInvoices([card], purchases, '2026-12', '2026-11-12').map((i) => [i.cardName, i.dueDate, i.amount, i.isOverdue]),
+    [['Itaú azul', '2026-12-05', 599.59, false]]
+  );
+  assert.deepEqual(getPendingCardInvoices([card], purchases, '2026-11', '2026-11-12'), []);
+  const late = getPendingCardInvoices([card], purchases, '2027-01', '2027-01-10');
+  assert.equal(late.length, 1, 'fatura vencida e não paga aparece como atrasada no mês atual');
+  assert.equal(late[0].isOverdue, true);
+  assert.deepEqual(getPendingCardInvoices([card], purchases, '2026-10', '2027-01-10'), []);
 });

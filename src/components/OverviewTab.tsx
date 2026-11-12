@@ -33,6 +33,7 @@ import {
   formatShortDateBR,
   getLocalDateISO,
   getPendingBankMovements,
+  getPendingCardInvoices,
   getBudgetAlerts,
 } from '../utils/financeRules';
 import { calculateMonthBurnRateMarker } from '../utils/uxEnhancementRules';
@@ -141,6 +142,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const todayDate = getLocalDateISO();
   const todayMonth = todayDate.slice(0, 7);
   const pendingBills = getPendingBankMovements(transactions, selectedMonth, todayDate);
+  const pendingInvoices = getPendingCardInvoices(cards, transactions, selectedMonth, todayDate);
+  const pendingCount = pendingBills.length + pendingInvoices.length;
 
   const paidBankBills = transactions
     .filter(
@@ -198,8 +201,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {greetingPrefix}{firstName ? `, ${firstName}` : ''}! 👋
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {pendingBills.length > 0
-            ? `${pendingBills.length} lançamento(s) a pagar/receber em ${formatMonthYearPT(selectedMonth)}${selectedMonth === todayMonth && pendingBills.some((tx) => tx.competenceMonth < selectedMonth) ? ', incluindo atrasados' : ''}`
+          {pendingCount > 0
+            ? `${pendingCount} lançamento(s) a pagar/receber em ${formatMonthYearPT(selectedMonth)}${selectedMonth === todayMonth && (pendingBills.some((tx) => tx.competenceMonth < selectedMonth) || pendingInvoices.some((inv) => inv.invoiceMonth < selectedMonth)) ? ', incluindo atrasados' : ''}`
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
@@ -847,7 +850,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Pendentes ({pendingBills.length})
+                    Pendentes ({pendingCount})
                   </button>
                   <button
                     type="button"
@@ -865,7 +868,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             {billsFilterMode === 'pending' ? (
-              pendingBills.length === 0 ? (
+              pendingCount === 0 ? (
                 <div className="px-4 sm:px-6 py-12 text-center">
                   <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600 mb-2" />
                   <p className="text-sm font-semibold text-slate-900">
@@ -889,6 +892,47 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[380px] overflow-y-auto custom-scrollbar">
+                  {pendingInvoices.map((inv) => (
+                    <div
+                      key={`invoice-${inv.cardId}-${inv.invoiceMonth}`}
+                      data-testid="pending-card-invoice"
+                      className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto sm:flex-1">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+                          <CreditCardIcon className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 break-words sm:truncate">
+                            Fatura {inv.cardName}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
+                            <span className="font-mono tabular-nums">Vence {formatShortDateBR(inv.dueDate)}</span>
+                            {inv.isOverdue && (
+                              <span className="ml-1.5 rounded bg-rose-100 px-1 py-0.5 text-[10px] font-bold text-rose-700">
+                                Atrasada
+                              </span>
+                            )}
+                            <span aria-hidden="true"> · </span>
+                            <span>Cartão de crédito</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+                        <span className="text-xs sm:text-sm font-bold font-mono tabular-nums text-rose-700">
+                          -{formatBRL(inv.amount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => (onNavigateToCard ? onNavigateToCard(inv.cardId) : onNavigateTab('cards'))}
+                          aria-label={`Pagar fatura ${inv.cardName}`}
+                          className="rounded-lg border border-violet-600/30 bg-violet-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-violet-800 hover:bg-violet-600 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                        >
+                          Pagar fatura
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                   {pendingBills.map((tx) => {
                     const cat = catMap.get(tx.categoryId);
                     const catName = cat?.name || 'Geral';
@@ -1023,7 +1067,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           <div className="border-t border-slate-200 px-4 sm:px-6 py-3.5 bg-slate-50/60 flex flex-wrap items-center justify-between gap-2 rounded-b-xl">
             <span className="text-xs text-slate-600">
-              {pendingBills.length} lançamento(s) bancário(s) aguardando baixa
+              {pendingCount} lançamento(s) aguardando baixa
             </span>
             <button
               type="button"
