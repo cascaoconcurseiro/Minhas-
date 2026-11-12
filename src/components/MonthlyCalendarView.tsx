@@ -25,7 +25,7 @@ import {
   formatBRL,
   formatMonthYearPT,
   getClampedMonthDate,
-  getCalendarTransactionsForMonth,
+  getLedgerTransactionsForMonth,
   getEffectiveExpenseAmountForUser,
 } from '../utils/financeRules';
 import { calculateWeeklyCashPulse } from '../utils/uxEnhancementRules';
@@ -135,7 +135,18 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   // Transactions mapped by date (YYYY-MM-DD)
   const transactionsByDate = useMemo(() => {
     const map = new Map<string, Transaction[]>();
-    for (const tx of transactions) {
+    const months = new Set(
+      transactions.flatMap((tx) => [
+        tx.date.slice(0, 7),
+        ...(tx.originalDateBeforeAnticipation
+          ? [tx.originalDateBeforeAnticipation.slice(0, 7)]
+          : []),
+      ])
+    );
+    const calendarTransactions = Array.from(months).flatMap((month) =>
+      getLedgerTransactionsForMonth(transactions, month)
+    );
+    for (const tx of calendarTransactions) {
       // Group by date
       if (!map.has(tx.date)) {
         map.set(tx.date, []);
@@ -147,7 +158,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
   // Summary counts for this month
   const monthStats = useMemo(() => {
-    const monthTxs = getCalendarTransactionsForMonth(transactions, selectedMonth);
+    const monthTxs = getLedgerTransactionsForMonth(transactions, selectedMonth);
 
     let pendingBillsCount = 0;
     let pendingBillsAmount = 0;
@@ -194,7 +205,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   // Initial active day selection: look for earliest pending bill in month or day 15 or day 01
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // Check if there is an urgent pending bill in the selected month
-    const pendingInMonth = getCalendarTransactionsForMonth(transactions, selectedMonth)
+    const pendingInMonth = getLedgerTransactionsForMonth(transactions, selectedMonth)
       .filter((t) => t.status === 'pending')
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pendingInMonth.length > 0) {
@@ -288,7 +299,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   }, [selectedDate]);
 
   const selectedDayTotals = useMemo(() => {
-    return calculateCalendarDaySummary(selectedDateTxs);
+    return calculateCalendarDaySummary(selectedDateTxs.filter((tx) => !tx.creditCardId));
   }, [selectedDateTxs]);
 
   // Today string for comparison (in Brazil timezone/standard)
@@ -578,7 +589,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             let dayExpenses = 0;
             let dayIncomes = 0;
             for (const tx of allDayTxs) {
-              if (tx.isInvoicePayment || tx.type === 'transfer') continue;
+              if (tx.isInvoicePayment || tx.type === 'transfer' || tx.creditCardId) continue;
               if (tx.type === 'expense') dayExpenses += tx.amount;
               else if (tx.type === 'income') dayIncomes += tx.amount;
             }

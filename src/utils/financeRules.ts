@@ -1630,6 +1630,40 @@ export function getPurchaseTransactionsForMonth(transactions: Transaction[], mon
   return getCalendarTransactionsForMonth(purchases, month);
 }
 
+/**
+ * Returns the ledger rows for a month. Credit-card installments are represented
+ * once, on the original purchase date, while bank-account installments remain
+ * scheduled in the months they are due.
+ */
+export function getLedgerTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
+  const cardTransactions = transactions.filter((tx) => Boolean(tx.creditCardId));
+  const originalStatusById = new Map(cardTransactions.map((tx) => [tx.id, tx.status]));
+  const cardPurchases = getPurchaseTransactionsForMonth(cardTransactions, month)
+    .map((purchase) => ({
+      ...purchase,
+      status: originalStatusById.get(purchase.id) || purchase.status,
+    }));
+  const representedCardPurchaseIds = new Set(cardPurchases.map((purchase) => purchase.id));
+  const incompleteCardPurchases = cardTransactions
+    .filter((tx) =>
+      tx.recurrence === 'installment' &&
+      tx.installmentNumber === 1 &&
+      !representedCardPurchaseIds.has(tx.id)
+    )
+    .map((tx) => ({
+      ...tx,
+      date: tx.originalDateBeforeAnticipation || tx.date,
+    }))
+    .filter((tx) => tx.date.slice(0, 7) === month);
+  const otherTransactions = getCalendarTransactionsForMonth(
+    transactions.filter((tx) => !tx.creditCardId),
+    month
+  );
+
+  return [...otherTransactions, ...cardPurchases, ...incompleteCardPurchases]
+    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+}
+
 export interface CalendarDaySummary {
   pendingExpense: number;
   paidExpense: number;
