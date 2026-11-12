@@ -1637,12 +1637,16 @@ export function getPurchaseTransactionsForMonth(transactions: Transaction[], mon
  */
 export function getLedgerTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
   const cardTransactions = transactions.filter((tx) => Boolean(tx.creditCardId));
-  const originalStatusById = new Map(cardTransactions.map((tx) => [tx.id, tx.status]));
+  const originalTransactionsById = new Map(cardTransactions.map((tx) => [tx.id, tx]));
   const cardPurchases = getPurchaseTransactionsForMonth(cardTransactions, month)
-    .map((purchase) => ({
-      ...purchase,
-      status: originalStatusById.get(purchase.id) || purchase.status,
-    }));
+    .map((purchase) => {
+      const original = originalTransactionsById.get(purchase.id);
+      return {
+        ...purchase,
+        amount: original?.amount ?? purchase.amount,
+        status: original?.status ?? purchase.status,
+      };
+    });
   const representedCardPurchaseIds = new Set(cardPurchases.map((purchase) => purchase.id));
   const incompleteCardPurchases = cardTransactions
     .filter((tx) =>
