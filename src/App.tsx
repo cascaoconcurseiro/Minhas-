@@ -145,6 +145,7 @@ import type { WorkspaceConflictState } from './components/WorkspaceConflictModal
 import { parseCachedWorkspace } from './utils/workspaceCache';
 import { forecastCashBalance } from './utils/cashForecast';
 import { analyzeCards, recommendCardForPurchase } from './utils/cardIntelligence';
+import { assessDataHealth } from './utils/dataHealth';
 import { buildMonthlyInsights } from './utils/monthlyNarrative';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
@@ -2773,6 +2774,12 @@ export default function App() {
   );
   const cardRecommendation = useMemo(() => recommendCardForPurchase(cardInsights), [cardInsights]);
 
+  // Cadastros incompletos ou inconsistentes.
+  const dataHealthIssues = useMemo(
+    () => assessDataHealth({ accounts, cards, categories, transactions, familyMembers }),
+    [accounts, cards, categories, transactions, familyMembers]
+  );
+
   // Gastos que se repetem todo mês (assinaturas, mensalidades): sugere prever os próximos meses.
   const recurringSuggestions = useMemo(
     () => detectRecurringExpenses(transactions, todayDateStr, settings.dismissedRecurringKeys ?? []),
@@ -3622,6 +3629,7 @@ export default function App() {
                   recurringSuggestions={recurringSuggestions}
                   cashForecast={cashForecast}
                   cardInsights={cardInsights}
+                  dataHealthIssues={dataHealthIssues}
                   cardRecommendation={cardRecommendation}
                   monthlyInsights={monthlyInsights}
                   onScheduleRecurring={handleScheduleRecurring}

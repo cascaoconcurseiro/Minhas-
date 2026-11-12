@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Saúde dos dados — 12/11/2026
+
+Etapa 7 (última) do plano de "sistema inteligente". `src/utils/dataHealth.ts` (`assessDataHealth`) só lê os cadastros e aponta: lançamentos sem categoria válida (ignora transferência e pagamento de fatura); lançamentos ligados a conta ou cartão apagados; divisões com familiar removido; parte do familiar maior que o valor; contas incluídas no total sem saldo inicial e sem movimento (informativo); cartão com dia de fechamento/vencimento fora de 1–31 e cartão sem limite. `DataHealthCard` ("Dados para revisar") aparece no topo da Visão Geral e some quando está tudo certo. Não corrige nada sozinho.
+
+Validação local: `tsc --noEmit`, testes (567) e build passaram. Não verificado no navegador. Com os dados atuais do usuário deve apontar ao menos a conta sem saldo (ainda não há conta bancária cadastrada) e, se o limite do cartão for R$ 83.000,00 por engano, isso não é detectado (só limite zero). Plano das 7 etapas concluído.
+
 ## Cartão inteligente — 12/11/2026
 
 Etapa 6 do plano de "sistema inteligente". `src/utils/cardIntelligence.ts`: `analyzeCard` calcula, por cartão, o vencimento e os dias até pagar de uma compra feita hoje (usa `resolveCreditCardInvoiceMonth`, a mesma regra de fechamento/vencimento do sistema), o total da fatura aberta, a projeção de fechamento (o maior entre o já lançado e a média das até 3 faturas anteriores com valor; sem histórico, é o valor atual), o limite livre e o melhor dia de compra (dia seguinte ao fechamento; fechamento dia 28 ou mais vira dia 1). `recommendCardForPurchase` indica o cartão com mais dias até pagar entre os que têm limite livre (só com 2 ou mais cartões). `CardInsightsCard` aparece na Visão Geral depois da previsão do saldo.
