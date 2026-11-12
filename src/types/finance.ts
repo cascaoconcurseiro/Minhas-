@@ -370,6 +370,8 @@ export interface AppSettings {
   reminders?: ReminderSettings;
   /** Versão do catálogo de categorias já aplicada a este workspace (ver `mergeCategoryCatalog`). */
   categoryCatalogVersion?: number;
+  /** Gastos que se repetem que a pessoa pediu para não sugerir de novo (chave do estabelecimento). */
+  dismissedRecurringKeys?: string[];
 }
 
 export type InvestmentAssetClass =

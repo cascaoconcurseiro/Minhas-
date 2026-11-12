@@ -40,6 +40,8 @@ import { CategoryIconBadge } from './CategoryIconBadge';
 import { CardNetworkMark } from './CardNetworkMark';
 import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
+import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
+import type { RecurringCandidate } from '../utils/recurrenceDetection';
 
 interface OverviewTabProps {
   selectedMonth: string;
@@ -58,6 +60,10 @@ interface OverviewTabProps {
   alertsExpandedByDefault?: boolean;
   viewClarityMode?: 'complete' | 'essential';
   onChangeClarityMode?: (mode: 'complete' | 'essential') => void;
+  /** Gastos que se repetem detectados no histórico, com as ações de prever e ignorar. */
+  recurringSuggestions?: RecurringCandidate[];
+  onScheduleRecurring?: (candidate: RecurringCandidate) => void;
+  onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
   onToggleAccountInTotal: (accountId: string) => void;
   onOpenNewTransaction: (mode: 'expense' | 'income' | 'credit_card' | 'transfer') => void;
@@ -95,6 +101,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   alertsExpandedByDefault = true,
   viewClarityMode = 'complete',
   onChangeClarityMode,
+  recurringSuggestions = [],
+  onScheduleRecurring,
+  onDismissRecurring,
   onToggleStatus,
   onToggleAccountInTotal,
   onOpenNewTransaction,
@@ -184,6 +193,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
+
+      {onScheduleRecurring && onDismissRecurring && (
+        <RecurringSuggestionsCard
+          suggestions={recurringSuggestions}
+          categories={categories}
+          onSchedule={onScheduleRecurring}
+          onDismiss={onDismissRecurring}
+        />
+      )}
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
       <section aria-label="Indicadores financeiros do mês" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
