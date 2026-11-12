@@ -364,6 +364,10 @@ export interface AppSettings {
   showOverviewAlerts: boolean;
   alertsExpandedByDefault: boolean;
   budgetWarningPercent: number; // e.g. 70, 80, 85, 90
+  /** Limite do cartão: porcentagem máxima da renda do mês comprometida com o cartão (vazio = sem limite). */
+  cardCommitmentLimitPercent?: number;
+  /** Avisar ao chegar em X% desse limite (padrão 80). */
+  cardCommitmentWarnPercent?: number;
   userName: string;
   userPixKey: string;
   financialMonthStartDay?: number; // 1 to 28

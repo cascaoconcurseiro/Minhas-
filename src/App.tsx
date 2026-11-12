@@ -148,6 +148,11 @@ import type { WorkspaceConflictState } from './components/WorkspaceConflictModal
 import { parseCachedWorkspace } from './utils/workspaceCache';
 import { forecastCashBalance } from './utils/cashForecast';
 import { assessDataHealth } from './utils/dataHealth';
+import {
+  calculateCardCommitmentByMonth,
+  describeCommitmentAfterPurchase,
+  getCommitmentAlerts,
+} from './utils/cardCommitment';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
 import {
@@ -1655,15 +1660,21 @@ export default function App() {
       }
     }
 
+    const commitmentNote = describeCommitmentAfterPurchase({
+      transactions: nextAllTransactions,
+      created: createdBatch,
+      limitPercent: settings.cardCommitmentLimitPercent,
+      warnPercent: settings.cardCommitmentWarnPercent,
+    });
     if (createdBatch.length > 1) {
       showNotice(
         `${createdBatch.length} lançamentos gerados na série (${formatBRL(
           createdBatch[0].amount
-        )} por mês).`,
+        )} por mês).${commitmentNote ? ` ${commitmentNote}` : ''}`,
         prevSnapshot
       );
     } else {
-      showNotice('Lançamento registrado no controle.', prevSnapshot);
+      showNotice(`Lançamento registrado no controle.${commitmentNote ? ` ${commitmentNote}` : ''}`, prevSnapshot);
     }
   };
 
@@ -2869,7 +2880,20 @@ export default function App() {
     () => familyMembers.filter((m) => m.direction === 'incoming' && m.inviteStatus === 'invited'),
     [familyMembers]
   );
-  const noticeCount = remindersSummary.urgentCount + incomingFamilyInvites.length;
+  // Cartão comprometendo a renda: só avisa com limite definido, do mês atual até os próximos 2 meses.
+  const commitmentAlerts = useMemo(() => {
+    const referenceMonth = todayDateStr.slice(0, 7);
+    return getCommitmentAlerts(
+      calculateCardCommitmentByMonth({
+        transactions,
+        referenceMonth,
+        limitPercent: settings.cardCommitmentLimitPercent,
+        warnPercent: settings.cardCommitmentWarnPercent,
+      }),
+      referenceMonth
+    );
+  }, [transactions, todayDateStr, settings.cardCommitmentLimitPercent, settings.cardCommitmentWarnPercent]);
+  const noticeCount = remindersSummary.urgentCount + incomingFamilyInvites.length + commitmentAlerts.length;
 
   // Fluxo de Inicialização de Permissões de Notificação do Sistema Operacional
   useEffect(() => {
@@ -3650,6 +3674,9 @@ export default function App() {
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
+                  commitmentAlerts={commitmentAlerts}
+                  commitmentLimitPercent={settings.cardCommitmentLimitPercent}
+                  onOpenCommitment={() => handleSelectTab('cards')}
                   cashForecast={cashForecast}
                   dataHealthIssues={dataHealthIssues}
                   onScheduleRecurring={handleScheduleRecurring}
@@ -3773,6 +3800,12 @@ export default function App() {
                   onDeleteCard={handleDeleteCard}
                   onDeleteTransaction={handleDeleteTransaction}
                   onOpenNewCardExpense={() => handleOpenNewTransaction('credit_card')}
+                  commitmentLimitPercent={settings.cardCommitmentLimitPercent}
+                  commitmentWarnPercent={settings.cardCommitmentWarnPercent}
+                  onOpenCommitmentSettings={() => {
+                    setSettingsInitialTab('rules');
+                    setIsSettingsOpen(true);
+                  }}
                 />
               )}
 
@@ -3990,6 +4023,9 @@ export default function App() {
         onClose={() => setIsReminderModalOpen(false)}
         reminders={dailyReminders}
         familyInvites={incomingFamilyInvites}
+        commitmentAlerts={commitmentAlerts}
+        commitmentLimitPercent={settings.cardCommitmentLimitPercent}
+        onOpenCommitment={() => handleSelectTab('cards')}
         onAcceptFamilyInvite={handleAcceptFamilyInvite}
         onDeclineFamilyInvite={handleDeclineFamilyInvite}
         onPayCardInvoice={(cardId) => {

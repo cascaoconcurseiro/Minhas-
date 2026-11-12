@@ -8,7 +8,8 @@ import {
   X,
 } from 'lucide-react';
 import { FamilyMember, ReminderItem } from '../types/finance';
-import { formatBRL } from '../utils/financeRules';
+import { formatBRL, formatMonthYearPT } from '../utils/financeRules';
+import type { CardCommitmentMonth } from '../utils/cardCommitment';
 
 interface ReminderCenterModalProps {
   isOpen: boolean;
@@ -22,6 +23,10 @@ interface ReminderCenterModalProps {
   onPayCardInvoice?: (cardId: string) => void;
   onMarkTransactionPaid?: (transactionId: string) => void;
   onOpenSettingsTab?: (tab: string) => void;
+  /** Meses em que o cartão está perto ou acima do limite da renda. */
+  commitmentAlerts?: CardCommitmentMonth[];
+  commitmentLimitPercent?: number;
+  onOpenCommitment?: () => void;
 }
 
 const urgencyStyles: Record<string, string> = {
@@ -47,10 +52,13 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
   onPayCardInvoice,
   onMarkTransactionPaid,
   onOpenSettingsTab,
+  commitmentAlerts = [],
+  commitmentLimitPercent,
+  onOpenCommitment,
 }) => {
   if (!isOpen) return null;
 
-  const totalNotices = reminders.length + familyInvites.length;
+  const totalNotices = reminders.length + familyInvites.length + commitmentAlerts.length;
 
   return (
     <div
@@ -159,6 +167,48 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                       </button>
                     )}
                   </div>
+                </div>
+              ))}
+
+              {commitmentAlerts.map((row) => (
+                <div
+                  key={`commitment-${row.month}`}
+                  data-testid={`commitment-notice-${row.month}`}
+                  className={`rounded-xl border p-3.5 space-y-2.5 ${
+                    row.status === 'over'
+                      ? 'border-rose-300 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20'
+                      : 'border-amber-300 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        Cartão em {(row.cardPercent ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% da renda
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {formatMonthYearPT(row.month)} ·{' '}
+                        {row.status === 'over' ? 'acima' : 'perto'} do limite de{' '}
+                        {(commitmentLimitPercent ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-mono font-extrabold tabular-nums text-slate-900 dark:text-white">
+                      {formatBRL(row.cardTotal)}
+                    </span>
+                  </div>
+                  {onOpenCommitment && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenCommitment();
+                        }}
+                        className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 dark:bg-white px-3 text-xs font-bold text-white dark:text-slate-900"
+                      >
+                        Ver mês a mês
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
 

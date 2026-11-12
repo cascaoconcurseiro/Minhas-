@@ -33,6 +33,7 @@ import { calculateWeeklyCashPulse } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { CardNetworkMark } from './CardNetworkMark';
 import { InstitutionMark } from './InstitutionMark';
+import { calculateCardCommitmentByMonth } from '../utils/cardCommitment';
 
 export type CalendarFilterType =
   | 'all'
@@ -158,6 +159,11 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
   }, [transactions]);
 
   // Summary counts for this month
+  const commitment = useMemo(
+    () => calculateCardCommitmentByMonth({ transactions, referenceMonth: selectedMonth, monthsBack: 0, monthsAhead: 0 })[0],
+    [transactions, selectedMonth]
+  );
+
   const monthStats = useMemo(() => {
     const monthTxs = getLedgerTransactionsForMonth(transactions, selectedMonth);
 
@@ -357,6 +363,13 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               ? `${monthStats.openInvoicesCount} fatura(s) aberta(s) no período`
               : 'Todas as faturas pagas ou zeradas'}
           </p>
+          {commitment.cardTotal > 0 && (
+            <p data-testid="calendar-card-commitment" className="mt-1 text-xs font-semibold text-slate-700">
+              {commitment.cardPercent !== null
+                ? `Cartão no mês: ${commitment.cardPercent.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% da renda (parcelas ${commitment.installmentPercent?.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)`
+                : `Cartão no mês: ${formatBRL(commitment.cardTotal)} · sem renda lançada`}
+            </p>
+          )}
         </div>
 
         {/* KPI 3: Parcelamentos & Custos Fixos */}

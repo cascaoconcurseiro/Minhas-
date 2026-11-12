@@ -502,3 +502,36 @@ test('SettingsModal email and SMTP fields update locally through callbacks witho
   assert.equal(page.querySelector<HTMLInputElement>('#settings-smtp-pass')?.type, 'text');
   assert.equal(changes.length, 9, 'configurar lembretes/SMTP apenas atualiza callback, sem enviar e-mail');
 });
+
+test('SettingsModal define e remove o limite do cartão e quando avisar', async () => {
+  const changes: Partial<AppSettings>[] = [];
+  const page = renderSettings(() => {}, () => true, {
+    initialTab: 'rules', onUpdateSettings: (change) => changes.push(change),
+  });
+  const input = page.querySelector<HTMLInputElement>('[data-testid="card-commitment-limit-input"]');
+  assert.ok(input, 'campo do limite existe na aba Regras');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(input, '30');
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    input.dispatchEvent(new window.Event('focusout', { bubbles: true }));
+  });
+  assert.deepEqual(changes.at(-1), { cardCommitmentLimitPercent: 30 });
+  const section = page.querySelector('[data-testid="card-commitment-settings"]')!;
+  const warn = [...section.querySelectorAll('button')].find((button) => button.textContent?.trim() === '90%');
+  assert.ok(warn);
+  await act(async () => { warn.click(); });
+  assert.deepEqual(changes.at(-1), { cardCommitmentWarnPercent: 90 });
+});
+
+test('SettingsModal mostra "Sem limite" quando há limite e permite remover', async () => {
+  const changes: Partial<AppSettings>[] = [];
+  const page = renderSettings(() => {}, () => true, {
+    initialTab: 'rules',
+    settings: { ...settings, cardCommitmentLimitPercent: 25 },
+    onUpdateSettings: (change) => changes.push(change),
+  });
+  const clear = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Sem limite');
+  assert.ok(clear);
+  await act(async () => { clear.click(); });
+  assert.deepEqual(changes.at(-1), { cardCommitmentLimitPercent: undefined });
+});

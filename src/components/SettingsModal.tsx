@@ -32,6 +32,7 @@ import {
   requestBrowserNotificationPermission,
   sendBrowserNotification,
 } from '../utils/reminderRules';
+import { DEFAULT_COMMITMENT_WARN_PERCENT, normalizeCommitmentLimit } from '../utils/cardCommitment';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -805,6 +806,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           }
                           className={`rounded-lg border py-1.5 text-xs font-mono font-bold transition-colors ${
                             settings.budgetWarningPercent === pct
+                              ? 'border-blue-600 bg-blue-50 text-blue-800'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-3 pt-4 border-t border-slate-200" data-testid="card-commitment-settings">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                  3. Limite do Cartão de Crédito
+                </label>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-4">
+                  <p className="text-[11px] text-slate-600">
+                    Defina quanto da sua renda do mês pode ficar comprometido com o cartão (compras à vista, parceladas e
+                    fixas). A renda é só o que está lançado ou previsto no mês. Você vê o resultado mês a mês na tela
+                    Cartões.
+                  </p>
+
+                  <div>
+                    <label htmlFor="card-commitment-limit" className="text-xs font-semibold text-slate-700 block mb-1.5">
+                      Limite: % da renda do mês
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="card-commitment-limit"
+                        data-testid="card-commitment-limit-input"
+                        type="number"
+                        inputMode="decimal"
+                        min={1}
+                        max={100}
+                        step="0.5"
+                        defaultValue={settings.cardCommitmentLimitPercent ?? ''}
+                        key={settings.cardCommitmentLimitPercent ?? 'sem-limite'}
+                        placeholder="Ex.: 30"
+                        onBlur={(e) => {
+                          const limit = normalizeCommitmentLimit(e.target.value);
+                          onUpdateSettings({ cardCommitmentLimitPercent: limit ?? undefined });
+                        }}
+                        className="w-28 rounded-lg border border-slate-300 bg-white px-3 py-2.5 sm:py-1.5 text-base sm:text-xs font-mono font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
+                      />
+                      <span className="text-xs font-bold text-slate-600">%</span>
+                      {settings.cardCommitmentLimitPercent ? (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateSettings({ cardCommitmentLimitPercent: undefined })}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                        >
+                          Sem limite
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-500">Sem limite definido: o app só mostra os números.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-200/80">
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <span className="text-xs font-semibold text-slate-700">Quando avisar</span>
+                      <span className="rounded-md bg-amber-100 px-2 py-0.5 font-mono text-xs font-bold text-amber-900">
+                        Avisar ao chegar em {settings.cardCommitmentWarnPercent ?? DEFAULT_COMMITMENT_WARN_PERCENT}% do limite
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[70, 80, 85, 90].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => onUpdateSettings({ cardCommitmentWarnPercent: pct })}
+                          className={`rounded-lg border py-2.5 sm:py-1.5 text-xs font-mono font-bold transition-colors ${
+                            (settings.cardCommitmentWarnPercent ?? DEFAULT_COMMITMENT_WARN_PERCENT) === pct
                               ? 'border-blue-600 bg-blue-50 text-blue-800'
                               : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                           }`}

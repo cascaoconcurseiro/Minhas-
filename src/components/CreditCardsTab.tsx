@@ -24,8 +24,7 @@ import {
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
-  parseBRLInput,
-} from '../utils/financeRules';
+  parseBRLInput, getLocalDateISO } from '../utils/financeRules';
 import {
   getActiveInstallmentGroupsForCard,
   getFutureUnpaidInstallments,
@@ -34,6 +33,7 @@ import { CurrencyInput } from './CurrencyInput';
 import { CardNetworkMark } from './CardNetworkMark';
 import { CreditCardFace } from './CreditCardFace';
 import { InstitutionMark } from './InstitutionMark';
+import { CardCommitmentSection } from './CardCommitmentSection';
 
 interface CreditCardsTabProps {
   selectedMonth: string;
@@ -55,6 +55,10 @@ interface CreditCardsTabProps {
   onDeleteCard?: (cardId: string) => boolean | void;
   onDeleteTransaction: (txId: string, deleteGroup?: boolean) => void;
   onOpenNewCardExpense: () => void;
+  /** Limite do cartão (% da renda do mês) e o aviso, definidos em Configurações > Regras. */
+  commitmentLimitPercent?: number;
+  commitmentWarnPercent?: number;
+  onOpenCommitmentSettings?: () => void;
 }
 
 export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
@@ -73,6 +77,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   onDeleteCard,
   onDeleteTransaction,
   onOpenNewCardExpense,
+  commitmentLimitPercent,
+  commitmentWarnPercent,
+  onOpenCommitmentSettings,
 }) => {
   const [selectedCardId, setSelectedCardId] = useState<string>(
     initialSelectedCardId || cards[0]?.id || ''
@@ -462,6 +469,14 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
               </p>
             </div>
           </div>
+
+          <CardCommitmentSection
+            transactions={transactions}
+            referenceMonth={getLocalDateISO().slice(0, 7)}
+            limitPercent={commitmentLimitPercent}
+            warnPercent={commitmentWarnPercent}
+            onOpenSettings={onOpenCommitmentSettings}
+          />
 
           {/* Interactive Credit Card Gallery Section */}
           <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 space-y-5">

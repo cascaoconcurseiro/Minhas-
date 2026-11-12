@@ -115,3 +115,23 @@ test('family invites live in the notification center and can be accepted or decl
   assert.deepEqual(accepted, ['fam-1']);
   assert.deepEqual(declined, ['fam-1']);
 });
+
+test('mostra no sino o aviso de cartão perto ou acima do limite e leva para os cartões', () => {
+  let opened = 0;
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => root?.render(React.createElement(ReminderCenterModal, {
+    isOpen: true, onClose: () => {}, reminders: [], commitmentLimitPercent: 30, onOpenCommitment: () => { opened += 1; },
+    commitmentAlerts: [{ month: '2026-12', income: 5000, cardTotal: 1700, installmentTotal: 700, otherTotal: 1000,
+      cardPercent: 34, installmentPercent: 14, status: 'over' }],
+  })));
+  const notice = document.querySelector('[data-testid="commitment-notice-2026-12"]');
+  assert.ok(notice);
+  assert.match(notice.textContent ?? '', /Cartão em 34% da renda/);
+  assert.match(notice.textContent ?? '', /acima do limite de 30%/);
+  assert.doesNotMatch(document.body.textContent ?? '', /Nada exige atenção/);
+  const btn = [...notice.querySelectorAll('button')].find((b) => b.textContent === 'Ver mês a mês') as HTMLButtonElement;
+  act(() => btn.click());
+  assert.equal(opened, 1);
+});

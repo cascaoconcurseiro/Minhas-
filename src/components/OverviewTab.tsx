@@ -47,6 +47,8 @@ import { DataHealthCard } from './DataHealthCard';
 import type { DataHealthIssue } from '../utils/dataHealth';
 import type { CashForecast } from '../utils/cashForecast';
 import type { RecurringCandidate } from '../utils/recurrenceDetection';
+import { CardCommitmentAlertCard } from './CardCommitmentAlertCard';
+import type { CardCommitmentMonth } from '../utils/cardCommitment';
 
 interface OverviewTabProps {
   selectedMonth: string;
@@ -71,6 +73,10 @@ interface OverviewTabProps {
   cashForecast?: CashForecast | null;
   /** Cadastros incompletos ou inconsistentes para a pessoa revisar. */
   dataHealthIssues?: DataHealthIssue[];
+  /** Meses em que o cartão está perto ou acima do limite da renda. */
+  commitmentAlerts?: CardCommitmentMonth[];
+  commitmentLimitPercent?: number;
+  onOpenCommitment?: () => void;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
@@ -113,6 +119,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   recurringSuggestions = [],
   cashForecast = null,
   dataHealthIssues = [],
+  commitmentAlerts = [],
+  commitmentLimitPercent,
+  onOpenCommitment,
   onScheduleRecurring,
   onDismissRecurring,
   onToggleStatus,
@@ -206,6 +215,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
+
+      <CardCommitmentAlertCard alerts={commitmentAlerts} limitPercent={commitmentLimitPercent} onOpen={onOpenCommitment} />
 
       <DataHealthCard issues={dataHealthIssues} />
 
