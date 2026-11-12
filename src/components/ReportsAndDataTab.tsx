@@ -408,9 +408,9 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               disabled={isExportingPdf}
               aria-label="Exportar relatório financeiro do mês em PDF imprimível"
               title="Gerar e baixar relatório executivo em PDF com saldos e gráfico de categorias"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 text-xs font-bold text-blue-800 dark:text-blue-300 hover:bg-blue-100 transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 transition-colors shrink-0"
             >
-              <FileText className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <FileText className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>{isExportingPdf ? 'Gerando...' : `Exportar PDF (${formatMonthYearPT(selectedMonth).split(' ')[0]})`}</span>
             </button>
 
