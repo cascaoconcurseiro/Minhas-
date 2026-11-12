@@ -143,6 +143,7 @@ import {
 } from './components/SkeletonScreens';
 import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
 import { parseCachedWorkspace } from './utils/workspaceCache';
+import { forecastCashBalance } from './utils/cashForecast';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
 import {
@@ -2751,6 +2752,12 @@ export default function App() {
   const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
   const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
 
+  // Previsão do saldo dos próximos 45 dias (contas incluídas no total).
+  const cashForecast = useMemo(
+    () => forecastCashBalance(accounts, cards, transactions, todayDateStr),
+    [accounts, cards, transactions, todayDateStr]
+  );
+
   // Gastos que se repetem todo mês (assinaturas, mensalidades): sugere prever os próximos meses.
   const recurringSuggestions = useMemo(
     () => detectRecurringExpenses(transactions, todayDateStr, settings.dismissedRecurringKeys ?? []),
@@ -3598,6 +3605,7 @@ export default function App() {
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
+                  cashForecast={cashForecast}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={
