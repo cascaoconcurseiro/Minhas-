@@ -2,6 +2,14 @@ type UpdateGateOptions = {
   document: Document;
   applyUpdate: () => void | Promise<void>;
   onDeferred?: (deferred: boolean) => void;
+  /** Algo em andamento que não pode ser interrompido (ex.: salvando na nuvem). */
+  isBusy?: () => boolean;
+  /** Tempo sem digitar/tocar exigido antes de atualizar (aba visível). 0 desliga. */
+  idleMs?: number;
+  /** Não atualiza com uma janela/formulário aberto, mesmo sem alterações (aba visível). */
+  blockWhileDialogOpen?: boolean;
+  /** Reavalia a cada N ms enquanto há atualização pendente. 0 desliga. */
+  recheckMs?: number;
 };
 
 const EDITABLE_SELECTOR = 'input:not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, select';
@@ -29,12 +37,45 @@ function matchesInitialValue(element: HTMLInputElement | HTMLTextAreaElement | H
   return element.value === element.defaultValue;
 }
 
-export function createPwaUpdateGate({document, applyUpdate, onDeferred}: UpdateGateOptions) {
+const OPEN_DIALOG_SELECTOR = 'dialog[open], [role="dialog"]';
+
+export function createPwaUpdateGate({
+  document,
+  applyUpdate,
+  onDeferred,
+  isBusy,
+  idleMs = 0,
+  blockWhileDialogOpen = false,
+  recheckMs = 0,
+}: UpdateGateOptions) {
   const dirtyFields = new Set<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
   let updatePending = false;
   let updateStarted = false;
+  let lastActivityAt = 0;
+  let recheckTimer: ReturnType<typeof setInterval> | null = null;
 
   const reportState = () => onDeferred?.(updatePending && dirtyFields.size > 0);
+
+  const hasVisibleDialog = () =>
+    Array.from(document.querySelectorAll<HTMLElement>(OPEN_DIALOG_SELECTOR)).some(
+      (element) => isVisible(element)
+    );
+
+  // Com a aba em segundo plano a pessoa não está usando o sistema: é o melhor momento.
+  // Campos alterados e tarefas em andamento continuam bloqueando.
+  const isQuietMoment = () => {
+    if (document.hidden) return true;
+    if (idleMs > 0 && Date.now() - lastActivityAt < idleMs) return false;
+    if (blockWhileDialogOpen && hasVisibleDialog()) return false;
+    return true;
+  };
+
+  const stopRecheck = () => {
+    if (recheckTimer !== null) {
+      clearInterval(recheckTimer);
+      recheckTimer = null;
+    }
+  };
 
   const applyWhenSafe = () => {
     for (const field of dirtyFields) {
@@ -44,12 +85,23 @@ export function createPwaUpdateGate({document, applyUpdate, onDeferred}: UpdateG
     }
 
     reportState();
-    if (updatePending && dirtyFields.size === 0 && !updateStarted) {
+    if (
+      updatePending &&
+      dirtyFields.size === 0 &&
+      !updateStarted &&
+      !isBusy?.() &&
+      isQuietMoment()
+    ) {
       updateStarted = true;
+      stopRecheck();
       void Promise.resolve(applyUpdate()).catch(() => {
         updateStarted = false;
       });
     }
+  };
+
+  const markActivity = () => {
+    lastActivityAt = Date.now();
   };
 
   const trackEdit = (event: Event) => {
@@ -75,6 +127,12 @@ export function createPwaUpdateGate({document, applyUpdate, onDeferred}: UpdateG
     });
   };
 
+  const onVisibilityChange = () => applyWhenSafe();
+
+  document.addEventListener('keydown', markActivity, true);
+  document.addEventListener('pointerdown', markActivity, true);
+  document.addEventListener('touchstart', markActivity, true);
+  document.addEventListener('visibilitychange', onVisibilityChange);
   document.addEventListener('input', trackEdit, true);
   document.addEventListener('change', trackEdit, true);
   document.addEventListener('reset', onReset, true);
@@ -87,9 +145,17 @@ export function createPwaUpdateGate({document, applyUpdate, onDeferred}: UpdateG
     updateAvailable() {
       updatePending = true;
       applyWhenSafe();
+      if (recheckMs > 0 && !updateStarted && recheckTimer === null) {
+        recheckTimer = setInterval(applyWhenSafe, recheckMs);
+      }
     },
     destroy() {
+      stopRecheck();
       observer.disconnect();
+      document.removeEventListener('keydown', markActivity, true);
+      document.removeEventListener('pointerdown', markActivity, true);
+      document.removeEventListener('touchstart', markActivity, true);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       document.removeEventListener('input', trackEdit, true);
       document.removeEventListener('change', trackEdit, true);
       document.removeEventListener('reset', onReset, true);

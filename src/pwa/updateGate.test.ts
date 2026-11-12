@@ -160,3 +160,72 @@ test('waits for every dirty field and recovers after applyUpdate rejects', async
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(attempts, 2);
 });
+
+test('com proteção ativa, espera janela aberta, digitação recente e salvamento em andamento', async () => {
+  let updates = 0;
+  let busy = true;
+  const dialog = document.createElement('section');
+  dialog.setAttribute('role', 'dialog');
+  document.body.append(dialog);
+  const gate = createPwaUpdateGate({
+    document,
+    applyUpdate: () => { updates += 1; },
+    isBusy: () => busy,
+    idleMs: 30,
+    blockWhileDialogOpen: true,
+    recheckMs: 10,
+  });
+  gates.push(gate);
+  gate.updateAvailable();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(updates, 0, 'janela aberta e salvamento em andamento seguram a atualização');
+
+  dialog.remove();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(updates, 0, 'salvamento em andamento ainda segura');
+
+  busy = false;
+  document.dispatchEvent(new Event('keydown', {bubbles: true}));
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.equal(updates, 0, 'digitação recente segura');
+
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(updates, 1, 'aplica sozinha quando tudo ficou quieto');
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(updates, 1, 'aplica uma única vez');
+});
+
+test('com a aba em segundo plano aplica mesmo com janela aberta, mas nunca com campo alterado', async () => {
+  let updates = 0;
+  const form = document.createElement('form');
+  const dialog = document.createElement('section');
+  dialog.setAttribute('role', 'dialog');
+  const input = document.createElement('input');
+  input.defaultValue = 'a';
+  dialog.append(input);
+  form.append(dialog);
+  document.body.append(form);
+  let hidden = true;
+  Object.defineProperty(document, 'hidden', {configurable: true, get: () => hidden});
+  try {
+    const gate = createPwaUpdateGate({
+      document,
+      applyUpdate: () => { updates += 1; },
+      idleMs: 1000,
+      blockWhileDialogOpen: true,
+    });
+    gates.push(gate);
+    input.value = 'b';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    gate.updateAvailable();
+    document.dispatchEvent(new Event('visibilitychange'));
+    assert.equal(updates, 0, 'campo alterado nunca é perdido, nem em segundo plano');
+
+    input.value = 'a';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    assert.equal(updates, 1, 'sem alteração e aba oculta: atualiza mesmo com a janela aberta');
+  } finally {
+    hidden = false;
+    Reflect.deleteProperty(document, 'hidden');
+  }
+});

@@ -27,6 +27,7 @@ import {
   getClampedMonthDate,
   getLedgerTransactionsForMonth,
   getEffectiveExpenseAmountForUser,
+  getInstallmentAndRecurringItemsForMonth,
 } from '../utils/financeRules';
 import { calculateWeeklyCashPulse } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
@@ -162,7 +163,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
 
     let pendingBillsCount = 0;
     let pendingBillsAmount = 0;
-    let recurringCount = 0;
     let totalIncome = 0;
     let totalExpense = 0;
 
@@ -185,10 +185,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
           pendingBillsAmount += eff.amount;
         }
       }
-
-      if (tx.recurrence === 'installment' || tx.recurrence === 'fixed') {
-        recurringCount += 1;
-      }
     }
 
     const openInvoices = cardInvoicesDue.filter((inv) => !inv.isPaid && inv.amount > 0);
@@ -199,11 +195,21 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
       pendingBillsAmount: Math.round(pendingBillsAmount * 100) / 100,
       openInvoicesCount: openInvoices.length,
       openInvoicesAmount: Math.round(openInvoicesAmount * 100) / 100,
-      recurringCount,
       totalIncome: Math.round(totalIncome * 100) / 100,
       totalExpense: Math.round(totalExpense * 100) / 100,
     };
   }, [transactions, selectedMonth, cardInvoicesDue]);
+
+  // Parcelas e despesas fixas do mês (cartão ou banco), uma linha por cobrança.
+  const [showRecurringList, setShowRecurringList] = useState(false);
+  const recurringItems = useMemo(
+    () => getInstallmentAndRecurringItemsForMonth(transactions, selectedMonth),
+    [transactions, selectedMonth]
+  );
+  const recurringTotal = useMemo(
+    () => recurringItems.reduce((sum, tx) => sum + Math.round((getEffectiveExpenseAmountForUser(tx)?.amount ?? (tx.type === 'income' ? tx.amount : 0)) * 100), 0) / 100,
+    [recurringItems]
+  );
 
   // Initial active day selection: look for earliest pending bill in month or day 15 or day 01
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -362,11 +368,49 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <Repeat className="h-4 w-4 text-violet-600" />
           </div>
           <div className="mt-2 text-xl font-bold tabular-nums text-slate-900 font-display">
-            {monthStats.recurringCount} itens
+            {recurringItems.length} {recurringItems.length === 1 ? 'item' : 'itens'}
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Parcelas ativas e despesas fixas recorrentes
+            {recurringItems.length > 0
+              ? `Parcelas e despesas fixas do mês · ${formatBRL(recurringTotal)}`
+              : 'Parcelas ativas e despesas fixas recorrentes'}
           </p>
+          {recurringItems.length > 0 && (
+            <button
+              type="button"
+              data-testid="recurring-list-toggle"
+              aria-expanded={showRecurringList}
+              onClick={() => setShowRecurringList((value) => !value)}
+              className="mt-2 text-xs font-semibold text-violet-700 hover:underline"
+            >
+              {showRecurringList ? 'Ocultar lista' : 'Ver lista'}
+            </button>
+          )}
+          {showRecurringList && recurringItems.length > 0 && (
+            <ul data-testid="recurring-list" className="mt-2 max-h-64 divide-y divide-slate-100 overflow-y-auto text-xs">
+              {recurringItems.map((tx) => {
+                const origin = tx.creditCardId
+                  ? cardMap.get(tx.creditCardId) || 'Cartão'
+                  : accMap.get(tx.accountId || '') || 'Conta';
+                const kind = tx.recurrence === 'installment' && tx.installmentNumber
+                  ? `Parcela ${tx.installmentNumber}/${tx.installmentTotal}`
+                  : 'Fixa';
+                return (
+                  <li key={tx.id} className="flex items-start justify-between gap-2 py-1.5">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 break-words">{tx.description}</p>
+                      <p className="text-slate-500 break-words">
+                        Dia {tx.date.slice(8, 10)} · {kind} · {origin}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 font-mono tabular-nums font-semibold ${tx.type === 'income' ? 'text-emerald-700' : 'text-slate-900'}`}>
+                      {formatBRL(tx.amount)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* KPI 4: Despesas Totais Previstas */}
