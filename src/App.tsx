@@ -273,6 +273,21 @@ const DEFAULT_SETTINGS: AppSettings = {
   reminders: DEFAULT_REMINDER_SETTINGS,
 };
 
+/** Títulos curtos do cabeçalho em telas pequenas, para não empurrar os ícones para fora. */
+const MOBILE_TAB_TITLES: Record<string, string> = {
+  overview: 'Visão Geral',
+  accounts: 'Contas',
+  investments: 'Investimentos',
+  transactions: 'Extrato',
+  cards: 'Cartões',
+  shared: 'Compartilhado',
+  trips: 'Viagens',
+  budgets: 'Orçamentos',
+  goals: 'Metas',
+  reports: 'Relatórios',
+  cloud: 'Conta e Nuvem',
+};
+
 export default function App() {
   const [selectedMonth, setSelectedMonth] = useState<string>(DEFAULT_MONTH);
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -2686,7 +2701,7 @@ export default function App() {
           subtitle: 'Controle multi-moeda, lotes de câmbio ponderado e divisão de grupo',
         };
       case 'budgets':
-        return { title: 'Orçamentos Mensais', subtitle: 'Tetos de gastos por categoria e subcategoria' };
+        return { title: 'Orçamentos Mensais', subtitle: 'Tetos de gastos por categoria' };
       case 'goals':
         return { title: 'Metas & Reservas', subtitle: 'Objetivos financeiros e simulador de juros compostos' };
       case 'reports':
@@ -3190,7 +3205,7 @@ export default function App() {
         <header className="sticky top-0 z-30 w-full max-w-full bg-[color:var(--app-canvas)]/90 dark:bg-slate-950/90 backdrop-blur-md px-3.5 sm:px-6 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)]">
           <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-2 sm:gap-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-2 shadow-sm">
             {/* Zone 1 (Left): Mobile Menu Trigger + Active Page Title */}
-            <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 md:flex-none md:shrink-0">
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(true)}
@@ -3201,8 +3216,12 @@ export default function App() {
                 <Menu className="h-4 w-4" />
               </button>
 
-              <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white font-display truncate">
-                {activeTabMeta.title}
+              <h1
+                title={activeTabMeta.title}
+                className="min-w-0 text-sm sm:text-base font-bold leading-tight tracking-tight text-slate-900 dark:text-white font-display truncate"
+              >
+                <span className="sm:hidden">{MOBILE_TAB_TITLES[activeTab] ?? activeTabMeta.title}</span>
+                <span className="hidden sm:inline">{activeTabMeta.title}</span>
               </h1>
             </div>
 
@@ -3253,7 +3272,7 @@ export default function App() {
             )}
 
             {/* Zone 3 (Right): Compact Search + Essential Utilities + Primary CTA */}
-            <div className="flex items-center justify-end gap-2 shrink-0">
+            <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
               {/* Compact Expandable Search on Desktop */}
               <div
                 data-testid="centered-global-search"

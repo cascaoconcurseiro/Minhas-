@@ -415,49 +415,49 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
           {/* Consolidated KPIs Across All Credit Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-              <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+              <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">
                 Faturas em {formatMonthYearPT(selectedMonth)}
               </p>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {formatBRL(globalCardsTotals.totalInvoicesMonth)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Soma de {cards.length} cartão(ões)
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-              <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+              <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">
                 Limite Total Consolidado
               </p>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {formatBRL(globalCardsTotals.totalLimit)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Crédito total aprovado
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-              <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+              <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">
                 Limite Tomado (Parcelas)
               </p>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 break-words sm:truncate">
                 {formatBRL(globalCardsTotals.totalUsed)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Faturas atuais + futuras
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-              <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+              <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">
                 Limite Disponível Total
               </p>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 break-words sm:truncate">
                 {formatBRL(globalCardsTotals.totalAvailable)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Livre para novas compras
               </p>
             </div>
@@ -654,12 +654,12 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                           <CreditCardIcon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <span className="text-sm font-bold text-slate-900 block truncate group-hover:text-blue-700 transition-colors">
+                          <span className="text-sm font-bold text-slate-900 block break-words sm:truncate group-hover:text-blue-700 transition-colors">
                             {card.name}
                           </span>
                           <div className="mt-0.5 flex items-center gap-2 min-w-0">
                             <CardNetworkMark brand={card.brand} />
-                            <span className="text-[11px] text-slate-500 truncate">
+                            <span className="text-[11px] text-slate-500 break-words sm:truncate">
                               Fecha dia {card.closingDay} · Vence dia {card.dueDay}
                             </span>
                           </div>
@@ -1035,13 +1035,13 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
           {/* Active Card KPI Strip (2x2 on Mobile, 4 Columns on Desktop) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-              <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+              <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">
                 Fatura {formatMonthYearPT(selectedMonth)}
               </p>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {formatBRL(activeSummary.invoiceTotal)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 <span>Fecha {activeCard.closingDay}</span>
                 <span aria-hidden="true"> · </span>
                 <span>Vence {activeCard.dueDay}</span>
@@ -1049,9 +1049,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-              <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">Status da Fatura</p>
+              <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">Status da Fatura</p>
               <p
-                className={`mt-1.5 sm:mt-2 text-base sm:text-xl font-bold truncate ${
+                className={`mt-1.5 sm:mt-2 text-base sm:text-xl font-bold break-words sm:truncate ${
                   activeSummary.isInvoicePaid ? 'text-emerald-700' : 'text-amber-700'
                 }`}
               >
@@ -1061,29 +1061,29 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   ? 'Sem fatura no mês'
                   : 'Em Aberto'}
               </p>
-          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs font-mono tabular-nums text-slate-500 truncate">
+          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs font-mono tabular-nums text-slate-500 break-words sm:truncate">
             Resta: {formatBRL(activeSummary.invoicePendingAmount)}
           </p>
         </div>
 
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-          <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">
+          <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">
             Limite Tomado Total
           </p>
-          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 truncate">
+          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 break-words sm:truncate">
             {formatBRL(activeSummary.usedLimit)}
           </p>
-          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs font-mono tabular-nums text-slate-500 truncate">
+          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs font-mono tabular-nums text-slate-500 break-words sm:truncate">
             {activeSummary.usagePercent}% de {formatBRL(activeCard.limit)}
           </p>
         </div>
 
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
-          <p className="text-[11px] sm:text-xs font-medium text-slate-500 truncate">Limite Disponível</p>
-          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 truncate">
+          <p className="text-[11px] sm:text-xs font-medium text-slate-500 break-words sm:truncate">Limite Disponível</p>
+          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 break-words sm:truncate">
             {formatBRL(activeSummary.availableLimit)}
           </p>
-          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
             Liberado ao pagar fatura
           </p>
         </div>
@@ -1523,10 +1523,10 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       <div key={tx.id} className="p-3.5 space-y-2 bg-white">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate">
+                            <p className="text-xs font-bold text-slate-900 break-words sm:truncate">
                               {tx.description}
                             </p>
-                            <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                            <p className="text-[11px] text-slate-500 mt-0.5 break-words sm:truncate">
                               {formatShortDateBR(tx.date)} · {catMap.get(tx.categoryId) || 'Geral'} ·{' '}
                               {tx.installmentTotal && tx.installmentTotal > 1
                                 ? `${tx.installmentNumber}/${tx.installmentTotal}`

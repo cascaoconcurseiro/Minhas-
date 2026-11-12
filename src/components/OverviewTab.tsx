@@ -237,28 +237,28 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <section aria-label="Indicadores financeiros do mês" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
         <div className="min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 gap-1">
-            <span className="truncate" title="Soma das contas marcadas como 'No giro mensal'">
+            <span className="break-words sm:truncate" title="Soma das contas marcadas como 'No giro mensal'">
               Saldo em Contas (Hoje)
             </span>
             <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
           </div>
-          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white truncate">
+          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white break-words sm:truncate">
             {formatBRL(monthlySummary.totalCurrentBalance)}
           </p>
-          <p className="mt-1 sm:mt-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
+          <p className="mt-1 sm:mt-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 break-words sm:truncate">
             <span>Patrimônio contas: {formatBRL(health360.liquidBalance)}</span>
           </p>
         </div>
 
         <div className="min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 gap-1">
-            <span className="truncate" title="Saldo Hoje + Receitas Pendentes - Despesas Pendentes - Faturas Abertas">
+            <span className="break-words sm:truncate" title="Saldo Hoje + Receitas Pendentes - Despesas Pendentes - Faturas Abertas">
               Previsto Fim do Mês
             </span>
             <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
           </div>
           <p
-            className={`mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums truncate ${
+            className={`mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums break-words sm:truncate ${
               monthlySummary.totalProjectedBalance >= 0
                 ? 'text-slate-900 dark:text-white'
                 : 'text-rose-700 dark:text-rose-400'
@@ -266,20 +266,20 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           >
             {formatBRL(monthlySummary.totalProjectedBalance)}
           </p>
-          <p className="mt-1 sm:mt-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">
+          <p className="mt-1 sm:mt-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 break-words sm:truncate">
             <span>Após pendentes e faturas</span>
           </p>
         </div>
 
         <div className="min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 gap-1">
-            <span className="truncate">Receitas do Mês</span>
+            <span className="break-words sm:truncate">Receitas do Mês</span>
             <ArrowUpRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
           </div>
-          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 truncate">
+          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 break-words sm:truncate">
             {formatBRL(monthlySummary.incomeTotal)}
           </p>
-          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums truncate">
+          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums break-words sm:truncate">
             <span>Rec: {formatBRL(monthlySummary.incomeRealized)}</span>
             <span aria-hidden="true" className="hidden sm:inline"> · </span>
             <span className="hidden sm:inline">Falta: {formatBRL(monthlySummary.incomePending)}</span>
@@ -288,13 +288,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
         <div className="min-w-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 gap-1">
-            <span className="truncate">Despesas Totais</span>
+            <span className="break-words sm:truncate">Despesas Totais</span>
             <ArrowDownRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-600 shrink-0" />
           </div>
-          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 dark:text-rose-400 truncate">
+          <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 dark:text-rose-400 break-words sm:truncate">
             {formatBRL(monthlySummary.expenseTotal)}
           </p>
-          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums truncate">
+          <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums break-words sm:truncate">
             <span>Pago: {formatBRL(monthlySummary.expenseRealized)}</span>
             <span aria-hidden="true" className="hidden sm:inline"> · </span>
             <span className="hidden sm:inline">Pend: {formatBRL(monthlySummary.expensePending)}</span>
@@ -355,11 +355,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {/* Center/Right: 3 Executive Wealth & Safe-to-Spend Metrics + Expand Button */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 lg:shrink-0 items-center">
             <div className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 break-words sm:truncate">
                 Patrimônio Líquido
               </p>
               <p
-                className={`mt-0.5 text-xs sm:text-sm font-bold font-mono tabular-nums truncate ${
+                className={`mt-0.5 text-xs sm:text-sm font-bold font-mono tabular-nums break-words sm:truncate ${
                   health360.netWorth >= 0
                     ? 'text-slate-900 dark:text-white'
                     : 'text-rose-700 dark:text-rose-400'
@@ -367,30 +367,30 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               >
                 {formatBRL(health360.netWorth)}
               </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 break-words sm:truncate">
                 Ativos: {formatBRL(health360.investmentsTotal)}
               </p>
             </div>
 
             <div className="rounded-lg border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/30 px-3 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 break-words sm:truncate">
                 Livre p/ Gastar Hoje
               </p>
-              <p className="mt-0.5 text-xs sm:text-sm font-bold font-mono tabular-nums text-emerald-800 dark:text-emerald-300 truncate">
+              <p className="mt-0.5 text-xs sm:text-sm font-bold font-mono tabular-nums text-emerald-800 dark:text-emerald-300 break-words sm:truncate">
                 {formatBRL(health360.safeToSpendPerDay)}
                 <span className="text-[10px] font-normal">/dia</span>
               </p>
-              <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 truncate">
+              <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 break-words sm:truncate">
                 Próx. {health360.daysRemainingInMonth} dia(s) do mês
               </p>
             </div>
 
             <div className="col-span-2 sm:col-span-1 flex items-center justify-between sm:block rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 px-3 py-2">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 break-words sm:truncate">
                   Autonomia (Reserva)
                 </p>
-                <p className="mt-0.5 text-xs sm:text-sm font-bold font-mono tabular-nums text-slate-900 dark:text-white truncate">
+                <p className="mt-0.5 text-xs sm:text-sm font-bold font-mono tabular-nums text-slate-900 dark:text-white break-words sm:truncate">
                   {health360.runwayMonths} {health360.runwayMonths === 1 ? 'mês' : 'meses'}
                 </p>
               </div>
@@ -578,8 +578,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <AlertTriangle className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-xs font-bold text-slate-900 truncate">Limites do Orçamento</h2>
-                <p className="text-[11px] text-slate-500 truncate">
+                <h2 className="text-xs font-bold text-slate-900 break-words sm:truncate">Limites do Orçamento</h2>
+                <p className="text-[11px] text-slate-500 break-words sm:truncate">
                   {overBudgetItems.length > 0 ? (
                     <span className="text-rose-700 font-semibold">{overBudgetItems.length} acima do teto</span>
                   ) : (
@@ -602,7 +602,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           {/* Mobile Lateral Swipe Hint Bar */}
           <div className="flex sm:hidden items-center justify-between px-4 py-1.5 bg-slate-100/70 text-[10px] text-slate-500 font-medium border-b border-slate-100">
-            <span className="flex items-center gap-1 truncate">
+            <span className="flex items-center gap-1 break-words sm:truncate">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               ← Deslize lateralmente para ver todas →
             </span>
@@ -641,7 +641,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           size="sm"
                         />
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate">
+                          <p className="text-xs font-bold text-slate-900 break-words sm:truncate">
                             {alert.categoryName}
                           </p>
                           <p
@@ -715,8 +715,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-slate-900 truncate">Saldos por Conta e Carteira</h2>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                <h2 className="text-base font-bold text-slate-900 break-words sm:truncate">Saldos por Conta e Carteira</h2>
+                <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                   Controle 100% manual sem vínculo bancário automático
                 </p>
               </div>
@@ -783,10 +783,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <div className="flex min-w-0 items-center gap-3 pr-2">
                         <InstitutionMark institution={acc.institution} accountName={acc.name} color={acc.color} size="sm" />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
+                          <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-700 transition-colors break-words sm:truncate">
                             {acc.name}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                             <span>{acc.institution}</span>
                             <span aria-hidden="true"> · </span>
                             <span>{typeLabel}</span>
@@ -843,10 +843,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-slate-900 truncate">
+                <h2 className="text-base font-bold text-slate-900 break-words sm:truncate">
                   Contas a Pagar e a Receber
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                   {billsFilterMode === 'pending'
                     ? 'Clique em Efetivar ao pagar/receber — ou alterne para Efetivados se marcou errado'
                     : 'Marcou como pago por engano? Clique em Reverter p/ Pendente para voltar ao que era'}
@@ -912,19 +912,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     return (
                       <div
                         key={tx.id}
-                        className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 transition-colors"
+                        className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 transition-colors"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto sm:flex-1">
                           <CategoryIconBadge
                             icon={cat?.icon}
                             color={cat?.color}
                             size="sm"
                           />
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
+                            <p className="text-sm font-semibold text-slate-900 break-words sm:truncate">
                               {tx.description}
                             </p>
-                            <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                               <span className="font-mono tabular-nums">
                                 Vence {formatShortDateBR(tx.date)}
                               </span>
@@ -943,7 +943,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
                           <span
                             className={`text-xs sm:text-sm font-bold font-mono tabular-nums ${
                               tx.type === 'income' ? 'text-emerald-700' : 'text-rose-700'
@@ -981,9 +981,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   return (
                     <div
                       key={tx.id}
-                      className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 transition-colors"
+                      className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-2 px-4 sm:px-6 py-3.5 hover:bg-slate-50/80 transition-colors"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto sm:flex-1">
                         <CategoryIconBadge
                           icon={cat?.icon}
                           color={cat?.color}
@@ -991,7 +991,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-semibold text-slate-900 truncate">
+                            <p className="text-sm font-semibold text-slate-900 break-words sm:truncate">
                               {tx.description}
                             </p>
                             {tx.isInvoicePayment && (
@@ -1000,7 +1000,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                             <span className="font-mono tabular-nums">
                               Pago em {formatShortDateBR(tx.date)}
                             </span>
@@ -1012,7 +1012,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
                         <span
                           className={`text-xs sm:text-sm font-bold font-mono tabular-nums ${
                             tx.type === 'income' ? 'text-emerald-700' : 'text-slate-900'
@@ -1059,8 +1059,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-slate-900 truncate">Faturas de Cartão de Crédito</h2>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                <h2 className="text-base font-bold text-slate-900 break-words sm:truncate">Faturas de Cartão de Crédito</h2>
+                <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                   Controle de parcelamentos e limite comprometido
                 </p>
               </div>
@@ -1119,11 +1119,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <CreditCardIcon className="h-4 w-4 text-slate-700 group-hover:text-blue-700 shrink-0" />
-                            <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">
+                            <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors break-words sm:truncate">
                               {card.name}
                             </h3>
                           </div>
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                          <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                             <CardNetworkMark brand={card.brand} />
                             <span aria-hidden="true"> · </span>
                             <span>Fecha dia {card.closingDay}</span>
@@ -1187,10 +1187,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 sm:px-6 py-4">
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-slate-900 truncate">
+                <h2 className="text-base font-bold text-slate-900 break-words sm:truncate">
                   Teto de Gastos por Categoria
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                <p className="text-xs text-slate-500 mt-0.5 break-words sm:truncate">
                   Progresso frente ao orçamento mensal com alertas de limite
                 </p>
               </div>
@@ -1231,7 +1231,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             color={item.categoryColor}
                             size="sm"
                           />
-                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white break-words sm:truncate">
                             {item.categoryName}
                           </span>
                         </div>
@@ -1291,10 +1291,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           color={item.categoryColor}
                           size="sm"
                         />
-                        <span className="truncate">{item.categoryName}</span>
+                        <span className="break-words sm:truncate">{item.categoryName}</span>
                         <span className="text-slate-400 shrink-0" aria-hidden="true"> · </span>
                         <span
-                          className={`truncate ${
+                          className={`break-words sm:truncate ${
                             item.status === 'over'
                               ? 'font-bold text-rose-700'
                               : item.status === 'warning'

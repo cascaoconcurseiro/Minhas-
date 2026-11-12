@@ -679,7 +679,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
                   {member.email && (
                     <div className="rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 p-2.5 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2">
-                      <span className="truncate">
+                      <span className="break-words sm:truncate">
                         <strong>E-mail:</strong> {member.email}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">

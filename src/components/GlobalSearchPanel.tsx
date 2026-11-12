@@ -162,7 +162,7 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                 <span className="text-emerald-300">"{query.trim()}"</span>
               </h2>
               <p className="text-xs text-slate-300">
-                Filtrando instantaneamente por descrição, categoria, subcategoria ou nota em qualquer aba
+                Filtrando instantaneamente por descrição, categoria ou nota em qualquer aba
               </p>
             </div>
           </div>

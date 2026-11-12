@@ -414,7 +414,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                     }`}
                   >
                     {renderCategoryIcon(opt.id, 'h-4 w-4')}
-                    <span className="text-[10px] truncate max-w-full">
+                    <span className="text-[10px] break-words sm:truncate max-w-full">
                       {opt.label.split(' ')[0]}
                     </span>
                   </button>
@@ -489,7 +489,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                         color={alert.categoryColor}
                         size="sm"
                       />
-                      <span className="text-xs font-bold text-slate-900 truncate">
+                      <span className="text-xs font-bold text-slate-900 break-words sm:truncate">
                         {alert.categoryName}
                       </span>
                     </div>

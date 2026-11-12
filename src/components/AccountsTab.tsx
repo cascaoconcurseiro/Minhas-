@@ -517,52 +517,52 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Saldo no Giro (Caixa)</span>
+                <span className="break-words sm:truncate">Saldo no Giro (Caixa)</span>
                 <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {formatBRL(globalTotals.giroCurrent)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 font-mono tabular-nums truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 font-mono tabular-nums break-words sm:truncate">
                 Proj. fim do mês: {formatBRL(globalTotals.giroProjected)}
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Patrimônio Contas</span>
+                <span className="break-words sm:truncate">Patrimônio Contas</span>
                 <Landmark className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 break-words sm:truncate">
                 {formatBRL(globalTotals.totalPatrimony)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 {accounts.length} conta(s) ativa(s)
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Contas no Giro Mensal</span>
+                <span className="break-words sm:truncate">Contas no Giro Mensal</span>
                 <ArrowUpRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {accounts.filter((a) => a.includeInTotal).length} de {accounts.length}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Compõem o caixa principal
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Reservas Fora do Giro</span>
+                <span className="break-words sm:truncate">Reservas Fora do Giro</span>
                 <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-sky-600 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-sky-700 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-sky-700 break-words sm:truncate">
                 {formatBRL(Math.max(0, globalTotals.totalPatrimony - globalTotals.giroCurrent))}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Protegido fora do caixa diário
               </p>
             </div>
@@ -973,7 +973,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-sm font-bold text-slate-900 block truncate group-hover:text-emerald-700 transition-colors">
+                                <span className="text-sm font-bold text-slate-900 block break-words sm:truncate group-hover:text-emerald-700 transition-colors">
                                   {acc.name}
                                 </span>
                                 {isIntl && intlMetrics && (
@@ -983,7 +983,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-slate-500 truncate">
+                              <p className="text-[11px] text-slate-500 break-words sm:truncate">
                                 {acc.institution} · {getAccountTypeLabel(acc.type, acc.currency)}
                               </p>
                             </div>
@@ -1127,10 +1127,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                 size="sm"
               />
               <div className="min-w-0">
-                <p className="truncate text-xs font-bold text-slate-900">
+                <p className="break-words sm:truncate text-xs font-bold text-slate-900">
                   {activeAccount.name}
                 </p>
-                <p className="truncate text-[10px] text-slate-500">
+                <p className="break-words sm:truncate text-[10px] text-slate-500">
                   {activeAccount.institution} · {getAccountTypeLabel(activeAccount.type, activeAccount.currency)}
                 </p>
               </div>
@@ -1228,10 +1228,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Saldo Atual ({activeAccount.name})</span>
+                <span className="break-words sm:truncate">Saldo Atual ({activeAccount.name})</span>
                 <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {activeAccount.type === 'international'
                   ? formatForeignCurrency(
                       getInternationalAccountForeignMetrics(activeAccount).currentForeignBalance,
@@ -1239,7 +1239,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                     )
                   : formatBRL(statementSummary.closingRealizedBalance)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 font-mono tabular-nums truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 font-mono tabular-nums break-words sm:truncate">
                 {activeAccount.type === 'international'
                   ? `Equiv. R$: ${formatBRL(
                       getInternationalAccountForeignMetrics(activeAccount).estimatedBrlValue
@@ -1252,39 +1252,39 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Previsto Fim do Mês</span>
+                <span className="break-words sm:truncate">Previsto Fim do Mês</span>
                 <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 break-words sm:truncate">
                 {formatBRL(statementSummary.closingProjectedBalance)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 {activeAccount.includeInTotal ? 'Incluída no giro mensal' : 'Conta Reserva'}
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Entradas no Mês</span>
+                <span className="break-words sm:truncate">Entradas no Mês</span>
                 <ArrowUpRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-emerald-700 break-words sm:truncate">
                 +{formatBRL(statementSummary.monthCreditsRealized)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 break-words sm:truncate">
                 Créditos efetivados na conta
               </p>
             </div>
 
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-500 gap-1">
-                <span className="truncate">Saídas no Mês</span>
+                <span className="break-words sm:truncate">Saídas no Mês</span>
                 <ArrowDownRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-600 shrink-0" />
               </div>
-              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 truncate">
+              <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-rose-700 break-words sm:truncate">
                 -{formatBRL(statementSummary.monthDebitsRealized)}
               </p>
-              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 font-mono tabular-nums truncate">
+              <p className="mt-1 sm:mt-1.5 text-[10px] sm:text-xs text-slate-500 font-mono tabular-nums break-words sm:truncate">
                 Pend. na conta: {formatBRL(statementSummary.monthPendingNet)}
               </p>
             </div>
@@ -1505,10 +1505,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                           size="sm"
                         />
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate">
+                          <p className="text-xs font-bold text-slate-900 break-words sm:truncate">
                             {tx.description}
                           </p>
-                          <p className="text-[11px] text-slate-500 truncate">
+                          <p className="text-[11px] text-slate-500 break-words sm:truncate">
                             <span className="font-mono tabular-nums">
                               {formatShortDateBR(tx.date)}
                             </span>

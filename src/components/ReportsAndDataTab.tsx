@@ -569,7 +569,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   Gráfico de Pizza — Gastos por Categoria
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Participação de cada categoria e subcategoria nas despesas do período
+                  Participação de cada categoria nas despesas do período
                 </p>
               </div>
             </div>
@@ -616,7 +616,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   Gráfico de Pizza — Receitas por Fonte
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Detalhamento das entradas por fonte de renda e subcategorias
+                  Detalhamento das entradas por fonte de renda
                 </p>
               </div>
             </div>
