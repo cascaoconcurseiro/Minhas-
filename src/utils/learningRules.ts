@@ -21,7 +21,7 @@ const MIN_OCCURRENCES = 2;
 const HISTORY_WINDOW = 6;
 const MIN_SHARED_RATIO = 0.8;
 
-function normalizeDescription(value: string): string {
+export function normalizeDescription(value: string): string {
   return value
     .replace(/\s*\(\d+\/\d+\)\s*$/g, '')
     .replace(/\s*\(Cópia\)\s*$/gi, '')
@@ -38,7 +38,7 @@ export function getDescriptionLearningKey(description: string): string {
   return normalizeDescription(description);
 }
 
-function sameEstablishment(query: string, candidate: string): boolean {
+export function sameEstablishment(query: string, candidate: string): boolean {
   if (!query || !candidate) return false;
   if (query === candidate) return true;
   const shorter = query.length <= candidate.length ? query : candidate;
