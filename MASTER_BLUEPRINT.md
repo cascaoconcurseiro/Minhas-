@@ -37,6 +37,9 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 | 2026-11-08 | Trocar Firebase Auth por login próprio no Neon (tabela app_users, sessão HS256 em AUTH_SESSION_SECRET) | Pedido do dono: não ter mais nada no Firebase; só há usuários de teste, sem migração de contas |
 
 ## Regras do projeto
+- Entrega: toda mudança pronta, com CI verde, vai direto para produção (merge na `main`, que a Vercel publica), por pedido do dono em 2026-11-12. Se o CI falhar, não publicar.
+- Interface instantânea e nativa: nada de atraso perceptível; dicas usam o `title` (o `InstantTooltip` global as exibe na hora), nunca o balão nativo do navegador.
+- Telas conectadas: quando dois números relacionados diferem por regra (ex.: gasto no mês da compra x fatura no vencimento), a tela deve explicar a ligação, não deixar o usuário descobrir.
 - Nunca expor `DATABASE_URL` no frontend.
 - Toda operação de workspace deve validar a sessão própria e sua versão no banco, restringindo a linha Neon ao ID de usuário autenticado.
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.

@@ -459,3 +459,20 @@ test('fluxo de caixa diário explica ao passar o mouse a saída de fatura em atr
   assert.match(note.getAttribute('title') ?? '', /Fatura de Outubro de 2026 do Nubank, ainda não paga \(em atraso\)/);
   assert.match(note.textContent ?? '', /599,59/);
 });
+
+test('DRE explica a diferença entre gasto do mês e faturas que vencem no mês', () => {
+  const card = { id: 'card-dre', name: 'Nubank', brand: 'Visa' as const, limit: 5000, closingDay: 20, dueDay: 5, defaultAccountId: 'acc-synthetic', color: '#000000' };
+  const base = { type: 'expense' as const, status: 'pending' as const, categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card' as const, recurrence: 'single' as const };
+  const page = renderReports({
+    cards: [card],
+    transactions: [
+      { ...base, id: 'a', description: 'Compra de outubro', amount: 599.59, date: '2026-10-10', competenceMonth: '2026-11' },
+      { ...base, id: 'b', description: 'Compra de novembro', amount: 179.59, date: '2026-11-10', competenceMonth: '2026-12' },
+    ],
+  });
+  const box = page.querySelector('[data-testid="dre-card-timing"]');
+  assert.ok(box, 'bloco do cartão aparece no DRE');
+  assert.match(box.textContent ?? '', /179,59/);
+  assert.match(box.textContent ?? '', /599,59/);
+  assert.match(box.textContent ?? '', /compras de meses anteriores/);
+});

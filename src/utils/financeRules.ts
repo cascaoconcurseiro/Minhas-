@@ -1652,6 +1652,39 @@ export function calculateDailyCashFlow(
   return points;
 }
 
+export interface CardTimingForMonth {
+  /** Compras no cartão cujo gasto cai neste mês (mês da compra/parcela). */
+  purchasesInMonth: number;
+  /** Faturas de cartão que vencem neste mês (saem do caixa neste mês). */
+  invoicesDueInMonth: number;
+  /** Parte das faturas do mês que veio de compras de meses anteriores (gasto já contado lá). */
+  invoicesDueFromEarlierPurchases: number;
+}
+
+/** Liga o gasto (mês da compra) à fatura (mês do vencimento) para explicar por que os dois valores diferem. */
+export function calculateCardTimingForMonth(transactions: Transaction[], month: string): CardTimingForMonth {
+  let purchases = 0;
+  let due = 0;
+  let dueEarlier = 0;
+  for (const tx of transactions) {
+    if (!tx.creditCardId || tx.type !== 'expense' || !isCreditCardInvoicePurchase(tx)) continue;
+    if (getConsumptionMonth(tx) === month) {
+      const effective = getEffectiveExpenseAmountForUser(tx);
+      if (effective) purchases += Math.round(effective.amount * 100);
+    }
+    if (tx.competenceMonth === month) {
+      const cents = Math.round(tx.amount * 100);
+      due += cents;
+      if (getConsumptionMonth(tx) < month) dueEarlier += cents;
+    }
+  }
+  return {
+    purchasesInMonth: purchases / 100,
+    invoicesDueInMonth: due / 100,
+    invoicesDueFromEarlierPurchases: dueEarlier / 100,
+  };
+}
+
 export function getCalendarTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
   return transactions.filter((tx) => tx.date.slice(0, 7) === month);
 }
