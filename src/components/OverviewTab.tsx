@@ -43,6 +43,8 @@ import { CreditCardFace } from './CreditCardFace';
 import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
 import { CashForecastCard } from './CashForecastCard';
 import { CardInsightsCard } from './CardInsightsCard';
+import { DataHealthCard } from './DataHealthCard';
+import type { DataHealthIssue } from '../utils/dataHealth';
 import type { CardInsight, CardRecommendation } from '../utils/cardIntelligence';
 import { MonthlyInsightsCard } from './MonthlyInsightsCard';
 import type { MonthlyInsight } from '../utils/monthlyNarrative';
@@ -74,6 +76,8 @@ interface OverviewTabProps {
   cashForecast?: CashForecast | null;
   /** Análise por cartão (fatura aberta, projeção, melhor dia de compra). */
   cardInsights?: CardInsight[];
+  /** Cadastros incompletos ou inconsistentes para a pessoa revisar. */
+  dataHealthIssues?: DataHealthIssue[];
   cardRecommendation?: CardRecommendation | null;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
@@ -117,6 +121,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   recurringSuggestions = [],
   cashForecast = null,
   cardInsights = [],
+  dataHealthIssues = [],
   cardRecommendation = null,
   monthlyInsights = [],
   onScheduleRecurring,
@@ -210,6 +215,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
+
+      <DataHealthCard issues={dataHealthIssues} />
 
       <MonthlyInsightsCard insights={monthlyInsights} monthLabel={formatMonthYearPT(selectedMonth).split(' ')[0].toLowerCase()} />
 
