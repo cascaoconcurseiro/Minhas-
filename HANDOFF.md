@@ -2,9 +2,11 @@
 
 ## Exibição de compras parceladas no cartão — 12/11/2026
 
-Corrigida a origem da duplicação na lista de lançamentos e no calendário: as parcelas mensais de uma compra no cartão eram renderizadas como lançamentos em cada competência. Agora `getLedgerTransactionsForMonth` reaproveita a compra agrupada para mostrar o total e o detalhe de parcela apenas na data original; parcelamentos fora do cartão continuam agendados nos respectivos meses. O total diário e o resumo selecionado do calendário não somam o cartão novamente. Nenhum payload financeiro foi migrado ou regravado por esta alteração.
+Corrigida a origem da duplicação na lista de lançamentos e no calendário: as parcelas mensais de uma compra no cartão eram renderizadas como lançamentos em cada competência. `getLedgerTransactionsForMonth` reaproveita a compra agrupada para mostrar total e parcela uma vez na data original; a etiqueta da compra mostra o total (R$ 1.435,00) e o valor correto de cada parcela (R$ 119,59). O total diário não soma novamente o cartão, parcelamentos sem cartão continuam agendados nos meses devidos, e dados da fatura/cartão seguem intactos.
 
-Alterados `src/utils/financeRules.ts`, `src/components/TransactionsTab.tsx` e `src/components/MonthlyCalendarView.tsx`. Próximo passo: concluir CI/preview do PR, integrar na `main`, publicar em produção e conferir visualmente a compra de novembro e a ausência das parcelas nos meses seguintes.
+PR #7 e PR #8 foram integrados à `main`; CI, testes PostgreSQL e previews passaram. Produção Vercel Ready no deploy `dpl_BiNCoibZ2AKR4m6VCNQ7Z5V4HfkC`, servido em `https://minhaseconomias-blue.vercel.app`; `/api/status` responde 200. Conferi a sessão autenticada no navegador: novembro mostra uma compra com total e parcela corretos sem o valor repetido no topo diário; dezembro não lista a parcela no calendário nem no extrato, mas mantém a fatura do cartão. Nenhum dado financeiro foi migrado.
+
+Alterados `src/utils/financeRules.ts`, `src/components/TransactionsTab.tsx` e `src/components/MonthlyCalendarView.tsx`. Próximo passo: continuar QA autenticado de leitura nos demais módulos, sem editar lançamentos reais; a cobertura de todos os fluxos financeiros ainda não foi concluída.
 
 ## Produção publicada e workspace validado — 11/11/2026
 

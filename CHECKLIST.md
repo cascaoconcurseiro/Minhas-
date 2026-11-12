@@ -113,7 +113,7 @@
 ## Gate de liberação para produção — estado atual
 - [x] Ajustar lançamentos e calendário para listar compras parceladas no cartão uma vez, na data original, exibindo valor total e detalhe da parcela; remover o valor parcelado do resumo diário para evitar duplicidade.
 - [x] Preservar as parcelas e o comportamento dos parcelamentos que não são de cartão; nenhum dado armazenado foi migrado.
-- [ ] Aguardar CI/preview, integrar a correção à `main`, publicar em produção e conferir novembro e os meses seguintes.
+- [x] Integrar a correção à `main` (PRs #7 e #8), passar CI/preview, publicar em produção e conferir ao vivo novembro (total + parcela correta; sem total diário duplicado) e dezembro (sem lançamento parcelado repetido; fatura ainda visível).
 - [x] Corrigir o erro de carregamento em produção extraindo o parser de recibos para `src/utils/sharedSettlementReceipts.ts`; backend passa a importar módulo sem dependências de interface.
 - [x] Incluir o conjunto solicitado de alterações no commit e integrar na `main`: PR #4, merge `920da4d35cda0e5ae64da37f63120e75d2d96a47`; CI e preview aprovados.
 - [x] Fazer deploy Vercel Production e confirmar estado Ready em `https://minhaseconomias-blue.vercel.app`.
