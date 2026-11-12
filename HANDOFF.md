@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Exibição de compras parceladas no cartão — 12/11/2026
+
+Corrigida a origem da duplicação na lista de lançamentos e no calendário: as parcelas mensais de uma compra no cartão eram renderizadas como lançamentos em cada competência. Agora `getLedgerTransactionsForMonth` reaproveita a compra agrupada para mostrar o total e o detalhe de parcela apenas na data original; parcelamentos fora do cartão continuam agendados nos respectivos meses. O total diário e o resumo selecionado do calendário não somam o cartão novamente. Nenhum payload financeiro foi migrado ou regravado por esta alteração.
+
+Alterados `src/utils/financeRules.ts`, `src/components/TransactionsTab.tsx` e `src/components/MonthlyCalendarView.tsx`. Próximo passo: concluir CI/preview do PR, integrar na `main`, publicar em produção e conferir visualmente a compra de novembro e a ausência das parcelas nos meses seguintes.
+
 ## Produção publicada e workspace validado — 11/11/2026
 
 A captura do usuário mostrava o workspace bloqueado. A causa foi uma falha de import ESM em `src/utils/sharedFinanceRules.js` no runtime Node 26. Extraída a validação pura para `src/utils/sharedSettlementReceipts.ts`; `backend/app.ts` importa esse módulo sem dependências de interface e `src/utils/sharedFinanceRules.ts` mantém a reexportação para o cliente. As alterações existentes, inclusive `.claude/launch.json`, foram incluídas conforme pedido.
