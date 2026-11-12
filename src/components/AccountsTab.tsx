@@ -1,3 +1,4 @@
+import { confirmTransactionDeletion } from '../utils/transactionDeletion';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDownRight,
@@ -1563,7 +1564,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onDeleteTransaction(tx.id)}
+                          onClick={() => { if (confirmTransactionDeletion(tx)) onDeleteTransaction(tx.id); }}
                           className="text-rose-600 hover:text-rose-800 font-medium"
                         >
                           Excluir
@@ -1717,9 +1718,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() =>
-                                onDeleteTransaction(tx.id, Boolean(tx.installmentGroupId))
-                              }
+                              onClick={() => {
+                                const deleteGroup = Boolean(tx.installmentGroupId);
+                                if (confirmTransactionDeletion(tx, deleteGroup)) onDeleteTransaction(tx.id, deleteGroup);
+                              }}
                               title="Excluir lançamento"
                               className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
                             >

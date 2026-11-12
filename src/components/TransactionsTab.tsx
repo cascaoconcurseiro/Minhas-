@@ -1,3 +1,4 @@
+import { confirmTransactionDeletion } from '../utils/transactionDeletion';
 import React, { useMemo, useState } from 'react';
 import {
   Calendar as CalendarIcon,
@@ -118,13 +119,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     const transaction = transactions.find((tx) => tx.id === txId);
     if (!transaction) return;
 
-    const confirmationMessage = transaction.isInvoicePayment
-      ? 'Excluir o pagamento da fatura e refazer o efeito cascata?'
-      : deleteGroup
-      ? `Excluir este lançamento e todas as parcelas da série "${transaction.description}"?`
-      : `Excluir o lançamento "${transaction.description}"?`;
-
-    if (window.confirm(confirmationMessage)) {
+    if (confirmTransactionDeletion(transaction, deleteGroup)) {
       onDeleteTransaction(txId, deleteGroup);
     }
   };

@@ -503,6 +503,9 @@ test('AccountsTab filters imported statement rows and routes status, edit, dupli
   assert.deepEqual(calls, [expense.id]);
   const row = Array.from(page.querySelectorAll('tr')).find((tr) => tr.textContent?.includes(expense.description));
   assert.ok(row);
+  originalConfirm = window.confirm;
+  const prompts: string[] = [];
+  window.confirm = (message?: string) => { prompts.push(String(message)); return false; };
   await act(async () => {
     row.querySelector<HTMLButtonElement>('button[title="Editar lançamento"]')!.click();
     row.querySelector<HTMLButtonElement>('button[title="Duplicar lançamento"]')!.click();
@@ -510,5 +513,12 @@ test('AccountsTab filters imported statement rows and routes status, edit, dupli
   });
   assert.deepEqual(edited, [expense]);
   assert.deepEqual(duplicated, [expense]);
+  // Cancelar a confirmação não exclui nada.
+  assert.deepEqual(prompts, [`Excluir o lançamento "${expense.description}"?`]);
+  assert.deepEqual(deleted, []);
+  window.confirm = () => true;
+  await act(async () => {
+    row.querySelector<HTMLButtonElement>('button[title="Excluir lançamento"]')!.click();
+  });
   assert.deepEqual(deleted, [expense.id]);
 });

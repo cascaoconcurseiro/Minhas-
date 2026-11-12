@@ -1,3 +1,4 @@
+import { confirmTransactionDeletion } from '../utils/transactionDeletion';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
@@ -1577,9 +1578,10 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                           </div>
                           <button
                             type="button"
-                            onClick={() =>
-                              onDeleteTransaction(tx.id, Boolean(tx.installmentGroupId))
-                            }
+                            onClick={() => {
+                              const deleteGroup = Boolean(tx.installmentGroupId);
+                              if (confirmTransactionDeletion(tx, deleteGroup)) onDeleteTransaction(tx.id, deleteGroup);
+                            }}
                             aria-label={`Excluir compra ${tx.description}`}
                             className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600"
                           >
@@ -1681,9 +1683,10 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                             <td className="py-3 pl-3 pr-6 text-right">
                               <button
                                 type="button"
-                                onClick={() =>
-                                  onDeleteTransaction(tx.id, Boolean(tx.installmentGroupId))
-                                }
+                                onClick={() => {
+                                  const deleteGroup = Boolean(tx.installmentGroupId);
+                                  if (confirmTransactionDeletion(tx, deleteGroup)) onDeleteTransaction(tx.id, deleteGroup);
+                                }}
                                 aria-label={`Excluir compra ${tx.description}`}
                                 className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700 transition-colors"
                               >
