@@ -12,7 +12,7 @@ import { formatBRL } from '../utils/financeRules';
 
 interface CardCommitmentSectionProps {
   transactions: Transaction[];
-  /** Mês de hoje (YYYY-MM): a lista mostra 3 meses para trás e 9 para a frente a partir dele. */
+  /** Mês de hoje (YYYY-MM): a lista começa nele e segue para a frente (mês atual + 11). */
   referenceMonth: string;
   limitPercent?: number;
   warnPercent?: number;

@@ -21,11 +21,11 @@ const card = (month: string, amount: number, over: Partial<Transaction> = {}) =>
   tx({ creditCardId: 'c1', amount, competenceMonth: month, date: `${month}-02`, ...over });
 const row = (rows: ReturnType<typeof calculateCardCommitmentByMonth>, month: string) => rows.find((r) => r.month === month)!;
 
-test('gera 3 meses para trás e 9 para frente a partir do mês de referência', () => {
+test('começa no mês atual e segue 11 meses para a frente, sem meses passados', () => {
   const rows = calculateCardCommitmentByMonth({ transactions: [], referenceMonth: '2026-11' });
-  assert.equal(rows.length, 13);
-  assert.equal(rows[0].month, '2026-08');
-  assert.equal(rows[12].month, '2027-08');
+  assert.equal(rows.length, 12);
+  assert.equal(rows[0].month, '2026-11');
+  assert.equal(rows[11].month, '2027-10');
 });
 
 test('porcentagem = total do cartão ÷ renda lançada ou prevista do mês', () => {

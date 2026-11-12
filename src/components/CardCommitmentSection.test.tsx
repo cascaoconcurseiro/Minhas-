@@ -36,9 +36,13 @@ function render(props: Partial<React.ComponentProps<typeof CardCommitmentSection
   return container;
 }
 
-test('mostra 13 meses com porcentagem e valor, e só o valor quando não há renda lançada', () => {
+test('mostra do mês atual para frente (12 meses), sem meses passados, com porcentagem e valor', () => {
   const el = render({ limitPercent: 30 });
-  assert.equal(el.querySelectorAll('[data-testid^="card-commitment-20"]').length, 13);
+  const ids = [...el.querySelectorAll('[data-testid^="card-commitment-20"]')].map((node) => node.getAttribute('data-testid'));
+  assert.equal(ids.length, 12);
+  assert.equal(ids[0], 'card-commitment-2026-11');
+  assert.equal(ids[11], 'card-commitment-2027-10');
+  assert.equal(el.querySelector('[data-testid="card-commitment-2026-10"]'), null, 'mês passado não aparece');
   const dec = el.querySelector('[data-testid="card-commitment-2026-12"]')!.textContent ?? '';
   assert.match(dec, /34%/); // 1.700 de 5.000
   assert.match(dec, /R\$\s?1\.700,00/);

@@ -77,8 +77,8 @@ export function calculateCardCommitmentByMonth(input: {
   warnPercent?: number;
 }): CardCommitmentMonth[] {
   const { transactions, referenceMonth } = input;
-  const monthsBack = input.monthsBack ?? 3;
-  const monthsAhead = input.monthsAhead ?? 9;
+  const monthsBack = input.monthsBack ?? 0;
+  const monthsAhead = input.monthsAhead ?? 11;
   const limit = normalizeCommitmentLimit(input.limitPercent);
   const warn = Math.min(100, Math.max(1, input.warnPercent ?? DEFAULT_COMMITMENT_WARN_PERCENT));
 
