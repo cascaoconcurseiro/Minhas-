@@ -601,7 +601,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => onOpenReconciliation()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-100 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-900 hover:bg-blue-100 transition-colors"
                   >
                     <FileCheck2 className="h-3.5 w-3.5 text-emerald-700" />
                     <span>Importar Extrato / OFX</span>
@@ -1089,7 +1089,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                           </>
                         )}
 
-                        <div className="pt-2 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+                        <div className="pt-2 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:text-blue-800">
                           <span>Abrir página e extrato da conta</span>
                           <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </div>

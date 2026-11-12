@@ -45,7 +45,7 @@ test('desktop sidebar navigation exposes current page and visible keyboard focus
   const page = renderSidebar();
   const overview = page.querySelector<HTMLButtonElement>('button[aria-current="page"]');
   assert.ok(overview);
-  assert.equal(overview.getAttribute('aria-label'), 'Visão Geral');
+  assert.equal(overview.getAttribute('aria-label'), 'Visão geral');
   const brandLink = [...page.querySelectorAll<HTMLButtonElement>('[data-testid="desktop-sidebar"] button')]
     .find((button) => button.textContent?.includes('Minhas Economias'));
   assert.ok(brandLink);
@@ -59,9 +59,9 @@ test('mobile drawer navigation buttons retain accessible text names', () => {
   const dialog = page.querySelector('[role="dialog"][aria-label="Menu de navegação"]');
   assert.ok(dialog);
   const navButton = [...dialog.querySelectorAll<HTMLButtonElement>('nav button')]
-    .find((button) => button.textContent?.includes('Visão Geral'));
+    .find((button) => button.textContent?.includes('Visão geral'));
   assert.ok(navButton);
-  assert.match(navButton.textContent ?? '', /Visão Geral/);
+  assert.match(navButton.textContent ?? '', /Visão geral/);
   navButton.focus();
   assert.equal(document.activeElement, navButton);
 });

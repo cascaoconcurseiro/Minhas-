@@ -56,6 +56,8 @@
     font-family: var(--font-sans);
     color: var(--app-text);
     background-color: var(--app-canvas);
+    color: #0f172a;
+    background-color: #f4f6fb;
     transition: background-color 0.2s ease, color 0.2s ease;
     touch-action: manipulation;
   }
@@ -827,5 +829,90 @@ html.dark body,
     color: #0f172a !important;
     box-shadow: none !important;
     border: none !important;
+  }
+}
+
+/* ===== Padrão visual compartilhado (referência): ações em azul, números em sans ===== */
+
+/* Números: sans tabular, como no painel de referência */
+.font-mono {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Botões de ação sólidos verdes/índigo/violeta viram azul principal */
+.bg-emerald-600,
+.bg-emerald-500,
+.bg-indigo-600,
+.bg-violet-600,
+.bg-sky-600 {
+  background-color: #2563eb !important;
+}
+.hover\:bg-emerald-700:hover,
+.hover\:bg-emerald-600:hover,
+.hover\:bg-indigo-700:hover,
+.hover\:bg-violet-700:hover,
+.hover\:bg-sky-700:hover {
+  background-color: #1d4ed8 !important;
+}
+
+/* Links e textos de ação em violeta/índigo/celeste viram azul */
+.text-violet-600,
+.text-violet-700,
+.text-indigo-600,
+.text-indigo-700,
+.text-sky-600,
+.text-sky-700 {
+  color: #1d4ed8 !important;
+}
+
+/* Estados selecionados (cards de escolha, abas) usam a cor de destaque azul */
+.border-emerald-400,
+.border-emerald-500,
+.border-emerald-600 {
+  border-color: #2563eb !important;
+}
+
+/* Botões de ação lilás (ex.: adiantar parcelas) seguem o azul */
+.bg-violet-50,
+.bg-indigo-50 {
+  background-color: #eff6ff !important;
+}
+.border-violet-200,
+.border-indigo-200,
+.border-violet-300,
+.border-indigo-300 {
+  border-color: #bfdbfe !important;
+}
+
+/* Botões de ação pretos (Nova Meta, Compra no Cartão...) seguem o azul principal.
+   Seletor exige a classe de hover, então painéis escuros continuam como estão. */
+.bg-slate-900.hover\:bg-slate-800 {
+  background-color: #2563eb !important;
+}
+.bg-slate-900.hover\:bg-slate-800:hover {
+  background-color: #1d4ed8 !important;
+}
+
+/* Detalhes que restaram: borda translúcida do banner de instalação e texto lilás de ações */
+.border-emerald-500\/30 {
+  border-color: rgb(37 99 235 / 0.3) !important;
+}
+.text-violet-800 {
+  color: #1e40af !important;
+}
+
+/* Painel "Resumo do mês" dentro da grade da Visão Geral: ocupa a largura toda,
+   e a coluna de contas pendentes desce uma linha para não sobrepor. */
+.overview-dashboard > section[aria-label="Resumo do mês"] {
+  box-shadow: none;
+  border-radius: 0;
+}
+@media (min-width: 1366px) {
+  .overview-dashboard > section[aria-label="Resumo do mês"] {
+    grid-column: 1 / -1;
+  }
+  .overview-dashboard [data-testid="overview-pending-bills"] {
+    grid-row: 3 / span 2;
   }
 }

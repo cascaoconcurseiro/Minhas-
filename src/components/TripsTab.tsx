@@ -899,7 +899,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         </div>
 
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-xs">
-          <Plane className="mx-auto h-10 w-10 text-emerald-600 mb-3" />
+          <Plane className="mx-auto h-10 w-10 text-blue-600 mb-3" />
           <h2 className="text-lg font-bold text-slate-900 dark:text-white font-display">
             Nenhuma viagem cadastrada
           </h2>
@@ -1080,7 +1080,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                         e.stopPropagation();
                         onOpenNewTripExpense(t.id);
                       }}
-                      className="rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                      className="rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100"
                     >
                       + Gasto ({t.currency})
                     </button>
@@ -1238,7 +1238,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
               onClick={() => setIsConverterOpen(!isConverterOpen)}
               className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors ${
                 isConverterOpen
-                  ? 'border-emerald-400 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                  ? 'border-blue-400 bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
                   : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100'
               }`}
               title="Abrir utilitário de conversão inteligente com o último câmbio"

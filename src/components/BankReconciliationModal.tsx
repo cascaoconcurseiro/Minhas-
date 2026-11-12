@@ -389,7 +389,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
               <FileCheck2 className="h-5 w-5" />
             </div>
             <div>
@@ -687,7 +687,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                     type="checkbox"
                     checked={showOnlyNew}
                     onChange={(e) => setShowOnlyNew(e.target.checked)}
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                    className="rounded text-blue-600 focus:ring-blue-500"
                   />
                   <span>Ocultar duplicatas da lista</span>
                 </label>
