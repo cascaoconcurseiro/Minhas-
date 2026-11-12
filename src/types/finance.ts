@@ -244,6 +244,8 @@ export interface DailyCashFlowPoint {
   expense: number;
   cumulativeBalance: number;
   projectedBalance: number;
+  /** Explicação das saídas de fatura/compartilhadas do dia (para o aviso ao passar o mouse). Ausente quando não há. */
+  expenseNotes?: string[];
 }
 
 export interface MonthlyComparisonRow {

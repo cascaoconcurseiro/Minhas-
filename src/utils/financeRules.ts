@@ -1535,6 +1535,13 @@ export function calculateDailyCashFlow(
   );
   const cardById = new Map(cards.map((card) => [card.id, card]));
   const cardInvoiceOutflowsByDate = new Map<string, number>();
+  // Explica cada saída de fatura: data -> (texto -> centavos), para o aviso na tabela.
+  const outflowNotesByDate = new Map<string, Map<string, number>>();
+  const addOutflowNote = (date: string, label: string, cents: number) => {
+    const byLabel = outflowNotesByDate.get(date) ?? new Map<string, number>();
+    byLabel.set(label, (byLabel.get(label) || 0) + cents);
+    outflowNotesByDate.set(date, byLabel);
+  };
   for (const tx of transactions) {
     if (
       !tx.creditCardId ||
@@ -1556,6 +1563,14 @@ export function calculateDailyCashFlow(
       dueDate,
       (cardInvoiceOutflowsByDate.get(dueDate) || 0) + amountCents
     );
+    const cardName = cardById.get(tx.creditCardId)?.name ?? 'cartão';
+    addOutflowNote(
+      dueDate,
+      tx.competenceMonth < selectedMonth
+        ? `Fatura de ${formatMonthYearPT(tx.competenceMonth)} do ${cardName}, ainda não paga (em atraso): entra no dia 1 do mês`
+        : `Fatura de ${formatMonthYearPT(tx.competenceMonth)} do ${cardName}: vencimento neste dia`,
+      amountCents
+    );
   }
   for (const tx of transactions) {
     if (
@@ -1574,6 +1589,7 @@ export function calculateDailyCashFlow(
       scheduledDate,
       (cardInvoiceOutflowsByDate.get(scheduledDate) || 0) + amountCents
     );
+    addOutflowNote(scheduledDate, 'Sua parte em despesa compartilhada paga por outra pessoa', amountCents);
   }
 
   const points: DailyCashFlowPoint[] = [];
@@ -1619,6 +1635,9 @@ export function calculateDailyCashFlow(
     dayExpense += dueCardInvoiceAmount;
     runningProjected -= dueCardInvoiceAmount;
 
+    const notes = Array.from(outflowNotesByDate.get(dayStr) ?? []).map(
+      ([label, cents]) => `${label} — ${formatBRL(cents / 100)}`
+    );
     points.push({
       day: d,
       date: dayStr,
@@ -1626,6 +1645,7 @@ export function calculateDailyCashFlow(
       expense: Math.round(dayExpense * 100) / 100,
       cumulativeBalance: Math.round(runningRealized * 100) / 100,
       projectedBalance: Math.round(runningProjected * 100) / 100,
+      ...(notes.length > 0 ? { expenseNotes: notes } : {}),
     });
   }
 

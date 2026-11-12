@@ -4,7 +4,7 @@
 
 - O backend Express/Vercel autentica e-mail e senha contra `app_users` no Neon; senhas usam hash scrypt e sessões usam tokens HS256 de até 30 dias (`backend/authSession.ts`).
 - A cada requisição autenticada, o servidor confere a assinatura e a versão de sessão no banco. O logout incrementa `token_version`, invalidando tokens anteriores. O acesso PostgreSQL usa `DATABASE_URL` protegida no servidor.
-- Firebase Auth e Firestore não participam do runtime atual.
+- Firebase (Auth, Firestore e Storage) foi removido por completo e não participa do runtime.
 - Quando uma conta ainda não tem linha no Neon, o app cria um workspace inicial vazio diretamente no Neon.
 
 ## Schema implantado

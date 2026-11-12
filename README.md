@@ -1,6 +1,6 @@
 # Minhas Economias BR — Controle Financeiro Pessoal, Investimentos, Câmbio & Viagens
 
-Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e familiar adaptada à realidade brasileira, com controle de contas bancárias, conciliação de extratos **OFX/CSV**, faturas de cartão de crédito com efeito cascata e antecipação de parcelas, carteira de investimentos integrada ao **Google Finance / B3**, rateio familiar bilateral via PIX e gestão de viagens internacionais multi-moeda (**TravelSpend + Splitwise**). Firebase Auth cuida do login por e-mail e senha; os dados persistentes da aplicação são salvos exclusivamente no PostgreSQL do Neon por uma API autenticada.
+Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e familiar adaptada à realidade brasileira, com controle de contas bancárias, conciliação de extratos **OFX/CSV**, faturas de cartão de crédito com efeito cascata e antecipação de parcelas, carteira de investimentos integrada ao **Google Finance / B3**, rateio familiar bilateral via PIX e gestão de viagens internacionais multi-moeda (**TravelSpend + Splitwise**). O login por e-mail e senha é próprio (tabela `app_users` no Neon, sem Firebase); todos os dados persistentes da aplicação são salvos exclusivamente no PostgreSQL do Neon por uma API autenticada.
 
 ---
 
@@ -9,7 +9,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 1. **[Visão Geral e Arquitetura (`README.md`)](./README.md)** — Visão executiva, módulos do sistema, stack tecnológica, instalação e testes.
 2. **[Documentação do Banco de Dados e Persistência (`docs/DATABASE_DOCUMENTATION.md`)](./docs/DATABASE_DOCUMENTATION.md)** — Esquema Neon, tabelas, isolamento por usuário e fluxo de migração legado.
 3. **[Arquitetura Técnica, Motores de Regras e API REST (`docs/ARCHITECTURE_AND_API.md`)](./docs/ARCHITECTURE_AND_API.md)** — Especificação das rotas do servidor Express (`backend/app.ts`), motores matemáticos puros (`src/utils/*.ts`) e pipeline de CI/CD.
-4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes de identidade Firebase Auth, PostgreSQL e Row-Level Security.
+4. **[Especificação de Segurança (`security_spec.md`)](./security_spec.md)** — Invariantes de login próprio, sessão, PostgreSQL e Row-Level Security.
 
 ---
 
@@ -21,10 +21,10 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 | **Estilização** | Tailwind CSS v4 + Lucide Icons | Design system responsivo (Light / Dark Mode) |
 | **Visualização de Dados** | Recharts + SVG Custom Charts | Gráficos comparativos de 6 meses, rosca, curvas e progresso |
 | **Backend / API** | Node.js + Express 4 (`backend/app.ts`, exposto em `/api/*`) | Proxy seguro para cotações B3/Google Finance, câmbio ao vivo, SMTP e workspace Neon |
-| **Identidade e banco de dados** | Firebase Auth + Neon PostgreSQL | Firebase fornece identidade; workspace, convites e lançamentos compartilhados persistem no Neon |
+| **Identidade e banco de dados** | Login próprio (scrypt + sessão HS256) + Neon PostgreSQL | Contas em `app_users`; workspace, convites e lançamentos compartilhados persistem no Neon |
 | **Inteligência & Cotações** | `@google/genai` (Google Search Grounding) | Consulta de câmbio comercial ao vivo e cotações internacionais |
 | **Relatórios Executivos** | `jspdf` | Exportação de relatórios financeiros mensais e de viagens em PDF |
-| **Testes Automatizados** | `node:test` + `tsx` | Testes unitários determinísticos das regras financeiras e validações de dados |
+| **Testes Automatizados** | `bun test` (testes `node:test` + happy-dom) | 575 testes em 77 arquivos: regras financeiras, API, telas e orquestração do `App` |
 
 ---
 
@@ -124,9 +124,16 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
 │   │   ├── reportPdfGenerator.ts      # Gerador de relatório mensal em PDF
 │   │   └── tripPdfGenerator.ts        # Gerador de relatório de viagem em PDF
 │   ├── App.tsx                        # Orquestrador de estado SSOT; persistência Neon
-│   ├── firebase.ts                    # Login Firebase Auth e sessão
+│   ├── lib/authClient.ts              # Cliente de login/cadastro/logout e token de sessão
+│   ├── lib/neonWorkspace.ts           # Cliente da API de workspace (revisão otimista)
+│   ├── pwa/                           # Atualização automática silenciosa do PWA (updateGate)
 ├── security_spec.md                   # Especificação de invariantes de segurança do banco
+├── MASTER_BLUEPRINT.md / CHECKLIST.md / HANDOFF.md  # Decisões, pendências e histórico de entregas
 ├── backend/app.ts                     # Rotas Express e integração Neon
+├── backend/authSession.ts             # Hash scrypt, sessão HS256 e limitador de tentativas
+├── db/migrations/                     # Migrações SQL 001–009 do Neon
+├── shared/workspaceIdentity.ts        # Identidade estável do workspace (compartilhada front/back)
+├── scripts/qa-postgres.ts             # QA com PostgreSQL real (RLS, acertos, concorrência)
 ├── api/[...path].ts                   # Adaptador das rotas Express para Vercel Functions
 └── package.json                       # Dependências e scripts de execução
 ```
@@ -145,7 +152,7 @@ Copie o arquivo `.env.example` para `.env` e preencha as variáveis do servidor:
 ```bash
 cp .env.example .env
 ```
-`DATABASE_URL` e `FIREBASE_PROJECT_ID` habilitam a API autenticada. O backend valida a assinatura RS256 dos ID tokens com os certificados públicos rotativos do Firebase e valida as claims localmente; não precisa de `FIREBASE_API_KEY` nem de uma conta de serviço. A chave API usada pelo SDK web está na configuração pública `firebase-applet-config.json`; inicializamos apenas Firebase Auth, sem leitura/gravação no Firestore. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Nunca use prefixo `VITE_` em credenciais do servidor.
+`DATABASE_URL` habilita o banco e a API autenticada. `AUTH_SESSION_SECRET` (mínimo 32 caracteres) assina as sessões; se ausente, o servidor deriva uma chave de `DATABASE_URL` (recomenda-se definir a dedicada). `CRON_SECRET` protege `/api/readiness`. `GEMINI_API_KEY` é opcional e habilita consultas de câmbio e fallback internacional. Não há Firebase. Nunca use prefixo `VITE_` em credenciais do servidor.
 
 ### 3. Executar em ambiente de desenvolvimento
 ```bash
@@ -163,6 +170,6 @@ bun run build
 
 ## Publicação e sincronização
 
-O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL` e `FIREBASE_PROJECT_ID` no ambiente do servidor Vercel. `FIREBASE_API_KEY` é configuração pública do SDK web e não é usada pelo backend. O workflow GitHub `.github/workflows/neon-daily-activity.yml` usa o segredo `NEON_DATABASE_URL`, roda `SELECT 1` às 12:23 UTC diariamente e também aceita execução manual. A execução automática `schedule` `42397967500` passou em 7/nov/2026. O Vercel Cron `/api/health` segue cadastrado às 12:15 UTC; logs consultados não comprovaram uma execução automática dele.
+O projeto `minhaseconomias` usa o plano Vercel Hobby e está conectado ao repositório `cascaoconcurseiro/Minhas-`, branch `main`. Cada push aprovado para `main` dispara uma nova publicação de produção. Configure `DATABASE_URL`, `AUTH_SESSION_SECRET` e `CRON_SECRET` no ambiente do servidor Vercel (`GEMINI_API_KEY` é opcional). O workflow GitHub `.github/workflows/neon-daily-activity.yml` usa o segredo `NEON_DATABASE_URL`, roda `SELECT 1` às 12:23 UTC diariamente e também aceita execução manual. A execução automática `schedule` `42397967500` passou em 7/nov/2026. O Vercel Cron `/api/readiness` (com `CRON_SECRET`) está cadastrado às 12:15 UTC; a execução automática dele ainda não foi comprovada.
 
 O Neon usa autosuspend no plano gratuito. A execução agendada diária do workflow de atividade executou `SELECT 1` no banco em 7/nov/2026 (`42397967500`); isso acorda o compute durante a consulta, mas não o mantém ligado continuamente. Um backup integral cifrado também passou manualmente em `42413305298`; o evento agendado do backup ainda precisa ser observado. O projeto tem janela de recuperação pontual de 6 horas; não há agenda de snapshots configurada.

@@ -959,7 +959,23 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                     {pt.income > 0 ? `+${formatBRL(pt.income)}` : '—'}
                   </td>
                   <td className="py-2.5 px-3 text-right text-rose-700">
-                    {pt.expense > 0 ? `-${formatBRL(pt.expense)}` : '—'}
+                    {pt.expense > 0 ? (
+                      pt.expenseNotes?.length ? (
+                        <span
+                          tabIndex={0}
+                          data-testid="daily-flow-expense-note"
+                          title={pt.expenseNotes.join('\n')}
+                          className="cursor-help underline decoration-dotted underline-offset-4"
+                        >
+                          -{formatBRL(pt.expense)}
+                          <span className="sr-only">. {pt.expenseNotes.join('. ')}</span>
+                        </span>
+                      ) : (
+                        `-${formatBRL(pt.expense)}`
+                      )
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="py-2.5 px-3 text-right font-semibold text-slate-900">
                     {formatBRL(pt.cumulativeBalance)}

@@ -2080,6 +2080,30 @@ test('daily cash flow projects open card invoices and member-paid shares without
   assert.equal(flow.at(-1)?.projectedBalance, monthly.totalProjectedBalance);
 });
 
+test('daily cash flow explains each outflow: overdue invoice on day 1 and the month invoice on its due day', () => {
+  const account: BankAccount = {
+    id: 'acc-notes', name: 'Conta principal', institution: 'Banco', type: 'checking',
+    initialBalance: 0, color: '#000000', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-notes', name: 'Nubank', brand: 'Visa', limit: 5000,
+    closingDay: 20, dueDay: 5, defaultAccountId: account.id, color: '#000000',
+  };
+  const purchase = (id: string, amount: number, competenceMonth: string): Transaction => ({
+    id, description: id, amount, date: `${competenceMonth}-02`, competenceMonth, type: 'expense',
+    status: 'pending', categoryId: 'cat-outros', creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const flow = calculateDailyCashFlow(
+    [account], [card], [purchase('dez', 599.59, '2026-12'), purchase('jan', 179.59, '2027-01')], '2027-01'
+  );
+  assert.equal(flow[0].expense, 599.59);
+  assert.equal(flow[0].expenseNotes?.length, 1);
+  assert.match(flow[0].expenseNotes![0], /Fatura de Dezembro de 2026 do Nubank, ainda não paga \(em atraso\)/);
+  assert.equal(flow[4].expense, 179.59);
+  assert.match(flow[4].expenseNotes![0], /Fatura de Janeiro de 2027 do Nubank: vencimento neste dia/);
+  assert.equal(flow[1].expenseNotes, undefined, 'dias sem saída não têm aviso');
+});
+
 test('calculateFinancialHealthScore360 computes 0-1000 score, net worth, runway months, and safe-to-spend per day', () => {
   const emptyMonthly = calculateMonthlySummary([], [], [], '2026-11');
   const cleanHealth = calculateFinancialHealthScore360({
