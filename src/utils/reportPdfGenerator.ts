@@ -15,6 +15,7 @@ import {
   formatMonthYearPT,
   formatShortDateBR,
   getConsumptionMonth,
+  getLocalDateISO,
 } from './financeRules';
 
 export interface MonthlyReportPdfData {
@@ -145,7 +146,7 @@ export function generateMonthlyFinancialReportPdf({
   doc.setTextColor(203, 213, 225); // slate-300
   const competenceLabel = sanitizePdfText(formatMonthYearPT(selectedMonth)).toUpperCase();
   const now = new Date();
-  const dateStr = `${formatShortDateBR(now.toISOString().slice(0, 10))} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const dateStr = `${formatShortDateBR(getLocalDateISO(now))} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   doc.text(`Competencia: ${competenceLabel}  |  Gerado em: ${dateStr}`, margin + 6, y + 16.5);
 
   const userDisplayName = sanitizePdfText(userName || userEmail || 'Usuario');

@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Auditoria de velocidade e bugs — 12/11/2026
+
+**Velocidade (medido):** com 6.000 lançamentos sintéticos, resumo mensal 2,1 ms, categorias 0,8 ms, fluxo diário 1,4 ms, comparativo de 6 meses 4,2 ms, faturas pendentes 1,1 ms; os cálculos não são gargalo. O peso está no download: bundle principal ~144 kB gzip, aba Relatórios ~118 kB (recharts), e o gerador de PDF (jspdf ~130 kB gzip) carregava junto com Relatórios e Viagens. Mudança: PDFs agora são importados só ao clicar em exportar (`ReportsAndDataTab`, `TripsTab`, `TripPdfReportModal`). As abas já eram `lazy`. Não medi tempo real no navegador/rede móvel nem a latência da API/Neon.
+
+**Bug corrigido:** vários pontos usavam `new Date().toISOString().slice(0, 10)` como "hoje", que é UTC; no Brasil, depois das 21h dava o dia seguinte (confirmado: 22:30 de 12/11 em America/Sao_Paulo virava 13/11). Trocado por `getLocalDateISO` em Viagens (hoje e data de acerto), Compartilhado (data do convite), Metas (prazo padrão), `travelRules`, `uxEnhancementRules`, `financeRules` (fallback do dia de referência) e carimbo do PDF. As validações de data (`parsed.toISOString()` sobre `YYYY-MM-DD`) são UTC por construção e foram mantidas.
+
+**Não encontrado:** `catch` vazio, `eval`, `dangerouslySetInnerHTML`. **Pendente/sugestões:** bundle principal e Relatórios ainda grandes (avaliar dividir recharts); `App.tsx` (4.000 linhas) e `TransactionModal.tsx` (4.300) concentram muita lógica; medir no navegador real com os dados do usuário.
+
 ## Fatura do cartão em "Contas a pagar" — 12/11/2026
 
 Pedido: o card de contas a pagar pendentes da Visão Geral só listava lançamentos bancários e não mostrava a fatura do cartão, embora o sistema já saiba vencimento e valor. Novo `getPendingCardInvoices` (`financeRules.ts`): uma linha por cartão e mês de vencimento, com valor em aberto (`calculateCreditCardSummary`), vencimento (`dueDay`) e selo "Atrasada" no mês atual para faturas vencidas e não pagas. A linha entra na lista de Pendentes, nos contadores e no texto do cabeçalho; o botão "Pagar fatura" abre o cartão (`onNavigateToCard`), onde está o fluxo de pagamento. Não há baixa direta na Visão Geral. Validação: `tsc --noEmit`, 569 testes. Não conferido em navegador. Decisão do usuário: publicar sempre direto em produção.
