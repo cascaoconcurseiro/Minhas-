@@ -321,6 +321,57 @@ test('applying a suggestion ignores a historical subcategory id removed from its
   assert.equal(saved[0]?.subcategoryId, undefined, 'ID removido do histórico não pode ser aplicado');
 });
 
+test('learns the habit: typing a usual establishment applies the split with the same person and offers undo', async () => {
+  const fran: FamilyMember = { id: 'fam-fran', name: 'FRAN', color: '#ec4899', relationship: 'cônjuge' } as FamilyMember;
+  const mercado: Category = {
+    id: 'cat-mercado', name: 'Supermercado', type: 'expense', bucket: 'essential',
+    monthlyBudget: 0, color: '#059669', icon: 'shopping-cart', subcategories: [],
+  };
+  const sharedApolo = (id: string, date: string): Transaction => ({
+    id, description: 'apolo', amount: 100, date, competenceMonth: '2026-11', type: 'expense', status: 'pending',
+    categoryId: 'cat-mercado', paymentMethod: 'pix', recurrence: 'single', isShared: true,
+    sharedMemberId: 'fam-fran', sharedAmount: 50, sharedPaidBy: 'me', sharedSplitMode: 'half', sharedStatus: 'pending',
+  });
+  const page = renderTransactionModal(() => {}, () => {}, {
+    categories: [mercado], familyMembers: [fran],
+    transactions: [sharedApolo('h1', '2026-11-01'), sharedApolo('h2', '2026-11-05'), sharedApolo('h3', '2026-11-09')],
+  });
+  const description = page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]');
+  assert.ok(description);
+  assert.equal(page.querySelector('[data-testid="auto-sharing-notice"]'), null);
+
+  await act(async () => {
+    setInputValue(description, 'Apolo');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.ok(page.querySelector('[data-testid="family-split-panel"]'), 'a divisão é aplicada sozinha');
+  const notice = page.querySelector('[data-testid="auto-sharing-notice"]');
+  assert.match(notice?.textContent ?? '', /Dividido com FRAN \(metade, você pagou\)/);
+
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="auto-sharing-undo"]')?.click(); });
+  assert.equal(page.querySelector('[data-testid="family-split-panel"]'), null, 'desfazer remove a divisão');
+  assert.equal(page.querySelector('[data-testid="auto-sharing-notice"]'), null);
+
+  await act(async () => {
+    setInputValue(description, 'Apolo Mercado');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(page.querySelector('[data-testid="family-split-panel"]'), null, 'depois de desfazer não reaplica sozinho');
+});
+
+test('an unknown establishment does not trigger any automatic split', async () => {
+  const fran: FamilyMember = { id: 'fam-fran', name: 'FRAN', color: '#ec4899', relationship: 'cônjuge' } as FamilyMember;
+  const page = renderTransactionModal(() => {}, () => {}, { familyMembers: [fran] });
+  const description = page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]');
+  assert.ok(description);
+  await act(async () => {
+    setInputValue(description, 'Padaria nova');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(page.querySelector('[data-testid="family-split-panel"]'), null);
+  assert.equal(page.querySelector('[data-testid="auto-sharing-notice"]'), null);
+});
+
 test('inline family quick-add with email stays open and routes the user to Shared tab without invoking callback', async () => {
   const existing: FamilyMember = {
     id: 'existing-family-test', name: 'Familiar existente', relationship: 'amigo(a)',

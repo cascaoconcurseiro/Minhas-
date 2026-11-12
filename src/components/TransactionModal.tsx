@@ -63,6 +63,12 @@ import {
 } from '../utils/travelRules';
 import { computeModalScrollState } from '../utils/modalScrollRules';
 import {
+  describeLearnedSharing,
+  getDescriptionLearningKey,
+  learnSharingFromHistory,
+  type LearnedSharing,
+} from '../utils/learningRules';
+import {
   getSmartTransactionSuggestions,
   predictCategoryFromDescription,
   SmartCategorySuggestion,
@@ -231,6 +237,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   // Intelligent Category Suggestion based on historical transactions
   const [userManuallySelectedCategory, setUserManuallySelectedCategory] = useState(false);
   const [autoAppliedCategoryNotice, setAutoAppliedCategoryNotice] = useState<string | null>(null);
+  // Divisão aprendida com o histórico (ex.: sempre dividir o mercado com a mesma pessoa).
+  const [autoSharingApplied, setAutoSharingApplied] = useState<LearnedSharing | null>(null);
+  const autoSharingKeyRef = useRef<string | null>(null);
+  const sharingTouchedRef = useRef<boolean>(false);
 
   // Independent scroll container ref
   const scrollBodyRef = useRef<HTMLDivElement>(null);
@@ -482,6 +492,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setSharedSplitMode('half');
     setSharedCustomPercentStr('50');
     setSharedCustomAmountStr('');
+    setAutoSharingApplied(null);
+    autoSharingKeyRef.current = null;
+    sharingTouchedRef.current = false;
     setTransferSubMode('bank_to_bank');
     setBillPaymentCardId(cards[0]?.id || '');
     setBillPaymentInvoiceMonth(selectedMonth);
@@ -849,6 +862,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const handleToggleShared = () => {
+    sharingTouchedRef.current = true;
+    setAutoSharingApplied(null);
     if (isShared) {
       setIsShared(false);
     } else {
@@ -1183,6 +1198,61 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     subcategoryId,
     categories,
   ]);
+
+  const learnedSharing = useMemo(() => {
+    if (editingTransaction || entryMode === 'transfer' || entryMode === 'income' || !description.trim()) {
+      return null;
+    }
+    return learnSharingFromHistory(description, transactions, familyMembers);
+  }, [description, transactions, familyMembers, entryMode, editingTransaction]);
+
+  // Aplica sozinho a divisão que a pessoa sempre usa para este gasto e só avisa (com "Desfazer").
+  useEffect(() => {
+    if (!isOpen || editingTransaction) return;
+    if (!learnedSharing) {
+      // O estabelecimento deixou de ser o que gerou a divisão automática: volta ao normal.
+      if (autoSharingApplied && !sharingTouchedRef.current) {
+        setIsShared(false);
+        setAutoSharingApplied(null);
+        autoSharingKeyRef.current = null;
+      }
+      return;
+    }
+    const key = getDescriptionLearningKey(description);
+    if (
+      autoSharingKeyRef.current === key ||
+      sharingTouchedRef.current ||
+      isShared ||
+      isTripLinked ||
+      isMultiCurrencyOpen
+    ) {
+      return;
+    }
+    autoSharingKeyRef.current = key;
+    setIsShared(true);
+    setSharedMemberId(learnedSharing.memberId);
+    setSharedPaidBy(learnedSharing.paidBy);
+    setSharedSplitMode(learnedSharing.splitMode);
+    if (learnedSharing.splitMode === 'percentage') {
+      setSharedCustomPercentStr(String(learnedSharing.percentage));
+    }
+    setAutoSharingApplied(learnedSharing);
+  }, [
+    isOpen,
+    editingTransaction,
+    learnedSharing,
+    autoSharingApplied,
+    description,
+    isShared,
+    isTripLinked,
+    isMultiCurrencyOpen,
+  ]);
+
+  const handleUndoAutoSharing = () => {
+    sharingTouchedRef.current = true;
+    setIsShared(false);
+    setAutoSharingApplied(null);
+  };
 
   const handleApplySmartSuggestion = (sug: SmartTransactionSuggestion) => {
     setDescription(sug.cleanDescription);
@@ -2275,6 +2345,32 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     ))}
                   </div>
                 )}
+
+                {!editingTransaction &&
+                  autoSharingApplied &&
+                  isShared &&
+                  sharedMemberId === autoSharingApplied.memberId &&
+                  sharedPaidBy === autoSharingApplied.paidBy &&
+                  sharedSplitMode === autoSharingApplied.splitMode && (
+                    <div
+                      role="status"
+                      data-testid="auto-sharing-notice"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/30 px-2.5 py-1.5 text-[11px] text-indigo-900 dark:text-indigo-200"
+                    >
+                      <span className="inline-flex items-start gap-1.5 min-w-0">
+                        <Sparkles className="h-3 w-3 mt-0.5 text-indigo-600 shrink-0" />
+                        <span>{describeLearnedSharing(autoSharingApplied)}</span>
+                      </span>
+                      <button
+                        type="button"
+                        data-testid="auto-sharing-undo"
+                        onClick={handleUndoAutoSharing}
+                        className="shrink-0 font-bold underline underline-offset-2 hover:text-indigo-700"
+                      >
+                        Desfazer
+                      </button>
+                    </div>
+                  )}
               </div>
             </div>
 
