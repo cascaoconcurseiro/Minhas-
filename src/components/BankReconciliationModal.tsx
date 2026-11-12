@@ -13,7 +13,7 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react';
-import { BankAccount, Category, CreditCard, CurrencyCode, Transaction } from '../types/finance';
+import { BankAccount, Category, CreditCard, CurrencyCode, FamilyMember, Transaction } from '../types/finance';
 import {
   convertCandidatesToTransactions,
   parseBankStatement,
@@ -33,6 +33,8 @@ interface BankReconciliationModalProps {
   cards?: CreditCard[];
   categories: Category[];
   existingTransactions: Transaction[];
+  /** Familiares, para aplicar a divisão que a pessoa costuma usar em cada estabelecimento. */
+  familyMembers?: FamilyMember[];
   onCommitImport: (transactions: Transaction[], accountId: string) => void | number;
   onAddAccount?: (account: Omit<BankAccount, 'id'>) => BankAccount | void;
   defaultAccountId?: string;
@@ -45,6 +47,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
   cards = [],
   categories,
   existingTransactions,
+  familyMembers = [],
   onCommitImport,
   onAddAccount,
   defaultAccountId,
@@ -127,7 +130,8 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
     categories,
     accountId,
     cards,
-    { currency, exchangeRate }
+    { currency, exchangeRate },
+    familyMembers
   );
 
   const handleProcessRawText = (text: string, fileName?: string) => {
@@ -730,6 +734,26 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                             <AlertTriangle className="h-3 w-3 shrink-0" />
                             <span>{c.duplicateReason || 'Possível duplicata'}</span>
                           </div>
+                        )}
+                        {c.matchedPendingId && (
+                          <div
+                            data-testid={`pending-match-${c.id}`}
+                            className="flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5"
+                          >
+                            <span>Quita a conta pendente "{c.matchedPendingDescription}" (não cria lançamento novo)</span>
+                          </div>
+                        )}
+                        {c.learnedSharing && (
+                          <div
+                            data-testid={`learned-sharing-${c.id}`}
+                            className="text-[11px] text-indigo-700 dark:text-indigo-400 mt-0.5"
+                          >
+                            Dividido com {c.learnedSharing.memberName} (
+                            {c.learnedSharing.splitMode === 'half' ? 'metade' : `${c.learnedSharing.percentage}%`}) como nas últimas vezes
+                          </div>
+                        )}
+                        {c.suggestedCategorySource === 'history' && !c.isInvoicePayment && (
+                          <span className="block text-[10px] text-slate-400">Categoria pelo seu histórico</span>
                         )}
                         {c.memo && c.memo !== c.description && (
                           <span className="block text-[10px] text-slate-400 truncate">

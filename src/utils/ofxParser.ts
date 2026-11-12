@@ -1,4 +1,7 @@
-import { Category, CreditCard, CurrencyCode, Transaction } from '../types/finance';
+import { Category, CreditCard, CurrencyCode, FamilyMember, Transaction } from '../types/finance';
+import { calculateSharedAmount } from './financeRules';
+import { learnCategoryHabit } from './decisionEngine';
+import { learnSharingFromHistory, normalizeDescription, type LearnedSharing } from './learningRules';
 
 export interface ParsedBankStatementItem {
   fitid?: string;
@@ -37,6 +40,13 @@ export interface ReconciliationCandidate {
   isDuplicate: boolean;
   duplicateReason?: string;
   selected: boolean;
+  /** De onde veio a categoria sugerida: do histórico da pessoa ou de uma regra de estabelecimento. */
+  suggestedCategorySource?: 'history' | 'rule';
+  /** Conta pendente que esta linha do extrato quita (em vez de criar um lançamento novo). */
+  matchedPendingId?: string;
+  matchedPendingDescription?: string;
+  /** Divisão com familiar aprendida com o histórico para este estabelecimento. */
+  learnedSharing?: LearnedSharing;
 }
 
 export interface ParseStatementResult {
@@ -868,13 +878,51 @@ export function checkItemDuplicate(
 /**
  * Prepares statement items into reconciliation candidates with duplicate flags and category suggestions.
  */
+const PENDING_MATCH_WINDOW_DAYS = 7;
+
+function daysApart(a: string, b: string): number {
+  return Math.abs(Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000));
+}
+
+function sharesMeaningfulWord(a: string, b: string): boolean {
+  const wordsA = new Set(a.split(' ').filter((word) => word.length >= 4));
+  return b.split(' ').some((word) => word.length >= 4 && wordsA.has(word));
+}
+
+/**
+ * Acha a conta pendente que esta linha do extrato quita: mesmo tipo e valor, data até 7 dias de
+ * diferença e nome parecido; sem nome parecido, só vale se for a única pendência com aquele valor.
+ * Mais de uma possibilidade = não casa (a pessoa decide).
+ */
+function findPendingMatch(
+  item: { date: string; description: string; rawType: 'income' | 'expense' },
+  amountBrl: number,
+  pending: Transaction[],
+  claimed: Set<string>
+): Transaction | undefined {
+  const sameValue = pending.filter(
+    (tx) =>
+      !claimed.has(tx.id) &&
+      tx.type === item.rawType &&
+      Math.abs(tx.amount - amountBrl) < 0.01 &&
+      daysApart(tx.date, item.date) <= PENDING_MATCH_WINDOW_DAYS
+  );
+  if (sameValue.length === 0) return undefined;
+  const itemName = normalizeDescription(item.description);
+  const named = sameValue.filter((tx) => sharesMeaningfulWord(itemName, normalizeDescription(tx.description)));
+  if (named.length === 1) return named[0];
+  if (named.length === 0 && sameValue.length === 1) return sameValue[0];
+  return undefined;
+}
+
 export function prepareReconciliationCandidates(
   items: ParsedBankStatementItem[],
   existingTransactions: Transaction[],
   categories: Category[],
   targetAccountId?: string,
   cards: CreditCard[] = [],
-  fx: { currency?: string; exchangeRate?: number } = {}
+  fx: { currency?: string; exchangeRate?: number } = {},
+  familyMembers: FamilyMember[] = []
 ): ReconciliationCandidate[] {
   const statementCurrency = fx.currency || 'BRL';
   const exchangeRate = statementCurrency === 'BRL' ? 1 : fx.exchangeRate;
@@ -901,13 +949,45 @@ export function prepareReconciliationCandidates(
       }))
   );
 
+  const pendingBills = existingTransactions.filter(
+    (tx) =>
+      tx.status === 'pending' &&
+      !tx.creditCardId &&
+      !tx.isInvoicePayment &&
+      !tx.isCompanionOnlyExpense &&
+      tx.sharedPaidBy !== 'member' &&
+      (tx.type === 'income' || tx.type === 'expense') &&
+      (!targetAccountId || !tx.accountId || tx.accountId === targetAccountId)
+  );
+  const claimedPending = new Set<string>();
+
   const seenFitIds = new Set<string>();
   return items.map((item, idx) => {
-    const dupCheck = checkItemDuplicate(item, existingTransactions, targetAccountId, statementCurrency, exchangeRate);
+    const pendingMatch =
+      statementCurrency === 'BRL'
+        ? findPendingMatch(item, item.amount, pendingBills, claimedPending)
+        : undefined;
+    if (pendingMatch) claimedPending.add(pendingMatch.id);
+    // A conta pendente que casou não conta como "duplicata" desta linha
+    const dupCheck = checkItemDuplicate(
+      item,
+      pendingMatch ? existingTransactions.filter((tx) => tx.id !== pendingMatch.id) : existingTransactions,
+      targetAccountId,
+      statementCurrency,
+      exchangeRate
+    );
     const normalizedFitId = item.fitid?.trim();
     const repeatedInStatement = Boolean(normalizedFitId && seenFitIds.has(normalizedFitId));
     if (normalizedFitId) seenFitIds.add(normalizedFitId);
-    const suggestedCategoryId = inferCategoryByDescription(item.description, categories, item.rawType);
+    const ruleMatch = matchCategoryByDescription(item.description, categories, item.rawType);
+    const habit = learnCategoryHabit(item.description, existingTransactions, item.rawType);
+    const habitCategory = habit && categories.some((category) => category.id === habit.value && category.type === item.rawType)
+      ? habit.value
+      : undefined;
+    const suggestedCategoryId = habitCategory
+      ?? ruleMatch?.categoryId
+      ?? inferCategoryByDescription(item.description, categories, item.rawType);
+    const suggestedCategorySource: 'history' | 'rule' | undefined = habitCategory ? 'history' : ruleMatch ? 'rule' : undefined;
     const normalizedDescription = cleanDescriptionForComparison(item.description);
     const convertedCents = Math.round(item.amount * (exchangeRate || 1) * 100);
     const hasSafeConversion = statementCurrency === 'BRL' ||
@@ -952,6 +1032,13 @@ export function prepareReconciliationCandidates(
       isInvoicePayment: Boolean(invoiceMatch),
       settledCardId: invoiceMatch?.cardId,
       settledInvoiceMonth: invoiceMatch?.invoiceMonth,
+      suggestedCategorySource: invoiceMatch ? undefined : suggestedCategorySource,
+      matchedPendingId: pendingMatch?.id,
+      matchedPendingDescription: pendingMatch?.description,
+      learnedSharing:
+        item.rawType === 'expense' && !invoiceMatch && !pendingMatch && statementCurrency === 'BRL'
+          ? learnSharingFromHistory(item.description, existingTransactions, familyMembers) ?? undefined
+          : undefined,
       isDuplicate: dupCheck.isDuplicate || repeatedInStatement,
       duplicateReason: repeatedInStatement
         ? `FITID repetido neste arquivo (${normalizedFitId})`
@@ -992,6 +1079,17 @@ export function convertCandidatesToTransactions(
         fitid: c.fitid,
         importBatchId: currentBatchId,
         reconciled: true,
+        settlesPendingTransactionId: c.matchedPendingId,
+        ...(c.learnedSharing && !c.matchedPendingId
+          ? {
+              isShared: true,
+              sharedMemberId: c.learnedSharing.memberId,
+              sharedPaidBy: c.learnedSharing.paidBy,
+              sharedSplitMode: c.learnedSharing.splitMode === 'half' ? ('half' as const) : ('custom' as const),
+              sharedAmount: calculateSharedAmount(c.amount, c.learnedSharing.splitMode, c.learnedSharing.percentage),
+              sharedStatus: 'pending' as const,
+            }
+          : {}),
         isInvoicePayment: c.isInvoicePayment || undefined,
         settledCardId: c.isInvoicePayment ? c.settledCardId : undefined,
         settledInvoiceMonth: c.isInvoicePayment ? c.settledInvoiceMonth : undefined,

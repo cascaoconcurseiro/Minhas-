@@ -3964,6 +3964,7 @@ export default function App() {
         cards={cards}
         categories={categories}
         existingTransactions={transactions}
+        familyMembers={familyMembers}
         defaultAccountId={reconciliationTargetAccountId}
         onCommitImport={handleCommitReconciliationBatch}
         onAddAccount={handleAddAccount}

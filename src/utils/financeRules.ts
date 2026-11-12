@@ -867,8 +867,35 @@ export function applyReconciledBankTransactions(
   let rejectedInvoicePayments = 0;
 
   for (const imported of importedTransactions) {
+    if (imported.settlesPendingTransactionId) {
+      const pendingIndex = updatedTransactions.findIndex(
+        (tx) => tx.id === imported.settlesPendingTransactionId && tx.status === 'pending'
+      );
+      if (pendingIndex >= 0) {
+        // Extrato quita uma conta que já estava cadastrada: baixa a pendente em vez de duplicar
+        const pending = updatedTransactions[pendingIndex];
+        updatedTransactions = updatedTransactions.map((tx, index) =>
+          index === pendingIndex
+            ? {
+                ...pending,
+                status: 'paid' as const,
+                date: imported.date,
+                accountId: pending.accountId || imported.accountId,
+                fitid: imported.fitid,
+                importBatchId: imported.importBatchId,
+                reconciled: true,
+              }
+            : tx
+        );
+        importedCount += 1;
+        continue;
+      }
+    }
+
     if (!imported.isInvoicePayment) {
-      updatedTransactions = [imported, ...updatedTransactions];
+      const { settlesPendingTransactionId: _transient, ...toStore } = imported;
+      void _transient;
+      updatedTransactions = [toStore, ...updatedTransactions];
       importedCount += 1;
       continue;
     }
