@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Fatura do cartão em "Contas a pagar" — 12/11/2026
+
+Pedido: o card de contas a pagar pendentes da Visão Geral só listava lançamentos bancários e não mostrava a fatura do cartão, embora o sistema já saiba vencimento e valor. Novo `getPendingCardInvoices` (`financeRules.ts`): uma linha por cartão e mês de vencimento, com valor em aberto (`calculateCreditCardSummary`), vencimento (`dueDay`) e selo "Atrasada" no mês atual para faturas vencidas e não pagas. A linha entra na lista de Pendentes, nos contadores e no texto do cabeçalho; o botão "Pagar fatura" abre o cartão (`onNavigateToCard`), onde está o fluxo de pagamento. Não há baixa direta na Visão Geral. Validação: `tsc --noEmit`, 569 testes. Não conferido em navegador. Decisão do usuário: publicar sempre direto em produção.
+
 ## Visão Geral sem "Resumo do mês" e "Cartões" — 12/11/2026
 
 Pedido: o usuário não gostou dos cartões "Resumo de novembro" e "Cartões" no dashboard. Foram removidos da Visão Geral (`OverviewTab.tsx`, props e cálculos correspondentes em `App.tsx`, regras de CSS). Os componentes `MonthlyInsightsCard`/`CardInsightsCard` e os utilitários `monthlyNarrative`/`cardIntelligence` continuam no código, com seus testes, sem uso na tela. Validação: `tsc --noEmit` e 568 testes. Não conferido em navegador.
