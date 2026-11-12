@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Manter conectado e lembrar o login — 12/11/2026
+
+Pedido: faltava botão de manter conectado e memorizar o login para a pessoa não digitar. Antes: a sessão (30 dias, renovada a cada abertura por `/api/auth/me`) já ficava em `localStorage`, mas sem opção visível, sem lembrar o e-mail e sem os atributos que fazem o gerenciador de senhas (Chaves do iCloud/Google) oferecer salvar e preencher.
+
+Agora: caixa "Manter conectado" na `LoginPage` (padrão ligado, com explicação). Ligada, o token vai para `localStorage` e o e-mail é lembrado para vir preenchido; desligada, o token vai para `sessionStorage` (some ao fechar o app) e o e-mail não é lembrado. A preferência fica em `localStorage` (`minhas_economias_keep_signed_in_v1`; ausente = ligado), o e-mail em `minhas_economias_remembered_email_v1`; funções em `src/lib/authClient.ts` (`getKeepSignedIn`, `setKeepSignedIn`, `getRememberedEmail`, `rememberEmail`, `forgetRememberedEmail`; `readStoredToken` lê os dois lugares e `writeStoredToken(null)` apaga os dois). Campos de e-mail e senha agora têm `name`, `autoComplete` (`username`, `current-password`/`new-password`), `inputMode`, sem autocapitalização, e fonte maior no celular (16 px, evita zoom do iOS); a caixa de seleção tem 20 px. A duração do login (30 dias renovados a cada abertura) não mudou.
+
+Validação: `tsc`, 601 testes (novos: `authClient.test.ts` com os dois modos e o logout, e o teste da tela de login), build, e no Chromium: com "manter" o app reabre logado e com o e-mail preenchido; sem "manter" volta ao login. Não verificado no iPhone: o aviso do iCloud para salvar a senha depende do aparelho.
+
 ## Face ID: correção da ativação que dava erro — 12/11/2026
 
 O usuário relatou "não ativou o Face ID e deu erro" (sem o texto do erro). Não há acesso aos logs da Vercel (403) nem ao site a partir do ambiente, então não foi possível ver a causa exata. Causa mais provável, por limitação conhecida do Safari/iOS: o navegador só aceita `navigator.credentials.create/get` logo depois do toque (ativação transitória), e o fluxo anterior buscava o desafio no servidor (e carregava a biblioteca) DEPOIS do toque; com função fria + Neon isso passa do prazo e o iPhone recusa. Além disso o erro "cancelado" era engolido sem mostrar nada.

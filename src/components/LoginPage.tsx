@@ -10,7 +10,14 @@ import {
   User as UserIcon,
   Wallet,
 } from 'lucide-react';
-import { getAuthErrorMessage } from '../lib/authClient';
+import {
+  forgetRememberedEmail,
+  getAuthErrorMessage,
+  getKeepSignedIn,
+  getRememberedEmail,
+  rememberEmail,
+  setKeepSignedIn,
+} from '../lib/authClient';
 import {
   describePasskeyFailure,
   getPasskeyErrorMessage,
@@ -39,7 +46,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const inputId = useId();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState(defaultName);
-  const [email, setEmail] = useState(defaultEmail);
+  const [email, setEmail] = useState(() => defaultEmail || getRememberedEmail());
+  const [keepSignedIn, setKeepSignedInState] = useState(() => getKeepSignedIn());
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -99,12 +107,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     setIsLoading(true);
     try {
+      // Define antes de entrar: decide se o login fica guardado neste aparelho ou só até fechar o app.
+      setKeepSignedIn(keepSignedIn);
       if (mode === 'login') {
         await onSignInEmail(email.trim(), password);
       } else {
         const cleanName = name.trim() || email.split('@')[0];
         await onRegisterEmail(cleanName, email.trim(), password);
       }
+      if (keepSignedIn) rememberEmail(email);
+      else forgetRememberedEmail();
     } catch (error) {
       setErrorMsg(getAuthErrorMessage(error));
     } finally {
@@ -314,11 +326,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     <UserIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
                       id={`${inputId}-name`}
+                      name="name"
+                      autoComplete="name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Como deseja ser chamado"
-                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-3 sm:py-2.5 text-base sm:text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
                     />
                   </div>
                 </div>
@@ -333,12 +347,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <input
                     id={`${inputId}-email`}
                     data-testid="login-email-input"
+                    name="email"
+                    autoComplete="username"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu.email@exemplo.com"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-3 sm:py-2.5 text-base sm:text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
@@ -352,16 +372,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <input
                     id={`${inputId}-password`}
                     data-testid="login-password-input"
+                    name="password"
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     type="password"
                     required
                     minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800 pl-9 pr-3.5 py-3 sm:py-2.5 text-base sm:text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-600 focus:bg-white focus:outline-none"
                   />
                 </div>
               </div>
+
+              <label htmlFor={`${inputId}-keep`} className="flex cursor-pointer items-start gap-3 rounded-xl py-1 text-xs text-slate-700 dark:text-slate-300">
+                <input
+                  id={`${inputId}-keep`}
+                  type="checkbox"
+                  data-testid="keep-signed-in"
+                  checked={keepSignedIn}
+                  onChange={(e) => setKeepSignedInState(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 accent-blue-600"
+                />
+                <span>
+                  <span className="block font-bold">Manter conectado</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                    {keepSignedIn
+                      ? 'Neste aparelho você entra direto, sem digitar de novo, por até 30 dias.'
+                      : 'Você sai ao fechar o app e terá de entrar de novo.'}
+                  </span>
+                </span>
+              </label>
 
               <button
                 type="submit"

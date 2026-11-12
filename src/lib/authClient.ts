@@ -35,9 +35,56 @@ type Listener = (user: User | null) => void;
 
 const listeners = new Set<Listener>();
 
+const KEEP_SIGNED_IN_KEY = 'minhas_economias_keep_signed_in_v1';
+const REMEMBERED_EMAIL_KEY = 'minhas_economias_remembered_email_v1';
+
+/** "Manter conectado": padrão ligado. Desligado, o login vale só até fechar o app. */
+export function getKeepSignedIn(): boolean {
+  try {
+    return localStorage.getItem(KEEP_SIGNED_IN_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function setKeepSignedIn(keep: boolean): void {
+  try {
+    if (keep) localStorage.removeItem(KEEP_SIGNED_IN_KEY);
+    else localStorage.setItem(KEEP_SIGNED_IN_KEY, '0');
+  } catch {
+    // Armazenamento bloqueado: o login vale até recarregar.
+  }
+}
+
+/** Último e-mail usado, para já vir preenchido na tela de entrada. */
+export function getRememberedEmail(): string {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function rememberEmail(email: string): void {
+  try {
+    const clean = email.trim().toLowerCase();
+    if (clean) localStorage.setItem(REMEMBERED_EMAIL_KEY, clean);
+  } catch {
+    // Sem armazenamento: só não lembramos o e-mail.
+  }
+}
+
+export function forgetRememberedEmail(): void {
+  try {
+    localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+  } catch {
+    // Sem armazenamento.
+  }
+}
+
 function readStoredToken(): string {
   try {
-    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ?? '';
+    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || '';
   } catch {
     return '';
   }
@@ -45,8 +92,19 @@ function readStoredToken(): string {
 
 function writeStoredToken(token: string | null): void {
   try {
-    if (token) localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
-    else localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    if (!token) {
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      return;
+    }
+    if (getKeepSignedIn()) {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+      sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    } else {
+      // Sem "manter conectado": o login some quando o app for fechado.
+      sessionStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    }
   } catch {
     // Private mode / blocked storage: the session simply lasts until reload.
   }

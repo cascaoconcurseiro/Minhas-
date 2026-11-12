@@ -137,3 +137,18 @@ test('validação impede callbacks com e-mail inválido ou senha curta', async (
   assert.match(page.textContent ?? '', /A senha deve ter pelo menos 6 caracteres/);
   assert.equal(callbackCount, 0);
 });
+
+test('login oferece manter conectado e os campos que o gerenciador de senhas do celular reconhece', () => {
+  const { container } = (() => { const c = document.createElement('div'); document.body.append(c); return { container: c }; })();
+  const localRoot = createRoot(container);
+  act(() => localRoot.render(React.createElement(LoginPage, { onSignInEmail: async () => {}, onRegisterEmail: async () => {} })));
+  const email = container.querySelector<HTMLInputElement>('[data-testid="login-email-input"]');
+  const password = container.querySelector<HTMLInputElement>('[data-testid="login-password-input"]');
+  const keep = container.querySelector<HTMLInputElement>('[data-testid="keep-signed-in"]');
+  assert.equal(email?.getAttribute('autocomplete'), 'username');
+  assert.equal(email?.getAttribute('name'), 'email');
+  assert.equal(password?.getAttribute('autocomplete'), 'current-password');
+  assert.ok(keep && keep.checked, 'manter conectado vem ligado');
+  act(() => localRoot.unmount());
+  container.remove();
+});
