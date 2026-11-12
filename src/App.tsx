@@ -144,6 +144,7 @@ import {
 import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
 import { parseCachedWorkspace } from './utils/workspaceCache';
 import { forecastCashBalance } from './utils/cashForecast';
+import { analyzeCards, recommendCardForPurchase } from './utils/cardIntelligence';
 import { buildMonthlyInsights } from './utils/monthlyNarrative';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
@@ -2765,6 +2766,13 @@ export default function App() {
     [accounts, cards, transactions, todayDateStr]
   );
 
+  // Cartões: fatura aberta, projeção, melhor dia de compra e qual usar hoje.
+  const cardInsights = useMemo(
+    () => analyzeCards(cards, transactions, todayDateStr),
+    [cards, transactions, todayDateStr]
+  );
+  const cardRecommendation = useMemo(() => recommendCardForPurchase(cardInsights), [cardInsights]);
+
   // Gastos que se repetem todo mês (assinaturas, mensalidades): sugere prever os próximos meses.
   const recurringSuggestions = useMemo(
     () => detectRecurringExpenses(transactions, todayDateStr, settings.dismissedRecurringKeys ?? []),
@@ -3613,6 +3621,8 @@ export default function App() {
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
                   cashForecast={cashForecast}
+                  cardInsights={cardInsights}
+                  cardRecommendation={cardRecommendation}
                   monthlyInsights={monthlyInsights}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
