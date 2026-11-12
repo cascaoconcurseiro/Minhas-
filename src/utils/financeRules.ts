@@ -2965,7 +2965,7 @@ export function calculateFinancialHealthScore360(params: {
   const year = Number(yStr) || 2026;
   const monthIdx = (Number(mStr) || 1) - 1;
   const daysInMonth = new Date(Date.UTC(year, monthIdx + 1, 0)).getUTCDate();
-  const todayIso = referenceDateIso || new Date().toISOString().slice(0, 10);
+  const todayIso = referenceDateIso || getLocalDateISO();
   const currentYearMonth = todayIso.slice(0, 7);
 
   let daysRemainingInMonth = daysInMonth;

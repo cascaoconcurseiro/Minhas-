@@ -18,7 +18,7 @@ import {
   TripParticipantBalance,
   TripSplitMethod,
 } from '../types/finance';
-import { parseBRLInput } from './financeRules.js';
+import { getLocalDateISO, parseBRLInput } from './financeRules.js';
 
 export interface CurrencyMetadata {
   code: CurrencyCode;
@@ -1691,7 +1691,7 @@ export function sanitizeAndRepairFinancialState(params: {
 
       // Ensure valid date and competenceMonth
       if (!/^\d{4}-\d{2}-\d{2}$/.test(nextTx.date || '')) {
-        nextTx.date = new Date().toISOString().slice(0, 10);
+        nextTx.date = getLocalDateISO();
         modified = true;
       }
       if (!/^\d{4}-\d{2}$/.test(nextTx.competenceMonth || '')) {

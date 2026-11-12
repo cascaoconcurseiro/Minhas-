@@ -34,7 +34,6 @@ import {
   formatShortDateBR,
   parseBRLInput,
 } from '../utils/financeRules';
-import { generateMonthlyFinancialReportPdf } from '../utils/reportPdfGenerator';
 import { exportTransactionsToSafeCSV } from '../utils/transactionsCsv';
 import {
   auditLegacyFinancialRecords,
@@ -286,9 +285,11 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     try {
       setIsExportingPdf(true);
+      // Carrega o gerador de PDF (biblioteca pesada) só quando a pessoa pede o arquivo.
+      const { generateMonthlyFinancialReportPdf } = await import('../utils/reportPdfGenerator');
       generateMonthlyFinancialReportPdf({
         selectedMonth,
         accounts,

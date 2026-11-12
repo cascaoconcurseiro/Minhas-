@@ -44,7 +44,7 @@ import {
   TripSettlement,
   TripSettlementMethod,
 } from '../types/finance';
-import { formatBRL, formatShortDateBR, parseBRLInput } from '../utils/financeRules';
+import { formatBRL, formatShortDateBR, getLocalDateISO, parseBRLInput } from '../utils/financeRules';
 import {
   isCurrencyInputValid,
   isExchangeRateInputValid,
@@ -67,7 +67,6 @@ import {
 import { TripSavingsChart } from './TripSavingsChart';
 import { SmartCurrencyConverterCard } from './SmartCurrencyConverterCard';
 import { TripPdfReportModal } from './TripPdfReportModal';
-import { generateAndDownloadTripPdf } from '../utils/tripPdfGenerator';
 
 interface TripsTabProps {
   getAuthToken: () => Promise<string>;
@@ -169,7 +168,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   const [activeSettlementDebt, setActiveSettlementDebt] =
     useState<TripDebtTransfer | null>(null);
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getLocalDateISO();
 
   // New Trip Form State
   const [tripName, setTripName] = useState('');
@@ -577,7 +576,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
 
     const newSettlement: TripSettlement = {
       id: `st-${Date.now()}`,
-      date: new Date().toISOString().slice(0, 10),
+      date: getLocalDateISO(),
       fromParticipantId: activeSettlementDebt.fromParticipantId,
       toParticipantId: activeSettlementDebt.toParticipantId,
       currencySettled: isSettledInBrl ? 'BRL' : activeTrip.currency,
@@ -613,9 +612,10 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     setActiveSettlementDebt(null);
   };
 
-  const handleExportPdfReport = () => {
+  const handleExportPdfReport = async () => {
     if (!activeTrip || !summary) return;
     try {
+      const { generateAndDownloadTripPdf } = await import('../utils/tripPdfGenerator');
       generateAndDownloadTripPdf({
         trip: activeTrip,
         summary,

@@ -61,7 +61,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   const [goalDeadline, setGoalDeadline] = useState(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().slice(0, 10);
+    return getLocalDateISO(d);
   });
   const [goalIndexer, setGoalIndexer] = useState<SavingsGoal['indexer']>('TESOURO_SELIC');
   const [goalCategory, setGoalCategory] = useState('Patrimônio');
@@ -134,7 +134,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
     setGoalMonthly('0,00');
     const nextYear = new Date();
     nextYear.setFullYear(nextYear.getFullYear() + 1);
-    setGoalDeadline(nextYear.toISOString().slice(0, 10));
+    setGoalDeadline(getLocalDateISO(nextYear));
     setGoalIndexer('TESOURO_SELIC');
     setGoalCategory('Sonhos & Patrimônio');
     setGoalNotes('');

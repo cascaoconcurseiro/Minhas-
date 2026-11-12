@@ -411,6 +411,10 @@ test('ReportsAndDataTab downloads sanitized CSV data and runs PDF export without
   const pdf = page.querySelector<HTMLButtonElement>('[aria-label="Exportar relatório financeiro do mês em PDF formatado"]');
   assert.ok(pdf);
   await act(async () => { pdf.click(); });
+  // O gerador de PDF é carregado sob demanda: espera a ação terminar.
+  for (let i = 0; i < 100 && pdf.disabled; i++) {
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+  }
   assert.deepEqual(errors, [], 'PDF action reaches the PDF generator without reporting a generation error');
   assert.equal(pdf.disabled, false, 'ação volta a ficar disponível ao concluir a geração');
   assert.match(pdf.textContent ?? '', /Exportar Relatório em PDF/);

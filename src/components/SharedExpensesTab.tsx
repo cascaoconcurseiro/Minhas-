@@ -29,6 +29,7 @@ import {
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
+  getLocalDateISO,
 } from '../utils/financeRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { InstitutionMark } from './InstitutionMark';
@@ -234,7 +235,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
         inviteStatus: cleanEmail ? memberInviteStatus : 'none',
         invitedAt:
           cleanEmail && !editingMember.invitedAt
-            ? new Date().toISOString().slice(0, 10)
+            ? getLocalDateISO()
             : editingMember.invitedAt,
         relationship: memberRelation,
         color: memberColor,
@@ -260,7 +261,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
         email: cleanEmail || undefined,
         inviteStatus: cleanEmail ? 'invited' : 'none',
         direction: cleanEmail ? 'outgoing' : undefined,
-        invitedAt: cleanEmail ? new Date().toISOString().slice(0, 10) : undefined,
+        invitedAt: cleanEmail ? getLocalDateISO() : undefined,
         relationship: memberRelation,
         color: memberColor,
         pixKey: memberPixKey.trim() || undefined,

@@ -25,7 +25,6 @@ import {
   formatExchangeRateBR,
   formatForeignCurrency,
 } from '../utils/travelRules';
-import { generateAndDownloadTripPdf } from '../utils/tripPdfGenerator';
 
 interface TripPdfReportModalProps {
   trip: Trip;
@@ -63,7 +62,8 @@ export const TripPdfReportModal: React.FC<TripPdfReportModalProps> = ({
     window.print();
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
+    const { generateAndDownloadTripPdf } = await import('../utils/tripPdfGenerator');
     generateAndDownloadTripPdf({
       trip,
       summary,

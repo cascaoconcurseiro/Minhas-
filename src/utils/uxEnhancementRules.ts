@@ -4,7 +4,7 @@ import {
   PaymentMethod,
   Transaction,
 } from '../types/finance';
-import { getEffectiveExpenseAmountForUser, getPurchaseTransactionsForMonth } from './financeRules';
+import { getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth } from './financeRules';
 import { matchCategoryByDescription } from './ofxParser';
 
 export interface DailyTransactionGroup {
@@ -82,7 +82,7 @@ const WEEKDAYS_PT = [
  */
 export function formatDailyGroupHeaderPT(
   dateStr: string,
-  referenceDateStr = new Date().toISOString().slice(0, 10)
+  referenceDateStr = getLocalDateISO()
 ): { dayHeaderLabel: string; weekdayLabel: string } {
   const parts = dateStr.split('-').map(Number);
   if (parts.length !== 3 || parts.some(isNaN)) {
@@ -126,7 +126,7 @@ export function formatDailyGroupHeaderPT(
  */
 export function groupTransactionsByDate(
   transactions: Transaction[],
-  referenceDateStr = new Date().toISOString().slice(0, 10)
+  referenceDateStr = getLocalDateISO()
 ): DailyTransactionGroup[] {
   const map = new Map<string, Transaction[]>();
 
