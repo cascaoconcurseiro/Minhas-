@@ -1463,7 +1463,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => openOperationModal(asset, 'buy')}
-                      className="rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-blue-800"
+                      className="rounded-md bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-800"
                     >
                       + Aportar
                     </button>
@@ -1659,7 +1659,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                           type="button"
                           onClick={() => openOperationModal(asset, 'buy')}
                           title="Registrar novo aporte / compra"
-                          className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-800 hover:bg-blue-100"
+                          className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
                         >
                           + Aportar
                         </button>
