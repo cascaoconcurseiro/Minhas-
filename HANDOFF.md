@@ -1,10 +1,12 @@
 # Handoff — Minhas Economias
 
-## API de produção indisponível — 11/11
+## Produção publicada e workspace validado — 11/11/2026
 
-A captura do usuário mostrava o workspace bloqueado. A verificação do domínio principal encontrou HTTP 500 em `/api/status`, `/api/auth/me` e `/api/workspace`; os logs da Vercel apontaram falha de importação ESM em `src/utils/sharedFinanceRules.js`: `./financeRules` não era resolvido pelo runtime Node 26. A validação do módulo no servidor mostrou que importar a regra compartilhada inteira também carregaria dependências de interface. Extraída a validação pura para `src/utils/sharedSettlementReceipts.ts`; o backend agora importa somente esse módulo e a API não depende das regras visuais. Revisado `.claude/launch.json` (configuração local de desenvolvimento, sem credenciais) para inclusão no commit solicitado.
+A captura do usuário mostrava o workspace bloqueado. A causa foi uma falha de import ESM em `src/utils/sharedFinanceRules.js` no runtime Node 26. Extraída a validação pura para `src/utils/sharedSettlementReceipts.ts`; `backend/app.ts` importa esse módulo sem dependências de interface e `src/utils/sharedFinanceRules.ts` mantém a reexportação para o cliente. As alterações existentes, inclusive `.claude/launch.json`, foram incluídas conforme pedido.
 
-Lint, build PWA, import isolado do parser no Node 26 e `git diff --check` passaram. O estado local completo, incluindo `.claude/launch.json` e as alterações existentes de metas/investimentos, foi reaplicado como um commit único sobre o `main` atualizado. A suíte dessa base passou 475/475. A produção ainda está retornando HTTP 500; o próximo passo é concluir o PR/CI e confirmar HTTP 200 em `/api/status`, endpoints protegidos sem token retornando 401 e leitura autenticada do workspace sem alterar dados.
+O commit foi integrado à `main` pelo PR #4, merge `920da4d35cda0e5ae64da37f63120e75d2d96a47`, com CI e preview aprovados. Vercel Production está Ready em `https://minhaseconomias-blue.vercel.app`. Em sessão autenticada real, a mensagem persistiu na aba já aberta; após recarregar e aguardar a hidratação, o workspace e a Visão Geral carregaram. Logs confirmaram `GET /api/workspace` 200, `PUT /api/workspace` 200 e chamadas de família 200. `/api/status` retornou 200. Nenhum dado financeiro foi lido ou alterado manualmente.
+
+Próximo passo concreto: continuar QA autenticado de leitura em `src/App.tsx` e nos módulos principais, sem editar lançamentos reais; investigar qualquer erro observado antes de declarar cobertura de todos os fluxos. A verificação concluída confirma deploy e abertura do workspace, mas não certifica todos os fluxos financeiros.
 
 ## Metas e exclusão de ativos — continuação
 
