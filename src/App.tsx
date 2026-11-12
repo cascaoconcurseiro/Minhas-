@@ -144,9 +144,7 @@ import {
 import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
 import { parseCachedWorkspace } from './utils/workspaceCache';
 import { forecastCashBalance } from './utils/cashForecast';
-import { analyzeCards, recommendCardForPurchase } from './utils/cardIntelligence';
 import { assessDataHealth } from './utils/dataHealth';
-import { buildMonthlyInsights } from './utils/monthlyNarrative';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
 import {
@@ -2770,24 +2768,11 @@ export default function App() {
   const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
   const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
 
-  // Resumo do mês em frases simples.
-  const monthlyInsights = useMemo(
-    () => buildMonthlyInsights({ accounts, cards, categories, transactions, familyMembers, selectedMonth, referenceDate: todayDateStr }),
-    [accounts, cards, categories, transactions, familyMembers, selectedMonth, todayDateStr]
-  );
-
   // Previsão do saldo dos próximos 45 dias (contas incluídas no total).
   const cashForecast = useMemo(
     () => forecastCashBalance(accounts, cards, transactions, todayDateStr),
     [accounts, cards, transactions, todayDateStr]
   );
-
-  // Cartões: fatura aberta, projeção, melhor dia de compra e qual usar hoje.
-  const cardInsights = useMemo(
-    () => analyzeCards(cards, transactions, todayDateStr),
-    [cards, transactions, todayDateStr]
-  );
-  const cardRecommendation = useMemo(() => recommendCardForPurchase(cardInsights), [cardInsights]);
 
   // Cadastros incompletos ou inconsistentes.
   const dataHealthIssues = useMemo(
@@ -3647,10 +3632,7 @@ export default function App() {
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
                   cashForecast={cashForecast}
-                  cardInsights={cardInsights}
                   dataHealthIssues={dataHealthIssues}
-                  cardRecommendation={cardRecommendation}
-                  monthlyInsights={monthlyInsights}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={

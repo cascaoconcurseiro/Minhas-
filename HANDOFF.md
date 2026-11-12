@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Visão Geral sem "Resumo do mês" e "Cartões" — 12/11/2026
+
+Pedido: o usuário não gostou dos cartões "Resumo de novembro" e "Cartões" no dashboard. Foram removidos da Visão Geral (`OverviewTab.tsx`, props e cálculos correspondentes em `App.tsx`, regras de CSS). Os componentes `MonthlyInsightsCard`/`CardInsightsCard` e os utilitários `monthlyNarrative`/`cardIntelligence` continuam no código, com seus testes, sem uso na tela. Validação: `tsc --noEmit` e 568 testes. Não conferido em navegador.
+
 ## Gasto por mês da compra, caixa por vencimento — 12/11/2026
 
 Pedido: compra de novembro no cartão com fatura em dezembro aparecia como gasto de dezembro (pizza, orçamento, despesas do mês). Decisão confirmada: duas visões separadas. **Gasto** conta no mês da compra (cada parcela no mês da própria parcela, parcela antecipada no mês original); **caixa** conta quando o dinheiro sai (fatura no vencimento/pagamento).
