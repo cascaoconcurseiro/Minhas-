@@ -542,12 +542,12 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                   Divisão recomendada da renda líquida mensal ({formatBRL(rule503020.incomeBase)}) entre gastos essenciais, estilo de vida e futuro
                 </p>
               </div>
-              <div className="text-right font-mono tabular-nums text-xs text-slate-600">
-                <span>
+              <div className="text-left sm:text-right font-mono tabular-nums text-xs text-slate-600">
+                <span className="block sm:inline">
                   Orçamento Total Planejado: <strong>{formatBRL(totalBudgeted)}</strong>
                 </span>
-                <span aria-hidden="true"> · </span>
-                <span>
+                <span aria-hidden="true" className="hidden sm:inline"> · </span>
+                <span className="block sm:inline">
                   Realizado + Previsto: <strong>{formatBRL(totalSpent)}</strong>
                 </span>
               </div>

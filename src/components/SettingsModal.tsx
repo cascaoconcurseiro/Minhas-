@@ -207,7 +207,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       aria-modal="true"
       aria-labelledby="modal-settings-title"
     >
-      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl border-t sm:border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
+      <div className="w-full max-w-4xl max-h-[90dvh] flex flex-col rounded-t-3xl sm:rounded-2xl border-t sm:border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden animate-sheet-up sm:animate-modal-in">
         {/* Mobile Pull Indicator */}
         <div className="mx-auto mt-2 -mb-1 h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700 sm:hidden" />
 
@@ -224,7 +224,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 Central de Configurações & Regras Financeiras
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+              <p className="text-xs text-slate-500 dark:text-slate-400 break-words sm:truncate">
                 Personalize aparência, categorias, efeito cascata, conta e backups
               </p>
             </div>

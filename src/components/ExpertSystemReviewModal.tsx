@@ -195,7 +195,7 @@ export const ExpertSystemReviewModal: React.FC<ExpertSystemReviewModalProps> = (
     >
       <div
         data-testid="expert-review-modal"
-        className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col"
+        className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden my-auto max-h-[90dvh] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-900 px-5 sm:px-6 py-4 text-white shrink-0">

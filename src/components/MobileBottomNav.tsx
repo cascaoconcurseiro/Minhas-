@@ -151,7 +151,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             if (e.target === e.currentTarget) setShowMoreMenu(false);
           }}
         >
-          <div className="w-full max-w-lg rounded-t-3xl bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-5 shadow-2xl animate-sheet-up modal-shell modal-form-scroll max-h-[85vh] overflow-y-auto custom-scrollbar pb-[max(env(safe-area-inset-bottom),1.5rem)]">
+          <div className="w-full max-w-lg rounded-t-3xl bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-5 shadow-2xl animate-sheet-up modal-shell modal-form-scroll max-h-[85dvh] overflow-y-auto custom-scrollbar pb-[max(env(safe-area-inset-bottom),1.5rem)]">
             {/* Top Drag Indicator */}
             <div className="mx-auto -mt-1 mb-4 h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700" />
 
@@ -193,7 +193,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <Landmark className="h-4.5 w-4.5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Contas & Carteiras (Extrato Bancário)
                       </span>
@@ -215,7 +215,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <TrendingUp className="h-4 w-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Investimentos
                       </span>
@@ -237,7 +237,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <PiggyBank className="h-4 w-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Metas & Reservas
                       </span>
@@ -267,7 +267,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <Plane className="h-4.5 w-4.5" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Viagens & Câmbio (TravelSpend + Splitwise)
                       </span>
@@ -289,7 +289,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300">
                       <Sliders className="h-4 w-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Orçamentos
                       </span>
@@ -311,7 +311,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pink-100 text-pink-700 dark:bg-pink-950/70 dark:text-pink-300">
                       <Users className="h-4 w-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Compartilhado
                       </span>
@@ -333,7 +333,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
                       <PieChart className="h-4 w-4" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-xs font-bold block text-slate-900 dark:text-white">
                         Relatórios & DRE
                       </span>
