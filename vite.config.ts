@@ -34,14 +34,14 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon.ico', 'favicon-32x32.png', 'apple-touch-icon.png', 'brand-mark.png'],
         manifest: {
           id: '/',
           name: 'Minhas Economias BR',
           short_name: 'Economias BR',
           description: 'Controle financeiro pessoal e familiar 100% manual e privado para o público brasileiro.',
-          theme_color: '#2864e8',
-          background_color: '#f4f5f7',
+          theme_color: '#023f3c',
+          background_color: '#023f3c',
           lang: 'pt-BR',
           display: 'standalone',
           orientation: 'portrait',
