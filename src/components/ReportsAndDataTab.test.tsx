@@ -445,3 +445,17 @@ test('fluxo de caixa diário mostra só dias com movimento e expande para todos 
   await act(async () => { toggle.click(); });
   assert.equal(rows(), collapsed);
 });
+
+test('fluxo de caixa diário explica ao passar o mouse a saída de fatura em atraso', () => {
+  const page = renderReports({
+    cards: [{ id: 'card-tip', name: 'Nubank', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 5, defaultAccountId: 'acc-synthetic', color: '#000000' }],
+    transactions: [{
+      id: 'fatura-antiga', description: 'Compra antiga', amount: 599.59, date: '2026-10-02', competenceMonth: '2026-10',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-tip', paymentMethod: 'credit_card', recurrence: 'single',
+    }],
+  });
+  const note = page.querySelector<HTMLElement>('[data-testid="daily-flow-expense-note"]');
+  assert.ok(note, 'valor da fatura tem aviso');
+  assert.match(note.getAttribute('title') ?? '', /Fatura de Outubro de 2026 do Nubank, ainda não paga \(em atraso\)/);
+  assert.match(note.textContent ?? '', /599,59/);
+});
