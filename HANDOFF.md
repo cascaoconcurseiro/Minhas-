@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Barra lateral fixa ao rolar a página — 12/11/2026
+
+Problema (print do usuário, desktop, página de Relatórios rolada): a lateral com "Sair da Conta" subia junto com a página e terminava no meio da tela. Causa: o contêiner raiz do app logado (`src/App.tsx`, linha do `min-h-screen … flex`) usava `overflow-x-hidden`, que transforma o contêiner em área de rolagem própria e anula o `position: sticky` da lateral (`h-screen sticky top-0`) e da barra superior. Correção: `overflow-x-clip` (corta o excesso sem criar rolagem). Mecanismo provado em Chromium com página mínima (após rolar 1000 px: `hidden` → topo da lateral −1000 px; `clip` → 0). Validação: `tsc --noEmit`, 577 testes, build (a classe `overflow-x-clip` entra no CSS gerado). Não conferido no app real em navegador: pedir ao usuário para rolar Relatórios com o preview do PR. Limite: navegadores muito antigos (Safari < 16) ignoram `clip`.
+
 ## Aviso ao passar o mouse nas saídas do fluxo de caixa diário — 12/11/2026
 
 Pedido: no print de Janeiro/2027 as saídas de R$ 599,59 (dia 01) e R$ 179,59 (dia 05) pareciam repetidas. São faturas diferentes: a de dezembro, ainda em aberto, é tratada como atrasada e entra no dia 1; a de janeiro vence no dia 5. `calculateDailyCashFlow` agora devolve `expenseNotes` (opcional) por dia, com texto como "Fatura de Dezembro de 2026 do Nubank, ainda não paga (em atraso)" ou "…: vencimento neste dia" e o valor; `ReportsAndDataTab` mostra o valor com sublinhado pontilhado e `title` (e texto para leitor de tela, foco por teclado). Também explica "sua parte em despesa compartilhada paga por outra pessoa". Valores e saldos não mudaram. Testes: 1 de cálculo e 1 de tela; validação: `tsc --noEmit`, 577 testes, build. Limites: o `title` nativo não aparece no celular (sem mouse) e não foi conferido em navegador; a premissa de que o caso do print é fatura de dezembro em aberto não foi confirmada com os dados do usuário.

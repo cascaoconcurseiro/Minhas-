@@ -3068,7 +3068,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen w-full max-w-full overflow-x-hidden flex bg-[var(--app-canvas)] text-slate-900 transition-colors duration-200 ${
+      className={`min-h-screen w-full max-w-full overflow-x-clip flex bg-[var(--app-canvas)] text-slate-900 transition-colors duration-200 ${
         settings.theme === 'dark' ? 'dark' : ''
       } ${settings.privacyMode ? 'privacy-mode' : ''} ${
         settings.density === 'compact' ? 'density-compact' : ''
