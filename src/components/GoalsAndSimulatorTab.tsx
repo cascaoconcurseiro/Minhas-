@@ -451,7 +451,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                       ) : (
                         <Target className="h-4 w-4 text-emerald-600 shrink-0" />
                       )}
-                      <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900 break-words sm:truncate">
                         {goal.name}
                       </h3>
                     </div>

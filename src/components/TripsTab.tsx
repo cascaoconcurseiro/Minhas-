@@ -1018,10 +1018,10 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                         {tMeta?.flag || '✈️'}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white break-words sm:truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                           {t.name}
                         </h3>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 break-words sm:truncate">
                           {t.destination}
                         </p>
                       </div>
@@ -1139,7 +1139,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 }`}
               >
                 <span>{flag}</span>
-                <span className="truncate max-w-[160px]">{t.name}</span>
+                <span className="break-words sm:truncate max-w-[160px]">{t.name}</span>
                 <span className="text-[10px] opacity-80">({t.currency})</span>
               </button>
             );
@@ -1390,12 +1390,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         {/* Card 1: Minha Parte Pessoal */}
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 break-words sm:truncate">
               Minha Parte Real
             </span>
             <Wallet className="h-4 w-4 text-emerald-600 shrink-0" />
           </div>
-          <p className="mt-1.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums truncate">
+          <p className="mt-1.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums break-words sm:truncate">
             {maskValue(
               formatForeignCurrency(summary.myPersonalSpendForeign, activeTrip.currency)
             )}
@@ -1426,12 +1426,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         {/* Card 2: Ritmo Diário TravelSpend */}
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 break-words sm:truncate">
               Ritmo Diário (Média)
             </span>
             <TrendingUp className="h-4 w-4 text-sky-600 shrink-0" />
           </div>
-          <p className="mt-1.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums truncate">
+          <p className="mt-1.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums break-words sm:truncate">
             {maskValue(
               `${formatForeignCurrency(summary.myDailyAverageForeign, activeTrip.currency)}/dia`
             )}
@@ -1455,12 +1455,12 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         {/* Card 3: Bolso de Câmbio & VET Médio */}
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 break-words sm:truncate">
               Saldo Wise / Espécie
             </span>
             <Coins className="h-4 w-4 text-amber-600 shrink-0" />
           </div>
-          <p className="mt-1.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums truncate">
+          <p className="mt-1.5 text-base sm:text-xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums break-words sm:truncate">
             {maskValue(
               formatForeignCurrency(
                 summary.remainingForeignWalletBalance,
@@ -1468,10 +1468,10 @@ export const TripsTab: React.FC<TripsTabProps> = ({
               )
             )}
           </p>
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 break-words sm:truncate">
             Comprado: {formatForeignCurrency(summary.totalForeignPurchased, activeTrip.currency)}
           </p>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-600 dark:text-slate-300 font-semibold truncate">
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-600 dark:text-slate-300 font-semibold break-words sm:truncate">
             VET Médio:{' '}
             <span className="font-mono font-bold text-slate-900 dark:text-white">
               {formatExchangeRateBR(summary.weightedAverageRate)}
@@ -1483,13 +1483,13 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         {/* Card 4: Acerto em Grupo (Splitwise) */}
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 break-words sm:truncate">
               Meu Saldo no Grupo
             </span>
             <Users className="h-4 w-4 text-violet-600 shrink-0" />
           </div>
           <p
-            className={`mt-1.5 text-base sm:text-xl font-extrabold font-mono tabular-nums truncate ${
+            className={`mt-1.5 text-base sm:text-xl font-extrabold font-mono tabular-nums break-words sm:truncate ${
               summary.myNetSettlementForeign > 0.01
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : summary.myNetSettlementForeign < -0.01
@@ -1520,7 +1520,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
               ? `A pagar: ${maskValue(formatBRL(Math.abs(summary.myNetSettlementBrl)))}`
               : 'Sem pendências no grupo'}
           </p>
-          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 truncate">
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 break-words sm:truncate">
             Gasto Total Grupo:{' '}
             <span className="font-mono font-bold text-slate-700 dark:text-slate-200">
               {formatForeignCurrency(summary.groupTotalSpendForeign, activeTrip.currency)}
@@ -1542,7 +1542,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
             }`}
           >
             <Receipt className="h-4 w-4 shrink-0" />
-            <span className="truncate">
+            <span className="break-words sm:truncate">
               1. Diário & Extrato ({tripTransactions.length})
             </span>
           </button>
@@ -1557,7 +1557,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
             }`}
           >
             <Users className="h-4 w-4 shrink-0" />
-            <span className="truncate">2. Divisão & Quem Deve</span>
+            <span className="break-words sm:truncate">2. Divisão & Quem Deve</span>
             {summary.simplifiedDebts.length > 0 && (
               <span
                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-extrabold shrink-0 ${
@@ -1581,7 +1581,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
             }`}
           >
             <Coins className="h-4 w-4 shrink-0" />
-            <span className="truncate">
+            <span className="break-words sm:truncate">
               3. Carteira Câmbio ({activeTrip.exchangeLots.length})
             </span>
           </button>
@@ -1596,7 +1596,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
             }`}
           >
             <HelpCircle className="h-4 w-4 shrink-0" />
-            <span className="truncate">4. Guia: Como Funciona</span>
+            <span className="break-words sm:truncate">4. Guia: Como Funciona</span>
           </button>
         </div>
       </div>
@@ -1716,7 +1716,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                   {summary.categoryBreakdown.map((cat) => (
                     <div key={cat.categoryId} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 break-words sm:truncate">
                           {cat.categoryName}
                         </span>
                         <div className="text-right font-mono tabular-nums">
@@ -1816,7 +1816,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white break-words sm:truncate">
                             {tx.description}
                           </span>
                           <span className="rounded-md bg-slate-200/80 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-200">

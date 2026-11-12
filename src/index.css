@@ -552,6 +552,19 @@ button[role="switch"][aria-checked="true"] {
   max-width: 100% !important;
 }
 
+/* Áreas que deslizam para o lado no celular (carrossel de cartões): liberam o gesto horizontal.
+   Precisam vir depois de .native-scroll, que bloqueia o arrasto lateral. Em telas maiores viram grade. */
+@media (max-width: 639px) {
+  .swipe-x {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    touch-action: pan-x pan-y !important;
+    overscroll-behavior-x: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+  }
+}
+
 /* Eliminate horizontal pulling, dragging and elastic stretch on all modal dialogs, drawers, and forms */
 [role="dialog"],
 form,

@@ -351,3 +351,33 @@ test('monthly 50-30-20 diagnosis includes only income and expenses in the select
   assert.match(diagnosisText, /R\$ 100,00/, 'selected-month expense is included');
   assert.doesNotMatch(diagnosisText, /R\$ 9\.000,00|R\$ 600,00 \/ ideal/, 'previous-month totals are excluded');
 });
+
+test('no celular os tetos aparecem em cartões e dá para editar o teto', async () => {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
+    matches: true, media: query, addEventListener: () => {}, removeEventListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+  try {
+    const saved: Array<[string, number]> = [];
+    const page = renderBudgetsTab((id, amount) => saved.push([id, amount]));
+    assert.ok(page.querySelector('[data-testid="budget-mobile-list"]'), 'lista em cartões no celular');
+    assert.equal(page.querySelector('table'), null, 'sem tabela larga no celular');
+    const edit = page.querySelector<HTMLButtonElement>(`[aria-label="Editar teto de ${category.name}"]`);
+    assert.ok(edit);
+    await act(async () => { edit.click(); });
+    const input = page.querySelector<HTMLInputElement>(`[aria-label="Novo teto para ${category.name}"]`);
+    assert.ok(input, 'campo do teto aparece ao editar');
+    setInputValue(input, '900,00');
+    await act(async () => {});
+    await act(async () => { page.querySelector<HTMLButtonElement>(`[aria-label="Salvar teto de ${category.name}"]`)!.click(); });
+    assert.deepEqual(saved, [[category.id, 900]]);
+  } finally {
+    window.matchMedia = original;
+  }
+});
+
+test('em tela grande continua a tabela completa', () => {
+  const page = renderBudgetsTab(() => {});
+  assert.ok(page.querySelector('table'));
+  assert.equal(page.querySelector('[data-testid="budget-mobile-list"]'), null);
+});

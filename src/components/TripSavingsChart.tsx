@@ -494,13 +494,13 @@ export const TripSavingsChart: React.FC<TripSavingsChartProps> = ({
                   </div>
 
                   {/* Bottom Labels */}
-                  <span className="mt-1.5 text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-full">
+                  <span className="mt-1.5 text-[11px] font-bold text-slate-800 dark:text-slate-200 break-words sm:truncate max-w-full">
                     {label}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono truncate max-w-full">
+                  <span className="text-[10px] text-slate-500 font-mono break-words sm:truncate max-w-full">
                     {formatExchangeRateBR(effectiveRate)}
                   </span>
-                  <span className="text-[9px] text-slate-400 truncate max-w-full">
+                  <span className="text-[9px] text-slate-400 break-words sm:truncate max-w-full">
                     {subLabel}
                   </span>
                 </div>

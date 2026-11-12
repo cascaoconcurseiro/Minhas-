@@ -385,7 +385,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 type="button"
                 data-testid="toggle-health-360-details-btn"
                 onClick={() => setIsHealthDetailsOpen((prev) => !prev)}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+                className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline max-sm:min-h-10"
               >
                 <span>{isHealthDetailsOpen ? 'Ocultar pilares' : 'Ver 4 pilares'}</span>
                 {isHealthDetailsOpen ? (
@@ -598,7 +598,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           {/* Lateral Swipeable Strip on Mobile / Clean Grid on Desktop */}
           {isAlertsExpanded && (
-            <div className="w-full p-3.5 sm:p-5 flex sm:grid overflow-x-auto sm:overflow-x-visible sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 snap-x snap-mandatory no-scrollbar touch-pan-x native-scroll animate-expand-in">
+            <div className="swipe-x w-full p-3.5 sm:p-5 flex sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 snap-x snap-mandatory no-scrollbar animate-expand-in">
               {budgetAlerts.map((alert) => {
                 const isOver = alert.status === 'over';
                 const diffAmount = Math.abs(alert.budget - alert.spent);
@@ -710,7 +710,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigateTab('accounts')}
-                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline whitespace-nowrap shrink-0"
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline whitespace-nowrap shrink-0 max-sm:min-h-10 max-sm:inline-flex max-sm:items-center"
               >
                 Gerenciar contas
               </button>
@@ -784,7 +784,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                 e.stopPropagation();
                                 onToggleAccountInTotal(acc.id);
                               }}
-                              className="text-slate-600 underline hover:text-slate-900"
+                              className="text-slate-600 underline hover:text-slate-900 max-sm:-my-2.5 max-sm:px-1 max-sm:py-2.5"
                             >
                               {acc.includeInTotal ? 'No giro mensal' : 'Fora do giro'}
                             </button>
@@ -1072,7 +1072,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab('transactions')}
-              className="text-xs font-semibold text-slate-700 hover:text-slate-900 hover:underline whitespace-nowrap shrink-0"
+              className="text-xs font-semibold text-slate-700 hover:text-slate-900 hover:underline whitespace-nowrap shrink-0 max-sm:min-h-10 max-sm:inline-flex max-sm:items-center"
             >
               Ver extrato completo
             </button>
@@ -1233,7 +1233,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
             {/* Mobile Lateral Swipeable Cards (< sm screens) */}
             <div className="block sm:hidden p-4 min-w-0 overflow-hidden">
-              <div className="flex w-full overflow-x-auto gap-3 snap-x snap-mandatory no-scrollbar touch-pan-x native-scroll pb-1">
+              <div className="swipe-x flex w-full gap-3 snap-x snap-mandatory no-scrollbar pb-1">
                 {topCategories.map((item) => {
                   const barColor =
                     item.status === 'over'

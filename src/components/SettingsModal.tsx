@@ -220,7 +220,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="min-w-0">
               <h2
                 id="modal-settings-title"
-                className="text-base font-bold text-slate-900 dark:text-white font-display truncate"
+                className="text-base font-bold text-slate-900 dark:text-white font-display break-words sm:truncate"
               >
                 Central de Configurações & Regras Financeiras
               </h2>
@@ -257,7 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Sun className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">1. Aparência</span>
+              <span className="break-words sm:truncate">1. Aparência</span>
             </button>
 
             <button
@@ -271,7 +271,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <FolderKanban className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">2. Categorias</span>
+              <span className="break-words sm:truncate">2. Categorias</span>
             </button>
 
             <button
@@ -285,7 +285,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Sliders className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">3. Regras</span>
+              <span className="break-words sm:truncate">3. Regras</span>
             </button>
 
             <button
@@ -299,7 +299,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <Bell className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">4. Lembretes</span>
+              <span className="break-words sm:truncate">4. Lembretes</span>
             </button>
 
             <button
@@ -313,7 +313,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <UserCheck className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">5. Backup</span>
+              <span className="break-words sm:truncate">5. Backup</span>
             </button>
           </div>
         </div>
@@ -593,7 +593,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               className="h-3 w-3 rounded-full shrink-0"
                               style={{ backgroundColor: cat.color }}
                             />
-                            <span className="text-xs font-bold text-slate-900 truncate">
+                            <span className="text-xs font-bold text-slate-900 break-words sm:truncate">
                               {cat.name}
                             </span>
                             <span

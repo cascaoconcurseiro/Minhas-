@@ -330,7 +330,7 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <h4 className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                <h4 className="font-semibold text-sm text-slate-900 dark:text-white line-clamp-2 break-words">
                   {transaction.description}
                 </h4>
                 {installmentMeta && (
@@ -346,7 +346,7 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
                 <span aria-hidden="true">·</span>
                 <span className="inline-flex min-w-0 items-center gap-1.5">
                   {originMarks}
-                  <span className="truncate max-w-[130px]">{originLabel}</span>
+                  <span className="break-words max-w-[220px]">{originLabel}</span>
                 </span>
               </div>
               {transaction.tags && transaction.tags.length > 0 && (
@@ -393,7 +393,7 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
                 e.stopPropagation();
                 onToggleStatus(transaction.id);
               }}
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+              className={`inline-flex min-h-9 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                 isPaid
                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
                   : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40'
@@ -419,7 +419,7 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
               onOpenActionSheet(transaction);
             }}
             aria-label={`Menu de opções para ${transaction.description}`}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
           >
             <MoreVertical className="h-4 w-4" />
           </button>

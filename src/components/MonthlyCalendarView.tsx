@@ -505,7 +505,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <button
               type="button"
               onClick={() => setCalendarFilter('all')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 calendarFilter === 'all'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -516,7 +516,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <button
               type="button"
               onClick={() => setCalendarFilter('pending')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 calendarFilter === 'pending'
                   ? 'bg-amber-100 text-amber-950 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -527,7 +527,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <button
               type="button"
               onClick={() => setCalendarFilter('cards')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 calendarFilter === 'cards'
                   ? 'bg-violet-100 text-violet-950 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -538,7 +538,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <button
               type="button"
               onClick={() => setCalendarFilter('recurring')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 calendarFilter === 'recurring'
                   ? 'bg-blue-100 text-blue-950 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -549,7 +549,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <button
               type="button"
               onClick={() => setCalendarFilter('paid')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 calendarFilter === 'paid'
                   ? 'bg-emerald-100 text-emerald-950 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -696,7 +696,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                       {cellTotals.expense > 0 && (
                         <div
                           title="Total gasto no dia"
-                          className="truncate text-[11px] sm:text-sm font-extrabold tabular-nums text-rose-700"
+                          className="break-words sm:truncate text-[11px] sm:text-sm font-extrabold tabular-nums text-rose-700"
                         >
                           -{formatBRL(cellTotals.expense)}
                         </div>
@@ -704,7 +704,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                       {cellTotals.income > 0 && (
                         <div
                           title="Total recebido no dia"
-                          className="truncate text-[11px] sm:text-sm font-extrabold tabular-nums text-emerald-700"
+                          className="break-words sm:truncate text-[11px] sm:text-sm font-extrabold tabular-nums text-emerald-700"
                         >
                           +{formatBRL(cellTotals.income)}
                         </div>

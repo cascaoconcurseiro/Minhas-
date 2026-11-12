@@ -426,7 +426,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('monthly')}
-              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
+              className={`min-w-0 px-2.5 py-2.5 sm:py-1.5 text-xs sm:text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'monthly'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -437,7 +437,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('quarterly')}
-              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
+              className={`min-w-0 px-2.5 py-2.5 sm:py-1.5 text-xs sm:text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'quarterly'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -448,7 +448,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('semiannual')}
-              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
+              className={`min-w-0 px-2.5 py-2.5 sm:py-1.5 text-xs sm:text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'semiannual'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -459,7 +459,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('annual')}
-              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
+              className={`min-w-0 px-2.5 py-2.5 sm:py-1.5 text-xs sm:text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'annual'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -470,7 +470,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <button
               type="button"
               onClick={() => setPeriodPreset('custom')}
-              className={`min-w-0 px-2.5 py-1.5 text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
+              className={`min-w-0 px-2.5 py-2.5 sm:py-1.5 text-xs sm:text-[11px] leading-tight text-center font-semibold rounded-md transition-colors whitespace-normal ${
                 periodPreset === 'custom'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -589,13 +589,13 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               />
             </div>
 
-            <div className="sm:col-span-7 space-y-3 max-h-72 overflow-y-auto pr-1">
+            <div className="sm:col-span-7 space-y-3 sm:max-h-72 sm:overflow-y-auto sm:pr-1">
               {periodReport.expensesByCategory.map((slice) => (
                 <div key={slice.id} className="space-y-1 border-b border-slate-100 pb-2.5 last:border-b-0">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 min-w-0">
                       <CategoryIconBadge icon={slice.icon} color={slice.color} size="sm" />
-                      <span className="font-semibold text-slate-900 truncate">
+                      <span className="font-semibold text-slate-900 break-words sm:truncate">
                         {slice.name}
                       </span>
                     </div>
@@ -636,13 +636,13 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               />
             </div>
 
-            <div className="sm:col-span-7 space-y-3 max-h-72 overflow-y-auto pr-1">
+            <div className="sm:col-span-7 space-y-3 sm:max-h-72 sm:overflow-y-auto sm:pr-1">
               {periodReport.incomesBySource.map((slice) => (
                 <div key={slice.id} className="space-y-1 border-b border-slate-100 pb-2.5 last:border-b-0">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 min-w-0">
                       <CategoryIconBadge icon={slice.icon} color={slice.color} size="sm" />
-                      <span className="font-semibold text-slate-900 truncate">
+                      <span className="font-semibold text-slate-900 break-words sm:truncate">
                         {slice.name}
                       </span>
                     </div>
@@ -671,7 +671,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
         {/* Line Chart: Evolution of General Balance & Net Result */}
         <section className="lg:col-span-6 rounded-xl border border-slate-200 bg-white p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-sky-600" />
               <div>
@@ -942,23 +942,23 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/40 text-xs font-semibold text-slate-500">
-                <th className="py-3 pl-4 sm:pl-6 pr-3">Data</th>
-                <th className="py-3 px-3 text-right">Entradas do Dia</th>
-                <th className="py-3 px-3 text-right">Saídas do Dia</th>
-                <th className="py-3 px-3 text-right">Saldo Caixa Efetivado</th>
+                <th className="sticky left-0 z-10 bg-slate-50 py-3 pl-4 sm:pl-6 pr-3 whitespace-nowrap">Data</th>
+                <th className="py-3 px-3 text-right whitespace-nowrap">Entradas do Dia</th>
+                <th className="py-3 px-3 text-right whitespace-nowrap">Saídas do Dia</th>
+                <th className="py-3 px-3 text-right whitespace-nowrap">Saldo Caixa Efetivado</th>
                 <th className="py-3 pl-3 pr-4 sm:pr-6 text-right">Saldo Previsto Acumulado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-mono tabular-nums">
               {visibleFlowDays.map((pt) => (
                 <tr key={pt.date} data-testid="daily-flow-row" className="hover:bg-slate-50/80">
-                  <td className="py-2.5 pl-4 sm:pl-6 pr-3 text-xs text-slate-700">
+                  <td className="sticky left-0 z-10 bg-white py-2.5 pl-4 sm:pl-6 pr-3 text-xs text-slate-700 whitespace-nowrap">
                     {formatShortDateBR(pt.date)}
                   </td>
-                  <td className="py-2.5 px-3 text-right text-emerald-700">
+                  <td className="py-2.5 px-3 text-right whitespace-nowrap text-emerald-700">
                     {pt.income > 0 ? `+${formatBRL(pt.income)}` : '—'}
                   </td>
-                  <td className="py-2.5 px-3 text-right text-rose-700">
+                  <td className="py-2.5 px-3 text-right whitespace-nowrap text-rose-700">
                     {pt.expense > 0 ? (
                       pt.expenseNotes?.length ? (
                         <span
@@ -977,11 +977,11 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                       '—'
                     )}
                   </td>
-                  <td className="py-2.5 px-3 text-right font-semibold text-slate-900">
+                  <td className="py-2.5 px-3 text-right whitespace-nowrap font-semibold text-slate-900">
                     {formatBRL(pt.cumulativeBalance)}
                   </td>
                   <td
-                    className={`py-2.5 pl-3 pr-4 sm:pr-6 text-right font-bold ${
+                    className={`py-2.5 pl-3 pr-4 sm:pr-6 text-right whitespace-nowrap font-bold ${
                       pt.projectedBalance >= 0 ? 'text-slate-900' : 'text-rose-700'
                     }`}
                   >
@@ -1021,7 +1021,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 <span className="font-semibold text-slate-700">
                   (+) Receitas Operacionais (Salário, Projetos, Extras)
                 </span>
-                <span className="font-mono tabular-nums font-bold text-emerald-700">
+                <span className="whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums font-bold text-emerald-700">
                   +{formatBRL(personalDre.operationalIncome)}
                 </span>
               </div>
@@ -1029,7 +1029,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 <span className="font-semibold text-slate-700">
                   (+) Renda Passiva (Dividendos, FIIs e Rendimentos)
                 </span>
-                <span className="font-mono tabular-nums font-bold text-emerald-700">
+                <span className="whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums font-bold text-emerald-700">
                   +{formatBRL(personalDre.dividendIncome)}
                 </span>
               </div>
@@ -1037,7 +1037,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 <span className="font-semibold text-slate-700">
                   (−) Despesas de Consumo & Estilo de Vida
                 </span>
-                <span className="font-mono tabular-nums font-bold text-rose-700">
+                <span className="whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums font-bold text-rose-700">
                   -{formatBRL(personalDre.consumptionExpenses)}
                 </span>
               </div>
@@ -1046,7 +1046,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   (=) Geração Livre de Caixa (Antes de Aportes)
                 </span>
                 <span
-                  className={`font-mono tabular-nums font-bold ${
+                  className={`whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums font-bold ${
                     personalDre.freeCashFlowBeforeInvestments >= 0
                       ? 'text-emerald-700'
                       : 'text-rose-700'
@@ -1060,7 +1060,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 <span className="font-semibold text-indigo-800">
                   (−) Aportes em Investimentos & Construção de Patrimônio
                 </span>
-                <span className="font-mono tabular-nums font-bold text-indigo-700">
+                <span className="whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums font-bold text-indigo-700">
                   {formatBRL(personalDre.investmentContributions)}
                 </span>
               </div>
@@ -1069,7 +1069,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   (=) Superávit / Caixa Retido no Giro do Mês
                 </span>
                 <span
-                  className={`font-mono tabular-nums text-sm font-extrabold ${
+                  className={`whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums text-sm font-extrabold ${
                     personalDre.netSurplusAfterInvestments >= 0
                       ? 'text-emerald-700'
                       : 'text-rose-700'
@@ -1085,11 +1085,11 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
             <div className="rounded-xl border border-slate-200 bg-slate-900 text-white p-3.5 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-300 font-medium">Patrimônio Líquido Consolidado</span>
-                <span className="font-mono tabular-nums text-sm font-bold text-emerald-400">
+                <span className="whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums text-sm font-bold text-emerald-400">
                   {formatBRL(personalDre.totalNetWorth)}
                 </span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1.5 border-t border-slate-800 text-[11px] font-mono tabular-nums">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1.5 border-t border-slate-800 text-[11px] whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums">
                 <div>
                   <span className="block font-sans text-slate-400">Liquidez em Contas</span>
                   <span className="font-semibold text-white">

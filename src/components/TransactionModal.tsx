@@ -1742,40 +1742,40 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 type="button"
                 data-testid="mode-expense-btn"
                 onClick={() => handleModeSwitch('expense')}
-                className={`py-2 px-1.5 min-[360px]:px-2.5 text-[11px] min-[360px]:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-1.5 min-[400px]:px-2.5 text-[11px] min-[400px]:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                   entryMode === 'expense' || entryMode === 'credit_card'
                     ? 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 shadow-xs border border-rose-200/80 dark:border-rose-900/60'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Wallet className="hidden min-[360px]:block h-3.5 w-3.5 shrink-0" />
+                <Wallet className="hidden min-[400px]:block h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Despesa</span>
               </button>
               <button
                 type="button"
                 data-testid="mode-income-btn"
                 onClick={() => handleModeSwitch('income')}
-                className={`py-2 px-1.5 min-[360px]:px-2.5 text-[11px] min-[360px]:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-1.5 min-[400px]:px-2.5 text-[11px] min-[400px]:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                   entryMode === 'income'
                     ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs border border-emerald-200/80 dark:border-emerald-900/60'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <CheckCircle2 className="hidden min-[360px]:block h-3.5 w-3.5 shrink-0" />
+                <CheckCircle2 className="hidden min-[400px]:block h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">Receita</span>
               </button>
               <button
                 type="button"
                 data-testid="mode-transfer-btn"
                 onClick={() => handleModeSwitch('transfer')}
-                className={`py-2 px-1.5 min-[360px]:px-2.5 text-[11px] min-[360px]:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-1.5 min-[400px]:px-2.5 text-[11px] min-[400px]:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                   entryMode === 'transfer'
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-300 dark:border-slate-700'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Repeat className="hidden min-[360px]:block h-3.5 w-3.5 shrink-0" />
-                <span className="truncate" aria-label="Movimentações"><span className="min-[360px]:hidden" aria-hidden="true">Transf.</span><span className="hidden min-[360px]:inline">Movimentações</span></span>
+                <Repeat className="hidden min-[400px]:block h-3.5 w-3.5 shrink-0" />
+                <span className="truncate" aria-label="Movimentações"><span className="min-[400px]:hidden" aria-hidden="true">Transf.</span><span className="hidden min-[400px]:inline">Movimentações</span></span>
               </button>
             </div>
           )}

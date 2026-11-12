@@ -52,7 +52,7 @@ export const RecurringSuggestionsCard: React.FC<RecurringSuggestionsCardProps> =
             className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
           >
             <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white break-words sm:truncate">
                 {item.description}
                 <span className="ml-2 font-mono tabular-nums font-bold">{formatBRL(item.lastAmount)}</span>
               </p>
@@ -77,7 +77,7 @@ export const RecurringSuggestionsCard: React.FC<RecurringSuggestionsCardProps> =
               <button
                 type="button"
                 onClick={() => onSchedule(item)}
-                className="rounded-lg bg-slate-900 dark:bg-white px-3 py-1.5 text-xs font-bold text-white dark:text-slate-900 hover:opacity-90"
+                className="rounded-lg bg-slate-900 dark:bg-white px-3 py-2.5 sm:py-1.5 text-xs font-bold text-white dark:text-slate-900 hover:opacity-90"
               >
                 Prever próximos meses (a partir de {formatDay(item.nextExpectedDate)})
               </button>
@@ -86,7 +86,7 @@ export const RecurringSuggestionsCard: React.FC<RecurringSuggestionsCardProps> =
                 onClick={() => onDismiss(item)}
                 aria-label={`Ignorar ${item.description}`}
                 title="Não sugerir de novo"
-                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 sm:h-auto sm:w-auto sm:p-1.5"
               >
                 <X className="h-4 w-4" />
               </button>

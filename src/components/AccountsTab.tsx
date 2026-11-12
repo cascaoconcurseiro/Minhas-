@@ -998,9 +998,9 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                               onClick={() => openEditAccountForm(acc)}
                               aria-label={`Editar conta ${acc.name}`}
                               title="Editar conta"
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                              className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 sm:h-auto sm:w-auto sm:p-1.5"
                             >
-                              <Edit3 className="h-3.5 w-3.5" />
+                              <Edit3 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             </button>
                             {onDeleteAccount && (
                               <button
@@ -1025,9 +1025,9 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                                 }}
                                 aria-label={`Excluir conta ${acc.name}`}
                                 title="Excluir conta"
-                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
+                                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-700 sm:h-auto sm:w-auto sm:p-1.5"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                               </button>
                             )}
                           </div>
@@ -1080,7 +1080,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                                   e.stopPropagation();
                                   onToggleAccountInTotal(acc.id);
                                 }}
-                                className={`font-semibold underline ${
+                                className={`font-semibold underline max-sm:-my-2.5 max-sm:px-1 max-sm:py-2.5 ${
                                   acc.includeInTotal ? 'text-emerald-700' : 'text-slate-400'
                                 }`}
                               >

@@ -78,7 +78,7 @@ export const TransactionActionSheet: React.FC<TransactionActionSheetProps> = ({
               size="md"
             />
             <div className="min-w-0 flex-1">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white break-words sm:truncate">
                 {transaction.description}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

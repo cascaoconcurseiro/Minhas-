@@ -170,7 +170,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white break-words sm:truncate">
                         {item.title}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">

@@ -544,7 +544,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             type="button"
             data-testid="invite-family-member-btn"
             onClick={handleOpenAddMemberModal}
-            className="w-full min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold leading-tight text-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors whitespace-normal"
+            className="w-full min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold leading-tight text-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors whitespace-normal max-sm:min-h-10"
           >
             <Mail className="h-3.5 w-3.5 text-indigo-600" />
             + Cadastrar convite familiar
@@ -562,7 +562,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
               activeSubTab === 'invoices'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
+            } max-sm:min-h-10`}
           >
             <CreditCard className="h-3.5 w-3.5" />
             Encontro de Contas & Compensação ({familyMembers.length})
@@ -574,7 +574,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
               activeSubTab === 'members'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
+            } max-sm:min-h-10`}
           >
             <Users className="h-3.5 w-3.5" />
             Pessoas & Convites por E-mail
@@ -845,7 +845,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenEditMemberModal(activeSummary.member)}
-                            className="inline-flex items-center gap-1 rounded bg-indigo-500/20 border border-indigo-400/30 px-2 py-0.5 text-[10px] font-bold text-indigo-300 hover:bg-indigo-500/30"
+                            className="inline-flex items-center gap-1 rounded bg-indigo-500/20 border border-indigo-400/30 px-2 py-0.5 text-[10px] font-bold text-indigo-300 hover:bg-indigo-500/30 max-sm:min-h-10"
                           >
                             <Mail className="h-3 w-3" />
                             + Adicionar E-mail p/ Convite

@@ -444,7 +444,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setTypeFilter('all')}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 typeFilter === 'all'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -455,7 +455,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             <button
               type="button"
               onClick={() => setTypeFilter('expense')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 typeFilter === 'expense'
                   ? 'bg-white text-rose-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -466,7 +466,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             <button
               type="button"
               onClick={() => setTypeFilter('credit_card')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 typeFilter === 'credit_card'
                   ? 'bg-white text-violet-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -477,7 +477,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             <button
               type="button"
               onClick={() => setTypeFilter('income')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 typeFilter === 'income'
                   ? 'bg-white text-emerald-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -488,7 +488,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             <button
               type="button"
               onClick={() => setTypeFilter('transfer')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 typeFilter === 'transfer'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -533,7 +533,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
               value={effectiveSearchQuery}
               onChange={(e) => handleSearchInputChange(e.target.value)}
               placeholder="Buscar descrição ou nota..."
-              className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 sm:py-1.5 text-sm sm:text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
             />
           </div>
 
@@ -541,7 +541,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             aria-label="Filtrar por situação"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | 'paid' | 'pending')}
-            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
           >
             <option value="all">Todas as situações</option>
             <option value="paid">Somente Efetivados (Pagos / Recebidos)</option>
@@ -552,7 +552,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
             aria-label="Filtrar por categoria"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
           >
             <option value="all">Todas as Categorias</option>
             {categories.map((cat) => (
@@ -567,7 +567,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
               aria-label="Filtrar por conta ou cartão"
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 sm:py-1.5 text-sm sm:text-xs text-slate-800 focus:border-emerald-600 focus:outline-none"
             >
               <option value="all">Todas as Contas e Cartões</option>
               <optgroup label="Contas e Carteiras">

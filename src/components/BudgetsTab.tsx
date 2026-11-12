@@ -33,6 +33,7 @@ import {
   CategoryIconBadge,
   renderCategoryIcon,
 } from './CategoryIconBadge';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface BudgetsTabProps {
   selectedMonth: string;
@@ -65,6 +66,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   onUpdateCategory,
   onDeleteCategory,
 }) => {
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'budgets' | 'categories'>('budgets');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editValueStr, setEditValueStr] = useState('');
@@ -675,7 +677,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setBucketFilter('all')}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                     bucketFilter === 'all'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -686,7 +688,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setBucketFilter('essential')}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                     bucketFilter === 'essential'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -697,7 +699,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setBucketFilter('lifestyle')}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                     bucketFilter === 'lifestyle'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -708,7 +710,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setBucketFilter('financial')}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  className={`px-3 py-2.5 sm:py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
                     bucketFilter === 'financial'
                       ? 'bg-white text-slate-900 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -719,6 +721,145 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
               </div>
             </div>
 
+            {isMobile ? (
+              <ul data-testid="budget-mobile-list" className="divide-y divide-slate-100">
+                {filteredItems.map((item) => {
+                  const remaining = item.budget - item.spent;
+                  const isEditing = editingCatId === item.categoryId;
+                  const fullCat = categories.find((c) => c.id === item.categoryId);
+                  const burnRate = calculateMonthBurnRateMarker(selectedMonth, item.percentOfBudget);
+                  const barColor =
+                    item.status === 'over' ? 'bg-rose-600' : item.status === 'warning' ? 'bg-amber-500' : 'bg-emerald-600';
+                  return (
+                    <li key={item.categoryId} className="space-y-3 px-4 py-4">
+                      <div className="flex items-start gap-3">
+                        <CategoryIconBadge icon={item.categoryIcon} color={item.categoryColor} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words text-sm font-semibold text-slate-900">{item.categoryName}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {getBucketLabel(item.bucket)} · {item.percentOfTotalExpense}% das despesas
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-mono text-sm font-bold text-slate-900">{item.percentOfBudget}%</span>
+                      </div>
+
+                      <div>
+                        <div className="relative h-2.5 w-full rounded-full bg-slate-100">
+                          <div
+                            className={`h-full rounded-full ${barColor}`}
+                            style={{ width: `${Math.min(100, item.percentOfBudget)}%` }}
+                          />
+                          <div
+                            data-testid="burn-rate-marker"
+                            className="pointer-events-none absolute -top-1 -bottom-1 w-0.5 rounded-full bg-slate-900/80"
+                            style={{ left: `${burnRate.monthProgressPercent}%` }}
+                          />
+                        </div>
+                        <p
+                          className={`mt-1 text-[11px] font-semibold ${
+                            item.status === 'over'
+                              ? 'text-rose-700'
+                              : item.status === 'warning'
+                              ? 'text-amber-700'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {item.budget <= 0
+                            ? 'Sem teto definido'
+                            : item.status === 'over'
+                            ? 'Limite excedido'
+                            : item.status === 'warning'
+                            ? 'Próximo do limite (acima de 80%)'
+                            : `Dentro do limite · ${burnRate.paceLabel}`}
+                        </p>
+                      </div>
+
+                      <dl className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <dt className="text-slate-500">Gasto</dt>
+                          <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(item.spent)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-500">Teto</dt>
+                          <dd className="font-mono tabular-nums text-slate-700">
+                            {isEditing ? (
+                              <CurrencyInput
+                                aria-label={`Novo teto para ${item.categoryName}`}
+                                value={editValueStr}
+                                currency="BRL"
+                                onValueChange={(value) => {
+                                  setEditValueStr(value);
+                                  setBudgetEditError('');
+                                }}
+                                className="w-full rounded border border-emerald-600 px-2 py-2 text-right text-sm font-mono tabular-nums text-slate-900"
+                              />
+                            ) : (
+                              formatBRL(item.budget)
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-500">Sobra</dt>
+                          <dd className={`font-mono font-semibold tabular-nums ${remaining >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {formatBRL(remaining)}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="flex flex-wrap gap-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => saveBudget(item.categoryId)}
+                              aria-label={`Salvar teto de ${item.categoryName}`}
+                              className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white"
+                            >
+                              <Check className="h-4 w-4" />
+                              Salvar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelBudgetEdit}
+                              aria-label={`Cancelar edição do teto de ${item.categoryName}`}
+                              className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700"
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditingBudget(item)}
+                              aria-label={`Editar teto de ${item.categoryName}`}
+                              className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                              Teto
+                            </button>
+                            {fullCat && (
+                              <button
+                                type="button"
+                                onClick={() => openEditCategoryForm(fullCat)}
+                                aria-label={`Personalizar ${item.categoryName}`}
+                                className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700"
+                              >
+                                Personalizar
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {isEditing && budgetEditError && (
+                        <p role="alert" className="text-xs text-rose-700">{budgetEditError}</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <>
             <p className="px-6 pt-3 text-xs text-slate-500 xl:hidden" role="note">
               Deslize horizontalmente para acessar todas as colunas e ações.
             </p>
@@ -914,6 +1055,8 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 </tbody>
               </table>
             </div>
+              </>
+            )}
           </section>
         </>
       ) : (

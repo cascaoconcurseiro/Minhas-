@@ -337,16 +337,18 @@ export const MonthlyComparisonBarChart: React.FC<MonthlyComparisonBarChartProps>
             />
             <XAxis
               dataKey="shortLabel"
+              interval={0}
+              tickMargin={6}
               tickLine={false}
               axisLine={{ stroke: '#cbd5e1' }}
-              tick={{ fill: '#475569', fontSize: 11, fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}
+              tick={{ fill: '#475569', fontSize: 10, fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}
             />
             <YAxis
               tickFormatter={formatCompactAxisBRL}
               tickLine={false}
               axisLine={false}
-              width={66}
-              tick={{ fill: '#64748b', fontSize: 11, fontFamily: 'ui-monospace, monospace' }}
+              width={56}
+              tick={{ fill: '#64748b', fontSize: 10, fontFamily: 'ui-monospace, monospace' }}
             />
             <Tooltip
               content={<CustomBarTooltip />}

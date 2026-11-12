@@ -1,5 +1,15 @@
 # Handoff — Minhas Economias
 
+## Auditoria do celular: o que não era funcional — 12/11/2026
+
+Pedido: "muitas coisas não funcionam como deveria no celular, tipo gastos por categoria deveria rodar lateralmente". Auditoria no Chromium emulando celular (390 e 360 px, dados cheios: 3 meses, 14 categorias, cartões, parcelas, metas, investimentos, viagem), com medição automática de texto cortado, rolagem lateral por toque real (`Input.dispatchTouchEvent`; `synthesizeScrollGesture` não funciona neste Chromium) e tamanho de alvo de toque.
+
+Causa raiz do exemplo: `.native-scroll` em `index.css` força `overflow-x: hidden !important` e `touch-action: pan-y !important`, o que proibia o arrasto lateral; o carrossel "Teto de Gastos por Categoria" (e o de alertas de orçamento) da Visão Geral usava essa classe, então o conteúdo (1620 px) ficava cortado sem rolar. Nova classe `.swipe-x` (só abaixo de 640 px) libera `overflow-x: auto` e `touch-action: pan-x pan-y`; aplicada nos dois carrosséis. Confirmado: arrasto move o carrossel.
+
+Outras correções (sempre `max-sm:`/`sm:` para não mexer no computador): Orçamentos ganhou lista em cartões no celular (hook novo `useIsMobile`, testes cobrem celular e tela grande; "Sem teto definido" quando o teto é 0) em vez da tabela de 946 px; Relatórios: a legenda das categorias (pizza) não tem mais caixa com rolagem interna escondida e os nomes quebram linha, a coluna Data do fluxo de caixa fica fixa ao rolar de lado, valores do DRE e do fluxo não quebram o sinal "−"/"R$", legenda do gráfico de linhas desce para baixo do título, eixo X do gráfico de barras sem sobreposição; Extrato: descrição em até 2 linhas, nome da conta quebra linha, botão de situação e menu "⋮" com 36–40 px; filtros, abas e campos com altura de toque maior; botões pequenos de Contas, Investimentos, Visão Geral, Compartilhado e Sugestões de gastos fixos com 36–40 px; `truncate` → `break-words sm:truncate` nas demais telas; aba "Movimentações" do formulário vira "Transf." abaixo de 400 px.
+
+Números (360 px): controles pequenos no Extrato 45 → 3, Contas 13 → 4; nenhuma tela com rolagem horizontal da página. Sobra (não corrigido): nome do cartão cortado na arte do cartão de crédito, texto "Junho–Novembro de 2026" ligeiramente cortado, alguns botões de 28–34 px e a lista "Viagens" só tem uma viagem de teste. Não verificado em aparelho real nem iOS Safari.
+
 ## Entrar com Face ID (passkey) — 12/11/2026
 
 Pedido: "memorizar o login e logar só pela face". A sessão já dura 30 dias e é renovada a cada abertura (`/api/auth/me`); o que faltava era entrar sem digitar. Implementado com WebAuthn (passkey de plataforma, Face ID/Touch ID), verificado no servidor com `@simplewebauthn/server` (cliente: `@simplewebauthn/browser`, carregado sob demanda).
