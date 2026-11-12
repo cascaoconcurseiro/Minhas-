@@ -1,5 +1,6 @@
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { setUpdateBlocker } from './pwa/updateBlockers';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
   Bell,
@@ -334,6 +335,11 @@ export default function App() {
   const [isWorkspaceConflictOpen, setIsWorkspaceConflictOpen] = useState(false);
   const [isResolvingWorkspaceConflict, setIsResolvingWorkspaceConflict] = useState(false);
   const [workspaceConflictError, setWorkspaceConflictError] = useState<string | null>(null);
+  // Atualização automática do sistema espera enquanto salva na nuvem ou há conflito para resolver.
+  useEffect(() => {
+    setUpdateBlocker('cloud-sync', cloudSyncStatus === 'syncing' || workspaceConflict !== null);
+    return () => setUpdateBlocker('cloud-sync', false);
+  }, [cloudSyncStatus, workspaceConflict]);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isApplyingRemoteSnapshotRef = useRef<boolean>(false);
   const hasLoadedRemoteOnceRef = useRef<boolean>(false);

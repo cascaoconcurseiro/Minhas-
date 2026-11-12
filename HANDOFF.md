@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Atualização automática silenciosa e card "Parcelados & Recorrentes" — 12/11/2026
+
+**Atualização automática (PWA):** já existia `updateGate`, mas só descobria versão nova ao abrir a página, só protegia campos já editados e mostrava um aviso. Agora `PwaUpdateNotice` (sem aviso na tela) procura versão nova a cada 10 min, ao voltar para a aba e ao reconectar, e aplica sozinha só quando é seguro: nenhum campo alterado, nenhuma janela/formulário aberto, sem digitar/tocar há 20 s e sem salvar na nuvem (`setUpdateBlocker('cloud-sync')` em `App.tsx`, `src/pwa/updateBlockers.ts`); com a aba em segundo plano atualiza mesmo com janela aberta, mas nunca com campo alterado. Reavalia a cada 5 s enquanto pendente. `vercel.json`: `/sw.js` sem cache. Opções novas do gate são opt-in (testes antigos intactos). Não testado em navegador real com um deploy de verdade: validar publicando duas versões seguidas e mantendo uma aba aberta.
+
+**Card do calendário:** "Parcelados & Recorrentes" contava só as linhas do extrato do mês (compras de cartão uma vez). Agora conta e lista tudo que é parcela ou despesa fixa com data no mês, cartão ou banco (água, luz, assinaturas), via `getInstallmentAndRecurringItemsForMonth`; botão "Ver lista" mostra dia, parcela x/y ou Fixa, origem e valor; subtítulo traz o total do mês.
+
 ## Despesa fixa no cartão no calendário — 12/11/2026
 
 Pedido: uma despesa fixa de R$ 60 aparecia no calendário (e no extrato) em cada mês, como se a compra tivesse sido feita naquele dia, embora já estivesse lançada no cartão; deveria se comportar como as compras no cartão. `getPurchaseTransactionsForMonth` (base de `getLedgerTransactionsForMonth`, usado por calendário, extrato e "Compras por Semana") agora representa a despesa fixa de cartão (`recurrence: 'fixed'` com `installmentGroupId`) só no primeiro lançamento do grupo; as cobranças dos meses seguintes ficam apenas na fatura, como as parcelas. Contas fixas pagas pelo banco continuam aparecendo mês a mês. Fatura, limite, pendências e fluxo de caixa não mudaram (teste confere fatura de R$ 60 em janeiro). Consequência: as cobranças futuras de uma assinatura no cartão deixam de aparecer no calendário/extrato; só na fatura. Validação: `tsc --noEmit` e 572 testes. Não conferido em navegador.

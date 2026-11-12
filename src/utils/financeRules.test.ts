@@ -47,6 +47,7 @@ import {
   getConsumptionMonth,
   getPendingCardInvoices,
   getLedgerTransactionsForMonth,
+  getInstallmentAndRecurringItemsForMonth,
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
@@ -2509,4 +2510,32 @@ test('despesa fixa no cartão aparece no calendário só no primeiro lançamento
   });
   assert.equal(getLedgerTransactionsForMonth(bank, '2026-12').length, 1, 'conta fixa do banco continua mês a mês');
   assert.equal(calculateCreditCardSummary({ id: 'card-fixa', name: 'C', brand: 'Visa', limit: 1000, closingDay: 20, dueDay: 5, defaultAccountId: 'a', color: '#000' } as CreditCard, fixed, '2027-01').invoiceTotal, 60, 'a fatura continua cobrando todo mês');
+});
+
+test('parcelados e recorrentes do mês incluem cartão e banco, uma linha por cobrança', () => {
+  const card = createTransactionBatch({
+    description: 'Celular', amount: 300, date: '2026-11-11', competenceMonth: '2026-12', type: 'expense',
+    status: 'pending', categoryId: 'cat-outros', creditCardId: 'c', paymentMethod: 'credit_card',
+    recurrence: 'installment', installmentTotal: 3, amountMode: 'total_divided',
+  });
+  const subscription = createTransactionBatch({
+    description: 'Streaming', amount: 60, date: '2026-11-03', competenceMonth: '2026-12', type: 'expense',
+    status: 'pending', categoryId: 'cat-outros', creditCardId: 'c', paymentMethod: 'credit_card',
+    recurrence: 'fixed', fixedMonthsCount: 3,
+  });
+  const power = createTransactionBatch({
+    description: 'Luz', amount: 150, date: '2026-12-10', competenceMonth: '2026-12', type: 'expense',
+    status: 'pending', categoryId: 'cat-outros', accountId: 'acc', paymentMethod: 'pix',
+    recurrence: 'fixed', fixedMonthsCount: 3,
+  });
+  const single = createTransactionBatch({
+    description: 'Padaria', amount: 20, date: '2026-12-02', competenceMonth: '2026-12', type: 'expense',
+    status: 'paid', categoryId: 'cat-outros', accountId: 'acc', paymentMethod: 'pix', recurrence: 'single',
+  });
+  const all = [...card, ...subscription, ...power, ...single];
+  assert.deepEqual(getInstallmentAndRecurringItemsForMonth(all, '2026-12').map((tx) => tx.description),
+    ['Streaming', 'Luz', 'Celular']);
+  assert.equal(getInstallmentAndRecurringItemsForMonth(all, '2026-11').length, 2);
+  assert.equal(getInstallmentAndRecurringItemsForMonth(all, '2027-01').length, 3);
+  assert.equal(getInstallmentAndRecurringItemsForMonth(all, '2026-10').length, 0);
 });

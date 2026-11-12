@@ -1717,6 +1717,23 @@ export function getLedgerTransactionsForMonth(transactions: Transaction[], month
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
 }
 
+/**
+ * Tudo que é parcelado ou recorrente e cai no mês: parcelas e despesas fixas, no cartão ou no banco
+ * (água, luz, assinaturas etc.), uma linha por cobrança do mês. Não inclui pagamento de fatura nem
+ * transferências.
+ */
+export function getInstallmentAndRecurringItemsForMonth(transactions: Transaction[], month: string): Transaction[] {
+  return transactions
+    .filter((tx) =>
+      (tx.recurrence === 'installment' || tx.recurrence === 'fixed') &&
+      tx.date.slice(0, 7) === month &&
+      !tx.isInvoicePayment &&
+      !tx.isCompanionOnlyExpense &&
+      tx.type !== 'transfer'
+    )
+    .sort((a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description));
+}
+
 export interface CalendarDaySummary {
   pendingExpense: number;
   paidExpense: number;
