@@ -1686,6 +1686,39 @@ export interface CalendarDaySummary {
 }
 
 /**
+ * Total mostrado na célula do calendário: o que foi gasto e o que entrou naquele dia.
+ * Compras no cartão entram na data da compra e as parceladas contam pelo valor total da compra
+ * (a parcela e a fatura aparecem no detalhamento do dia). Pagamento de fatura e transferência ficam
+ * de fora para não contar a mesma compra duas vezes.
+ */
+export function calculateCalendarCellTotals(dayTransactions: Transaction[]): {
+  expense: number;
+  income: number;
+} {
+  let expense = 0;
+  let income = 0;
+  for (const tx of dayTransactions) {
+    if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) continue;
+    if (tx.type === 'income') {
+      if (tx.sharedPaidBy !== 'member') income += tx.amount;
+      continue;
+    }
+    if (tx.type !== 'expense') continue;
+    const effective = getEffectiveExpenseAmountForUser(tx);
+    if (!effective) continue;
+    if (tx.installmentPurchaseTotal !== undefined && tx.amount > 0) {
+      expense += tx.installmentPurchaseTotal * (effective.amount / tx.amount);
+    } else {
+      expense += effective.amount;
+    }
+  }
+  return {
+    expense: Math.round(expense * 100) / 100,
+    income: Math.round(income * 100) / 100,
+  };
+}
+
+/**
  * Summarizes the expenses and income recorded on a calendar day.
  * Credit-card purchases stay on their purchase date; invoice due cards are
  * shown separately by the calendar and must not be added to these totals.

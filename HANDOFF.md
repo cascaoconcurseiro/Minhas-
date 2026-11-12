@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Reembolso no mês da cobrança e calendário só com o total — 12/11/2026
+
+Pedido do usuário após ver o app: (1) o aviso "Reembolso de FRAN" aparecia no dia seguinte à compra no cartão; agora a data de cobrança do rateio é o vencimento da fatura (`competenceMonth` + `dueDay` do cartão) ou a data do lançamento sem cartão, e o aviso só entra a partir de 3 dias antes (`calculateDailyReminders`). (2) Cada dia do calendário mensal mostra só o total (gasto em vermelho, recebido em verde); a lista de lançamentos fica no detalhamento abaixo. O total vem de `calculateCalendarCellTotals`: compra parcelada conta pelo total da compra, pagamento de fatura e transferência ficam de fora, e o filtro ativo do calendário é respeitado. Os pontos de conta pendente e fatura em aberto continuam; fatura de R$ 0,00 deixou de aparecer como cartão.
+
+Validação local: `tsc --noEmit`, 485 testes e build passaram. Não verifiquei visualmente no navegador. Decisão tomada sem confirmação: o total do dia inclui compras no cartão (na data da compra); se preferir só o que sai do caixa, trocar por `calculateCalendarDaySummary`.
+
 ## Saldo de hoje, notificações enxutas e Neon como fonte única — 12/11/2026
 
 Corrigidas as inconsistências levantadas na análise de 12/11. (1) Patrimônio, saldo total e investimentos agora partem de `calculateCurrentPosition` (data de hoje) e não mudam ao navegar entre meses; o mês navegado continua mostrando o saldo ao fim daquele mês. App, Visão Geral (Raio-X 360) e DRE recebem `currentPosition`. (2) `calculateDailyReminders` não depende mais de `selectedMonth`: avisa atrasados de qualquer mês, vencimentos de hoje e dos próximos dias (faturas pela antecedência configurada, contas em 3 dias); itens distantes saem da lista e ficam em "Contas a pagar". Respeita `notifyRecurringEntries` e ignora gasto pago por familiar. (3) Regra única `isPendingBankObligation` usada pela Visão Geral e pelas notificações. (4) Central de notificações reduzida a avisos (sem filtros, rodapé e "Ver detalhes"); convites de família recebidos passaram do banner fixo para dentro dela e contam no sino. (5) Removida a cópia financeira em `localStorage` (nunca era lida); cópias antigas são apagadas ao abrir o app.

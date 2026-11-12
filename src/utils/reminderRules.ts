@@ -282,28 +282,31 @@ export function calculateDailyReminders({
     }
   }
 
-  // 3. Rateios de familiares que já aconteceram e ainda não foram reembolsados
+  // 3. Reembolsos de familiares a cobrar. O momento da cobrança é o vencimento da fatura (compra no
+  // cartão) ou a data do lançamento; nunca o dia em que a compra foi feita no cartão.
   if (settings.notifySharedReimbursements) {
+    const cardById = new Map(cards.map((card) => [card.id, card]));
     const pendingShared = transactions.filter(
-      (tx) =>
-        tx.isShared &&
-        tx.sharedStatus === 'pending' &&
-        (tx.sharedAmount ?? 0) > 0 &&
-        tx.date <= referenceDate
+      (tx) => tx.isShared && tx.sharedStatus === 'pending' && (tx.sharedAmount ?? 0) > 0
     );
 
     for (const tx of pendingShared) {
-      const memberName = tx.sharedMemberId ? memberMap.get(tx.sharedMemberId) : 'Familiar';
-      const daysRemaining = getDaysDifference(referenceDate, tx.date);
+      const card = tx.creditCardId ? cardById.get(tx.creditCardId) : undefined;
+      const chargeDate =
+        card && tx.competenceMonth ? getClampedMonthDate(tx.competenceMonth, card.dueDay) : tx.date;
+      const daysRemaining = getDaysDifference(referenceDate, chargeDate);
+      const urgency = classifyUrgency(daysRemaining, BILL_WARNING_DAYS);
+      if (!urgency) continue;
 
+      const memberName = tx.sharedMemberId ? memberMap.get(tx.sharedMemberId) : 'Familiar';
       reminders.push({
         id: `shared-pending-${tx.id}`,
         type: 'shared_pending',
         title: `Reembolso de ${memberName || 'Familiar'}`,
         description: `Rateio pendente de "${tx.description}"`,
         amount: tx.sharedAmount ?? 0,
-        dueDate: tx.date,
-        urgency: daysRemaining < 0 ? 'overdue' : 'due_today',
+        dueDate: chargeDate,
+        urgency,
         daysRemaining,
         transactionId: tx.id,
         memberId: tx.sharedMemberId,

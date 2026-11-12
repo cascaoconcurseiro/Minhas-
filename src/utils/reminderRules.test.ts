@@ -219,6 +219,28 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     assert.equal(reminders[0].dueDate, '2026-09-20');
   });
 
+  test('shared reimbursement is charged on the invoice due date, not on the purchase date', () => {
+    const card: CreditCard = {
+      id: 'card-z', name: 'Cartão Z', brand: 'Visa', limit: 5000, closingDay: 30, dueDay: 5,
+      defaultAccountId: '', color: '#000000',
+    };
+    const transactions: Transaction[] = [{
+      id: 'shared-card', description: 'Mercado', amount: 50, date: '2026-11-11', competenceMonth: '2026-12',
+      type: 'expense', status: 'pending', categoryId: 'cat-mercado', creditCardId: 'card-z',
+      paymentMethod: 'credit_card', recurrence: 'single', isShared: true, sharedStatus: 'pending',
+      sharedAmount: 25, sharedMemberId: 'fam-1',
+    }];
+    const at = (referenceDate: string) => calculateDailyReminders({ transactions, cards: [card], referenceDate });
+
+    assert.equal(at('2026-11-12').filter((r) => r.type === 'shared_pending').length, 0, 'compra de hoje não cobra ainda');
+    assert.equal(at('2026-12-01').filter((r) => r.type === 'shared_pending').length, 0, 'ainda longe do vencimento');
+    const soon = at('2026-12-03').filter((r) => r.type === 'shared_pending');
+    assert.equal(soon.length, 1);
+    assert.equal(soon[0].urgency, 'due_soon');
+    assert.equal(soon[0].dueDate, '2026-12-05');
+    assert.equal(at('2026-12-06').find((r) => r.type === 'shared_pending')?.urgency, 'overdue');
+  });
+
   test('summarizeReminders computes aggregate counts and urgent counts correctly', () => {
     const reminders = [
       {
