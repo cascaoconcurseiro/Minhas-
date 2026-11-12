@@ -905,7 +905,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               Fluxo de Caixa Diário Acumulado — {formatMonthYearPT(selectedMonth)}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Evolução dia a dia do saldo nas contas de giro para evitar descoberto ou cheque especial
+              Movimento real das contas, dia a dia, para evitar descoberto. Compras no cartão só saem do caixa no pagamento da fatura; o gasto em si aparece no mês da compra (gráfico por categoria, calendário e orçamento)
             </p>
           </div>
           {lowestProjectedPoint && (

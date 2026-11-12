@@ -14,6 +14,7 @@ import {
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
+  getConsumptionMonth,
 } from './financeRules';
 
 export interface MonthlyReportPdfData {
@@ -111,7 +112,7 @@ export function generateMonthlyFinancialReportPdf({
   const topExpenses = transactions
     .filter(
       (tx) =>
-        tx.competenceMonth === selectedMonth &&
+        getConsumptionMonth(tx) === selectedMonth &&
         tx.type === 'expense' &&
         !tx.isInvoicePayment &&
         !tx.isCompanionOnlyExpense
