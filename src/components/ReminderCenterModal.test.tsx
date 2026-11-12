@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { ReminderItem } from '../types/finance';
+import type { FamilyMember, ReminderItem } from '../types/finance';
 import { ReminderCenterModal } from './ReminderCenterModal';
 
 const { createRoot } = await import('react-dom/client');
@@ -12,16 +12,18 @@ let container: HTMLDivElement | null = null;
 const reminders: ReminderItem[] = [
   { id: 'invoice-1', type: 'invoice_due', title: 'Fatura sintética', description: 'Vence hoje', amount: 75, dueDate: '2026-11-07', urgency: 'due_today', daysRemaining: 0, cardId: 'card-synthetic' },
   { id: 'bill-1', type: 'pending_bill', title: 'Conta sintética', description: 'Em atraso', amount: 22, dueDate: '2026-11-06', urgency: 'overdue', daysRemaining: -1, transactionId: 'tx-bill' },
-  { id: 'recurring-1', type: 'recurring_check', title: 'Recorrência sintética', description: 'Conferir valor', amount: 10, dueDate: '2026-11-10', urgency: 'due_soon', daysRemaining: 3 },
-  { id: 'shared-1', type: 'shared_pending', title: 'Rateio sintético', description: 'A receber', amount: 5, dueDate: '2026-11-15', urgency: 'upcoming', daysRemaining: 8, transactionId: 'tx-shared', memberId: 'member-synthetic' },
+  { id: 'recurring-1', type: 'recurring_check', title: 'Recorrência sintética', description: 'Conferir valor', amount: 10, dueDate: '2026-11-10', urgency: 'due_soon', daysRemaining: 3, transactionId: 'tx-fixed' },
 ];
+const invite: FamilyMember = { id: 'fam-1', name: 'Pessoa', color: '#000', direction: 'incoming', inviteStatus: 'invited', invitedByName: 'Ana' } as FamilyMember;
 
 function renderReminder(options: {
   reminderItems?: ReminderItem[];
   onClose?: () => void;
   onPayInvoice?: (cardId: string) => void;
   onMarkPaid?: (id: string) => void;
-  onEdit?: (id: string) => void;
+  invites?: FamilyMember[];
+  onAccept?: (member: FamilyMember) => void;
+  onDecline?: (member: FamilyMember) => void;
   onOpenSettings?: (tab: string) => void;
 } = {}) {
   container = document.createElement('div');
@@ -33,7 +35,9 @@ function renderReminder(options: {
     reminders: options.reminderItems ?? reminders,
     onPayCardInvoice: options.onPayInvoice,
     onMarkTransactionPaid: options.onMarkPaid,
-    onEditTransaction: options.onEdit,
+    familyInvites: options.invites,
+    onAcceptFamilyInvite: options.onAccept,
+    onDeclineFamilyInvite: options.onDecline,
     onOpenSettingsTab: options.onOpenSettings,
   })));
   return container;
@@ -53,13 +57,19 @@ afterEach(() => {
   container = null;
 });
 
-test('ReminderCenterModal exercises summary filters for every reminder type', async () => {
+test('notification center lists only the given notices, with no filters or summaries', async () => {
   const page = renderReminder();
-  assert.equal(page.querySelectorAll('[data-testid^="reminder-card-"]').length, 4);
-  for (const [filter, expected] of [['Urgentes', 3], ['Faturas Cartão', 1], ['Contas & Boletos', 1], ['Recorrentes', 1], ['Rateios Compartilhados', 1], ['Todos', 4]] as const) {
-    await act(async () => { clickButton(page, filter); });
-    assert.equal(page.querySelectorAll('[data-testid^="reminder-card-"]').length, expected, `filter ${filter}`);
-  }
+  assert.equal(page.querySelectorAll('[data-testid^="reminder-card-"]').length, 3);
+  assert.match(page.textContent ?? '', /Atrasado há 1d/);
+  assert.match(page.textContent ?? '', /Vence hoje/);
+  assert.match(page.textContent ?? '', /Vence em 3 dias/);
+  assert.doesNotMatch(page.textContent ?? '', /Todos|Urgentes|Faturas Cartão|Rateios|Ver Detalhes|Fechar$/);
+});
+
+test('empty notification center says nothing needs attention', async () => {
+  const page = renderReminder({ reminderItems: [] });
+  assert.equal(page.querySelectorAll('[data-testid^="reminder-card-"]').length, 0);
+  assert.match(page.textContent ?? '', /Nada exige atenção hoje/);
 });
 
 test('notification center contains alerts only and opens preferences in Settings', async () => {
@@ -76,20 +86,32 @@ test('notification center contains alerts only and opens preferences in Settings
 
 test('ReminderCenterModal routes each enabled reminder action through local callbacks', async () => {
   const paid: string[] = [];
-  const edited: string[] = [];
   const invoiced: string[] = [];
   let closes = 0;
   const page = renderReminder({
     onPayInvoice: (id) => invoiced.push(id),
     onMarkPaid: (id) => paid.push(id),
-    onEdit: (id) => edited.push(id),
     onClose: () => { closes += 1; },
   });
-  await act(async () => { clickButton(page, 'Pagar Fatura Agora'); });
-  await act(async () => { clickButton(page, 'Marcar como Pago'); });
-  await act(async () => { clickButton(page, 'Ver Detalhes'); });
+  await act(async () => { clickButton(page, 'Pagar fatura'); });
+  await act(async () => { page.querySelector('[data-testid="reminder-card-bill-1"] button')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
   assert.deepEqual(invoiced, ['card-synthetic']);
   assert.deepEqual(paid, ['tx-bill']);
-  assert.deepEqual(edited, ['tx-bill']);
-  assert.equal(closes, 2, 'payment and detail navigation close the modal');
+  assert.equal(closes, 1, 'only paying the invoice closes the modal');
+});
+
+test('family invites live in the notification center and can be accepted or declined', async () => {
+  const accepted: string[] = [];
+  const declined: string[] = [];
+  const page = renderReminder({
+    reminderItems: [],
+    invites: [invite],
+    onAccept: (member) => accepted.push(member.id),
+    onDecline: (member) => declined.push(member.id),
+  });
+  assert.match(page.textContent ?? '', /Convite de Ana/);
+  await act(async () => { clickButton(page, 'Aceitar'); });
+  await act(async () => { clickButton(page, 'Recusar'); });
+  assert.deepEqual(accepted, ['fam-1']);
+  assert.deepEqual(declined, ['fam-1']);
 });

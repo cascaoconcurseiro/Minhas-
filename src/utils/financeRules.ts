@@ -598,17 +598,35 @@ export function calculateAccountBalances(
   });
 }
 
+function isValidISODate(value: string): boolean {
+  if (typeof value !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value)) return false;
+  const parsedDate = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * Regra única de "conta pendente na conta bancária": lançamento ainda não pago, que mexe no caixa
+ * (não é transferência, não é compra de cartão, não é gasto só do acompanhante nem pago por familiar).
+ * A Visão Geral e as notificações usam esta mesma definição.
+ */
+export function isPendingBankObligation(tx: Transaction | null | undefined): tx is Transaction {
+  return Boolean(
+    tx &&
+      tx.status === 'pending' &&
+      tx.type !== 'transfer' &&
+      !tx.creditCardId &&
+      !tx.isCompanionOnlyExpense &&
+      tx.sharedPaidBy !== 'member' &&
+      isValidISODate(tx.date)
+  );
+}
+
 /** Returns unpaid bank income/expense movements for the selected month, including overdue items in the current month. */
 export function getPendingBankMovements(
   transactions: Transaction[] | null | undefined,
   selectedMonth: string,
   todayDate: string = getLocalDateISO()
 ): Transaction[] {
-  const isValidISODate = (value: string) => {
-    if (!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value)) return false;
-    const parsedDate = new Date(`${value}T00:00:00.000Z`);
-    return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
-  };
   if (
     !Array.isArray(transactions) ||
     !/^\d{4}-(0[1-9]|1[0-2])$/.test(selectedMonth) ||
@@ -619,15 +637,7 @@ export function getPendingBankMovements(
   const currentMonth = todayDate.slice(0, 7);
   return transactions
     .filter((tx) => {
-      if (
-        !tx ||
-        tx.status !== 'pending' ||
-        tx.type === 'transfer' ||
-        tx.creditCardId ||
-        tx.isCompanionOnlyExpense ||
-        tx.sharedPaidBy === 'member' ||
-        !isValidISODate(tx.date)
-      ) return false;
+      if (!isPendingBankObligation(tx)) return false;
 
       const competenceMonth = tx.competenceMonth || tx.date.slice(0, 7);
       if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(competenceMonth)) return false;
@@ -2814,6 +2824,30 @@ export interface FinancialHealthScore360 {
  * Autonomia de Reserva de Emergência (Runway em meses) e o indicador "Livre para Gastar por Dia"
  * (Safe-to-Spend).
  */
+/**
+ * Posição de hoje: saldos das contas e faturas em aberto na data de referência, sem depender do mês
+ * que a pessoa está navegando. Patrimônio e saldo total devem sempre partir daqui.
+ */
+export interface CurrentPosition {
+  accountBalances: AccountBalanceSummary[];
+  cardSummaries: CreditCardSummary[];
+}
+
+export function calculateCurrentPosition(
+  accounts: BankAccount[],
+  cards: CreditCard[],
+  transactions: Transaction[],
+  referenceDate: string = getLocalDateISO()
+): CurrentPosition {
+  const currentMonth = referenceDate.slice(0, 7);
+  return {
+    accountBalances: calculateAccountBalances(accounts, transactions, currentMonth),
+    cardSummaries: cards.map((card) =>
+      calculateCreditCardSummary(card, transactions, currentMonth, referenceDate)
+    ),
+  };
+}
+
 export function calculateNetWorth(
   accountBalances: AccountBalanceSummary[],
   investments: InvestmentAsset[],
@@ -2836,6 +2870,8 @@ export function calculateFinancialHealthScore360(params: {
   categoryBreakdown: CategorySpendItem[];
   investments?: InvestmentAsset[];
   referenceDateIso?: string;
+  /** Posição de hoje para patrimônio e dívida de cartão; sem isso usa o mês selecionado. */
+  currentPosition?: CurrentPosition;
 }): FinancialHealthScore360 {
   const {
     selectedMonth,
@@ -2847,9 +2883,14 @@ export function calculateFinancialHealthScore360(params: {
     categoryBreakdown,
     investments = [],
     referenceDateIso,
+    currentPosition,
   } = params;
 
-  const wealth = calculateNetWorth(accountBalances, investments, cardSummaries);
+  const wealth = calculateNetWorth(
+    currentPosition?.accountBalances ?? accountBalances,
+    investments,
+    currentPosition?.cardSummaries ?? cardSummaries
+  );
   const liquidBalance = wealth.liquidAccountsBalance;
   const investmentsTotal = wealth.investedAssetsValue;
 
@@ -3186,7 +3227,8 @@ export function calculatePersonalDre(
   selectedMonth: string,
   accountBalances: AccountBalanceSummary[],
   investments: InvestmentAsset[],
-  cardSummaries: CreditCardSummary[]
+  cardSummaries: CreditCardSummary[],
+  currentPosition?: CurrentPosition
 ) {
   const monthTxs = transactions.filter(
     (tx) =>
@@ -3229,7 +3271,11 @@ export function calculatePersonalDre(
   const netSurplusAfterInvestments =
     freeCashFlowBeforeInvestments - investmentContributions;
 
-  const { liquidAccountsBalance, investedAssetsValue, creditCardDebt, totalNetWorth } = calculateNetWorth(accountBalances, investments, cardSummaries);
+  const { liquidAccountsBalance, investedAssetsValue, creditCardDebt, totalNetWorth } = calculateNetWorth(
+    currentPosition?.accountBalances ?? accountBalances,
+    investments,
+    currentPosition?.cardSummaries ?? cardSummaries
+  );
 
   return {
     operationalIncome,

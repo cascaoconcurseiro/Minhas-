@@ -614,7 +614,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 >
                   <div className="flex items-center gap-2.5">
                     <Bell className="h-4 w-4 text-amber-500" />
-                    <span>Lembretes & Notificações</span>
+                    <span>Notificações</span>
                   </div>
                   {(urgentRemindersCount || 0) > 0 && (
                     <span className="rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white">

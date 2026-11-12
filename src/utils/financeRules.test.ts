@@ -11,6 +11,9 @@ import {
   calculateCalendarDaySummary,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
+  calculateCurrentPosition,
+  calculateNetWorth,
+  isPendingBankObligation,
   calculateDailyCashFlow,
   calculateFinancialHealthScore360,
   calculateMonthlySummary,
@@ -2362,3 +2365,36 @@ test('custom tags: normalizeTransactionTag, normalizeTransactionTags, createTran
 
 
 
+
+test('net worth uses today\'s position and does not change with the month being browsed', () => {
+  const accounts = [{ id: 'a1', name: 'Conta', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true }] as never[];
+  const cards = [{ id: 'c1', name: 'Cartão', brand: 'Visa', limit: 5000, closingDay: 10, dueDay: 20, defaultAccountId: 'a1', color: '#000' }] as never[];
+  const base = { paymentMethod: 'pix', recurrence: 'single', categoryId: 'cat' };
+  const transactions = [
+    { ...base, id: 'salary', description: 'Salário', amount: 3000, date: '2026-11-05', competenceMonth: '2026-11', type: 'income', status: 'paid', accountId: 'a1' },
+    { ...base, id: 'card', description: 'Compra', amount: 300, date: '2026-11-15', competenceMonth: '2026-11', type: 'expense', status: 'pending', creditCardId: 'c1', paymentMethod: 'credit_card' },
+  ] as never[];
+
+  const position = calculateCurrentPosition(accounts, cards, transactions, '2026-11-20');
+  const worth = calculateNetWorth(position.accountBalances, [], position.cardSummaries);
+  assert.equal(worth.liquidAccountsBalance, 4000);
+  assert.equal(worth.creditCardDebt, 300);
+  assert.equal(worth.totalNetWorth, 3700);
+
+  // Navegar para outubro muda o saldo "ao fim do mês", mas nunca a posição de hoje.
+  const octoberBalances = calculateAccountBalances(accounts, transactions, '2026-10');
+  assert.equal(octoberBalances[0].currentBalance, 1000);
+  const again = calculateCurrentPosition(accounts, cards, transactions, '2026-11-20');
+  assert.deepEqual(again, position);
+});
+
+test('one rule defines a pending bank obligation for both overview and notices', () => {
+  const tx = (over: object) => ({ id: 't', description: 'x', amount: 10, date: '2026-11-10', competenceMonth: '2026-11', type: 'expense', status: 'pending', categoryId: 'c', paymentMethod: 'pix', recurrence: 'single', ...over });
+  assert.equal(isPendingBankObligation(tx({}) as never), true);
+  assert.equal(isPendingBankObligation(tx({ status: 'paid' }) as never), false);
+  assert.equal(isPendingBankObligation(tx({ type: 'transfer' }) as never), false);
+  assert.equal(isPendingBankObligation(tx({ creditCardId: 'c1' }) as never), false);
+  assert.equal(isPendingBankObligation(tx({ sharedPaidBy: 'member' }) as never), false);
+  assert.equal(isPendingBankObligation(tx({ isCompanionOnlyExpense: true }) as never), false);
+  assert.equal(isPendingBankObligation(tx({ date: '2026-13-40' }) as never), false);
+});

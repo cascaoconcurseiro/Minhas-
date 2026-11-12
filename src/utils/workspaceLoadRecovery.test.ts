@@ -14,16 +14,18 @@ test('blocks workspace use and offers a retry until Neon has loaded successfully
   assert.match(appSource, /window\.addEventListener\('online', retryWhenOnline\)/);
 });
 
-test('does not overwrite the local cache before a Neon workspace is loaded', () => {
-  const cacheEffectStart = appSource.indexOf('// Save a local cache and persist the authenticated workspace in Neon.');
-  const cacheEffectEnd = appSource.indexOf('const handleForceCloudSync', cacheEffectStart);
-  assert.notEqual(cacheEffectStart, -1, 'expected the workspace cache effect');
-  assert.notEqual(cacheEffectEnd, -1, 'expected the end of the workspace cache effect');
+test('Neon is the only data source: no local financial copy is written and old copies are purged', () => {
+  const saveEffectStart = appSource.indexOf('// Persiste o workspace autenticado no Neon');
+  const saveEffectEnd = appSource.indexOf('const handleForceCloudSync', saveEffectStart);
+  assert.notEqual(saveEffectStart, -1, 'expected the Neon save effect');
+  assert.notEqual(saveEffectEnd, -1, 'expected the end of the Neon save effect');
 
-  const cacheEffect = appSource.slice(cacheEffectStart, cacheEffectEnd);
+  const saveEffect = appSource.slice(saveEffectStart, saveEffectEnd);
+  assert.doesNotMatch(saveEffect, /localStorage\.setItem\(/, 'no financial copy is stored in the browser');
   assert.match(
-    cacheEffect,
-    /if \(hasLoadedRemoteOnceRef\.current\)\s*\{[\s\S]*?localStorage\.setItem\(/,
-    'the existing local copy must remain untouched until the cloud snapshot loads'
+    saveEffect,
+    /isAuthReady &&\s*hasLoadedRemoteOnceRef\.current &&\s*!isApplyingRemoteSnapshotRef\.current/,
+    'saving to Neon only starts after the cloud snapshot has loaded'
   );
+  assert.match(appSource, /for \(const key of cacheKeys\) localStorage\.removeItem\(key\)/, 'old local copies are removed');
 });

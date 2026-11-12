@@ -26,6 +26,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
+| 2026-11-12 | Saldo total, investimentos e patrimônio partem da posição de hoje (`calculateCurrentPosition`); avisos usam só a data de hoje; Neon é a única fonte (sem cópia financeira em localStorage) | O mês navegado não pode alterar patrimônio nem sumir com atrasos; evitar cópia duplicada de dados financeiros no navegador |
 | 2026-11-11 | Separar dados de compra compartilhada de recibos bancários locais em `sharedSettlementReceiptsJson` no workspace do titular | Espelhos são atualizados pelo servidor; conta/grupo/status da baixa local precisam sobreviver ao reload sem vazar identidade bancária para outro usuário. Campo JSON opcional, sem migration SQL |
 | 2026-11-11 | Centralizar regras monetárias em `financeRules.ts` e seleção/resumo/liquidação/reabertura de compartilhamentos em `sharedFinanceRules.ts`; App e telas consomem essas funções | Evitar filtros, somas e cascatas divergentes entre tela e gravação. Cada novo acerto recebe `sharedSettlementId` no JSON do workspace, incluindo compensações de saldo zero; sem migration SQL |
 | 2026-11-07 (superada em 2026-11-08) | Usar Firebase Auth somente para identidade e Neon PostgreSQL para toda persistência operacional | Manter o login Firebase sem devolver dados financeiros ao Firestore |
