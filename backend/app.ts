@@ -13,7 +13,7 @@ import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
 import { parseWorkspaceArray } from '../src/utils/workspacePayload.ts';
-import { parseSharedSettlementReceipts } from '../src/utils/sharedFinanceRules.ts';
+import { parseSharedSettlementReceipts } from '../src/utils/sharedSettlementReceipts.ts';
 import {
   createAttemptLimiter,
   hashPassword,

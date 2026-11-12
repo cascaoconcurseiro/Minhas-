@@ -4,7 +4,7 @@ import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import type { BankAccount, InvestmentAsset, SavingsGoal } from '../types/finance';
-import { formatBRL, simulateFixedIncomeBR } from '../utils/financeRules';
+import { formatBRL, getLocalDateISO, simulateFixedIncomeBR } from '../utils/financeRules';
 import { GoalsAndSimulatorTab } from './GoalsAndSimulatorTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -30,7 +30,7 @@ function renderGoalsTab(options: {
   onDeleteGoal?: (goalId: string) => void;
   accounts?: BankAccount[];
   investments?: InvestmentAsset[];
-  onContributeGoal?: (goalId: string, amount: number, debitAccountId?: string) => void;
+  onContributeGoal?: (goalId: string, amount: number, debitAccountId?: string, date?: string) => void;
 }) {
   container = document.createElement('div');
   document.body.append(container);
@@ -232,20 +232,43 @@ test('linked investment controls the saved goal balance and is included on creat
 
 test('goal contribution sends the edited amount and selected account', async () => {
   const account: BankAccount = { id: 'goal-account', name: 'Conta sintética', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#000', includeInTotal: true };
-  const calls: Array<[string, number, string?]> = [];
-  const page = renderGoalsTab({ goals: [existingGoal], accounts: [account], onContributeGoal: (...args) => calls.push(args) });
+  const calls: Array<[string, number, string?, string?]> = [];
+  const page = renderGoalsTab({ goals: [{ ...existingGoal, linkedAssetId: 'asset' }], accounts: [account], onContributeGoal: (...args) => calls.push(args) });
   await act(async () => { [...page.querySelectorAll('button')].find((b) => b.textContent?.includes('Registrar Aporte'))!.click(); });
+  await act(async () => { setInputValue(page.querySelector<HTMLInputElement>('input[type="date"]')!, '2026-10-08'); });
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>(`[aria-label="Valor do aporte para ${existingGoal.name}"]`)!, '250,75');
     page.querySelector<HTMLSelectElement>('[aria-label="Conta para debitar o aporte"]')!.value = account.id;
     page.querySelector<HTMLSelectElement>('[aria-label="Conta para debitar o aporte"]')!.dispatchEvent(new window.Event('change', { bubbles: true }));
     [...page.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Confirmar')!.click();
   });
-  assert.deepEqual(calls, [[existingGoal.id, 250.75, account.id]]);
+  assert.deepEqual(calls, [[existingGoal.id, 250.75, account.id, '2026-10-08']]);
+});
+
+test('unlinked goal reserves existing money without offering a bank debit', async () => {
+  const account: BankAccount = { id: 'bank', name: 'Banco', institution: 'Teste', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true };
+  const calls: Array<[string, number, string?, string?]> = [];
+  const page = renderGoalsTab({ goals: [existingGoal], accounts: [account], onContributeGoal: (...args) => calls.push(args) });
+  await act(async () => { [...page.querySelectorAll('button')].find(button => button.textContent?.includes('Registrar Aporte'))!.click(); });
+  assert.equal(page.querySelector('[aria-label="Conta para debitar o aporte"]'), null);
+  assert.match(page.textContent!, /Reserva do dinheiro existente/);
+  await act(async () => { [...page.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Confirmar')!.click(); });
+  assert.deepEqual(calls, [[existingGoal.id, 75, undefined, getLocalDateISO()]]);
+});
+
+test('goal contribution keeps the editor open and reports an invalid date', async () => {
+  let calls = 0;
+  const page = renderGoalsTab({ goals: [{ ...existingGoal, linkedAssetId: 'asset' }], onContributeGoal: () => { calls++; } });
+  await act(async () => { [...page.querySelectorAll('button')].find(button => button.textContent?.includes('Registrar Aporte'))!.click(); });
+  await act(async () => { setInputValue(page.querySelector<HTMLInputElement>('input[type="date"]')!, ''); });
+  await act(async () => { [...page.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Confirmar')!.click(); });
+  assert.equal(calls, 0);
+  assert.match(page.querySelector('[role="alert"]')!.textContent!, /data válida/);
+  assert.ok(page.querySelector('input[type="date"]'));
 });
 
 test('goal contribution rejects nonpositive or unparseable values and closes the editor', async () => {
-  const calls: Array<[string, number, string?]> = [];
+  const calls: Array<[string, number, string?, string?]> = [];
   const page = renderGoalsTab({ goals: [existingGoal], onContributeGoal: (...args) => calls.push(args) });
   const openContribution = () => [...page.querySelectorAll('button')]
     .find((button) => button.textContent?.includes('Registrar Aporte'));

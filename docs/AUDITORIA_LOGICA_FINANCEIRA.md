@@ -3,13 +3,24 @@
 Data: 2026-11-11
 Escopo: lançamentos, compras parceladas, cartões/faturas, competência, categorias, moeda e sincronização.
 
-Esta auditoria catalogou **60 falhas confirmadas no código (17 P0 e 43 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
+Esta auditoria catalogou **64 falhas confirmadas no código (17 P0 e 47 P1)**, com causa, correção e evidência abaixo. É um inventário dos problemas reproduzidos ou demonstrados nos fluxos inspecionados; não significa que nenhuma falha de runtime possa existir fora deles. A primeira revisão foi publicada no commit `1f9c139` via GitHub → Vercel. As continuações e verificações autenticadas estão registradas abaixo e no `HANDOFF.md`; a consolidação global de regras ainda não está concluída.
 
 ## Resumo
 
+### Metas e preservação do histórico dos ativos
+
+| ID | Sev | Arquivo | Categoria | Problema | Fix e evidência |
+|---|---|---|---|---|---|
+| INV-03 | P1/ALT | `src/App.tsx`, `src/utils/investmentRules.ts` | FIN/TXN | Excluir ativo apagava vínculo de transações, convertia aportes transferidos em despesas e permitia sumir com posição positiva. | `getInvestmentDeletionRestriction` bloqueia saldo, histórico ou meta vinculada. Só ativo zerado e sem vínculos pode ser removido. Teste cobre os três bloqueios e remoção permitida. |
+| META-01 | P1/ALT | `src/App.tsx`, `src/utils/investmentRules.ts` | FIN | Aporte debitava valor cheio mesmo quando a quantidade arredondada do ativo recebia outro valor; incrementava saldo antigo da meta em vez de derivar da posição. | `createGoalInvestmentContribution` valida toda a operação antes das mutações, exige equivalência em centavos entre débito e posição, preserva cotação e deriva saldo da meta do ativo. R$100 com cota de R$14000 é rejeitado quando não representável em quatro casas, orientando operação por quantidade. Teste confirma rejeição sem mutação dos inputs. |
+| META-02 | P1/ALT | `src/App.tsx`, `src/components/GoalsAndSimulatorTab.tsx` | FIN/UX | Aporte na meta usava dia15 artificial e data UTC, independentemente do dia real. | Aporte vinculado permite data escolhida, padrão dia local. Movimento e competência usam essa data. Testes de callback e domínio em outubro, e data inválida sem submit. |
+| META-03 | P1/ALT | `src/App.tsx`, `src/components/GoalsAndSimulatorTab.tsx` | FIN/UX | Meta sem ativo gerava despesa bancária sem destino patrimonial; mero registro de reserva reduzia o saldo da conta. | Meta sem ativo apenas atualiza a reserva e não oferece débito. Meta vinculada pode transferir da conta para ativo ou informar aporte externo já realizado. Teste confirma ausência do seletor de débito e callback sem conta para reserva simples. |
+
+Verificação local: 472 testes/59 arquivos, lint e build (85 entradas PWA) aprovados; após ocultar data desnecessária na reserva simples, 15 testes da tela e lint aprovados. Não houve SQL/migration nem ajuste de histórico produtivo. Pergunta opcional enviada sobre permitir conta de destino em metas sem ativo; adotada reserva do dinheiro existente como padrão enquanto não há resposta. QA visual segue pendente: espaço Ego1 continua delegado ao usuário, sem retomada nesta etapa.
+
 ### Investimentos — principal e data (dois achados adicionais)
 
-Os dois achados abaixo integram o total de 60.
+Os dois achados abaixo integram o inventário.
 
 | ID | Sev | Arquivo | Categoria | Problema | Fix e evidência |
 |---|---|---|---|---|---|

@@ -13,6 +13,7 @@ import { BankAccount, InvestmentAsset, SavingsGoal } from '../types/finance';
 import {
   formatBRL,
   formatShortDateBR,
+  getLocalDateISO,
   parseBRLInput,
   simulateFixedIncomeBR,
 } from '../utils/financeRules';
@@ -26,7 +27,8 @@ interface GoalsAndSimulatorTabProps {
   onContributeGoal: (
     goalId: string,
     amount: number,
-    debitAccountId?: string
+    debitAccountId?: string,
+    contributionDate?: string
   ) => void;
   onAddGoal: (goal: Omit<SavingsGoal, 'id'>) => void;
   onUpdateGoal: (goal: SavingsGoal) => void;
@@ -45,6 +47,8 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   const [activeGoalContributeId, setActiveGoalContributeId] = useState<string | null>(null);
   const [contributeAmountStr, setContributeAmountStr] = useState('500,00');
   const [contributeAccountId, setContributeAccountId] = useState<string>('');
+  const [contributeDate, setContributeDate] = useState(getLocalDateISO);
+  const [contributeError, setContributeError] = useState('');
   const contributeAccount = accounts.find((account) => account.id === contributeAccountId) ?? null;
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
@@ -154,9 +158,15 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   };
 
   const handleConfirmContribution = (goalId: string) => {
+    const parsedDate = new Date(`${contributeDate}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(contributeDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== contributeDate) {
+      setContributeError('Informe uma data válida para o aporte.');
+      return;
+    }
     const val = parseBRLInput(contributeAmountStr);
     if (val > 0) {
-      onContributeGoal(goalId, val, contributeAccountId || undefined);
+      const goal = goals.find(item => item.id === goalId);
+      onContributeGoal(goalId, val, goal?.linkedAssetId ? contributeAccountId || undefined : undefined, contributeDate);
     }
     setActiveGoalContributeId(null);
   };
@@ -551,6 +561,11 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
 
                 {isContributing ? (
                   <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                    {goal.linkedAssetId && <label className="text-xs text-slate-600">
+                      Data do aporte
+                      <input type="date" value={contributeDate} onChange={event => setContributeDate(event.target.value)} className="ml-2 rounded-lg border border-slate-300 px-2 py-1" />
+                    </label>}
+                    {contributeError && <p role="alert" className="w-full text-xs text-rose-700">{contributeError}</p>}
                     <CurrencyInput
                       aria-label={`Valor do aporte para ${goal.name}`}
                       value={contributeAmountStr}
@@ -558,7 +573,8 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                       onValueChange={setContributeAmountStr}
                       className="w-24 rounded-lg border border-emerald-600 px-2.5 py-1 text-xs font-mono tabular-nums text-slate-900"
                     />
-                    {accounts.length > 0 && (
+                    {!goal.linkedAssetId && <p className="w-full text-xs text-slate-500">Reserva do dinheiro existente. Para transferir para um investimento, vincule o ativo à meta.</p>}
+                    {goal.linkedAssetId && accounts.length > 0 && (
                       <>
                         <select
                           aria-label="Conta para debitar o aporte"
@@ -566,7 +582,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                           onChange={(e) => setContributeAccountId(e.target.value)}
                           className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
                         >
-                          <option value="">Apenas atualizar saldo da meta</option>
+                          <option value="">Aporte já feito fora das contas cadastradas</option>
                           {accounts.map((acc) => (
                             <option key={acc.id} value={acc.id}>
                               Debitar: {acc.name}
@@ -603,6 +619,8 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                     type="button"
                     onClick={() => {
                       setActiveGoalContributeId(goal.id);
+                      setContributeDate(getLocalDateISO());
+                      setContributeError('');
                       setContributeAmountStr(
                         (goal.monthlyContribution > 0
                           ? goal.monthlyContribution

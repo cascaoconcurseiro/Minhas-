@@ -1,5 +1,20 @@
 # Checklist — Minhas Economias
 
+## Recuperação da API — 2026-11-11
+- [x] Identificar nos logs de produção a causa dos HTTP 500: import ESM sem extensão em `sharedFinanceRules.ts` no runtime Node 26.
+- [x] Extrair a validação de recibos para um módulo sem dependências de interface e revisar `.claude/launch.json` antes do commit autorizado.
+- [x] Validar lint (`bun run lint`), build PWA (`bun run build`), import do parser puro no Node 26 e `git diff --check`.
+- [x] Integrar a correção sobre o `main` remoto atualizado e repetir suíte completa (475/475 em 60 arquivos), lint e build PWA.
+- [ ] Aprovar CI do PR; o build local da Vercel CLI 54.20.1 não aceita a configuração Node 26.x, embora o runtime de produção registre Node 26.12.1.
+- [x] Committar todas as mudanças locais solicitadas, inclusive `.claude/launch.json`.
+- [ ] Publicar a correção e confirmar `/api/status` HTTP 200 e leitura autenticada do workspace.
+
+- [x] Validar aporte vinculado antes de mudar meta/carteira/caixa; conferir equivalência em centavos e saldo derivado do ativo.
+- [x] Registrar aporte de meta vinculado como transferência na data escolhida; meta sem ativo apenas reserva dinheiro existente.
+- [x] Bloquear exclusão de ativo com saldo, histórico ou vínculo de meta, preservando transações.
+- [x] Confirmar CI43124282163 e deploy a484399 concluídos.
+- [ ] Conferir novo CI/deploy das metas e QA visual; revisar dupla contagem de mesmo ativo em metas e edição de operações da carteira.
+
 - [x] Corrigir novas compras/resgates de investimento para transferência de principal e impedir resgate como receita/aporte na DRE, com reconciliação de saldo e patrimônio.
 - [x] Permitir data real nas operações/proventos, removendo dias15/25 arbitrários; testar callback da data e valores inválidos.
 - [x] Confirmar deploy Vercel6b7e6f2 concluído.

@@ -1,5 +1,17 @@
 # Handoff — Minhas Economias
 
+## API de produção indisponível — 11/11
+
+A captura do usuário mostrava o workspace bloqueado. A verificação do domínio principal encontrou HTTP 500 em `/api/status`, `/api/auth/me` e `/api/workspace`; os logs da Vercel apontaram falha de importação ESM em `src/utils/sharedFinanceRules.js`: `./financeRules` não era resolvido pelo runtime Node 26. A validação do módulo no servidor mostrou que importar a regra compartilhada inteira também carregaria dependências de interface. Extraída a validação pura para `src/utils/sharedSettlementReceipts.ts`; o backend agora importa somente esse módulo e a API não depende das regras visuais. Revisado `.claude/launch.json` (configuração local de desenvolvimento, sem credenciais) para inclusão no commit solicitado.
+
+Lint, build PWA, import isolado do parser no Node 26 e `git diff --check` passaram. O estado local completo, incluindo `.claude/launch.json` e as alterações existentes de metas/investimentos, foi reaplicado como um commit único sobre o `main` atualizado. A suíte dessa base passou 475/475. A produção ainda está retornando HTTP 500; o próximo passo é concluir o PR/CI e confirmar HTTP 200 em `/api/status`, endpoints protegidos sem token retornando 401 e leitura autenticada do workspace sem alterar dados.
+
+## Metas e exclusão de ativos — continuação
+
+Confirmado deploy a484399 success; CI43124282163 passou467 testes, lint/build e PostgreSQL. Agora `handleContributeGoal` usa `createGoalInvestmentContribution` para validar aporte vinculado antes de mudar estado, gerar transferência em vez de despesa, preservar cotação e derivar saldo da posição. Rejeita valor que não corresponde à quantidade em4 casas em vez de debitar montante diferente. Data escolhida/local no movimento e competência. Meta sem ativo é reserva do dinheiro existente, sem transação ou seletor de débito. Pergunta opcional enviada sobre conta de destino; sem resposta, adotada reserva simples. `getInvestmentDeletionRestriction` impede excluir saldo/histórico/meta e remove conversão destrutiva de transações.
+
+Suíte completa472/472 em59 arquivos, lint/build85 entradas. Última mudança só esconde data para reserva simples;15 testes da tela e lint passaram depois. Relatório atualizado para64 achados (17P0/47P1). Sem SQL ou edição histórica. Espaço Ego1 ownership agentDelegatedToUser; não retomado. Próximo passo: conferir CI/deploy do commit desta etapa e revisar `GoalsAndSimulatorTab.getEffectiveGoalAmount`/total de metas (duas metas podem contar o mesmo ativo inteiro), a edição de operações de investimento e sua reconciliação com a carteira. QA visual e zero-net persistido/concorrência de revogação continuam abertos. Convite Fran segue pendência de aceite pela própria destinatária.
+
 ## Investimentos: principal e data — 11/11
 
 Corrigido novo aporte/resgate: `createInvestmentCashMovement` produz transferência entre conta e ativo, evitando receita de principal e despesa de consumo. DRE só conta transferência de saída como contribuição. `InvestmentsTab` recebe data escolhida (padrão dia local), repassada a operações/proventos no App; competência segue a data, removendo dias15/25 arbitrários. Validações de conta, quantidade, preço, centavos seguros, oversell e data antes da mutação vinculada. Não reclassificados históricos; sem migration SQL.

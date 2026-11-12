@@ -90,6 +90,8 @@ import {
 import {
   applyAssetOperation,
   createInvestmentCashMovement,
+  createGoalInvestmentContribution,
+  getInvestmentDeletionRestriction,
   DEFAULT_INVESTMENT_TARGETS,
 } from './utils/investmentRules';
 import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
@@ -2022,58 +2024,36 @@ export default function App() {
   const handleContributeGoal = (
     goalId: string,
     amount: number,
-    debitAccountId?: string
+    debitAccountId?: string,
+    contributionDate: string = getLocalDateISO()
   ) => {
     const targetGoal = goals.find((g) => g.id === goalId);
+    if (!targetGoal || !Number.isFinite(amount) || !Number.isSafeInteger(Math.round(amount * 100)) || Math.round(amount * 100) <= 0) return;
+    const parsedDate = new Date(`${contributionDate}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(contributionDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== contributionDate) { showNotice('Informe uma data válida para o aporte.', undefined, true); return; }
+    if (debitAccountId && !accounts.some(account => account.id === debitAccountId)) { showNotice('Selecione uma conta válida.', undefined, true); return; }
     if (targetGoal?.linkedAssetId) {
       const linkedAsset = investments.find((a) => a.id === targetGoal.linkedAssetId);
-      if (linkedAsset && linkedAsset.currentPrice > 0) {
-        const qtyDelta =
-          Math.round((amount / linkedAsset.currentPrice) * 10000) / 10000;
-        const updatedAsset = applyAssetOperation(
-          linkedAsset,
-          'buy',
-          qtyDelta,
-          linkedAsset.currentPrice
-        );
-        setInvestments((prev) =>
-          prev.map((a) => (a.id === linkedAsset.id ? updatedAsset : a))
-        );
-      }
+      if (!linkedAsset) { showNotice('O investimento vinculado à meta não foi encontrado.', undefined, true); return; }
+      try {
+        const result = createGoalInvestmentContribution(targetGoal, linkedAsset, amount, contributionDate, debitAccountId, `tx-goal-${Date.now()}`);
+        setInvestments(prev => prev.map(asset => asset.id === linkedAsset.id ? result.asset : asset));
+        setGoals(prev => prev.map(goal => goal.id === targetGoal.id ? result.goal : goal));
+        if (result.transaction) { const movement = result.transaction; setTransactions(prev => [movement, ...prev]); }
+        showNotice(`Aporte de ${formatBRL(amount)} registrado na meta${debitAccountId ? ' e debitado da conta' : ''}.`);
+      } catch (error) { showNotice(error instanceof Error ? error.message : 'Não foi possível registrar o aporte.', undefined, true); }
+      return;
     }
+    const nextGoalCents = Math.round(targetGoal.currentAmount * 100) + Math.round(amount * 100);
+    if (!Number.isSafeInteger(nextGoalCents) || nextGoalCents < 0) { showNotice('O saldo da meta excede o limite de valores permitido.', undefined, true); return; }
     setGoals((prev) =>
       prev.map((g) =>
         g.id === goalId
-          ? { ...g, currentAmount: Math.round((g.currentAmount + amount) * 100) / 100 }
+          ? { ...g, currentAmount: nextGoalCents / 100 }
           : g
       )
     );
-    if (debitAccountId && amount > 0) {
-      const todayIso = new Date().toISOString().slice(0, 10);
-      const txDate = todayIso.startsWith(selectedMonth)
-        ? todayIso
-        : `${selectedMonth}-15`;
-      const goalTx: Transaction = {
-        id: `tx-goal-${Date.now()}`,
-        description: `Aporte na Meta — ${targetGoal?.name || 'Meta de Economia'}`,
-        amount: Math.round(amount * 100) / 100,
-        date: txDate,
-        competenceMonth: txDate.slice(0, 7),
-        type: 'expense',
-        status: 'paid',
-        categoryId: 'cat-aportes',
-        accountId: debitAccountId,
-        paymentMethod: 'transfer',
-        recurrence: 'single',
-        notes: `Aporte registrado para a meta "${targetGoal?.name || 'Meta'}"`,
-      };
-      setTransactions((prev) => [goalTx, ...prev]);
-    }
-    showNotice(
-      debitAccountId
-        ? `Aporte de ${formatBRL(amount)} registrado na meta e debitado da conta!`
-        : `Aporte de ${formatBRL(amount)} registrado na meta!`
-    );
+    showNotice(`Reserva de ${formatBRL(amount)} registrada na meta.`);
   };
 
   const handleAddGoal = (newGoal: Omit<SavingsGoal, 'id'>) => {
@@ -2432,26 +2412,10 @@ export default function App() {
 
   const handleDeleteInvestmentAsset = (assetId: string) => {
     const target = investments.find((a) => a.id === assetId);
+    if (!target) return;
+    const restriction = getInvestmentDeletionRestriction(target, transactions, goals);
+    if (restriction) { showNotice(restriction, undefined, true); return; }
     setInvestments((prev) => prev.filter((a) => a.id !== assetId));
-    setGoals((prev) =>
-      prev.map((g) =>
-        g.linkedAssetId === assetId ? { ...g, linkedAssetId: undefined } : g
-      )
-    );
-    setTransactions((prev) =>
-      prev.map((tx) => {
-        if (tx.targetInvestmentAssetId !== assetId) return tx;
-        if (tx.type === 'transfer' && !tx.destinationAccountId) {
-          return {
-            ...tx,
-            type: 'expense',
-            categoryId: tx.categoryId || 'cat-aportes',
-            targetInvestmentAssetId: undefined,
-          };
-        }
-        return { ...tx, targetInvestmentAssetId: undefined };
-      })
-    );
     showNotice(`Ativo ${target?.ticker || ''} removido da carteira.`);
   };
 
