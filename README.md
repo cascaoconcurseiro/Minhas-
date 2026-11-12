@@ -41,7 +41,7 @@ Aplicação web progressiva (**PWA Full-Stack**) de gestão financeira pessoal e
   - **Cartão de Crédito** (À vista, Parcelado em até 48x com ajuste de centavos na 1ª parcela, ou Assinatura Fixa)
   - **Receitas** (Salário, Pró-Labore, Dividendos, Projetos Extras)
   - **Transferências & Pagamento de Fatura** (Entre contas, aporte direto em ativo de investimento ou baixa em cascata de fatura de cartão)
-- **Predição Inteligente de Categoria**: Sugere automaticamente a categoria e subcategoria com percentual de confiança com base no histórico de descrições digitadas.
+- **Predição Inteligente de Categoria**: Sugere automaticamente a categoria com percentual de confiança com base no histórico de descrições digitadas.
 - **Efeito Cascata (`single`, `this_and_future`, `all_series`)**: Edição ou exclusão em lote de séries parceladas ou fixas.
 
 ### 3. Contas Bancárias & Conciliação OFX

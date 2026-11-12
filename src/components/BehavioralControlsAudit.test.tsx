@@ -52,7 +52,7 @@ test('MonthlyComparisonBarChart switches between six-month and filtered series',
 
 test('SwipeableTransactionCard invokes status, edit, duplicate, delete and action-sheet callbacks', () => {
   const calls: string[] = [];
-  const page = render(<SwipeableTransactionCard transaction={tx} category={{id:'food',name:'Alimentação',type:'expense',bucket:'essential',monthlyBudget:0,color:'#0f0',icon:'utensils',subcategories:[]}} originLabel="Contas" onToggleStatus={(id) => calls.push(`toggle:${id}`)} onEdit={() => calls.push('edit')} onDuplicate={() => calls.push('duplicate')} onDelete={(id) => calls.push(`delete:${id}`)} onOpenActionSheet={() => calls.push('sheet')} />);
+  const page = render(<SwipeableTransactionCard transaction={tx} category={{id:'food',name:'Alimentação',type:'expense',bucket:'essential',monthlyBudget:0,color:'#0f0',icon:'utensils'}} originLabel="Contas" onToggleStatus={(id) => calls.push(`toggle:${id}`)} onEdit={() => calls.push('edit')} onDuplicate={() => calls.push('duplicate')} onDelete={(id) => calls.push(`delete:${id}`)} onOpenActionSheet={() => calls.push('sheet')} />);
   click(button('Efetivar',page)); click(button('Editar Mercado',page)); click(button('Duplicar Mercado',page)); click(button('Excluir Mercado',page)); click(button('Menu de opções para Mercado',page));
   assert.deepEqual(calls,['toggle:tx1','edit','duplicate','delete:tx1','sheet']);
 });

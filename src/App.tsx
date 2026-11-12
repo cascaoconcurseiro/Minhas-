@@ -142,6 +142,11 @@ import {
 import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
 import { parseCachedWorkspace } from './utils/workspaceCache';
 import {
+  mergeCategoryCatalog,
+  stripLegacySubcategories,
+  stripLegacyTransactionSubcategory,
+} from './utils/categoryCatalog';
+import {
   anticipateCardInstallments,
   reverseInstallmentAnticipation,
 } from './utils/uxEnhancementRules';
@@ -921,8 +926,8 @@ export default function App() {
       if (cached) {
         setAccounts(cached.accounts);
         setCards(cached.cards);
-        setCategories(cached.categories);
-        setTransactions(cached.transactions);
+        setCategories(stripLegacySubcategories(cached.categories));
+        setTransactions(stripLegacyTransactionSubcategory(cached.transactions));
         setGoals(cached.goals);
         setFamilyMembers(cached.familyMembers);
         setInvestments(cached.investments);
@@ -1075,15 +1080,17 @@ export default function App() {
 
         setAccounts(stripLegacyMockItems(rawAccounts));
         setCards(stripLegacyMockItems(rawCards));
-        setCategories(nextCategories);
-        setTransactions([...applyRemoteSettlementReports(localTransactions, sharedSnapshot.outgoingSettlements),
-          ...restoreSharedSettlementReceipts([...sharedById.values()], data.sharedSettlementReceiptsJson, localTransactions)]);
+        const loadedSettings = parsePersistedSettings(data.settingsJson, DEFAULT_SETTINGS);
+        const catalog = mergeCategoryCatalog(nextCategories, loadedSettings.categoryCatalogVersion);
+        setCategories(catalog.categories);
+        setTransactions(stripLegacyTransactionSubcategory([...applyRemoteSettlementReports(localTransactions, sharedSnapshot.outgoingSettlements),
+          ...restoreSharedSettlementReceipts([...sharedById.values()], data.sharedSettlementReceiptsJson, localTransactions)]));
         setGoals(stripLegacyMockItems(parseWorkspaceArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS, 'goalsJson')));
         setFamilyMembers(familyMembers);
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
         setTrips(stripLegacyMockItems(parseWorkspaceArray<Trip>(data.tripsJson, INITIAL_TRIPS, 'tripsJson')));
         setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
-        setSettings(parsePersistedSettings(data.settingsJson, DEFAULT_SETTINGS));
+        setSettings({ ...loadedSettings, categoryCatalogVersion: catalog.version });
         hasLoadedRemoteOnceRef.current = true;
         loadedWorkspaceUidRef.current = loadUid;
         isApplyingRemoteSnapshotRef.current = false;
@@ -1485,7 +1492,6 @@ export default function App() {
           type: input.type,
           status: input.status,
           categoryId: input.categoryId,
-          subcategoryId: input.subcategoryId,
           accountId: input.accountId,
           destinationAccountId: input.destinationAccountId,
           targetInvestmentAssetId: input.targetInvestmentAssetId,
@@ -1864,8 +1870,7 @@ export default function App() {
         competenceMonth: lot.date.slice(0, 7),
         type: 'expense',
         status: 'paid',
-        categoryId: 'cat-lazer',
-        subcategoryId: 'sub-laz-viagem',
+        categoryId: 'cat-viagens',
         accountId: debitFromAccountId,
         paymentMethod: 'pix',
         recurrence: 'single',
@@ -1946,7 +1951,6 @@ export default function App() {
     const created: Category = {
       ...newCat,
       id: `cat-${Date.now()}`,
-      subcategories: newCat.subcategories ?? [],
     };
     setCategories((prev) => [...prev, created]);
     showNotice(`Categoria "${created.name}" criada.`);
@@ -1973,69 +1977,6 @@ export default function App() {
     }
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
     showNotice(`Categoria "${target.name}" removida.`);
-  };
-
-  const handleAddSubcategory = (categoryId: string, subcategoryName: string): string | undefined => {
-    const trimmed = subcategoryName.trim();
-    if (!trimmed) return undefined;
-    const target = categories.find((category) => category.id === categoryId);
-    const existing = (target?.subcategories || []).find(
-      (subcategory) => subcategory.name.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase()
-    );
-    if (existing) return existing.id;
-    const subcategorySlug = trimmed
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
-    const subcategoryId = `sub-${categoryId}-${subcategorySlug || 'custom'}`;
-    setCategories((prev) =>
-      prev.map((cat) => {
-        if (cat.id !== categoryId) return cat;
-        const subcategories = cat.subcategories ?? [];
-        if (subcategories.some((subcategory) => subcategory.id === subcategoryId)) return cat;
-        return {
-          ...cat,
-          subcategories: [...subcategories, { id: subcategoryId, name: trimmed }],
-        };
-      })
-    );
-    showNotice(`Subcategoria "${trimmed}" adicionada.`);
-    return subcategoryId;
-  };
-
-  const handleDeleteSubcategory = (categoryId: string, subcategoryId: string) => {
-    const target = categories
-      .find((category) => category.id === categoryId)
-      ?.subcategories?.find((subcategory) => subcategory.id === subcategoryId);
-    if (!target) return;
-    const linkedTransactions = getTransactionsLinkedToCategory(
-      categoryId,
-      transactions,
-      subcategoryId
-    );
-    if (linkedTransactions.length > 0) {
-      showNotice(
-        `A subcategoria "${target.name}" está em ${linkedTransactions.length} lançamento(s). Reclassifique esses lançamentos antes de excluir para preservar o histórico.`,
-        undefined,
-        true
-      );
-      return;
-    }
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === categoryId
-          ? {
-              ...cat,
-              subcategories: (cat.subcategories ?? []).filter(
-                (s) => s.id !== subcategoryId
-              ),
-            }
-          : cat
-      )
-    );
-    showNotice(`Subcategoria "${target.name}" removida.`);
   };
 
   const handleApplyHistoricalInstallmentTotals = () => {
@@ -2523,7 +2464,6 @@ export default function App() {
       type: 'income',
       status: 'paid',
       categoryId: 'cat-rendimentos',
-      subcategoryId: 'sub-rend-fii',
       accountId: receivingAccountId,
       paymentMethod: 'pix',
       recurrence: 'single',
@@ -3791,8 +3731,6 @@ export default function App() {
                   onAddCategory={handleAddCategory}
                   onUpdateCategory={handleUpdateCategory}
                   onDeleteCategory={handleDeleteCategory}
-                  onAddSubcategory={handleAddSubcategory}
-                  onDeleteSubcategory={handleDeleteSubcategory}
                 />
               )}
 
@@ -3914,7 +3852,6 @@ export default function App() {
         transactions={transactions}
         familyMembers={familyMembers}
         onAddFamilyMember={handleAddFamilyMember}
-        onAddSubcategory={handleAddSubcategory}
         investments={investments}
         trips={trips}
         selectedMonth={selectedMonth}
@@ -3937,8 +3874,6 @@ export default function App() {
         onAddCategory={handleAddCategory}
         onUpdateCategoryBudget={handleUpdateCategoryBudget}
         onDeleteCategory={handleDeleteCategory}
-        onAddSubcategory={handleAddSubcategory}
-        onDeleteSubcategory={handleDeleteSubcategory}
         onOpenCloudTab={() => handleSelectTab('cloud')}
         onSignOut={handleSignOut}
         onExportFullBackupJson={handleExportFullBackupJson}

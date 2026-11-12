@@ -34,12 +34,22 @@ export type CategoryIconName =
   | 'wrench'
   | 'coffee'
   | 'smartphone'
+  | 'baby'
+  | 'paw-print'
+  | 'dumbbell'
+  | 'shirt'
+  | 'sofa'
+  | 'scissors'
+  | 'umbrella'
+  | 'landmark'
+  | 'receipt'
+  | 'hand-heart'
+  | 'pill'
+  | 'stethoscope'
+  | 'gamepad'
+  | 'church'
+  | 'banknote'
   | 'tag';
-
-export interface Subcategory {
-  id: string;
-  name: string;
-}
 
 export type AccountType = 'checking' | 'savings' | 'cash' | 'investment' | 'international';
 
@@ -74,7 +84,6 @@ export interface Category {
   monthlyBudget: number;
   color: string;
   icon: CategoryIconName;
-  subcategories: Subcategory[];
 }
 
 export interface FamilyMember {
@@ -102,7 +111,6 @@ export interface Transaction {
   type: TransactionType;
   status: TransactionStatus;
   categoryId: string;
-  subcategoryId?: string;
   accountId?: string; // BankAccount id (for income, bank expense, or transfer source)
   destinationAccountId?: string; // For transfer destination
   creditCardId?: string; // If paid via credit card
@@ -212,13 +220,6 @@ export interface MonthlyFinancialSummary {
   savingsRateProjected: number;
 }
 
-export interface SubcategorySpendItem {
-  subcategoryId: string;
-  subcategoryName: string;
-  spent: number;
-  percentOfCategory: number;
-}
-
 export interface CategorySpendItem {
   categoryId: string;
   categoryName: string;
@@ -232,7 +233,6 @@ export interface CategorySpendItem {
   percentOfBudget: number;
   percentOfTotalExpense: number;
   status: 'ok' | 'warning' | 'over';
-  subcategoryBreakdown: SubcategorySpendItem[];
 }
 
 export interface DailyCashFlowPoint {
@@ -265,7 +265,6 @@ export interface ReportDistributionSlice {
   amount: number;
   percent: number;
   count: number;
-  subcategories: { id: string; name: string; amount: number; percent: number }[];
 }
 
 export interface PeriodReportSummary {
@@ -369,6 +368,8 @@ export interface AppSettings {
   autoConvertTripExpenses?: boolean;
   viewClarityMode?: 'complete' | 'essential';
   reminders?: ReminderSettings;
+  /** Versão do catálogo de categorias já aplicada a este workspace (ver `mergeCategoryCatalog`). */
+  categoryCatalogVersion?: number;
 }
 
 export type InvestmentAssetClass =

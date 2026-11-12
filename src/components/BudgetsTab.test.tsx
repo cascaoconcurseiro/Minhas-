@@ -19,7 +19,6 @@ const category: Category = {
   monthlyBudget: 500,
   color: '#16a34a',
   icon: 'home',
-  subcategories: [],
 };
 
 const categorySpend: CategorySpendItem = {
@@ -35,7 +34,6 @@ const categorySpend: CategorySpendItem = {
   percentOfBudget: 25,
   percentOfTotalExpense: 100,
   status: 'ok',
-  subcategoryBreakdown: [],
 };
 
 function renderBudgetsTab(
@@ -46,8 +44,6 @@ function renderBudgetsTab(
     onAddCategory?: (next: Omit<Category, 'id'>) => void;
     onUpdateCategory?: (next: Category) => void;
     onDeleteCategory?: (id: string) => void;
-    onAddSubcategory?: (categoryId: string, name: string) => void;
-    onDeleteSubcategory?: (categoryId: string, subcategoryId: string) => void;
     transactions?: Transaction[];
   } = {}
 ) {
@@ -65,8 +61,6 @@ function renderBudgetsTab(
         onAddCategory: options.onAddCategory ?? (() => {}),
         onUpdateCategory: options.onUpdateCategory ?? (() => {}),
         onDeleteCategory: options.onDeleteCategory ?? (() => {}),
-        onAddSubcategory: options.onAddSubcategory ?? (() => {}),
-        onDeleteSubcategory: options.onDeleteSubcategory ?? (() => {}),
       })
     );
   });
@@ -103,7 +97,7 @@ test('budget view selector wraps on mobile and announces its selected button', a
     (button) => button.textContent?.includes('Orçamentos Mensais & Alertas')
   );
   const categoryButton = Array.from(page.querySelectorAll<HTMLButtonElement>('button')).find(
-    (button) => button.textContent?.includes('Gerenciar Categorias & Subcategorias')
+    (button) => button.textContent?.includes('Gerenciar Categorias')
   );
   assert.ok(budgetButton && categoryButton);
   assert.match(budgetButton.className, /min-h-11/);
@@ -204,7 +198,7 @@ test('category editor rejects a duplicate normalized name without calling create
   assert.ok(page.querySelector('#cat-editor-name'), 'duplicate validation leaves the editor open');
 });
 
-test('category create saves selected type, bucket, color, icon, budget and initial subcategories', async () => {
+test('category create saves selected type, bucket, color, icon and budget', async () => {
   const created: Array<Omit<Category, 'id'>> = [];
   const page = renderBudgetsTab(() => {}, { onAddCategory: (next) => { created.push(next); } });
   const newButton = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Nova Categoria Personalizada'));
@@ -217,7 +211,6 @@ test('category create saves selected type, bucket, color, icon, budget and initi
     setInputValue(name, 'Viagem sintética');
     setInputValue(page.querySelector<HTMLInputElement>('#cat-editor-budget')!, '850,50');
     setSelectValue(page.querySelector<HTMLSelectElement>('#cat-editor-bucket')!, 'lifestyle');
-    setInputValue(page.querySelector<HTMLInputElement>('#cat-editor-subs')!, 'Passagens, Hospedagem');
     page.querySelector<HTMLButtonElement>('[aria-label="Cor Azul Oceano"]')?.click();
     page.querySelector<HTMLButtonElement>('[aria-label^="Ícone"]')?.click();
   });
@@ -230,11 +223,9 @@ test('category create saves selected type, bucket, color, icon, budget and initi
   assert.equal(created.length, 1);
   assert.deepEqual(created[0], {
     name: 'Viagem sintética', type: 'expense', bucket: 'lifestyle', monthlyBudget: 850.5,
-    color: '#0284c7', icon: 'home', subcategories: [
-      { id: created[0]?.subcategories[0]?.id, name: 'Passagens' },
-      { id: created[0]?.subcategories[1]?.id, name: 'Hospedagem' },
-    ],
+    color: '#0284c7', icon: 'home',
   });
+  assert.equal(page.querySelector('#cat-editor-subs'), null, 'não existe campo de subcategoria');
   assert.equal(page.querySelector('form'), null);
 });
 
@@ -245,7 +236,7 @@ test('category edit updates category and delete routes the selected category id'
     onUpdateCategory: (next) => updates.push(next),
     onDeleteCategory: (id) => deletions.push(id),
   });
-  const manager = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Gerenciar Categorias & Subcategorias'));
+  const manager = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Gerenciar Categorias'));
   assert.ok(manager);
   await act(async () => { manager.click(); });
   await act(async () => { page.querySelector<HTMLButtonElement>(`[aria-label="Editar categoria ${category.name}"]`)!.click(); });
@@ -254,7 +245,6 @@ test('category edit updates category and delete routes the selected category id'
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('#cat-editor-name')!, 'Moradia editada');
     setSelectValue(page.querySelector<HTMLSelectElement>('#cat-editor-bucket')!, 'financial');
-    setInputValue(page.querySelector<HTMLInputElement>('#cat-editor-subs')!, 'Condomínio');
     page.querySelector<HTMLButtonElement>('[aria-label="Cor Azul Oceano"]')!.click();
   });
   await act(async () => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
@@ -263,21 +253,14 @@ test('category edit updates category and delete routes the selected category id'
   assert.equal(updates[0]?.name, 'Moradia editada');
   assert.equal(updates[0]?.bucket, 'financial');
   assert.equal(updates[0]?.color, '#0284c7');
-  assert.deepEqual(updates[0]?.subcategories?.map((sub) => sub.name), ['Condomínio']);
   await act(async () => { page.querySelector<HTMLButtonElement>(`[aria-label="Excluir categoria ${category.name}"]`)!.click(); });
   assert.deepEqual(deletions, [category.id]);
 });
 
-test('category manager switches expense/income tabs and routes add/remove subcategory actions', async () => {
+test('category manager switches expense/income tabs and has no subcategory controls', async () => {
   const income: Category = { ...category, id: 'category-income-synthetic', name: 'Salário sintético', type: 'income', bucket: 'financial', monthlyBudget: 0 };
-  const added: Array<[string, string]> = [];
-  const removed: Array<[string, string]> = [];
-  const page = renderBudgetsTab(() => {}, {
-    categories: [category, income],
-    onAddSubcategory: (categoryId, name) => added.push([categoryId, name]),
-    onDeleteSubcategory: (categoryId, subcategoryId) => removed.push([categoryId, subcategoryId]),
-  });
-  const manager = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Gerenciar Categorias & Subcategorias'));
+  const page = renderBudgetsTab(() => {}, { categories: [category, income] });
+  const manager = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Gerenciar Categorias'));
   assert.ok(manager);
   await act(async () => { manager.click(); });
   assert.match(page.textContent ?? '', /Moradia Sintética/);
@@ -292,24 +275,7 @@ test('category manager switches expense/income tabs and routes add/remove subcat
   const expenseTab = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Categorias de Gastos'));
   assert.ok(expenseTab);
   await act(async () => { expenseTab.click(); });
-  const addSub = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('+ Subcategoria'));
-  assert.ok(addSub);
-  await act(async () => { addSub.click(); });
-  const subInput = page.querySelector<HTMLInputElement>(`[aria-label="Nova subcategoria para ${category.name}"]`);
-  assert.ok(subInput);
-  await act(async () => { setInputValue(subInput, 'Energia sintética'); });
-  const addButton = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Adicionar');
-  assert.ok(addButton);
-  await act(async () => { addButton.click(); });
-  assert.deepEqual(added, [[category.id, 'Energia sintética']]);
-
-  const categoryWithSub = { ...category, subcategories: [{ id: 'sub-synthetic', name: 'Energia sintética' }] };
-  const pageWithSub = renderBudgetsTab(() => {}, { categories: [categoryWithSub], onDeleteSubcategory: (categoryId, subId) => removed.push([categoryId, subId]) });
-  const manager2 = Array.from(pageWithSub.querySelectorAll('button')).find((button) => button.textContent?.includes('Gerenciar Categorias & Subcategorias'));
-  assert.ok(manager2);
-  await act(async () => { manager2.click(); });
-  await act(async () => { pageWithSub.querySelector<HTMLButtonElement>('[aria-label="Remover subcategoria Energia sintética"]')!.click(); });
-  assert.deepEqual(removed, [[category.id, 'sub-synthetic']]);
+  assert.doesNotMatch(page.textContent ?? '', /[Ss]ubcategoria/, 'subcategorias não existem mais');
 });
 
 test('income category type hides expense-only fields and saves as income with zero budget', async () => {

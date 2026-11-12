@@ -10,8 +10,8 @@ const { createRoot } = await import('react-dom/client');
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
-const expenseCategory: Category = { id: 'cat-food', name: 'Alimentação', type: 'expense', bucket: 'essential', monthlyBudget: 0, color: '#059669', icon: 'shopping-cart', subcategories: [] };
-const incomeCategory: Category = { id: 'cat-income', name: 'Salário', type: 'income', bucket: 'essential', monthlyBudget: 0, color: '#059669', icon: 'wallet', subcategories: [] };
+const expenseCategory: Category = { id: 'cat-food', name: 'Alimentação', type: 'expense', bucket: 'essential', monthlyBudget: 0, color: '#059669', icon: 'shopping-cart' };
+const incomeCategory: Category = { id: 'cat-income', name: 'Salário', type: 'income', bucket: 'essential', monthlyBudget: 0, color: '#059669', icon: 'wallet' };
 const accounts: BankAccount[] = [{ id: 'acc-1', name: 'Conta Sintética', institution: 'Teste', type: 'checking', initialBalance: 0, color: '#059669', includeInTotal: true }];
 const cards: CreditCard[] = [{ id: 'card-1', name: 'Cartão Sintético', brand: 'Visa', limit: 1000, closingDay: 20, dueDay: 27, defaultAccountId: 'acc-1', color: '#111827' }];
 const members: FamilyMember[] = [{ id: 'member-1', name: 'Pessoa Sintética', relationship: 'amigo(a)', color: '#059669' }];

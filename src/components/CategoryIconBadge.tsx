@@ -1,21 +1,36 @@
 import React from 'react';
 import {
+  Baby,
+  Banknote,
   Briefcase,
   Car,
+  Church,
   Coffee,
+  Dumbbell,
   FileText,
+  Gamepad2,
   Gift,
   GraduationCap,
+  HandHeart,
   HeartPulse,
   Home,
+  Landmark,
+  PawPrint,
+  Pill,
   PiggyBank,
   Plane,
+  Receipt,
+  Scissors,
+  Shirt,
   ShoppingBag,
   ShoppingCart,
   Smartphone,
+  Sofa,
+  Stethoscope,
   Tag,
   TrendingUp,
   Tv,
+  Umbrella,
   Utensils,
   Wallet,
   Wrench,
@@ -43,6 +58,21 @@ export const CATEGORY_ICON_OPTIONS: { id: CategoryIconName; label: string }[] = 
   { id: 'wrench', label: 'Manutenção / Serviços' },
   { id: 'coffee', label: 'Café / Padaria' },
   { id: 'smartphone', label: 'Celular / Tecnologia' },
+  { id: 'baby', label: 'Filhos / Bebê' },
+  { id: 'paw-print', label: 'Pets' },
+  { id: 'dumbbell', label: 'Academia / Esportes' },
+  { id: 'shirt', label: 'Roupas / Calçados' },
+  { id: 'sofa', label: 'Casa / Decoração' },
+  { id: 'scissors', label: 'Beleza / Cuidados' },
+  { id: 'umbrella', label: 'Seguros / Previdência' },
+  { id: 'landmark', label: 'Banco / Dívidas / Benefícios' },
+  { id: 'receipt', label: 'Tarifas / Reembolsos' },
+  { id: 'hand-heart', label: 'Pensão / Ajuda' },
+  { id: 'pill', label: 'Farmácia' },
+  { id: 'stethoscope', label: 'Consultas / Exames' },
+  { id: 'gamepad', label: 'Lazer / Jogos' },
+  { id: 'church', label: 'Dízimo / Igreja' },
+  { id: 'banknote', label: 'Vendas / Dinheiro' },
   { id: 'tag', label: 'Geral / Outros' },
 ];
 
@@ -102,6 +132,36 @@ export const renderCategoryIcon = (
       return <Coffee className={className} />;
     case 'smartphone':
       return <Smartphone className={className} />;
+    case 'baby':
+      return <Baby className={className} />;
+    case 'paw-print':
+      return <PawPrint className={className} />;
+    case 'dumbbell':
+      return <Dumbbell className={className} />;
+    case 'shirt':
+      return <Shirt className={className} />;
+    case 'sofa':
+      return <Sofa className={className} />;
+    case 'scissors':
+      return <Scissors className={className} />;
+    case 'umbrella':
+      return <Umbrella className={className} />;
+    case 'landmark':
+      return <Landmark className={className} />;
+    case 'receipt':
+      return <Receipt className={className} />;
+    case 'hand-heart':
+      return <HandHeart className={className} />;
+    case 'pill':
+      return <Pill className={className} />;
+    case 'stethoscope':
+      return <Stethoscope className={className} />;
+    case 'gamepad':
+      return <Gamepad2 className={className} />;
+    case 'church':
+      return <Church className={className} />;
+    case 'banknote':
+      return <Banknote className={className} />;
     default:
       return <Tag className={className} />;
   }

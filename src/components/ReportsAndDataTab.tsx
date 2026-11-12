@@ -600,18 +600,6 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                       <span className="ml-1.5 text-slate-500">({slice.percent}%)</span>
                     </div>
                   </div>
-                  {slice.subcategories.length > 0 && (
-                    <p className="pl-9 text-[11px] text-slate-500 font-mono tabular-nums">
-                      {slice.subcategories.map((sub, i) => (
-                        <React.Fragment key={sub.id}>
-                          {i > 0 && <span aria-hidden="true"> · </span>}
-                          <span>
-                            {sub.name}: {formatBRL(sub.amount)}
-                          </span>
-                        </React.Fragment>
-                      ))}
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
@@ -659,18 +647,6 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                       <span className="ml-1.5 text-slate-500">({slice.percent}%)</span>
                     </div>
                   </div>
-                  {slice.subcategories.length > 0 && (
-                    <p className="pl-9 text-[11px] text-slate-500 font-mono tabular-nums">
-                      {slice.subcategories.map((sub, i) => (
-                        <React.Fragment key={sub.id}>
-                          {i > 0 && <span aria-hidden="true"> · </span>}
-                          <span>
-                            {sub.name}: {formatBRL(sub.amount)}
-                          </span>
-                        </React.Fragment>
-                      ))}
-                    </p>
-                  )}
                 </div>
               ))}
             </div>

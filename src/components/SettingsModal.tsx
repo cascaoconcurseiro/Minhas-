@@ -45,8 +45,6 @@ interface SettingsModalProps {
   onAddCategory?: (newCat: Omit<Category, 'id'>) => void;
   onUpdateCategoryBudget?: (catId: string, newBudget: number) => void;
   onDeleteCategory?: (catId: string) => void;
-  onAddSubcategory?: (categoryId: string, subcategoryName: string) => void;
-  onDeleteSubcategory?: (categoryId: string, subcategoryId: string) => void;
   onOpenCloudTab?: () => void;
   onSignOut?: () => Promise<void>;
   onExportFullBackupJson: () => void;
@@ -66,8 +64,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddCategory,
   onUpdateCategoryBudget,
   onDeleteCategory,
-  onAddSubcategory,
-  onDeleteSubcategory,
   onOpenCloudTab,
   onSignOut,
   onExportFullBackupJson,
@@ -96,7 +92,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newCatType, setNewCatType] = useState<'expense' | 'income'>('expense');
   const [newCatBudgetStr, setNewCatBudgetStr] = useState('600,00');
   const [newCatGroup, setNewCatGroup] = useState<BudgetBucket>('essential');
-  const [subInputs, setSubInputs] = useState<Record<string, string>>({});
   const [budgetEditInputs, setBudgetEditInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -187,17 +182,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       monthlyBudget:
         newCatType === 'expense' ? Math.max(0, parseCurrencyInput(newCatBudgetStr, 'BRL')) : 0,
       bucket: newCatType === 'expense' ? newCatGroup : 'financial',
-      subcategories: [],
     });
     setNewCatName('');
     setNewCatBudgetStr('600,00');
-  };
-
-  const handleAddSub = (catId: string) => {
-    const val = (subInputs[catId] || '').trim();
-    if (!val || !onAddSubcategory) return;
-    onAddSubcategory(catId, val);
-    setSubInputs((prev) => ({ ...prev, [catId]: '' }));
   };
 
   const handleSaveCategoryBudget = (catId: string, fallbackBudget: number) => {
@@ -590,7 +577,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               <div className="space-y-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  Categorias Cadastradas ({categories.length}) — Edite Tetos e Subcategorias
+                  Categorias Cadastradas ({categories.length}) — Edite os Tetos de Gasto
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {categories.map((cat) => {
@@ -674,50 +661,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {formatBRL(cat.monthlyBudget)} (Editar)
                               </button>
                             )}
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {(cat.subcategories || []).map((sub) => (
-                            <span
-                              key={sub.id}
-                              className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2 py-0.5 text-[11px] text-slate-700"
-                            >
-                              <span>{sub.name}</span>
-                              {onDeleteSubcategory && (
-                                <button
-                                  type="button"
-                                  onClick={() => onDeleteSubcategory(cat.id, sub.id)}
-                                  className="text-slate-400 hover:text-rose-600"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-
-                        {onAddSubcategory && (
-                          <div className="flex items-center gap-1.5 pt-1">
-                            <input
-                              type="text"
-                              value={subInputs[cat.id] || ''}
-                              onChange={(e) =>
-                                setSubInputs((prev) => ({
-                                  ...prev,
-                                  [cat.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="Nova subcategoria..."
-                              className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-900"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleAddSub(cat.id)}
-                              className="rounded-lg bg-slate-200 hover:bg-slate-300 px-2.5 py-1 text-[11px] font-bold text-slate-800"
-                            >
-                              + Sub
-                            </button>
                           </div>
                         )}
                       </div>

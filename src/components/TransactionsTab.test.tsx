@@ -30,7 +30,6 @@ const category: Category = {
   monthlyBudget: 100,
   color: '#16a34a',
   icon: 'utensils',
-  subcategories: [],
 };
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {

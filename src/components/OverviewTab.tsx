@@ -860,7 +860,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   {pendingBills.map((tx) => {
                     const cat = catMap.get(tx.categoryId);
                     const catName = cat?.name || 'Geral';
-                    const subName = cat?.subcategories?.find((s) => s.id === tx.subcategoryId)?.name;
                     const accName = accMap.get(tx.accountId || '') || 'Conta';
                     return (
                       <div
@@ -889,7 +888,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               <span aria-hidden="true"> · </span>
                               <span>
                                 {catName}
-                                {subName ? ` › ${subName}` : ''}
                               </span>
                               <span aria-hidden="true"> · </span>
                               <span>{accName}</span>

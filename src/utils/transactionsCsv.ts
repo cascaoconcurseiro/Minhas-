@@ -23,7 +23,7 @@ export function exportTransactionsToSafeCSV(
   const cardMap = new Map(cards.map((card) => [card.id, card.name]));
   const headers = [
     'Data', 'Competencia', 'Descricao', 'Tipo', 'Status', 'Categoria',
-    'Subcategoria', 'Conta_ou_Cartao', 'Parcela', 'Valor_BRL',
+    'Conta_ou_Cartao', 'Parcela', 'Valor_BRL',
   ];
 
   const rows = transactions.map((transaction) => {
@@ -42,7 +42,6 @@ export function exportTransactionsToSafeCSV(
       quoteCsvText(transaction.type === 'income' ? 'Receita' : transaction.type === 'expense' ? 'Despesa' : 'Transferencia'),
       quoteCsvText(transaction.status === 'paid' ? 'Efetivado' : 'Pendente'),
       quoteCsvText(category?.name || 'Outros'),
-      quoteCsvText(category?.subcategories?.find((subcategory) => subcategory.id === transaction.subcategoryId)?.name || 'Geral'),
       quoteCsvText(origin),
       quoteCsvText(installment),
       quoteCsvNumber(signedAmount),

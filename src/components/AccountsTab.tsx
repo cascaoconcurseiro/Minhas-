@@ -1596,9 +1596,6 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   {filteredStatementEntries.map((entry) => {
                     const tx = entry.transaction;
                     const cat = catMap.get(tx.categoryId);
-                    const subName = cat?.subcategories?.find(
-                      (s) => s.id === tx.subcategoryId
-                    )?.name;
                     const counterpartyName = entry.isTransferIncoming
                       ? accMap.get(tx.accountId || '')?.name || 'Outra Conta'
                       : entry.isTransferOutgoing
@@ -1632,7 +1629,6 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                                 ) : (
                                   <span>
                                     {cat?.name || 'Geral'}
-                                    {subName ? ` › ${subName}` : ''}
                                   </span>
                                 )}
                                 {tx.notes && (

@@ -518,11 +518,6 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                             <div className="font-medium text-slate-900">
                               {item.categoryName}
                             </div>
-                            {item.subcategoryName && (
-                              <div className="text-[11px] text-slate-500">
-                                {item.subcategoryName}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </td>

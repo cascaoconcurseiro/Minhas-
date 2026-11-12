@@ -219,10 +219,8 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
         if (tokens.length === 0) return true;
         const cat = catMap.get(tx.categoryId);
         const catName = cat?.name || '';
-        const subName =
-          cat?.subcategories?.find((s) => s.id === tx.subcategoryId)?.name || '';
         const searchable = normalizeSearchText(
-          `${tx.description} ${catName} ${subName} ${tx.notes || ''} ${(tx.tags || []).join(' ')}`
+          `${tx.description} ${catName} ${tx.notes || ''} ${(tx.tags || []).join(' ')}`
         );
         return tokens.every((tk) => searchable.includes(tk));
       })
@@ -916,9 +914,6 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                         : tx.isInvoicePayment
                         ? 'Pagamento de Fatura'
                         : cat?.name || 'Geral';
-                    const subName = cat?.subcategories?.find(
-                      (s) => s.id === tx.subcategoryId
-                    )?.name;
 
                     const originLabel = tx.creditCardId
                       ? `Cartão ${cardMap.get(tx.creditCardId) || ''}`
@@ -989,7 +984,6 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                               <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
                                 <span className="font-medium text-slate-700">
                                   {catName}
-                                  {subName ? ` › ${subName}` : ''}
                                 </span>
                                 <span aria-hidden="true">·</span>
                                 <span>{getMethodLabel(tx.paymentMethod)}</span>

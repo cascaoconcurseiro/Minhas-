@@ -122,7 +122,6 @@ test('tripPdfGenerator processes lots, realized savings, and total expenses', ()
       type: 'expense',
       bucket: 'lifestyle',
       monthlyBudget: 2000,
-      subcategories: [],
     },
     {
       id: 'cat-food',
@@ -132,7 +131,6 @@ test('tripPdfGenerator processes lots, realized savings, and total expenses', ()
       type: 'expense',
       bucket: 'lifestyle',
       monthlyBudget: 1000,
-      subcategories: [],
     },
   ];
 

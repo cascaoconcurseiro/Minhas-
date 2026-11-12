@@ -22,7 +22,6 @@ function renderTransactionModal(
     categories?: Category[];
     familyMembers?: FamilyMember[];
     onAddFamilyMember?: (member: Omit<FamilyMember, 'id'>) => FamilyMember | void;
-    onAddSubcategory?: (categoryId: string, name: string) => string | void;
     editingTransaction?: Transaction;
     transactions?: Transaction[];
   } = {}
@@ -47,7 +46,6 @@ function renderTransactionModal(
     monthlyBudget: 300,
     color: '#16a34a',
     icon: 'utensils',
-    subcategories: [{ id: 'subcategory-test', name: 'Mercado' }],
   };
   const cards = options.cards ?? [];
 
@@ -63,7 +61,6 @@ function renderTransactionModal(
         transactions: options.transactions ?? [],
         familyMembers: options.familyMembers ?? [],
         onAddFamilyMember: options.onAddFamilyMember,
-        onAddSubcategory: options.onAddSubcategory,
         selectedMonth: '2026-11',
         editingTransaction: options.editingTransaction ?? null,
         defaultMode: 'expense',
@@ -81,7 +78,6 @@ const incomeCategory: Category = {
   monthlyBudget: 0,
   color: '#16a34a',
   icon: 'wallet',
-  subcategories: [],
 };
 
 const secondAccount: BankAccount = {
@@ -152,7 +148,6 @@ test('transaction modal rejects zero amount and saves a valid synthetic expense'
   assert.equal(saved.type, 'expense');
   assert.equal(saved.status, 'paid');
   assert.equal(saved.categoryId, 'category-test');
-  assert.equal(saved.subcategoryId, 'subcategory-test');
   assert.equal(saved.accountId, 'account-test');
   assert.equal(saved.paymentMethod, 'pix');
   assert.equal(closeCount, 1);
@@ -181,119 +176,72 @@ test('transaction modal refuses to save an international expense with excess cur
   assert.equal(foreignAmount.value, '1,5');
 });
 
-test('expense category, subcategory and account selectors have associated labels', () => {
+test('expense category and account selectors have associated labels and there is no subcategory field', () => {
   const page = renderTransactionModal(() => {}, () => {});
-  for (const id of ['tx-category-select', 'tx-subcategory-select', 'tx-payment-source-select']) {
+  assert.equal(page.querySelector('#tx-subcategory-select'), null);
+  for (const id of ['tx-category-select', 'tx-payment-source-select']) {
     const field = page.querySelector<HTMLElement>(`#${id}`);
     assert.ok(field, `expected field #${id}`);
     assert.ok(Array.from(page.querySelectorAll('label')).some((label) => label.control === field), `expected an associated label for #${id}`);
   }
 });
 
-test('creates and selects a subcategory without leaving the transaction form', async () => {
-  const saved: CreateTransactionBatchInput[] = [];
-  const created: Array<{ categoryId: string; name: string }> = [];
-  const page = renderTransactionModal((input) => saved.push(input), () => {}, {
-    onAddSubcategory: (categoryId, name) => {
-      created.push({ categoryId, name });
-      return 'subcategory-quick-test';
-    },
-  });
-
-  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="open-quick-add-subcategory"]')?.click(); });
-  const input = page.querySelector<HTMLInputElement>('[data-testid="quick-add-subcategory-name"]');
-  assert.ok(input);
-  await act(async () => {
-    setInputValue(input, 'Lojas online');
-    page.querySelector<HTMLButtonElement>('[data-testid="save-quick-add-subcategory"]')?.click();
-  });
-  assert.deepEqual(created, [{ categoryId: 'category-test', name: 'Lojas online' }]);
-  await act(async () => {
-    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Amazon');
-    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '12,55');
-    page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
-  });
-  assert.equal(saved[0]?.subcategoryId, 'subcategory-quick-test');
-});
-
-test('automatic category suggestions update same-category subcategories and clear stale cross-category ids', async () => {
+test('automatic category suggestions follow the description history and switch category without leftovers', async () => {
   const categories: Category[] = [
     {
-      id: 'cat-assinaturas', name: 'Assinaturas & Streaming', type: 'expense',
+      id: 'cat-assinaturas', name: 'Assinaturas e Streaming', type: 'expense',
       bucket: 'lifestyle', monthlyBudget: 0, color: '#6366f1', icon: 'tv',
-      subcategories: [
-        { id: 'sub-ass-stream', name: 'Streaming & Música' },
-        { id: 'sub-ass-soft', name: 'Apps & Nuvem' },
-      ],
     },
     {
-      id: 'cat-moradia', name: 'Moradia', type: 'expense', bucket: 'essential',
-      monthlyBudget: 0, color: '#0f172a', icon: 'home', subcategories: [],
+      id: 'cat-contas', name: 'Luz, Água e Gás', type: 'expense', bucket: 'essential',
+      monthlyBudget: 0, color: '#0284c7', icon: 'zap',
     },
   ];
-  const history: Transaction[] = [
-    {
-      id: 'history-netflix', description: 'Netflix', amount: 20, date: '2026-10-01',
-      competenceMonth: '2026-10', type: 'expense', status: 'paid', categoryId: 'cat-assinaturas',
-      subcategoryId: 'sub-ass-stream', paymentMethod: 'credit_card', recurrence: 'single',
-    },
-    {
-      id: 'history-google-one', description: 'Google One', amount: 10, date: '2026-10-02',
-      competenceMonth: '2026-10', type: 'expense', status: 'paid', categoryId: 'cat-assinaturas',
-      subcategoryId: 'sub-ass-soft', paymentMethod: 'credit_card', recurrence: 'single',
-    },
-  ];
+  const history: Transaction[] = ['Netflix', 'Google One'].map((name, index) => ({
+    id: `history-${index}`, description: name, amount: 20, date: `2026-10-0${index + 1}`,
+    competenceMonth: '2026-10', type: 'expense', status: 'paid', categoryId: 'cat-assinaturas',
+    paymentMethod: 'credit_card', recurrence: 'single',
+  }) as Transaction);
   const saved: CreateTransactionBatchInput[] = [];
   const page = renderTransactionModal((input) => saved.push(input), () => {}, { categories, transactions: history });
   const description = page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]');
   const category = page.querySelector<HTMLSelectElement>('#tx-category-select');
-  const subcategory = page.querySelector<HTMLSelectElement>('#tx-subcategory-select');
-  assert.ok(description && category && subcategory);
+  assert.ok(description && category);
 
   await act(async () => {
     setInputValue(description, 'Netflix');
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   assert.equal(category.value, 'cat-assinaturas');
-  assert.equal(subcategory.value, 'sub-ass-stream');
-
-  await act(async () => {
-    setInputValue(description, 'Google One');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  assert.equal(category.value, 'cat-assinaturas');
-  assert.equal(subcategory.value, 'sub-ass-soft', 'a sugestão deve atualizar subcategoria sem trocar categoria');
 
   await act(async () => {
     setInputValue(description, 'Conta Enel');
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  assert.equal(category.value, 'cat-moradia');
-  assert.equal(page.querySelector('#tx-subcategory-select'), null, 'a categoria sem subcategorias não deve manter um seletor antigo');
+  assert.equal(category.value, 'cat-contas');
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '25,00');
     page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
   });
-  assert.equal(saved[0]?.categoryId, 'cat-moradia');
-  assert.equal(saved[0]?.subcategoryId, undefined, 'o ID da subcategoria anterior não pode ser salvo sob outra categoria');
+  assert.equal(saved[0]?.categoryId, 'cat-contas');
+  assert.equal('subcategoryId' in (saved[0] ?? {}), false, 'nada de subcategoria no que é salvo');
 });
 
-test('applying a suggestion ignores a historical subcategory id removed from its category', async () => {
+test('a manual category choice is kept and the suggestion button can bring the learned category back', async () => {
   const categories: Category[] = [
     {
       id: 'cat-moradia', name: 'Moradia', type: 'expense', bucket: 'essential',
-      monthlyBudget: 0, color: '#0f172a', icon: 'home', subcategories: [],
+      monthlyBudget: 0, color: '#0f172a', icon: 'home',
     },
     {
-      id: 'cat-assinaturas', name: 'Assinaturas & Streaming', type: 'expense',
+      id: 'cat-assinaturas', name: 'Assinaturas e Streaming', type: 'expense',
       bucket: 'lifestyle', monthlyBudget: 0, color: '#6366f1', icon: 'tv',
-      subcategories: [{ id: 'sub-ass-stream', name: 'Streaming & Música' }],
     },
   ];
   const history: Transaction[] = [{
-    id: 'history-deleted-subcategory', description: 'Netflix', amount: 20, date: '2026-10-01',
+    id: 'history-netflix', description: 'Netflix', amount: 20, date: '2026-10-01',
     competenceMonth: '2026-10', type: 'expense', status: 'paid', categoryId: 'cat-assinaturas',
-    subcategoryId: 'deleted-subcategory', paymentMethod: 'credit_card', recurrence: 'single',
+    paymentMethod: 'credit_card', recurrence: 'single',
   }];
   const saved: CreateTransactionBatchInput[] = [];
   const page = renderTransactionModal((input) => saved.push(input), () => {}, { categories, transactions: history });
@@ -309,6 +257,7 @@ test('applying a suggestion ignores a historical subcategory id removed from its
     Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(category, 'cat-moradia');
     category.dispatchEvent(new window.Event('change', { bubbles: true }));
   });
+  assert.equal(category.value, 'cat-moradia', 'a escolha manual não é desfeita');
   const suggestion = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Sugerir:'));
   assert.ok(suggestion);
   await act(async () => { suggestion.click(); });
@@ -318,14 +267,13 @@ test('applying a suggestion ignores a historical subcategory id removed from its
     page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
   });
   assert.equal(saved[0]?.categoryId, 'cat-assinaturas');
-  assert.equal(saved[0]?.subcategoryId, undefined, 'ID removido do histórico não pode ser aplicado');
 });
 
 test('learns the habit: typing a usual establishment applies the split with the same person and offers undo', async () => {
   const fran: FamilyMember = { id: 'fam-fran', name: 'FRAN', color: '#ec4899', relationship: 'cônjuge' } as FamilyMember;
   const mercado: Category = {
     id: 'cat-mercado', name: 'Supermercado', type: 'expense', bucket: 'essential',
-    monthlyBudget: 0, color: '#059669', icon: 'shopping-cart', subcategories: [],
+    monthlyBudget: 0, color: '#059669', icon: 'shopping-cart',
   };
   const sharedApolo = (id: string, date: string): Transaction => ({
     id, description: 'apolo', amount: 100, date, competenceMonth: '2026-11', type: 'expense', status: 'pending',
@@ -512,7 +460,7 @@ test('income mode persists the selected category, pending status and fixed-month
     categories: [
       {
         id: 'category-test', name: 'Alimentação', type: 'expense', bucket: 'essential',
-        monthlyBudget: 300, color: '#16a34a', icon: 'utensils', subcategories: [],
+        monthlyBudget: 300, color: '#16a34a', icon: 'utensils',
       },
       incomeCategory,
     ],

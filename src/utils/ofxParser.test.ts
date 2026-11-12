@@ -26,7 +26,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 800,
     color: '#f97316',
     icon: 'utensils',
-    subcategories: [],
   },
   {
     id: 'cat-mercado',
@@ -36,7 +35,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 1200,
     color: '#10b981',
     icon: 'shopping-cart',
-    subcategories: [],
   },
   {
     id: 'cat-transporte',
@@ -46,7 +44,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 500,
     color: '#06b6d4',
     icon: 'car',
-    subcategories: [],
   },
   {
     id: 'cat-saude',
@@ -56,7 +53,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 400,
     color: '#ef4444',
     icon: 'heart-pulse',
-    subcategories: [],
   },
   {
     id: 'cat-moradia',
@@ -66,7 +62,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 2500,
     color: '#6366f1',
     icon: 'home',
-    subcategories: [],
   },
   {
     id: 'cat-lazer',
@@ -76,7 +71,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 350,
     color: '#8b5cf6',
     icon: 'tv',
-    subcategories: [],
   },
   {
     id: 'cat-salario',
@@ -86,7 +80,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 0,
     color: '#059669',
     icon: 'briefcase',
-    subcategories: [],
   },
   {
     id: 'cat-outros',
@@ -96,7 +89,6 @@ const MOCK_CATEGORIES: Category[] = [
     monthlyBudget: 200,
     color: '#64748b',
     icon: 'tag',
-    subcategories: [],
   },
 ];
 
@@ -288,44 +280,57 @@ Data;Descrição;Valor;Identificador
   });
 
   it('infers Brazilian category keywords accurately', () => {
-    assert.strictEqual(
-      inferCategoryByDescription('PAGAMENTO IFOOD BRASIL', MOCK_CATEGORIES, 'expense'),
-      'cat-alimentacao'
-    );
-    assert.strictEqual(
-      inferCategoryByDescription('CARREFOUR HIPERMERCADO', MOCK_CATEGORIES, 'expense'),
-      'cat-mercado'
-    );
-    assert.strictEqual(
-      inferCategoryByDescription('POSTO SHELL COMBUSTIVEL', MOCK_CATEGORIES, 'expense'),
-      'cat-transporte'
-    );
-    assert.strictEqual(
-      inferCategoryByDescription('DROGA RAIA FARMACIA', MOCK_CATEGORIES, 'expense'),
-      'cat-saude'
-    );
-    assert.strictEqual(
-      inferCategoryByDescription('ENEL ENERGIA ELETRICA', MOCK_CATEGORIES, 'expense'),
-      'cat-moradia'
-    );
-    assert.strictEqual(
-      inferCategoryByDescription('NETFLIX ENTRETENIMENTO', MOCK_CATEGORIES, 'expense'),
-      'cat-lazer'
-    );
-    assert.strictEqual(
-      inferCategoryByDescription('TED SALARIO FOLHA', MOCK_CATEGORIES, 'income'),
-      'cat-salario'
-    );
+    const cases: Array<[string, 'expense' | 'income', string]> = [
+      ['PAGAMENTO IFOOD BRASIL', 'expense', 'cat-restaurantes'],
+      ['PADARIA PAO QUENTE', 'expense', 'cat-cafe'],
+      ['CARREFOUR HIPERMERCADO', 'expense', 'cat-mercado'],
+      ['SUPERMERCADO APOLO', 'expense', 'cat-mercado'],
+      ['POSTO SHELL COMBUSTIVEL', 'expense', 'cat-transporte'],
+      ['UBER *TRIP', 'expense', 'cat-transporte'],
+      ['OFICINA MECANICA DO ZE', 'expense', 'cat-veiculo'],
+      ['DROGA RAIA FARMACIA', 'expense', 'cat-farmacia'],
+      ['UNIMED PLANO DE SAUDE', 'expense', 'cat-plano-saude'],
+      ['CLINICA SAO LUCAS', 'expense', 'cat-saude'],
+      ['PETZ PET SHOP', 'expense', 'cat-pets'],
+      ['ENEL ENERGIA ELETRICA', 'expense', 'cat-contas'],
+      ['VIVO FIBRA INTERNET', 'expense', 'cat-internet'],
+      ['ALUGUEL APARTAMENTO', 'expense', 'cat-moradia'],
+      ['NETFLIX ENTRETENIMENTO', 'expense', 'cat-assinaturas'],
+      ['CINEMARK INGRESSO', 'expense', 'cat-lazer'],
+      ['LATAM AIRLINES PASSAGEM', 'expense', 'cat-viagens'],
+      ['SMART FIT ACADEMIA', 'expense', 'cat-academia'],
+      ['BARBEARIA DO JOAO', 'expense', 'cat-beleza'],
+      ['LOJAS RENNER', 'expense', 'cat-vestuario'],
+      ['LEROY MERLIN', 'expense', 'cat-casa-decoracao'],
+      ['MERCADO LIVRE COMPRA', 'expense', 'cat-compras'],
+      ['IPVA 2026 DETRAN', 'expense', 'cat-impostos'],
+      ['TARIFA BANCARIA CESTA', 'expense', 'cat-tarifas'],
+      ['EMPRESTIMO CONSIGNADO', 'expense', 'cat-dividas'],
+      ['ESCOLA COLEGIO MENSALIDADE', 'expense', 'cat-educacao'],
+      ['DIZIMO IGREJA', 'expense', 'cat-doacoes'],
+      ['TED SALARIO FOLHA', 'income', 'cat-salario'],
+      ['13O SALARIO', 'income', 'cat-13-ferias'],
+      ['DIVIDENDO FII', 'income', 'cat-rendimentos'],
+      ['RESTITUICAO IMPOSTO DE RENDA', 'income', 'cat-restituicao-ir'],
+      ['REEMBOLSO DESPESA', 'income', 'cat-reembolsos'],
+    ];
+    for (const [description, type, expected] of cases) {
+      assert.strictEqual(
+        inferCategoryByDescription(description, INITIAL_CATEGORIES, type),
+        expected,
+        `${description} -> ${expected}`
+      );
+    }
   });
 
-  it('matches common merchants to a category and a useful subcategory when available', () => {
+  it('matches common merchants to a category and stays silent for unknown text', () => {
     assert.deepStrictEqual(
       matchCategoryByDescription('Compra na Amazon', INITIAL_CATEGORIES, 'expense'),
-      { categoryId: 'cat-compras', subcategoryName: 'Lojas online' }
+      { categoryId: 'cat-compras' }
     );
     assert.deepStrictEqual(
       matchCategoryByDescription('AMAZON PRIME VIDEO', INITIAL_CATEGORIES, 'expense'),
-      { categoryId: 'cat-assinaturas', subcategoryName: 'Streaming & Música' }
+      { categoryId: 'cat-assinaturas' }
     );
     assert.strictEqual(matchCategoryByDescription('BARCLAYS SERVICOS FINANCEIROS', INITIAL_CATEGORIES, 'expense'), null);
     assert.strictEqual(matchCategoryByDescription('Estabelecimento sem regra', INITIAL_CATEGORIES, 'expense'), null);

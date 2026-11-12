@@ -850,9 +850,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white overflow-hidden">
               {selectedDateTxs.map((tx) => {
                 const cat = catMap.get(tx.categoryId);
-                const subName = cat?.subcategories?.find(
-                  (s) => s.id === tx.subcategoryId
-                )?.name;
                 const isExpense = tx.type === 'expense';
                 const isIncome = tx.type === 'income';
                 const isPending = tx.status === 'pending';
@@ -919,7 +916,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                           <span>
                             {cat?.name || 'Sem categoria'}
-                            {subName ? ` › ${subName}` : ''}
                           </span>
                           <span>•</span>
                           <span className="inline-flex items-center gap-1.5">

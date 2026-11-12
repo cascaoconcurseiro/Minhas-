@@ -78,7 +78,6 @@ test('getSmartTransactionSuggestions deduplicates history and strips installment
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-mercado',
-      subcategoryId: 'sub-atacado',
       accountId: 'acc-itau',
       paymentMethod: 'debit_card',
       recurrence: 'single',
@@ -92,7 +91,6 @@ test('getSmartTransactionSuggestions deduplicates history and strips installment
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-mercado',
-      subcategoryId: 'sub-atacado',
       accountId: 'acc-itau',
       paymentMethod: 'debit_card',
       recurrence: 'single',
@@ -349,7 +347,7 @@ test('calculateAccountStatementWithRunningBalance computes opening balance and r
   assert.equal(stmt.closingRealizedBalance, 4000);
 });
 
-test('predictCategoryFromDescription suggests the most probable category and subcategory based on description and past transactions', () => {
+test('predictCategoryFromDescription suggests the most probable category based on description and past transactions', () => {
   const sampleCategories: Category[] = [
     {
       id: 'cat-alimentacao',
@@ -359,10 +357,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       monthlyBudget: 1500,
       color: '#f59e0b',
       icon: 'utensils',
-      subcategories: [
-        { id: 'sub-mercado', name: 'Supermercado' },
-        { id: 'sub-restaurante', name: 'Restaurante / Lanches' },
-      ],
     },
     {
       id: 'cat-transporte',
@@ -372,10 +366,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       monthlyBudget: 600,
       color: '#0284c7',
       icon: 'car',
-      subcategories: [
-        { id: 'sub-uber', name: 'Aplicativos (Uber/99)' },
-        { id: 'sub-combustivel', name: 'Combustível' },
-      ],
     },
     {
       id: 'cat-salario',
@@ -385,7 +375,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       monthlyBudget: 0,
       color: '#10b981',
       icon: 'briefcase',
-      subcategories: [],
     },
   ];
 
@@ -399,7 +388,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-alimentacao',
-      subcategoryId: 'sub-mercado',
       paymentMethod: 'credit_card',
       recurrence: 'single',
     },
@@ -412,7 +400,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-alimentacao',
-      subcategoryId: 'sub-mercado',
       paymentMethod: 'credit_card',
       recurrence: 'single',
     },
@@ -425,7 +412,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-transporte',
-      subcategoryId: 'sub-uber',
       paymentMethod: 'credit_card',
       recurrence: 'single',
     },
@@ -438,7 +424,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-transporte',
-      subcategoryId: 'sub-uber',
       paymentMethod: 'credit_card',
       recurrence: 'single',
     },
@@ -466,8 +451,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
   assert.ok(uberSuggestion !== null);
   assert.equal(uberSuggestion.categoryId, 'cat-transporte');
   assert.equal(uberSuggestion.categoryName, 'Transporte & Mobilidade');
-  assert.equal(uberSuggestion.subcategoryId, 'sub-uber');
-  assert.equal(uberSuggestion.subcategoryName, 'Aplicativos (Uber/99)');
   assert.ok(uberSuggestion.confidence >= 0.75);
   assert.equal(uberSuggestion.frequency, 2);
 
@@ -480,7 +463,6 @@ test('predictCategoryFromDescription suggests the most probable category and sub
   );
   assert.ok(mercadoSuggestion !== null);
   assert.equal(mercadoSuggestion.categoryId, 'cat-alimentacao');
-  assert.equal(mercadoSuggestion.subcategoryId, 'sub-mercado');
   assert.ok(mercadoSuggestion.confidence >= 0.70);
 
   // 3. Income mode match on "Salario"
@@ -513,14 +495,12 @@ test('predictCategoryFromDescription suggests the most probable category and sub
   assert.equal(multi[0].categoryId, 'cat-alimentacao');
 });
 
-test('known merchant descriptions auto-suggest their seeded category and subcategory', () => {
+test('known merchant descriptions auto-suggest their seeded category', () => {
   const amazon = predictCategoryFromDescription('Compra na Amazon', [], INITIAL_CATEGORIES, 'expense');
   assert.equal(amazon?.categoryId, 'cat-compras');
-  assert.equal(amazon?.subcategoryId, 'sub-comp-online');
 
   const streaming = predictCategoryFromDescription('Amazon Prime Video', [], INITIAL_CATEGORIES, 'expense');
   assert.equal(streaming?.categoryId, 'cat-assinaturas');
-  assert.equal(streaming?.subcategoryId, 'sub-ass-stream');
 });
 
 

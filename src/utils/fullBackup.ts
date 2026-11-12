@@ -194,13 +194,8 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
           category.monthlyBudget >= 0 &&
           typeof category.color === 'string' &&
           typeof category.icon === 'string' &&
-          Array.isArray(category.subcategories) &&
-          category.subcategories.every(
-            (subcategory) =>
-              isRecord(subcategory) &&
-              typeof subcategory.id === 'string' &&
-              typeof subcategory.name === 'string'
-          )
+          // Backups antigos podem trazer subcategorias; são aceitas e ignoradas (a subcategoria não existe mais).
+          (category.subcategories === undefined || Array.isArray(category.subcategories))
       )
     ) {
       return null;

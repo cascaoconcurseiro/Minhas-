@@ -26,7 +26,6 @@ function validBackup() {
         monthlyBudget: 0,
         color: '#059669',
         icon: 'shopping-cart',
-        subcategories: [],
       },
     ],
     transactions: [],
@@ -185,21 +184,24 @@ test('rejects unsupported versions or missing required collections', () => {
   assert.equal(parseFullFinanceBackup(JSON.stringify(missingTransactions)), null);
 });
 
-test('rejects invalid category records and nested subcategories before applying state', () => {
+test('rejects invalid category records and malformed legacy subcategories before applying state', () => {
   const emptyCategories = { ...validBackup(), categories: [] };
   const invalidBudget = {
     ...validBackup(),
     categories: [{ ...validBackup().categories[0], monthlyBudget: Number.NaN }],
   };
-  const invalidSubcategory = {
+  const malformedLegacySubcategories = {
     ...validBackup(),
-    categories: [
-      { ...validBackup().categories[0], subcategories: [null] },
-    ],
+    categories: [{ ...validBackup().categories[0], subcategories: 'not-a-list' }],
+  };
+  const oldBackupWithSubcategories = {
+    ...validBackup(),
+    categories: [{ ...validBackup().categories[0], subcategories: [{ id: 'sub-old', name: 'Antiga' }] }],
   };
   assert.equal(parseFullFinanceBackup(JSON.stringify(emptyCategories)), null);
   assert.equal(parseFullFinanceBackup(JSON.stringify(invalidBudget)), null);
-  assert.equal(parseFullFinanceBackup(JSON.stringify(invalidSubcategory)), null);
+  assert.equal(parseFullFinanceBackup(JSON.stringify(malformedLegacySubcategories)), null);
+  assert.ok(parseFullFinanceBackup(JSON.stringify(oldBackupWithSubcategories)), 'backup antigo com subcategorias ainda é aceito');
 });
 
 test('rejects non-object entries in the collections sanitized by the app', () => {
