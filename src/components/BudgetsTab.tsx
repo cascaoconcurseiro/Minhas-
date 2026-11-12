@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -18,10 +18,13 @@ import {
   calculate503020Rule,
   formatBRL,
   getBudgetAlerts,
+  getLocalDateISO,
   normalizeSearchText,
   parseBRLInput,
 } from '../utils/financeRules';
 import { calculateMonthBurnRateMarker } from '../utils/uxEnhancementRules';
+import { assessBudgetPace, suggestBudgets } from '../utils/budgetIntelligence';
+import { BudgetInsightsCard } from './BudgetInsightsCard';
 import { CurrencyInput } from './CurrencyInput';
 import { parseCurrencyInput } from '../utils/currencyInput';
 import {
@@ -81,6 +84,14 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   const [categoryFormError, setCategoryFormError] = useState('');
 
   const rule503020 = calculate503020Rule(categories, transactions, selectedMonth);
+  const budgetSuggestions = useMemo(
+    () => suggestBudgets(categories, transactions, selectedMonth),
+    [categories, transactions, selectedMonth]
+  );
+  const paceAlerts = useMemo(
+    () => (selectedMonth === getLocalDateISO().slice(0, 7) ? assessBudgetPace(categories, transactions, getLocalDateISO()) : []),
+    [categories, transactions, selectedMonth]
+  );
   const budgetAlerts = getBudgetAlerts(categoryBreakdown);
   const overAlerts = budgetAlerts.filter((a) => a.status === 'over');
   const warningAlerts = budgetAlerts.filter((a) => a.status === 'warning');
@@ -429,6 +440,12 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
           </div>
         </form>
       )}
+
+      <BudgetInsightsCard
+        suggestions={budgetSuggestions}
+        paceAlerts={paceAlerts}
+        onApplySuggestion={(suggestion) => onUpdateCategoryBudget(suggestion.categoryId, suggestion.suggestedBudget)}
+      />
 
       {/* Visual Alerts Panel for Categories Near or Over Budget */}
       {budgetAlerts.length > 0 && (
