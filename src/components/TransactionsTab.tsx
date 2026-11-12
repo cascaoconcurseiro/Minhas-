@@ -258,7 +258,10 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
           pendingAmount += tx.amount;
         }
       } else if (tx.type === 'expense') {
-        const eff = getEffectiveExpenseAmountForUser(tx);
+        const expenseForSummary = tx.creditCardId && tx.installmentPurchaseTotal !== undefined
+          ? { ...tx, amount: tx.installmentPurchaseTotal }
+          : tx;
+        const eff = getEffectiveExpenseAmountForUser(expenseForSummary);
         if (!eff) continue;
         expense += eff.amount;
         if (eff.status === 'pending') {

@@ -172,7 +172,10 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
         if (tx.sharedPaidBy === 'member') continue;
         totalIncome += tx.amount;
       } else if (tx.type === 'expense') {
-        const eff = getEffectiveExpenseAmountForUser(tx);
+        const expenseForSummary = tx.creditCardId && tx.installmentPurchaseTotal !== undefined
+          ? { ...tx, amount: tx.installmentPurchaseTotal }
+          : tx;
+        const eff = getEffectiveExpenseAmountForUser(expenseForSummary);
         if (!eff) continue;
         totalExpense += eff.amount;
 
