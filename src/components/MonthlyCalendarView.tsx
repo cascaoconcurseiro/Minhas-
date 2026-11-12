@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowDownRight,
-  ArrowUpRight,
   Check,
   CheckCircle2,
   Clock,
@@ -21,6 +20,7 @@ import {
 } from '../types/finance';
 import {
   calculateCalendarDaySummary,
+  calculateCalendarCellTotals,
   calculateCreditCardSummary,
   formatBRL,
   formatMonthYearPT,
@@ -573,14 +573,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               return true;
             });
 
-            const filteredInvoices = allDayInvoices.filter((inv) => {
-              if (calendarFilter === 'pending') return !inv.isPaid && inv.amount > 0;
-              if (calendarFilter === 'cards') return true;
-              if (calendarFilter === 'recurring') return false;
-              if (calendarFilter === 'paid') return inv.isPaid;
-              return true;
-            });
-
             const hasPendingBills = allDayTxs.some(
               (tx) => tx.status === 'pending' && tx.type === 'expense'
             );
@@ -588,21 +580,8 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               (inv) => !inv.isPaid && inv.amount > 0
             );
 
-            // Day sum
-            let dayExpenses = 0;
-            let dayIncomes = 0;
-            for (const tx of allDayTxs) {
-              if (tx.isInvoicePayment || tx.type === 'transfer' || tx.creditCardId) continue;
-              if (tx.type === 'expense') dayExpenses += tx.amount;
-              else if (tx.type === 'income') dayIncomes += tx.amount;
-            }
-
-            // Visible items limit in cell
-            const totalItemsCount = filteredInvoices.length + filteredTxs.length;
-            const visibleInvoices = filteredInvoices.slice(0, 2);
-            const remainingForTxs = Math.max(0, 3 - visibleInvoices.length);
-            const visibleTxs = filteredTxs.slice(0, remainingForTxs);
-            const hiddenCount = totalItemsCount - (visibleInvoices.length + visibleTxs.length);
+            // Total do dia (respeita o filtro ativo); os lançamentos ficam no detalhamento abaixo
+            const cellTotals = calculateCalendarCellTotals(filteredTxs);
 
             return (
               <div
@@ -650,19 +629,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      {/* Daily Net Pill if current month */}
-                      {cell.isCurrentMonth && (dayExpenses > 0 || dayIncomes > 0) && (
-                        <span
-                          className={`hidden xl:inline-block text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
-                            dayExpenses > 0
-                              ? 'bg-rose-50 text-rose-700'
-                              : 'bg-emerald-50 text-emerald-700'
-                          }`}
-                        >
-                          {dayExpenses > 0 ? `-${formatBRL(dayExpenses)}` : `+${formatBRL(dayIncomes)}`}
-                        </span>
-                      )}
-
                       {/* Quick + Button on Hover */}
                       <button
                         type="button"
@@ -680,96 +646,27 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Day Content Badges */}
-                  <div className="mt-1.5 space-y-1 min-w-0">
-                    {/* Credit Card Invoices Due on this Day */}
-                    {visibleInvoices.map((inv) => (
-                      <div
-                        key={inv.id}
-                        className={`truncate rounded px-1 sm:px-1.5 py-0.5 text-[10px] font-semibold flex items-center justify-between border min-w-0 ${
-                          inv.isPaid
-                            ? 'bg-slate-100 border-slate-200 text-slate-600 line-through'
-                            : 'bg-violet-50 border-violet-200 text-violet-900 font-bold'
-                        }`}
-                        title={`Fatura ${inv.cardName}: ${formatBRL(inv.amount)} (${
-                          inv.isPaid ? 'Paga' : 'Vencimento da Fatura'
-                        })`}
-                      >
-                        <span className="truncate flex items-center gap-1 min-w-0">
-                          <CardNetworkMark brand={inv.cardBrand} compact />
-                          <span className="truncate">Fat. {inv.cardName}</span>
-                        </span>
-                        <span className="hidden md:inline tabular-nums shrink-0 ml-1">
-                          {formatBRL(inv.amount)}
-                        </span>
-                      </div>
-                    ))}
-
-                    {/* Transactions Due / Realized on this Day */}
-                    {visibleTxs.map((tx) => {
-                      const isPending = tx.status === 'pending';
-                      const isExpense = tx.type === 'expense';
-                      const isIncome = tx.type === 'income';
-                      const isRecurring =
-                        tx.recurrence === 'installment' || tx.recurrence === 'fixed';
-
-                      return (
+                  {/* Total do dia */}
+                  {(cellTotals.expense > 0 || cellTotals.income > 0) && (
+                    <div className="mt-2 space-y-0.5 min-w-0">
+                      {cellTotals.expense > 0 && (
                         <div
-                          key={tx.id}
-                          className={`rounded px-1 sm:px-1.5 py-0.5 text-[10px] flex flex-wrap items-center justify-between border min-w-0 ${
-                            isPending && isExpense
-                              ? 'bg-amber-50/90 border-amber-300 text-amber-950 font-bold'
-                              : isIncome
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-medium'
-                              : isExpense && tx.creditCardId
-                              ? 'bg-slate-50 border-slate-200 text-slate-700'
-                              : 'bg-slate-100 border-slate-200 text-slate-700'
-                          }`}
-                          title={`${tx.description} — ${formatBRL(tx.amount)} (${
-                            isPending ? 'Pendente a pagar' : 'Pago/Recebido'
-                          })${
-                            tx.installmentNumber
-                              ? ` - Parcela ${tx.installmentNumber}/${tx.installmentTotal}`
-                              : ''
-                          }${
-                            tx.installmentPurchaseTotal !== undefined
-                              ? ` — Compra total ${formatBRL(tx.installmentPurchaseTotal)}`
-                              : ''
-                          }`}
+                          title="Total gasto no dia"
+                          className="truncate text-[11px] sm:text-sm font-extrabold tabular-nums text-rose-700"
                         >
-                          {tx.installmentPurchaseTotal !== undefined && (
-                            <span className="w-full text-violet-800 font-bold tabular-nums break-words">
-                              {formatBRL(tx.installmentPurchaseTotal)} em {tx.installmentTotal}x
-                              <span className="block font-normal">Parcela {tx.installmentNumber}/{tx.installmentTotal}: {formatBRL(tx.amount)}</span>
-                            </span>
-                          )}
-                          <span className="truncate flex items-center gap-1 min-w-0">
-                            {isPending && isExpense ? (
-                              <Clock className="h-2.5 w-2.5 text-amber-600 shrink-0" />
-                            ) : isIncome ? (
-                              <ArrowUpRight className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
-                            ) : isRecurring ? (
-                              <Repeat className="h-2.5 w-2.5 text-violet-600 shrink-0" />
-                            ) : (
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                            )}
-                            <span className="truncate">{tx.description}</span>
-                          </span>
-
-                          <span className={`${tx.installmentPurchaseTotal !== undefined ? 'hidden' : 'hidden md:inline'} tabular-nums shrink-0 ml-1 font-semibold`}>
-                            {isIncome ? '+' : '-'}
-                            {formatBRL(tx.amount)}
-                          </span>
+                          -{formatBRL(cellTotals.expense)}
                         </div>
-                      );
-                    })}
-
-                    {hiddenCount > 0 && (
-                      <div className="text-[10px] font-bold text-slate-500 hover:text-slate-800 text-center py-0.5">
-                        +{hiddenCount} mais...
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      {cellTotals.income > 0 && (
+                        <div
+                          title="Total recebido no dia"
+                          className="truncate text-[11px] sm:text-sm font-extrabold tabular-nums text-emerald-700"
+                        >
+                          +{formatBRL(cellTotals.income)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer status dot indicator for compact screens */}

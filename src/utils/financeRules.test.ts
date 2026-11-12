@@ -10,6 +10,7 @@ import {
   calculateAccountBalances,
   calculateCalendarDaySummary,
   calculateCategoryBreakdown,
+  calculateCalendarCellTotals,
   calculateCreditCardSummary,
   calculateCurrentPosition,
   calculateNetWorth,
@@ -2397,4 +2398,19 @@ test('one rule defines a pending bank obligation for both overview and notices',
   assert.equal(isPendingBankObligation(tx({ sharedPaidBy: 'member' }) as never), false);
   assert.equal(isPendingBankObligation(tx({ isCompanionOnlyExpense: true }) as never), false);
   assert.equal(isPendingBankObligation(tx({ date: '2026-13-40' }) as never), false);
+});
+
+test('calendar cell total sums the day, counts installment purchases by their full price and skips settlements', () => {
+  const tx = (over: object) => ({ id: 't' + Math.random(), description: 'x', amount: 10, date: '2026-11-11', competenceMonth: '2026-12', type: 'expense', status: 'pending', categoryId: 'c', paymentMethod: 'credit_card', recurrence: 'single', creditCardId: 'c1', ...over });
+  const totals = calculateCalendarCellTotals([
+    tx({ amount: 119.59, recurrence: 'installment', installmentNumber: 1, installmentTotal: 12, installmentPurchaseTotal: 1435 }),
+    tx({ amount: 135 }),
+    tx({ amount: 50 }),
+    tx({ amount: 500, isInvoicePayment: true, creditCardId: undefined }),
+    tx({ amount: 80, type: 'transfer', creditCardId: undefined }),
+    tx({ amount: 300, type: 'income', creditCardId: undefined, status: 'paid' }),
+  ] as never[]);
+  assert.equal(totals.expense, 1620);
+  assert.equal(totals.income, 300);
+  assert.deepEqual(calculateCalendarCellTotals([]), { expense: 0, income: 0 });
 });
