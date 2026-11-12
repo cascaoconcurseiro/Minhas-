@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Cartão inteligente — 12/11/2026
+
+Etapa 6 do plano de "sistema inteligente". `src/utils/cardIntelligence.ts`: `analyzeCard` calcula, por cartão, o vencimento e os dias até pagar de uma compra feita hoje (usa `resolveCreditCardInvoiceMonth`, a mesma regra de fechamento/vencimento do sistema), o total da fatura aberta, a projeção de fechamento (o maior entre o já lançado e a média das até 3 faturas anteriores com valor; sem histórico, é o valor atual), o limite livre e o melhor dia de compra (dia seguinte ao fechamento; fechamento dia 28 ou mais vira dia 1). `recommendCardForPurchase` indica o cartão com mais dias até pagar entre os que têm limite livre (só com 2 ou mais cartões). `CardInsightsCard` aparece na Visão Geral depois da previsão do saldo.
+
+Validação local: `tsc --noEmit`, testes e build passaram. Não verificado no navegador. Pendências do usuário: conferir o limite do cartão (R$ 83.000,00 pode ser R$ 830,00), pois a recomendação e o limite livre dependem dele. Próxima etapa: saúde dos dados.
+
 ## Resumo do mês em linguagem simples — 12/11/2026
 
 Etapa 5 do plano de "sistema inteligente". `src/utils/monthlyNarrative.ts` (`buildMonthlyInsights`) gera frases curtas a partir das regras do próprio sistema (sem enviar dados para fora e sem IA externa): quanto gastou e a comparação com o mês anterior (mês em andamento diz "até agora" e não compara percentual); a categoria que levou a maior parte; a categoria que mais subiu em reais contra o mês anterior (só em mês fechado, com mínimo de R$ 100 e 30%); tetos estourados; quanto sobrou ou faltou frente ao que entrou; quanto cada familiar ainda deve (só despesas que a pessoa pagou, pendentes, de qualquer mês); e o total das faturas de cartão do mês. Cada frase só aparece quando há dado que a sustente. `MonthlyInsightsCard` mostra a lista na Visão Geral (antes da previsão do saldo), para o mês selecionado.

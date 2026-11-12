@@ -42,6 +42,8 @@ import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
 import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
 import { CashForecastCard } from './CashForecastCard';
+import { CardInsightsCard } from './CardInsightsCard';
+import type { CardInsight, CardRecommendation } from '../utils/cardIntelligence';
 import { MonthlyInsightsCard } from './MonthlyInsightsCard';
 import type { MonthlyInsight } from '../utils/monthlyNarrative';
 import type { CashForecast } from '../utils/cashForecast';
@@ -70,6 +72,9 @@ interface OverviewTabProps {
   monthlyInsights?: MonthlyInsight[];
   /** Previsão do saldo dos próximos dias (null sem conta incluída no total). */
   cashForecast?: CashForecast | null;
+  /** Análise por cartão (fatura aberta, projeção, melhor dia de compra). */
+  cardInsights?: CardInsight[];
+  cardRecommendation?: CardRecommendation | null;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
@@ -111,6 +116,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onChangeClarityMode,
   recurringSuggestions = [],
   cashForecast = null,
+  cardInsights = [],
+  cardRecommendation = null,
   monthlyInsights = [],
   onScheduleRecurring,
   onDismissRecurring,
@@ -207,6 +214,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <MonthlyInsightsCard insights={monthlyInsights} monthLabel={formatMonthYearPT(selectedMonth).split(' ')[0].toLowerCase()} />
 
       <CashForecastCard forecast={cashForecast} />
+
+      <CardInsightsCard insights={cardInsights} recommendation={cardRecommendation} />
 
       {onScheduleRecurring && onDismissRecurring && (
         <RecurringSuggestionsCard
