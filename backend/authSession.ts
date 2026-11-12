@@ -109,6 +109,59 @@ export function verifySessionToken(token: string, nowSeconds = Math.floor(Date.n
   };
 }
 
+/**
+ * Token curto e assinado para um passo específico (ex.: desafio de passkey). Usa a mesma chave
+ * da sessão, mas com `aud` próprio: não serve como sessão, e uma sessão não serve como desafio.
+ */
+export function signPurposeToken(
+  purpose: string,
+  data: Record<string, string>,
+  ttlSeconds = 300,
+  nowSeconds = Math.floor(Date.now() / 1000)
+): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const claims = Buffer.from(
+    JSON.stringify({ aud: purpose, d: data, iat: nowSeconds, exp: nowSeconds + ttlSeconds })
+  ).toString('base64url');
+  const content = `${header}.${claims}`;
+  return `${content}.${sign(content, getSecret())}`;
+}
+
+export function verifyPurposeToken(
+  token: string,
+  purpose: string,
+  nowSeconds = Math.floor(Date.now() / 1000)
+): Record<string, string> {
+  if (!token || token.length > MAX_TOKEN_LENGTH) throw new SessionTokenError('Pedido inválido ou expirado.', 401);
+  const secret = getSecret();
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new SessionTokenError('Pedido inválido ou expirado.', 401);
+  const [header, claims, signature] = parts;
+  const expected = Buffer.from(sign(`${header}.${claims}`, secret));
+  const received = Buffer.from(signature);
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+    throw new SessionTokenError('Pedido inválido ou expirado.', 401);
+  }
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(Buffer.from(claims, 'base64url').toString('utf8'));
+  } catch {
+    throw new SessionTokenError('Pedido inválido ou expirado.', 401);
+  }
+  if (parsed.aud !== purpose || typeof parsed.exp !== 'number' || parsed.exp <= nowSeconds) {
+    throw new SessionTokenError('Pedido inválido ou expirado.', 401);
+  }
+  const data = parsed.d;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new SessionTokenError('Pedido inválido ou expirado.', 401);
+  }
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (typeof value === 'string') result[key] = value;
+  }
+  return result;
+}
+
 function scrypt(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scryptCallback(password, salt, SCRYPT_KEY_LENGTH, { N: SCRYPT_COST }, (error, key) => {

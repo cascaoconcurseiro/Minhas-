@@ -159,6 +159,24 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return user;
 }
 
+export async function signInWithPasskey(): Promise<User> {
+  const begin = await requestJson<{ options: unknown; challengeToken: string }>('/api/auth/passkeys/login/options', {
+    method: 'POST',
+    body: '{}',
+  });
+  const { startAuthentication } = await import('@simplewebauthn/browser');
+  const response = await startAuthentication({
+    optionsJSON: begin.options as Parameters<typeof startAuthentication>[0]['optionsJSON'],
+  });
+  const session = await requestJson<SessionResponse>('/api/auth/passkeys/login/verify', {
+    method: 'POST',
+    body: JSON.stringify({ response, challengeToken: begin.challengeToken }),
+  });
+  const user = applySession(session.token);
+  if (!user) throw new AuthError('Sessão recebida é inválida. Tente novamente.', 502);
+  return user;
+}
+
 export async function registerWithEmail(displayName: string, email: string, password: string): Promise<User> {
   const session = await requestJson<SessionResponse>('/api/auth/register', {
     method: 'POST',

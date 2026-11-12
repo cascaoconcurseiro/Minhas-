@@ -111,6 +111,11 @@ mock.module('../lib/authClient', () => ({
     authStateListener?.(authStateUser);
     return authStateUser;
   },
+  signInWithPasskey: async () => {
+    authStateUser = { ...syntheticUser };
+    authStateListener?.(authStateUser);
+    return authStateUser;
+  },
   signOutUser: async () => {},
 }));
 

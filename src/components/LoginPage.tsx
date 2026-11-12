@@ -1,15 +1,22 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
   Lock,
   Mail,
+  ScanFace,
   ShieldCheck,
   TrendingUp,
   User as UserIcon,
   Wallet,
 } from 'lucide-react';
 import { getAuthErrorMessage } from '../lib/authClient';
+import {
+  getPasskeyErrorMessage,
+  isPasskeyCancellation,
+  isPasskeyEnabledHere,
+  isPasskeySupported,
+} from '../lib/passkeyClient';
 import { BrandMark } from './BrandMark';
 
 interface LoginPageProps {
@@ -17,6 +24,8 @@ interface LoginPageProps {
   defaultName?: string;
   onSignInEmail: (email: string, pass: string) => Promise<void>;
   onRegisterEmail: (name: string, email: string, pass: string) => Promise<void>;
+  /** Entrar com Face ID (passkey). Sem esta função o botão não aparece. */
+  onSignInPasskey?: () => Promise<void>;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -24,6 +33,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   defaultName = '',
   onSignInEmail,
   onRegisterEmail,
+  onSignInPasskey,
 }) => {
   const inputId = useId();
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -32,6 +42,43 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyEnabledHere] = useState(() => isPasskeyEnabledHere());
+  const autoPromptedRef = useRef(false);
+
+  const handlePasskey = async (silent = false) => {
+    if (!onSignInPasskey) return;
+    setErrorMsg(null);
+    setIsLoading(true);
+    try {
+      await onSignInPasskey();
+    } catch (error) {
+      if (silent && isPasskeyCancellation(error)) return;
+      setErrorMsg(
+        error instanceof Error && error.name === 'AuthError' ? getAuthErrorMessage(error) : getPasskeyErrorMessage(error)
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!onSignInPasskey) return;
+    let cancelled = false;
+    void isPasskeySupported().then((supported) => {
+      if (cancelled) return;
+      setPasskeyAvailable(supported);
+      // Aparelho que já ativou o Face ID: tenta entrar sozinho ao abrir. Se o navegador exigir um toque, o botão fica na tela.
+      if (supported && passkeyEnabledHere && !autoPromptedRef.current) {
+        autoPromptedRef.current = true;
+        void handlePasskey(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSignInPasskey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,6 +263,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300"
               >
                 {errorMsg}
+              </div>
+            )}
+
+            {mode === 'login' && passkeyAvailable && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  data-testid="passkey-login-btn"
+                  onClick={() => void handlePasskey()}
+                  disabled={isLoading}
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors disabled:opacity-60 ${
+                    passkeyEnabledHere
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                      : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-slate-50'
+                  }`}
+                >
+                  <ScanFace className="h-5 w-5" />
+                  Entrar com Face ID
+                </button>
+                {!passkeyEnabledHere && (
+                  <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
+                    Ainda não ativou? Entre com e-mail e senha e ative o Face ID dentro do app.
+                  </p>
+                )}
+                <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                  <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                  ou use e-mail e senha
+                  <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                </div>
               </div>
             )}
 

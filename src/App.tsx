@@ -23,6 +23,7 @@ import {
   getVaultIdForUid,
   registerWithEmail,
   signInWithEmail,
+  signInWithPasskey,
   signOutUser,
   type User,
 } from './lib/authClient';
@@ -126,6 +127,7 @@ const BudgetsTab = lazy(() => import('./components/BudgetsTab').then((m) => ({ d
 const GoalsAndSimulatorTab = lazy(() => import('./components/GoalsAndSimulatorTab').then((m) => ({ default: m.GoalsAndSimulatorTab })));
 const ReportsAndDataTab = lazy(() => import('./components/ReportsAndDataTab').then((m) => ({ default: m.ReportsAndDataTab })));
 const AuthAndCloudTab = lazy(() => import('./components/AuthAndCloudTab').then((m) => ({ default: m.AuthAndCloudTab })));
+import { FaceIdOfferBanner } from './components/FaceIdOfferBanner';
 const LoginPage = lazy(() => import('./components/LoginPage').then((m) => ({ default: m.LoginPage })));
 const TransactionModal = lazy(() => import('./components/TransactionModal').then((m) => ({ default: m.TransactionModal })));
 const GlobalSearchPanel = lazy(() => import('./components/GlobalSearchPanel').then((m) => ({ default: m.GlobalSearchPanel })));
@@ -1319,9 +1321,7 @@ export default function App() {
     await persistNeonWorkspacePayload(buildCloudPayload(docId), true);
   };
 
-  const handleSignInEmail = async (email: string, pass: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const user = await signInWithEmail(cleanEmail, pass);
+  const completeSignIn = (user: Awaited<ReturnType<typeof signInWithEmail>>, cleanEmail: string) => {
     if (cleanEmail !== effectiveUserEmail) {
       resetFinancialStateToCleanZero();
       hasLoadedRemoteOnceRef.current = false;
@@ -1338,6 +1338,17 @@ export default function App() {
       undefined,
       true
     );
+  };
+
+  const handleSignInEmail = async (email: string, pass: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await signInWithEmail(cleanEmail, pass);
+    completeSignIn(user, cleanEmail);
+  };
+
+  const handleSignInPasskey = async () => {
+    const user = await signInWithPasskey();
+    completeSignIn(user, user.email.trim().toLowerCase());
   };
 
   const handleRegisterEmail = async (name: string, email: string, pass: string) => {
@@ -3060,6 +3071,7 @@ export default function App() {
             defaultName=""
             onSignInEmail={handleSignInEmail}
             onRegisterEmail={handleRegisterEmail}
+            onSignInPasskey={handleSignInPasskey}
           />
         </Suspense>
       </div>
@@ -3601,6 +3613,7 @@ export default function App() {
 
         {/* Main Content Container */}
         <main className="mx-auto w-full max-w-7xl min-w-0 overflow-x-hidden flex-1 px-3.5 sm:px-6 py-4 sm:py-6 pb-28 lg:pb-8">
+          <FaceIdOfferBanner />
           {isLoadingData ? (
             activeTab === 'overview' ? (
               <DashboardSkeleton />

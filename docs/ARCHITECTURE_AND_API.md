@@ -109,6 +109,10 @@ Convites e lançamentos compartilhados usam tabelas Neon próprias.
 | `POST /api/auth/login` | público, 8 falhas/15 min por IP+e-mail | `200` com `{token, user}`; `401` e-mail/senha incorretos; `429` bloqueio temporário |
 | `GET /api/auth/me` | sessão | Revalida a sessão e devolve novo token e dados da conta |
 | `POST /api/auth/logout` | sessão | Incrementa `token_version` (revoga todos os tokens); `204` |
+| `GET /api/auth/passkeys` | sessão | Lista os aparelhos com Face ID da conta (`{passkeys:[{id,label,createdAt,lastUsedAt}]}`) |
+| `POST /api/auth/passkeys/register/options` · `register/verify` | sessão | Cadastra o Face ID do aparelho (WebAuthn, atestação `none`, verificação biométrica obrigatória, até 10 por conta). O desafio viaja em token assinado de 5 min (`challengeToken`) |
+| `DELETE /api/auth/passkeys/:id` | sessão | Remove o Face ID de um aparelho; `204` |
+| `POST /api/auth/passkeys/login/options` · `login/verify` | público, 20 falhas/15 min por IP | Entra só com o rosto (passkey sem e-mail). `200` com `{token, user}`; `401` se a assinatura, o desafio ou o domínio não conferem |
 
 Sem verificação de e-mail: o convite familiar dentro do sistema é o vínculo entre contas.
 

@@ -31,6 +31,7 @@ import { runFinancialIntegrityAudit } from '../utils/travelRules';
 import { summarizeBackendHealth } from '../utils/backendHealth';
 import { getAuthErrorMessage } from '../lib/authClient';
 import { ProjectAndDatabaseDocsPanel } from './ProjectAndDatabaseDocsPanel';
+import { FaceIdCard } from './FaceIdCard';
 import { ScreenDiagnostics } from './ScreenDiagnostics';
 
 interface AuthAndCloudTabProps {
@@ -801,6 +802,8 @@ export const AuthAndCloudTab: React.FC<AuthAndCloudTabProps> = ({
           </div>
         </div>
       </div>
+
+      {!isAnonymousUser && <FaceIdCard />}
 
       <ScreenDiagnostics />
 

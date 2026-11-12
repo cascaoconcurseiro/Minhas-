@@ -27,6 +27,7 @@ import {
   verifySessionToken,
 } from './authSession.ts';
 import { randomUUID } from 'node:crypto';
+import { registerPasskeyRoutes } from './passkeys.ts';
 import {
   formatGoogleFinanceSymbol,
   normalizeTickerSymbol,
@@ -404,6 +405,14 @@ async function startServer() {
       console.error('Erro ao encerrar sessão no Neon:', error);
       res.status(503).json({ error: 'Não foi possível encerrar a sessão no servidor.' });
     }
+  });
+
+  registerPasskeyRoutes(app, {
+    getPool: getNeonPool,
+    verifyAuthUser,
+    sendSession,
+    limiter: createAttemptLimiter(20, 15 * 60 * 1000),
+    isAuthConfigured,
   });
 
   app.use('/api/workspace', verifyAuthUser);
