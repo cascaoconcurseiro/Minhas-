@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Face ID: correção da ativação que dava erro — 12/11/2026
+
+O usuário relatou "não ativou o Face ID e deu erro" (sem o texto do erro). Não há acesso aos logs da Vercel (403) nem ao site a partir do ambiente, então não foi possível ver a causa exata. Causa mais provável, por limitação conhecida do Safari/iOS: o navegador só aceita `navigator.credentials.create/get` logo depois do toque (ativação transitória), e o fluxo anterior buscava o desafio no servidor (e carregava a biblioteca) DEPOIS do toque; com função fria + Neon isso passa do prazo e o iPhone recusa. Além disso o erro "cancelado" era engolido sem mostrar nada.
+
+Mudanças: `src/lib/passkeyPrepare.ts` (`createPrepared`: busca antes e guarda por 4 min, `takeReady` nunca espera a rede; carrega a biblioteca `@simplewebauthn/browser` antecipadamente). Login (`LoginPage`) e cadastro (`FaceIdCard`, `FaceIdOfferBanner`) preparam tudo ao abrir; o botão fica desabilitado ("Preparando o Face ID…") até estar pronto, e no toque a chamada ao Face ID é a primeira coisa, sem `await` de rede antes. O auto-disparo do Face ID ao abrir a tela de login foi REMOVIDO (sem toque o Safari recusa e gastava o desafio). Depois de uma tentativa, outro desafio é preparado. Toda falha agora mostra o motivo técnico em "Detalhe: …" (`describePasskeyFailure`: nome do erro, HTTP, texto), e o servidor devolve `detail` (mensagem da biblioteca, sem segredos) nas falhas de preparo/confirmação.
+
+Validação local: `tsc`, 596+ testes, build; novos testes do cache de preparo e do detalhe técnico do servidor. NÃO verificado com Face ID real. Se ainda falhar, pedir o texto da linha "Detalhe:" que agora aparece abaixo do erro.
+
 ## Auditoria do celular: o que não era funcional — 12/11/2026
 
 Pedido: "muitas coisas não funcionam como deveria no celular, tipo gastos por categoria deveria rodar lateralmente". Auditoria no Chromium emulando celular (390 e 360 px, dados cheios: 3 meses, 14 categorias, cartões, parcelas, metas, investimentos, viagem), com medição automática de texto cortado, rolagem lateral por toque real (`Input.dispatchTouchEvent`; `synthesizeScrollGesture` não funciona neste Chromium) e tamanho de alvo de toque.

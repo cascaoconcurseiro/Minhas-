@@ -1,4 +1,11 @@
 import { auth } from './authClient';
+import {
+  createPrepared,
+  getLoadedPasskeyLibrary,
+  loadPasskeyLibrary,
+  loginPrepared,
+  type PasskeyOptionsPayload,
+} from './passkeyPrepare';
 
 const ENABLED_KEY = 'minhas_passkey_enabled_v1';
 const OFFER_KEY = 'minhas_passkey_offer_v1';
@@ -13,7 +20,8 @@ export interface PasskeySummary {
 export class PasskeyError extends Error {
   constructor(
     message: string,
-    readonly cancelled = false
+    readonly cancelled = false,
+    readonly detail = ''
   ) {
     super(message);
     this.name = 'PasskeyError';
@@ -65,14 +73,22 @@ export async function isPasskeySupported(): Promise<boolean> {
   }
 }
 
+/** Nome e mensagem técnicos do erro, para conseguir diagnosticar sem adivinhar. */
+export function describePasskeyFailure(error: unknown): string {
+  const e = error as { name?: string; message?: string; code?: string; detail?: string; status?: number } | null;
+  const parts = [e?.name, e?.status ? `HTTP ${e.status}` : '', e?.code, e?.detail, e?.message].filter((value): value is string => Boolean(value && value.trim()));
+  return [...new Set(parts)].join(' · ').slice(0, 160) || 'erro sem detalhe';
+}
+
 export function getPasskeyErrorMessage(error: unknown): string {
   if (error instanceof PasskeyError) return error.message;
   const name = (error as { name?: string } | null)?.name;
   if (name === 'NotAllowedError' || name === 'AbortError') {
-    return 'Face ID cancelado ou não reconhecido. Tente de novo.';
+    return 'O Face ID não foi concluído (cancelado ou o iPhone não chegou a abrir). Toque no botão para tentar de novo.';
   }
   if (name === 'InvalidStateError') return 'Este aparelho já está cadastrado.';
   if (name === 'SecurityError') return 'O Face ID não funciona neste endereço do site.';
+  if (name === 'AuthError') return (error as Error).message;
   return 'Não foi possível usar o Face ID agora. Tente de novo.';
 }
 
@@ -96,8 +112,14 @@ async function authorizedJson<T>(path: string, init: RequestInit = {}): Promise<
     throw new PasskeyError('Sem conexão com o servidor. Verifique a internet e tente de novo.');
   }
   if (response.status === 204) return undefined as T;
-  const body = (await response.json().catch(() => ({}))) as { error?: string };
-  if (!response.ok) throw new PasskeyError(body.error || 'Não foi possível concluir. Tente de novo.');
+  const body = (await response.json().catch(() => ({}))) as { error?: string; detail?: string };
+  if (!response.ok) {
+    throw new PasskeyError(
+      body.error || 'Não foi possível concluir. Tente de novo.',
+      false,
+      `HTTP ${response.status}${body.detail ? ` · ${body.detail}` : ''}`
+    );
+  }
   return body as T;
 }
 
@@ -120,17 +142,48 @@ function describeDevice(): string {
   return 'Este aparelho';
 }
 
+const registerPrepared = createPrepared<PasskeyOptionsPayload>(() =>
+  authorizedJson<PasskeyOptionsPayload>('/api/auth/passkeys/register/options', { method: 'POST', body: '{}' })
+);
+
+/** Busca o desafio e a biblioteca antes do toque. Resolve true quando o botão já pode ser usado. */
+export async function preparePasskeyRegistration(): Promise<boolean> {
+  const [ready] = await Promise.all([registerPrepared.whenReady(), loadPasskeyLibrary().then(() => true, () => false)]);
+  return ready && getLoadedPasskeyLibrary() !== null;
+}
+
 /** Cria a passkey deste aparelho (pede o Face ID) e cadastra a chave pública na conta. */
 export async function registerPasskey(): Promise<void> {
-  const begin = await authorizedJson<{ options: unknown; challengeToken: string }>(
-    '/api/auth/passkeys/register/options',
-    { method: 'POST', body: '{}' }
-  );
-  const { startRegistration } = await import('@simplewebauthn/browser');
-  const response = await startRegistration({ optionsJSON: begin.options as Parameters<typeof startRegistration>[0]['optionsJSON'] });
-  await authorizedJson('/api/auth/passkeys/register/verify', {
-    method: 'POST',
-    body: JSON.stringify({ response, challengeToken: begin.challengeToken, label: describeDevice() }),
-  });
+  // Sem espera de rede antes do Face ID: o iPhone só abre o Face ID logo depois do toque.
+  const ready = registerPrepared.takeReady();
+  const library = getLoadedPasskeyLibrary();
+  if (!ready || !library) {
+    registerPrepared.prepare();
+    void loadPasskeyLibrary();
+    throw new PasskeyError('Preparando o Face ID. Toque de novo em instantes.');
+  }
+  let response;
+  try {
+    response = await library.startRegistration({
+      optionsJSON: ready.options as Parameters<typeof library.startRegistration>[0]['optionsJSON'],
+    });
+  } catch (error) {
+    registerPrepared.prepare();
+    throw error;
+  }
+  try {
+    await authorizedJson('/api/auth/passkeys/register/verify', {
+      method: 'POST',
+      body: JSON.stringify({ response, challengeToken: ready.challengeToken, label: describeDevice() }),
+    });
+  } finally {
+    registerPrepared.prepare();
+  }
   setPasskeyEnabledHere(true);
+}
+
+/** Busca o desafio de login e a biblioteca antes do toque. Resolve true quando o botão já pode ser usado. */
+export async function waitPasskeyLoginReady(): Promise<boolean> {
+  const [ready] = await Promise.all([loginPrepared.whenReady(), loadPasskeyLibrary().then(() => true, () => false)]);
+  return ready && getLoadedPasskeyLibrary() !== null;
 }

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ScanFace, X } from 'lucide-react';
 import {
+  describePasskeyFailure,
   dismissPasskeyOffer,
   getPasskeyErrorMessage,
-  isPasskeyCancellation,
   isPasskeyEnabledHere,
   isPasskeySupported,
+  preparePasskeyRegistration,
   registerPasskey,
   wasPasskeyOfferDismissed,
 } from '../lib/passkeyClient';
@@ -14,13 +15,19 @@ import {
 export const FaceIdOfferBanner: React.FC = () => {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; detail: string } | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (isPasskeyEnabledHere() || wasPasskeyOfferDismissed()) return;
     let cancelled = false;
     void isPasskeySupported().then((supported) => {
-      if (!cancelled && supported) setVisible(true);
+      if (cancelled || !supported) return;
+      setVisible(true);
+      // Busca o desafio e a biblioteca já ao abrir: o iPhone só abre o Face ID logo depois do toque.
+      void preparePasskeyRegistration().then((ok) => {
+        if (!cancelled) setReady(ok);
+      });
     });
     return () => {
       cancelled = true;
@@ -41,7 +48,10 @@ export const FaceIdOfferBanner: React.FC = () => {
       await registerPasskey();
       setVisible(false);
     } catch (e) {
-      if (!isPasskeyCancellation(e)) setError(getPasskeyErrorMessage(e));
+      setError({ text: getPasskeyErrorMessage(e), detail: describePasskeyFailure(e) });
+      // O desafio usado não vale mais: prepara outro e liga o botão de novo quando estiver pronto.
+      setReady(false);
+      void preparePasskeyRegistration().then(setReady);
     } finally {
       setBusy(false);
     }
@@ -63,16 +73,23 @@ export const FaceIdOfferBanner: React.FC = () => {
               Ative o Face ID e da próxima vez você entra sem digitar e-mail e senha.
             </p>
           </div>
-          {error && <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">{error}</p>}
+          {error && (
+            <p role="alert" className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+              {error.text}
+              <span data-testid="face-id-offer-error-detail" className="mt-1 block break-words font-mono text-[10px] font-normal opacity-80">
+                Detalhe: {error.detail}
+              </span>
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               data-testid="face-id-offer-enable"
               onClick={() => void enable()}
-              disabled={busy}
-              className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
+              disabled={busy || !ready}
+              className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-2.5 sm:py-1.5 text-xs font-bold text-white disabled:opacity-60"
             >
-              Ativar Face ID
+              {ready ? 'Ativar Face ID' : 'Preparando…'}
             </button>
             <button
               type="button"

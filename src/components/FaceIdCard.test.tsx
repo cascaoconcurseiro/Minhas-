@@ -73,3 +73,15 @@ test('convite não aparece quando o aparelho não tem Face ID', async () => {
   const el = await mount(React.createElement(FaceIdOfferBanner));
   assert.equal(el.querySelector('[data-testid="face-id-offer"]'), null);
 });
+
+test('ativar sem a preparação pronta avisa para tocar de novo, sem esperar a rede', async () => {
+  const { registerPasskey, describePasskeyFailure } = await import('../lib/passkeyClient');
+  let message = '';
+  try {
+    await registerPasskey();
+  } catch (error) {
+    message = (error as Error).message;
+    assert.match(describePasskeyFailure(error), /PasskeyError/);
+  }
+  assert.match(message, /Preparando o Face ID/);
+});

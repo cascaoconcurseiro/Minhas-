@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScanFace, Trash2 } from 'lucide-react';
 import {
+  describePasskeyFailure,
   getPasskeyErrorMessage,
-  isPasskeyCancellation,
   isPasskeyEnabledHere,
   isPasskeySupported,
   listPasskeys,
+  preparePasskeyRegistration,
   registerPasskey,
   removePasskey,
   setPasskeyEnabledHere,
@@ -22,7 +23,8 @@ export const FaceIdCard: React.FC = () => {
   const [supported, setSupported] = useState<boolean | null>(null);
   const [items, setItems] = useState<PasskeySummary[]>([]);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string; detail?: string } | null>(null);
+  const [ready, setReady] = useState(false);
   const [enabledHere, setEnabledHere] = useState(() => isPasskeyEnabledHere());
 
   const refresh = useCallback(async () => {
@@ -38,7 +40,14 @@ export const FaceIdCard: React.FC = () => {
     void isPasskeySupported().then((value) => {
       if (cancelled) return;
       setSupported(value);
-      if (value) void refresh();
+      if (!value) return;
+      void refresh();
+      // Busca o desafio e a biblioteca já ao abrir: o iPhone só abre o Face ID logo depois do toque.
+      if (!isPasskeyEnabledHere()) {
+        void preparePasskeyRegistration().then((ok) => {
+          if (!cancelled) setReady(ok);
+        });
+      }
     });
     return () => {
       cancelled = true;
@@ -54,7 +63,10 @@ export const FaceIdCard: React.FC = () => {
       setMessage({ tone: 'ok', text: 'Face ID ativado. Na próxima vez, entre só com o rosto.' });
       await refresh();
     } catch (error) {
-      if (!isPasskeyCancellation(error)) setMessage({ tone: 'error', text: getPasskeyErrorMessage(error) });
+      setMessage({ tone: 'error', text: getPasskeyErrorMessage(error), detail: describePasskeyFailure(error) });
+      // O desafio usado não vale mais: prepara outro e liga o botão de novo quando estiver pronto.
+      setReady(false);
+      void preparePasskeyRegistration().then(setReady);
     } finally {
       setBusy(false);
     }
@@ -109,11 +121,11 @@ export const FaceIdCard: React.FC = () => {
               type="button"
               data-testid="face-id-enable-btn"
               onClick={() => void handleEnable()}
-              disabled={busy}
+              disabled={busy || !ready}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition-colors disabled:opacity-60"
             >
               <ScanFace className="h-4 w-4" />
-              Ativar Face ID neste aparelho
+              {ready ? 'Ativar Face ID neste aparelho' : 'Preparando o Face ID…'}
             </button>
           )}
           {enabledHere && (
@@ -157,6 +169,11 @@ export const FaceIdCard: React.FC = () => {
           className={`text-xs font-semibold ${message.tone === 'ok' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}
         >
           {message.text}
+          {message.detail && (
+            <span data-testid="face-id-error-detail" className="mt-1 block break-words font-mono text-[10px] font-normal opacity-80">
+              Detalhe: {message.detail}
+            </span>
+          )}
         </p>
       )}
     </section>

@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
@@ -12,10 +12,11 @@ import {
 } from 'lucide-react';
 import { getAuthErrorMessage } from '../lib/authClient';
 import {
+  describePasskeyFailure,
   getPasskeyErrorMessage,
-  isPasskeyCancellation,
   isPasskeyEnabledHere,
   isPasskeySupported,
+  waitPasskeyLoginReady,
 } from '../lib/passkeyClient';
 import { BrandMark } from './BrandMark';
 
@@ -43,20 +44,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyReady, setPasskeyReady] = useState(false);
+  const [passkeyDetail, setPasskeyDetail] = useState<string | null>(null);
   const [passkeyEnabledHere] = useState(() => isPasskeyEnabledHere());
-  const autoPromptedRef = useRef(false);
 
-  const handlePasskey = async (silent = false) => {
+  const handlePasskey = async () => {
     if (!onSignInPasskey) return;
     setErrorMsg(null);
+    setPasskeyDetail(null);
     setIsLoading(true);
     try {
       await onSignInPasskey();
     } catch (error) {
-      if (silent && isPasskeyCancellation(error)) return;
       setErrorMsg(
         error instanceof Error && error.name === 'AuthError' ? getAuthErrorMessage(error) : getPasskeyErrorMessage(error)
       );
+      setPasskeyDetail(describePasskeyFailure(error));
+      // O desafio usado não vale mais: prepara outro e liga o botão de novo quando estiver pronto.
+      setPasskeyReady(false);
+      void waitPasskeyLoginReady().then((ready) => setPasskeyReady(ready));
     } finally {
       setIsLoading(false);
     }
@@ -66,18 +72,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     if (!onSignInPasskey) return;
     let cancelled = false;
     void isPasskeySupported().then((supported) => {
-      if (cancelled) return;
-      setPasskeyAvailable(supported);
-      // Aparelho que já ativou o Face ID: tenta entrar sozinho ao abrir. Se o navegador exigir um toque, o botão fica na tela.
-      if (supported && passkeyEnabledHere && !autoPromptedRef.current) {
-        autoPromptedRef.current = true;
-        void handlePasskey(true);
-      }
+      if (cancelled || !supported) return;
+      setPasskeyAvailable(true);
+      // Busca o desafio e a biblioteca já na abertura: o iPhone só abre o Face ID logo depois do toque.
+      void waitPasskeyLoginReady().then((ready) => {
+        if (!cancelled) setPasskeyReady(ready);
+      });
     });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSignInPasskey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -263,6 +267,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300"
               >
                 {errorMsg}
+                {passkeyDetail && (
+                  <span data-testid="passkey-error-detail" className="mt-1 block break-words font-mono text-[10px] font-normal opacity-80">
+                    Detalhe: {passkeyDetail}
+                  </span>
+                )}
               </div>
             )}
 
@@ -272,7 +281,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   type="button"
                   data-testid="passkey-login-btn"
                   onClick={() => void handlePasskey()}
-                  disabled={isLoading}
+                  disabled={isLoading || !passkeyReady}
                   className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors disabled:opacity-60 ${
                     passkeyEnabledHere
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
@@ -280,7 +289,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   }`}
                 >
                   <ScanFace className="h-5 w-5" />
-                  Entrar com Face ID
+                  {passkeyReady ? 'Entrar com Face ID' : 'Preparando o Face ID…'}
                 </button>
                 {!passkeyEnabledHere && (
                   <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">

@@ -88,9 +88,11 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
   const { getPool, verifyAuthUser, sendSession, limiter, isAuthConfigured } = deps;
 
   const noStore = (res: Response) => res.set('Cache-Control', 'no-store');
-  const fail = (res: Response, status: number, error: string) => {
+  const fail = (res: Response, status: number, error: string, cause?: unknown) => {
     noStore(res);
-    res.status(status).json({ error });
+    // `detail` é só o texto técnico da biblioteca (origem, desafio…), sem segredos: serve para diagnosticar.
+    const detail = cause instanceof Error ? cause.message.slice(0, 200) : undefined;
+    res.status(status).json(detail ? { error, detail } : { error });
   };
   const unavailable = (res: Response) => fail(res, 503, 'Face ID indisponível no servidor agora.');
   const limitKeyFor = (req: Request) => `passkey|${req.ip || 'unknown'}`;
@@ -127,7 +129,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       });
     } catch (error) {
       console.error('Erro ao listar passkeys:', error);
-      fail(res, 503, 'Não foi possível consultar o Face ID agora.');
+      fail(res, 503, 'Não foi possível consultar o Face ID agora.', error);
     }
   });
 
@@ -170,7 +172,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       res.json({ options, challengeToken });
     } catch (error) {
       console.error('Erro ao preparar cadastro de passkey:', error);
-      fail(res, 503, 'Não foi possível preparar o Face ID agora.');
+      fail(res, 503, 'Não foi possível preparar o Face ID agora.', error);
     }
   });
 
@@ -230,7 +232,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       res.status(201).json({ ok: true });
     } catch (error) {
       console.error('Erro ao confirmar cadastro de passkey:', error);
-      fail(res, 400, 'Não foi possível confirmar o Face ID. Tente de novo.');
+      fail(res, 400, 'Não foi possível confirmar o Face ID. Tente de novo.', error);
     }
   });
 
@@ -265,7 +267,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       res.json({ options, challengeToken });
     } catch (error) {
       console.error('Erro ao preparar login com passkey:', error);
-      fail(res, 503, 'Não foi possível preparar o Face ID agora.');
+      fail(res, 503, 'Não foi possível preparar o Face ID agora.', error);
     }
   });
 
@@ -340,7 +342,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
     } catch (error) {
       limiter.recordFailure(key);
       console.error('Erro ao confirmar login com passkey:', error);
-      fail(res, 401, 'Não foi possível confirmar o Face ID. Tente de novo.');
+      fail(res, 401, 'Não foi possível confirmar o Face ID. Tente de novo.', error);
     }
   });
 }

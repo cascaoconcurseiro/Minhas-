@@ -260,3 +260,17 @@ test('listar e remover Face ID; depois de removido não entra mais', async () =>
   });
   assert.equal(login.status, 401);
 });
+
+test('falha na confirmação devolve o motivo técnico para diagnóstico', async () => {
+  const reg = await call('POST', '/api/auth/register', { name: 'Teste', email: 'detalhe@exemplo.com', password: 'senha-forte-123' });
+  const token = reg.body.token as string;
+  const auth = createAuthenticator();
+  const opts = await call('POST', '/api/auth/passkeys/register/options', {}, token);
+  // Assina para o site errado: a origem não confere com a do servidor.
+  const wrong = await call('POST', '/api/auth/passkeys/register/verify', {
+    response: auth.register(opts.body.options, 'https://site-errado.test', 'site-errado.test'),
+    challengeToken: opts.body.challengeToken,
+  }, token);
+  assert.equal(wrong.status, 400);
+  assert.match(String(wrong.body.detail), /origin|RP ID|rpID/i);
+});

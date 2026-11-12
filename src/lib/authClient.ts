@@ -1,4 +1,7 @@
 import { getVaultIdForUid as getStableVaultIdForUid } from '../../shared/workspaceIdentity';
+import { getLoadedPasskeyLibrary, loadPasskeyLibrary, loginPrepared } from './passkeyPrepare';
+
+type PasskeyLibrary = typeof import('@simplewebauthn/browser');
 
 export const AUTH_TOKEN_STORAGE_KEY = 'minhas_economias_auth_token_v1';
 export const AUTO_VAULT_STORAGE_KEY = 'minhas_economias_cloud_vault_id_v2';
@@ -6,7 +9,8 @@ export const AUTO_VAULT_STORAGE_KEY = 'minhas_economias_cloud_vault_id_v2';
 export class AuthError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    readonly detail = ''
   ) {
     super(message);
     this.name = 'AuthError';
@@ -113,9 +117,9 @@ async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
   } catch {
     throw new AuthError('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.', 0);
   }
-  const body = (await response.json().catch(() => ({}))) as { error?: string };
+  const body = (await response.json().catch(() => ({}))) as { error?: string; detail?: string };
   if (!response.ok) {
-    throw new AuthError(body.error || 'Não foi possível autenticar. Tente novamente.', response.status);
+    throw new AuthError(body.error || 'Não foi possível autenticar. Tente novamente.', response.status, body.detail ?? '');
   }
   return body as T;
 }
@@ -160,17 +164,27 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 export async function signInWithPasskey(): Promise<User> {
-  const begin = await requestJson<{ options: unknown; challengeToken: string }>('/api/auth/passkeys/login/options', {
-    method: 'POST',
-    body: '{}',
-  });
-  const { startAuthentication } = await import('@simplewebauthn/browser');
-  const response = await startAuthentication({
-    optionsJSON: begin.options as Parameters<typeof startAuthentication>[0]['optionsJSON'],
-  });
+  // Sem nenhuma espera de rede antes do Face ID: o iPhone só abre o Face ID logo depois do toque.
+  const ready = loginPrepared.takeReady();
+  const library = getLoadedPasskeyLibrary();
+  if (!ready || !library) {
+    loginPrepared.prepare();
+    void loadPasskeyLibrary();
+    throw new AuthError('Preparando o Face ID. Toque de novo em instantes.', 0);
+  }
+  let response;
+  try {
+    response = await library.startAuthentication({
+      optionsJSON: ready.options as Parameters<PasskeyLibrary['startAuthentication']>[0]['optionsJSON'],
+    });
+  } catch (error) {
+    loginPrepared.prepare();
+    throw error;
+  }
+  loginPrepared.prepare();
   const session = await requestJson<SessionResponse>('/api/auth/passkeys/login/verify', {
     method: 'POST',
-    body: JSON.stringify({ response, challengeToken: begin.challengeToken }),
+    body: JSON.stringify({ response, challengeToken: ready.challengeToken }),
   });
   const user = applySession(session.token);
   if (!user) throw new AuthError('Sessão recebida é inválida. Tente novamente.', 502);
