@@ -429,3 +429,19 @@ test('CSV import textarea is explicitly named by its visible label', () => {
   pasteBox.focus();
   assert.equal(document.activeElement, pasteBox);
 });
+
+test('fluxo de caixa diário mostra só dias com movimento e expande para todos os dias do mês', async () => {
+  const page = renderReports({ transactions: [] });
+  const rows = () => page.querySelectorAll('[data-testid="daily-flow-row"]').length;
+  const toggle = page.querySelector<HTMLButtonElement>('[data-testid="daily-flow-toggle"]');
+  assert.ok(toggle);
+  const collapsed = rows();
+  assert.ok(collapsed > 0 && collapsed < 28, 'por padrão mostra só dias de referência e com movimento');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  await act(async () => { toggle.click(); });
+  assert.ok(rows() >= 28 && rows() <= 31, 'expandido mostra todos os dias do mês');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.match(toggle.textContent ?? '', /Ver só dias com movimento/);
+  await act(async () => { toggle.click(); });
+  assert.equal(rows(), collapsed);
+});

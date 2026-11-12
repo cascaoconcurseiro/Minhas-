@@ -255,6 +255,9 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     );
   }, [dailyFlow]);
 
+  const [showAllFlowDays, setShowAllFlowDays] = useState(false);
+  const visibleFlowDays = showAllFlowDays ? dailyFlow : activeFlowDays;
+
   const lowestProjectedPoint = useMemo(() => {
     if (dailyFlow.length === 0) return null;
     return dailyFlow.reduce(
@@ -909,6 +912,15 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               Movimento real das contas, dia a dia, para evitar descoberto. Compras no cartão só saem do caixa no pagamento da fatura; o gasto em si aparece no mês da compra (gráfico por categoria, calendário e orçamento)
             </p>
           </div>
+          <button
+            type="button"
+            data-testid="daily-flow-toggle"
+            aria-expanded={showAllFlowDays}
+            onClick={() => setShowAllFlowDays((value) => !value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap"
+          >
+            {showAllFlowDays ? 'Ver só dias com movimento' : `Ver todos os ${dailyFlow.length} dias`}
+          </button>
           {lowestProjectedPoint && (
             <div className="text-left sm:text-right font-mono tabular-nums text-xs">
               <span className="text-slate-500">Menor saldo projetado no mês: </span>
@@ -938,8 +950,8 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-mono tabular-nums">
-              {activeFlowDays.map((pt) => (
-                <tr key={pt.date} className="hover:bg-slate-50/80">
+              {visibleFlowDays.map((pt) => (
+                <tr key={pt.date} data-testid="daily-flow-row" className="hover:bg-slate-50/80">
                   <td className="py-2.5 pl-4 sm:pl-6 pr-3 text-xs text-slate-700">
                     {formatShortDateBR(pt.date)}
                   </td>

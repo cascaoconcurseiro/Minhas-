@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Fluxo de caixa diário expansível — 12/11/2026
+
+Pedido: poder expandir o fluxo diário e ver todos os dias do mês. Em Relatórios, a tabela mostrava só dias com entrada/saída, dias 1/5/10/15/20/25 e o último. Novo botão "Ver todos os N dias" / "Ver só dias com movimento" (`data-testid="daily-flow-toggle"`, `aria-expanded`) no cabeçalho do bloco; padrão continua resumido. Teste novo confere o resumo, a expansão (28–31 linhas) e o retorno. Validação: `tsc --noEmit` e suíte completa. Não conferido em navegador.
+
 ## DRE por mês da compra, recarga após nova versão e erros do console — 12/11/2026
 
 Pedido: o usuário relatou que a pizza ainda contava gastos de novembro em dezembro e colou erros do console. (1) `calculatePersonalDre` ainda filtrava pela competência da fatura; agora usa `getConsumptionMonth`, como pizza/orçamento/resumo (a pizza de Relatórios vem de `calculatePeriodReport`, já corrigida no PR #25; teste novo cobre relatório e DRE em nov/dez). Se a pizza ainda mostrar errado, pode ser aba aberta com a versão anterior: recarregar a página. (2) Erros 404 em `/assets/*.js` e "Failed to fetch dynamically imported module": aba aberta com a versão antiga pediu arquivos que a nova publicação substituiu. `main.tsx` agora trata `vite:preloadError` recarregando uma vez (trava de 30 s por sessão para não entrar em laço). (3) Avisos "Loading the font ... violates CSP font-src": o app só pede fontes de `fonts.googleapis.com`/`fonts.gstatic.com`, ambos permitidos em `vercel.json`; nenhuma outra fonte externa existe no código nem no CSS gerado. Hipótese, não confirmada: extensão do navegador injetando fontes na página (comum com corretores/tradutores). A URL bloqueada vinha ocultada no log; testar em janela anônima sem extensões. Não alterei o CSP.
