@@ -42,12 +42,8 @@ import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
 import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
 import { CashForecastCard } from './CashForecastCard';
-import { CardInsightsCard } from './CardInsightsCard';
 import { DataHealthCard } from './DataHealthCard';
 import type { DataHealthIssue } from '../utils/dataHealth';
-import type { CardInsight, CardRecommendation } from '../utils/cardIntelligence';
-import { MonthlyInsightsCard } from './MonthlyInsightsCard';
-import type { MonthlyInsight } from '../utils/monthlyNarrative';
 import type { CashForecast } from '../utils/cashForecast';
 import type { RecurringCandidate } from '../utils/recurrenceDetection';
 
@@ -70,15 +66,10 @@ interface OverviewTabProps {
   onChangeClarityMode?: (mode: 'complete' | 'essential') => void;
   /** Gastos que se repetem detectados no histórico, com as ações de prever e ignorar. */
   recurringSuggestions?: RecurringCandidate[];
-  /** Resumo do mês em frases curtas. */
-  monthlyInsights?: MonthlyInsight[];
   /** Previsão do saldo dos próximos dias (null sem conta incluída no total). */
   cashForecast?: CashForecast | null;
-  /** Análise por cartão (fatura aberta, projeção, melhor dia de compra). */
-  cardInsights?: CardInsight[];
   /** Cadastros incompletos ou inconsistentes para a pessoa revisar. */
   dataHealthIssues?: DataHealthIssue[];
-  cardRecommendation?: CardRecommendation | null;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
@@ -120,10 +111,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onChangeClarityMode,
   recurringSuggestions = [],
   cashForecast = null,
-  cardInsights = [],
   dataHealthIssues = [],
-  cardRecommendation = null,
-  monthlyInsights = [],
   onScheduleRecurring,
   onDismissRecurring,
   onToggleStatus,
@@ -218,11 +206,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
       <DataHealthCard issues={dataHealthIssues} />
 
-      <MonthlyInsightsCard insights={monthlyInsights} monthLabel={formatMonthYearPT(selectedMonth).split(' ')[0].toLowerCase()} />
-
       <CashForecastCard forecast={cashForecast} />
-
-      <CardInsightsCard insights={cardInsights} recommendation={cardRecommendation} />
 
       {onScheduleRecurring && onDismissRecurring && (
         <RecurringSuggestionsCard
