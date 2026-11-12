@@ -42,6 +42,14 @@ export function isUpdatePending(): boolean {
   return state.updatePending;
 }
 
+/** Avisa quando uma versão nova ficar pronta. Devolve a função para cancelar. */
+export function subscribeUpdatePending(listener: () => void): () => void {
+  state.listeners.add(listener);
+  return () => {
+    state.listeners.delete(listener);
+  };
+}
+
 /** Resolve quando uma versão nova ficar pronta (true) ou o tempo acabar (false). */
 function waitForPending(timeoutMs: number): Promise<boolean> {
   if (state.updatePending) return Promise.resolve(true);

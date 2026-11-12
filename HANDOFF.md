@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Aviso "Nova versão disponível" — 12/11/2026
+
+O usuário continuou vendo versões antigas (a lista do cartão com 12 meses depois de já publicada a de 6). Causa: a atualização automática só entra quando a pessoa para de mexer; quem usa sem parar, ou está numa versão antiga do cliente (sem as melhorias de rapidez), fica na versão em cache. Mudança: `src/pwa/UpdateAvailableBanner.tsx` (renderizado por `PwaUpdateNotice`): se uma versão nova está pronta e não entrou em 30 s, aparece uma barra discreta "Nova versão do app disponível" com o botão "Atualizar" (recarrega o app por toque, via `checkAndApplyUpdate`). `pwaControl` ganhou `subscribeUpdatePending`. Quem está numa versão ANTERIOR a esta ainda não tem o aviso: precisa de um recarregamento forçado (computador: Ctrl+Shift+R; celular: fechar e abrir o app, ou "Buscar atualização agora" no card de versão em Conta, Login & Nuvem). Validação: `tsc`, 628 testes, build. Não verificado com service worker real em produção.
+
 ## Atualização do app mais rápida e visível — 12/11/2026
 
 Pergunta do usuário: por que não força a atualização para todo mundo? Situação: já existia atualização automática silenciosa (`src/pwa/PwaUpdateNotice.tsx` + `updateGate.ts`), que só aplica a versão nova quando é seguro (sem campo editado, sem janela/formulário aberto, sem salvar na nuvem e com a pessoa parada), de propósito, para ninguém perder o que está digitando; por isso NÃO é forçada de qualquer jeito. Estava lenta (esperava 20 s sem tocar, conferia a cada 10 min e ao voltar para a aba) e a pessoa não via qual versão roda.

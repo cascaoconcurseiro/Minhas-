@@ -3,6 +3,7 @@ import {registerSW} from 'virtual:pwa-register';
 import {createPwaUpdateGate} from './updateGate';
 import {hasUpdateBlockers} from './updateBlockers';
 import {markUpdatePending, registerPwaControl} from './pwaControl';
+import {UpdateAvailableBanner} from './UpdateAvailableBanner';
 
 const UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 const USER_IDLE_BEFORE_UPDATE_MS = 5 * 1000;
@@ -66,5 +67,5 @@ export function PwaUpdateNotice() {
     };
   }, []);
 
-  return null;
+  return <UpdateAvailableBanner />;
 }
