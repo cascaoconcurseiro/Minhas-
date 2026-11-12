@@ -342,6 +342,25 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       </span>
                     </div>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick('cloud')}
+                    className={`col-span-2 flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
+                      activeTab === 'cloud'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300">
+                      <Settings className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold block text-slate-900 dark:text-white">Conta e Nuvem</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight block mt-0.5">
+                        Login, sessão e estado do Neon
+                      </span>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>

@@ -74,6 +74,7 @@ import {
   formatMonthYearPT,
   payCreditCardInvoice,
   toggleTransactionStatusWithCascade,
+  calculateNetWorth,
 } from './utils/financeRules';
 import {
   DEFAULT_MONTH,
@@ -2791,19 +2792,13 @@ export default function App() {
     [trips]
   );
 
-  const accountsTotalBalance = useMemo(
-    () => accountBalances.reduce((sum, b) => sum + b.currentBalance, 0),
-    [accountBalances]
+  // Fonte única dos totais de contas e investimentos: a mesma função do patrimônio líquido.
+  const netWorthSnapshot = useMemo(
+    () => calculateNetWorth(accountBalances, investments, cardSummaries),
+    [accountBalances, investments, cardSummaries]
   );
-
-  const investmentsTotalValue = useMemo(
-    () =>
-      investments.reduce(
-        (sum, asset) => sum + Math.round(asset.quantity * asset.currentPrice * 100) / 100,
-        0
-      ),
-    [investments]
-  );
+  const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
+  const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
 
   const todayDateStr = useMemo(() => {
     const now = new Date();
@@ -3152,7 +3147,7 @@ export default function App() {
         <header className="sticky top-0 z-30 w-full max-w-full bg-[color:var(--app-canvas)]/90 dark:bg-slate-950/90 backdrop-blur-md px-3.5 sm:px-6 py-2.5 pt-[max(env(safe-area-inset-top),0.625rem)]">
           <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-2 sm:gap-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-2 shadow-sm">
             {/* Zone 1 (Left): Mobile Menu Trigger + Active Page Title */}
-            <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
               <button
                 type="button"
                 onClick={() => setIsMobileDrawerOpen(true)}
@@ -3344,7 +3339,7 @@ export default function App() {
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors whitespace-nowrap shrink-0 shadow-2xs"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden xl:inline">Novo Lançamento</span>
+                <span className="hidden xl:inline">Adicionar</span>
               </button>
             </div>
           </div>

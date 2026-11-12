@@ -639,6 +639,20 @@ export function getPendingBankMovements(
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Soma, em centavos, o que há a pagar e a receber numa lista de movimentos bancários pendentes. */
+export function summarizePendingBankMovements(movements: Transaction[] | null | undefined) {
+  const list = Array.isArray(movements) ? movements : [];
+  const cents = (rows: Transaction[]) => rows.reduce((sum, tx) => sum + Math.round((tx.amount || 0) * 100), 0);
+  const payableItems = list.filter((tx) => tx.type === 'expense');
+  const receivableItems = list.filter((tx) => tx.type === 'income');
+  return {
+    payableItems,
+    receivableItems,
+    payableTotal: cents(payableItems) / 100,
+    receivableTotal: cents(receivableItems) / 100,
+  };
+}
+
 export function calculateCreditCardSummary(
   card: CreditCard | undefined | null,
   transactions: Transaction[],

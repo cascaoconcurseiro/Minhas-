@@ -39,6 +39,7 @@ import { CategoryIconBadge } from './CategoryIconBadge';
 import { CardNetworkMark } from './CardNetworkMark';
 import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
+import { OverviewHomeCards } from './OverviewHomeCards';
 
 interface OverviewTabProps {
   selectedMonth: string;
@@ -178,6 +179,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
       </header>
+
+      {/* Painel de referência: saldo previsto, contas a pagar e cartões */}
+      <OverviewHomeCards
+        monthlySummary={monthlySummary}
+        pendingBills={pendingBills}
+        accounts={accounts}
+        categories={categories}
+        cards={cards}
+        cardSummaries={cardSummaries}
+        onToggleStatus={onToggleStatus}
+        onNavigateTab={onNavigateTab}
+        onNavigateToCard={onNavigateToCard}
+        transactions={transactions}
+        selectedMonth={selectedMonth}
+        categoryBreakdown={categoryBreakdown}
+      />
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
       <section aria-label="Indicadores financeiros do mês" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
@@ -904,7 +921,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             type="button"
                             onClick={() => onToggleStatus(tx.id)}
                             aria-label={`Efetivar ${tx.description}`}
-                            className="rounded-lg border border-emerald-600/30 bg-emerald-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-600 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                            className="rounded-lg border border-blue-600/30 bg-blue-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-600 hover:text-white transition-colors whitespace-nowrap shrink-0"
                           >
                             Efetivar
                           </button>

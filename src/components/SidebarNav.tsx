@@ -1,13 +1,14 @@
 import React from 'react';
 import {
   AlertCircle,
+  ArrowLeftRight,
   Bell,
   CheckCircle2,
   CreditCard as CreditCardIcon,
   FileSpreadsheet,
+  House,
   Landmark,
   LayoutDashboard,
-  ListOrdered,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,9 +21,11 @@ import {
   ShieldCheck,
   TrendingUp,
   Users,
+  Wallet,
   X,
 } from 'lucide-react';
 import { BrandMark } from './BrandMark';
+
 
 export type NavTabId =
   | 'overview'
@@ -66,6 +69,8 @@ interface NavItemConfig {
   icon: React.ComponentType<{ className?: string }>;
   badgeCount?: number;
   badgeTone?: 'amber' | 'rose' | 'emerald';
+  /** Ação própria (em vez de trocar de aba). */
+  onActivate?: () => void;
 }
 
 interface NavGroupConfig {
@@ -158,40 +163,47 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
   const navGroups: NavGroupConfig[] = [
     {
-      groupId: 'daily_cashflow',
-      groupLabel: 'Dia a Dia & Caixa',
+      groupId: 'menu',
+      groupLabel: 'Menu',
       items: [
-        {
-          id: 'overview',
-          label: 'Visão Geral',
-          shortDesc: 'Painel executivo, saldos e alertas',
-          icon: LayoutDashboard,
-        },
+        { id: 'overview', label: 'Visão geral', shortDesc: 'Painel do mês, saldos e contas a pagar', icon: LayoutDashboard },
         {
           id: 'transactions',
-          label: 'Lançamentos',
+          label: 'Fluxo de caixa',
           shortDesc: 'Extrato diário, cascata e calendário',
-          icon: ListOrdered,
+          icon: ArrowLeftRight,
           badgeCount: pendingTransactionsCount > 0 ? pendingTransactionsCount : undefined,
           badgeTone: 'amber',
         },
+        { id: 'cards', label: 'Cartões', shortDesc: 'Faturas, limites e parcelas', icon: CreditCardIcon },
         {
-          id: 'accounts',
-          label: 'Contas & Carteiras',
-          shortDesc: 'Saldos e extrato bancário real',
-          icon: Landmark,
+          id: 'shared',
+          label: 'Nossa casa',
+          shortDesc: 'Rateio familiar e reembolsos',
+          icon: House,
+          badgeCount: pendingSharedCount > 0 ? pendingSharedCount : undefined,
+          badgeTone: 'emerald',
         },
-        {
-          id: 'cards',
-          label: 'Cartões de Crédito',
-          shortDesc: 'Faturas, limites e parcelas',
-          icon: CreditCardIcon,
-        },
+        { id: 'goals', label: 'Nossa reserva', shortDesc: 'Objetivos e simulador CDI', icon: PiggyBank },
       ],
     },
     {
-      groupId: 'planning_control',
-      groupLabel: 'Planejamento, Viagens & Rateio',
+      groupId: 'ajustes',
+      groupLabel: 'Ajustes',
+      items: [
+        {
+          id: 'transactions',
+          label: 'Nossa renda',
+          shortDesc: 'Receitas do mês',
+          icon: Wallet,
+          onActivate: () => onOpenNewTransaction('income'),
+        },
+        { id: 'accounts', label: 'Contas da casa', shortDesc: 'Contas bancárias e carteiras', icon: Landmark },
+      ],
+    },
+    {
+      groupId: 'mais',
+      groupLabel: 'Mais',
       items: [
         {
           id: 'budgets',
@@ -209,50 +221,15 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           badgeCount: activeTripsCount > 0 ? activeTripsCount : undefined,
           badgeTone: 'emerald',
         },
-        {
-          id: 'shared',
-          label: 'Compartilhado',
-          shortDesc: 'Rateio familiar e reembolsos',
-          icon: Users,
-          badgeCount: pendingSharedCount > 0 ? pendingSharedCount : undefined,
-          badgeTone: 'emerald',
-        },
-      ],
-    },
-    {
-      groupId: 'wealth_future',
-      groupLabel: 'Patrimônio & Futuro',
-      items: [
-        {
-          id: 'investments',
-          label: 'Investimentos',
-          shortDesc: 'Renda Fixa, FIIs, Ações e Proventos',
-          icon: TrendingUp,
-        },
-        {
-          id: 'goals',
-          label: 'Metas & Reservas',
-          shortDesc: 'Objetivos e simulador CDI',
-          icon: PiggyBank,
-        },
-      ],
-    },
-    {
-      groupId: 'analytics_system',
-      groupLabel: 'Análise & Relatórios',
-      items: [
-        {
-          id: 'reports',
-          label: 'Relatórios & DRE',
-          shortDesc: 'DRE mensal, evolução, CSV e JSON',
-          icon: FileSpreadsheet,
-        },
+        { id: 'investments', label: 'Investimentos', shortDesc: 'Renda Fixa, FIIs, Ações e Proventos', icon: TrendingUp },
+        { id: 'reports', label: 'Relatórios & DRE', shortDesc: 'DRE mensal, evolução, CSV e JSON', icon: FileSpreadsheet },
       ],
     },
   ];
 
-  const handleItemClick = (id: NavTabId) => {
-    onSelectTab(id);
+  const handleItemClick = (item: NavItemConfig) => {
+    if (item.onActivate) item.onActivate();
+    else onSelectTab(item.id);
     onCloseMobileDrawer();
   };
 
@@ -276,7 +253,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           {!isCollapsed && (
             <button
               type="button"
-              onClick={() => handleItemClick('overview')}
+              onClick={() => handleItemClick(navGroups[0].items[0])}
               className="flex items-center gap-2.5 text-left min-w-0 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-lg"
             >
               <BrandMark size="sm" />
@@ -284,8 +261,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 <span className="block text-sm font-bold tracking-tight text-slate-900 dark:text-white font-display truncate">
                   Minhas Economias
                 </span>
-                <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                  Controle Financeiro & Viagens
+                <span className="block text-[11px] text-slate-500 truncate">
+                  Finanças em casal
                 </span>
               </div>
             </button>
@@ -323,12 +300,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = activeTab === item.id;
+                const isActive = !item.onActivate && activeTab === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleItemClick(item.id)}
+                    onClick={() => handleItemClick(item)}
                     title={isCollapsed ? `${item.label} — ${item.shortDesc}` : undefined}
                     aria-label={item.label}
                     aria-current={isActive ? 'page' : undefined}
@@ -338,8 +315,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                         : 'justify-between gap-2.5 px-3 py-2 text-left'
                     } ${
                       isActive
-                        ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-100 shadow-2xs dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-900/70'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -347,7 +324,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                         className={`h-4 w-4 shrink-0 transition-colors ${
                           isActive
                             ? 'text-blue-600'
-                            : 'text-slate-500 group-hover:text-slate-800 dark:text-slate-400 dark:group-hover:text-slate-200'
+                            : 'text-slate-500 group-hover:text-slate-800'
                         }`}
                       />
                       {!isCollapsed && (
@@ -422,6 +399,16 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             )}
           </button>}
 
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={() => handleItemClick({ id: 'cloud', label: 'Conta e Nuvem', shortDesc: '', icon: RefreshCw })}
+              className="w-full mt-1.5 flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            >
+              <Settings className="h-4 w-4 shrink-0 text-slate-500" />
+              <span className="truncate">Conta e Nuvem</span>
+            </button>
+          )}
           {cloudUserEmail && onSignOut && (
             <button
               type="button"
@@ -466,8 +453,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                   <span className="block text-sm font-bold text-slate-900 dark:text-white font-display truncate">
                     Minhas Economias
                   </span>
-                  <span className="block text-[11px] text-slate-500 dark:text-slate-400 font-semibold truncate">
-                    Controle Financeiro & Viagens
+                  <span className="block text-[11px] text-slate-500 font-semibold truncate">
+                    Finanças em casal
                   </span>
                 </div>
               </div>
@@ -524,13 +511,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                   </div>
                   {group.items.map((item) => {
                     const Icon = item.icon;
-                    const isActive = activeTab === item.id;
+                    const isActive = !item.onActivate && activeTab === item.id;
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => handleItemClick(item.id)}
-                        aria-current={isActive ? 'page' : undefined}
+                        onClick={() => handleItemClick(item)}
                         className={`w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
                           isActive
                             ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-100 dark:bg-blue-950/50 dark:text-blue-200 dark:border-blue-900/70'

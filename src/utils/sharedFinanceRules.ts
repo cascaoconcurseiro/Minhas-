@@ -138,3 +138,16 @@ export function reopenSharedSettlement(transactions: Transaction[], txId: string
   return { transactions: transactions.filter((tx) => !movementIds.has(tx.id)).map((tx) => ids.has(tx.id)
     ? { ...tx, sharedStatus: 'pending' as const, sharedSettledDate: undefined, sharedSettledAccountId: undefined, sharedSettlementId: undefined } : tx), affectedCount: ids.size };
 }
+
+/**
+ * Totais do mês de todos os rateios domésticos ainda não acertados.
+ * Mesma regra de `calculateSharedMemberSummary`, somando todas as pessoas.
+ */
+export function calculateSharedMonthTotals(transactions: Transaction[], month: string) {
+  const pending = getDomesticSharedTransactions(transactions).filter(
+    (tx) => tx.competenceMonth === month && tx.sharedStatus !== 'received' && (tx.sharedAmount || 0) > 0
+  );
+  const owedToMe = sumShares(pending.filter((tx) => tx.sharedPaidBy !== 'member'));
+  const iOwe = sumShares(pending.filter((tx) => tx.sharedPaidBy === 'member'));
+  return { owedToMe, iOwe, net: Math.round((owedToMe - iOwe) * 100) / 100, openItems: pending.length };
+}
