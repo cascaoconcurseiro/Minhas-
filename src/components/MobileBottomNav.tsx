@@ -61,7 +61,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       {/* Native Bottom Bar (Only visible on Mobile/Tablet < XL) */}
       <nav
         aria-label="Navegação móvel nativa"
-        className="fixed inset-x-0 bottom-0 z-40 lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1 px-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.4)]"
+        className="fixed inset-x-0 bottom-0 z-40 lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-40 after:bg-white dark:after:bg-slate-900 after:content-[''] border-t border-slate-200 dark:border-slate-800 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1 px-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_20px_rgba(0,0,0,0.4)]"
       >
         <div className="mx-auto flex max-w-md items-center justify-between">
           {/* Tab 1: Início */}
