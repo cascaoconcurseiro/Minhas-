@@ -1639,7 +1639,20 @@ export function getCalendarTransactionsForMonth(transactions: Transaction[], mon
 export function getPurchaseTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
   const groups = new Map<string, Transaction[]>();
   const purchases: Transaction[] = [];
+  // Despesa fixa no cartão: só o primeiro lançamento é uma compra nova. As cobranças dos meses
+  // seguintes já estão no cartão e só aparecem na fatura, como as parcelas.
+  const firstFixedCardDate = new Map<string, string>();
   for (const tx of transactions) {
+    if (tx.creditCardId && tx.recurrence === 'fixed' && tx.installmentGroupId) {
+      const current = firstFixedCardDate.get(tx.installmentGroupId);
+      if (current === undefined || tx.date < current) firstFixedCardDate.set(tx.installmentGroupId, tx.date);
+    }
+  }
+  for (const tx of transactions) {
+    if (tx.creditCardId && tx.recurrence === 'fixed' && tx.installmentGroupId &&
+      tx.date !== firstFixedCardDate.get(tx.installmentGroupId)) {
+      continue;
+    }
     if (tx.recurrence !== 'installment' || !tx.installmentGroupId) {
       if (tx.recurrence !== 'installment') purchases.push(tx);
       else if (tx.installmentNumber === 1 && tx.installmentPurchaseTotal !== undefined) {
