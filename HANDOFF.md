@@ -4,6 +4,8 @@
 
 Pedido do usuário após ver o app: (1) o aviso "Reembolso de FRAN" aparecia no dia seguinte à compra no cartão; agora a data de cobrança do rateio é o vencimento da fatura (`competenceMonth` + `dueDay` do cartão) ou a data do lançamento sem cartão, e o aviso só entra a partir de 3 dias antes (`calculateDailyReminders`). (2) Cada dia do calendário mensal mostra só o total (gasto em vermelho, recebido em verde); a lista de lançamentos fica no detalhamento abaixo. O total vem de `calculateCalendarCellTotals`: compra parcelada conta pelo total da compra, pagamento de fatura e transferência ficam de fora, e o filtro ativo do calendário é respeitado. Os pontos de conta pendente e fatura em aberto continuam; fatura de R$ 0,00 deixou de aparecer como cartão.
 
+Também removido o banner flutuante "Instalar App no Celular" (`PWAInstallButton variant="banner"` no `App.tsx`); o botão "Instalar App" continua dentro do menu do celular.
+
 Validação local: `tsc --noEmit`, 485 testes e build passaram. Não verifiquei visualmente no navegador. Decisão tomada sem confirmação: o total do dia inclui compras no cartão (na data da compra); se preferir só o que sai do caixa, trocar por `calculateCalendarDaySummary`.
 
 ## Saldo de hoje, notificações enxutas e Neon como fonte única — 12/11/2026

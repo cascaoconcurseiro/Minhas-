@@ -131,7 +131,6 @@ const BankReconciliationModal = lazy(() => import('./components/BankReconciliati
 const WorkspaceConflictModal = lazy(() => import('./components/WorkspaceConflictModal').then((m) => ({ default: m.WorkspaceConflictModal })));
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { SidebarNav } from './components/SidebarNav';
-import { PWAInstallButton } from './components/PWAInstallButton';
 import {
   BudgetsSkeleton,
   CreditCardsSkeleton,
@@ -3809,9 +3808,6 @@ export default function App() {
         userEmail={effectiveUserEmail}
         onSignOut={handleSignOut}
       />
-
-      {/* In-App Mobile PWA Install Banner */}
-      <PWAInstallButton variant="banner" />
 
       <Suspense fallback={null}>
         {/* New / Edit Transaction Modal */}
