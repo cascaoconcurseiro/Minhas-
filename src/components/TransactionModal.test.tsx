@@ -359,6 +359,52 @@ test('learns the habit: typing a usual establishment applies the split with the 
   assert.equal(page.querySelector('[data-testid="family-split-panel"]'), null, 'depois de desfazer não reaplica sozinho');
 });
 
+test('learns the usual account and payment method for an establishment and says so', async () => {
+  const second: BankAccount = { id: 'account-second', name: 'Conta do dia a dia', institution: 'Banco', type: 'checking', initialBalance: 0, color: '#111', includeInTotal: true };
+  const first: BankAccount = { id: 'account-test', name: 'Conta sintética', institution: 'Banco', type: 'checking', initialBalance: 0, color: '#000', includeInTotal: true };
+  const past = (id: string, date: string): Transaction => ({
+    id, description: 'Padaria Pão', amount: 20, date, competenceMonth: '2026-11', type: 'expense', status: 'paid',
+    categoryId: 'category-test', paymentMethod: 'debit_card', recurrence: 'single', accountId: 'account-second',
+  });
+  const page = renderTransactionModal(() => {}, () => {}, {
+    accounts: [first, second], transactions: [past('p1', '2026-11-01'), past('p2', '2026-11-03'), past('p3', '2026-11-05')],
+  });
+  const description = page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]');
+  assert.ok(description);
+  await act(async () => {
+    setInputValue(description, 'Padaria Pão');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(page.querySelector<HTMLSelectElement>('#tx-payment-source-select')?.value, 'account-second');
+  assert.match(page.querySelector('[data-testid="auto-habit-notice"]')?.textContent ?? '', /Conta do dia a dia e Débito como nas últimas vezes/);
+});
+
+test('warns, without blocking, when the amount is far above the usual or looks duplicated', async () => {
+  const past = (id: string, date: string, amount: number): Transaction => ({
+    id, description: 'Apolo', amount, date, competenceMonth: '2026-11', type: 'expense', status: 'paid',
+    categoryId: 'category-test', paymentMethod: 'pix', recurrence: 'single', accountId: 'account-test',
+  });
+  const page = renderTransactionModal(() => {}, () => {}, {
+    transactions: [past('a1', '2026-10-01', 100), past('a2', '2026-10-08', 110), past('a3', '2026-10-15', 90)],
+  });
+  const description = page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]');
+  const amount = page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]');
+  assert.ok(description && amount);
+  await act(async () => {
+    setInputValue(description, 'Apolo');
+    setInputValue(amount, '450,00');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.match(page.querySelector('[data-testid="amount-warning"]')?.textContent ?? '', /4,5x maior que o usual/);
+  assert.equal(page.querySelector('[data-testid="duplicate-warning"]'), null);
+
+  await act(async () => {
+    setInputValue(amount, '100,00');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(page.querySelector('[data-testid="amount-warning"]'), null);
+});
+
 test('an unknown establishment does not trigger any automatic split', async () => {
   const fran: FamilyMember = { id: 'fam-fran', name: 'FRAN', color: '#ec4899', relationship: 'cônjuge' } as FamilyMember;
   const page = renderTransactionModal(() => {}, () => {}, { familyMembers: [fran] });

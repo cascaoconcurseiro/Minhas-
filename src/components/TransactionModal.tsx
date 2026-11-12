@@ -62,6 +62,7 @@ import {
   validateTripExpenseSplitInputs,
 } from '../utils/travelRules';
 import { computeModalScrollState } from '../utils/modalScrollRules';
+import { assessAmount, findProbableDuplicate, learnPaymentHabit } from '../utils/decisionEngine';
 import {
   describeLearnedSharing,
   getDescriptionLearningKey,
@@ -122,6 +123,15 @@ const CURRENCY_OPTIONS: CurrencyCode[] = [
   'CLP',
   'JPY',
 ];
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: 'Pix',
+  credit_card: 'Cartão de crédito',
+  debit_card: 'Débito',
+  boleto: 'Boleto',
+  cash: 'Dinheiro',
+  transfer: 'Transferência',
+};
 
 export const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen,
@@ -240,6 +250,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   // Divisão aprendida com o histórico (ex.: sempre dividir o mercado com a mesma pessoa).
   const [autoSharingApplied, setAutoSharingApplied] = useState<LearnedSharing | null>(null);
   const autoSharingKeyRef = useRef<string | null>(null);
+  // Conta, cartão e forma de pagamento aprendidos com o histórico (aplicados uma vez por estabelecimento).
+  const [autoHabitNotice, setAutoHabitNotice] = useState<string | null>(null);
+  const autoHabitKeyRef = useRef<string | null>(null);
   const sharingTouchedRef = useRef<boolean>(false);
 
   // Independent scroll container ref
@@ -495,6 +508,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setAutoSharingApplied(null);
     autoSharingKeyRef.current = null;
     sharingTouchedRef.current = false;
+    setAutoHabitNotice(null);
+    autoHabitKeyRef.current = null;
     setTransferSubMode('bank_to_bank');
     setBillPaymentCardId(cards[0]?.id || '');
     setBillPaymentInvoiceMonth(selectedMonth);
@@ -1247,6 +1262,76 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     isTripLinked,
     isMultiCurrencyOpen,
   ]);
+
+  // Hábito de pagamento: mesma conta/cartão/forma de pagamento das últimas vezes neste lugar.
+  const paymentHabit = useMemo(() => {
+    if (
+      editingTransaction ||
+      !description.trim() ||
+      (entryMode !== 'expense' && entryMode !== 'credit_card')
+    ) {
+      return null;
+    }
+    return learnPaymentHabit(description, transactions, entryMode);
+  }, [description, transactions, entryMode, editingTransaction]);
+
+  useEffect(() => {
+    if (!isOpen || editingTransaction || !paymentHabit || isTripLinked || isMultiCurrencyOpen) return;
+    const key = `${entryMode}:${getDescriptionLearningKey(description)}`;
+    if (autoHabitKeyRef.current === key) return;
+
+    const applied: string[] = [];
+    // Só troca o que ainda está no padrão do formulário; escolha feita pela pessoa nunca é sobrescrita.
+    if (entryMode === 'credit_card') {
+      const card = paymentHabit.creditCardId?.value;
+      if (card && card !== creditCardId && cards.some((item) => item.id === card) && creditCardId === (cards[0]?.id ?? '')) {
+        setCreditCardId(card);
+        applied.push(cards.find((item) => item.id === card)?.name ?? 'cartão');
+      }
+    } else {
+      const account = paymentHabit.accountId?.value;
+      if (account && account !== accountId && accounts.some((item) => item.id === account) && accountId === (accounts[0]?.id ?? '')) {
+        setAccountId(account);
+        applied.push(accounts.find((item) => item.id === account)?.name ?? 'conta');
+      }
+      const method = paymentHabit.paymentMethod?.value;
+      if (method && method !== paymentMethod && paymentMethod === 'pix') {
+        setPaymentMethod(method);
+        applied.push(PAYMENT_METHOD_LABELS[method] ?? method);
+      }
+    }
+    if (applied.length > 0) {
+      autoHabitKeyRef.current = key;
+      setAutoHabitNotice(`Usei ${applied.join(' e ')} como nas últimas vezes neste lugar.`);
+    }
+  }, [
+    isOpen,
+    editingTransaction,
+    paymentHabit,
+    isTripLinked,
+    isMultiCurrencyOpen,
+    entryMode,
+    description,
+    creditCardId,
+    accountId,
+    paymentMethod,
+    cards,
+    accounts,
+  ]);
+
+  const amountWarning = useMemo(() => {
+    if (editingTransaction || entryMode === 'income' || entryMode === 'transfer') return null;
+    return assessAmount(description, numericPreview, transactions);
+  }, [description, numericPreview, transactions, entryMode, editingTransaction]);
+
+  const duplicateWarning = useMemo(() => {
+    if (entryMode === 'income' || entryMode === 'transfer') return null;
+    return findProbableDuplicate(
+      { description, amount: numericPreview, date },
+      transactions,
+      editingTransaction?.id
+    );
+  }, [description, numericPreview, date, transactions, entryMode, editingTransaction]);
 
   const handleUndoAutoSharing = () => {
     sharingTouchedRef.current = true;
@@ -2371,6 +2456,37 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       </button>
                     </div>
                   )}
+
+                {!editingTransaction && autoHabitNotice && (
+                  <p
+                    role="status"
+                    data-testid="auto-habit-notice"
+                    className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400"
+                  >
+                    <Sparkles className="h-3 w-3 text-emerald-600 shrink-0" />
+                    {autoHabitNotice}
+                  </p>
+                )}
+
+                {duplicateWarning && (
+                  <p
+                    role="alert"
+                    data-testid="duplicate-warning"
+                    className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900 dark:text-amber-200"
+                  >
+                    {duplicateWarning.message}
+                  </p>
+                )}
+
+                {amountWarning && (
+                  <p
+                    role="status"
+                    data-testid="amount-warning"
+                    className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900 dark:text-amber-200"
+                  >
+                    {amountWarning.message}
+                  </p>
+                )}
               </div>
             </div>
 
