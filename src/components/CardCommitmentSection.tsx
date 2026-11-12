@@ -19,6 +19,9 @@ interface CardCommitmentSectionProps {
   onOpenSettings?: () => void;
 }
 
+/** Quantos meses aparecem de início; os demais abrem no botão "Ver os outros meses". */
+const VISIBLE_MONTHS = 6;
+
 const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 function monthLabel(month: string): string {
@@ -63,6 +66,7 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
   onOpenSettings,
 }) => {
   const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const limit = normalizeCommitmentLimit(limitPercent);
   const rows = useMemo(
     () => calculateCardCommitmentByMonth({ transactions, referenceMonth, limitPercent: limit, warnPercent }),
@@ -73,6 +77,8 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
     [transactions, openMonth]
   );
 
+  const visibleRows = showAll ? rows : rows.slice(0, VISIBLE_MONTHS);
+  const hiddenCount = rows.length - VISIBLE_MONTHS;
   const hasAnyCard = rows.some((row) => row.cardTotal > 0);
   const scaleMax = Math.max(10, limit ? limit * 1.5 : 0, ...rows.map((row) => row.cardPercent ?? 0));
 
@@ -113,7 +119,7 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
       )}
 
       <ul className="divide-y divide-slate-100">
-        {rows.map((row) => {
+        {visibleRows.map((row) => {
           const isOpen = openMonth === row.month;
           const isCurrent = row.month === referenceMonth;
           const barWidth = row.cardPercent === null ? 0 : Math.min(100, (row.cardPercent / scaleMax) * 100);
@@ -219,6 +225,22 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
           );
         })}
       </ul>
+
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          data-testid="card-commitment-toggle"
+          aria-expanded={showAll}
+          onClick={() => {
+            setShowAll((value) => !value);
+            setOpenMonth(null);
+          }}
+          className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${showAll ? 'rotate-180' : ''}`} />
+          {showAll ? `Mostrar só os próximos ${VISIBLE_MONTHS} meses` : `Ver os outros ${hiddenCount} meses`}
+        </button>
+      )}
     </section>
   );
 };
