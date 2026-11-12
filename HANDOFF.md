@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Resumo do mês em linguagem simples — 12/11/2026
+
+Etapa 5 do plano de "sistema inteligente". `src/utils/monthlyNarrative.ts` (`buildMonthlyInsights`) gera frases curtas a partir das regras do próprio sistema (sem enviar dados para fora e sem IA externa): quanto gastou e a comparação com o mês anterior (mês em andamento diz "até agora" e não compara percentual); a categoria que levou a maior parte; a categoria que mais subiu em reais contra o mês anterior (só em mês fechado, com mínimo de R$ 100 e 30%); tetos estourados; quanto sobrou ou faltou frente ao que entrou; quanto cada familiar ainda deve (só despesas que a pessoa pagou, pendentes, de qualquer mês); e o total das faturas de cartão do mês. Cada frase só aparece quando há dado que a sustente. `MonthlyInsightsCard` mostra a lista na Visão Geral (antes da previsão do saldo), para o mês selecionado.
+
+Validação local: `tsc --noEmit`, testes e build passaram. Não verificado no navegador. Com os dados atuais do usuário (só novembro, sem entradas e sem mês anterior) deve aparecer no máximo "Até agora você gastou…", as faturas do mês e o que a Fran deve. Próximas etapas: cartão inteligente, saúde dos dados.
+
 ## Orçamento inteligente — 12/11/2026
 
 Etapa 4 do plano de "sistema inteligente". `src/utils/budgetIntelligence.ts`: `suggestBudgets` sugere o teto mensal de cada categoria de consumo pela média gasta nos 3 meses anteriores ao mês aberto (só meses com gasto, mínimo 2; gasto efetivo do usuário via `calculateCategoryBreakdown`; margem de 10% arredondada para cima em dezenas; ignora categorias financeiras/aportes e só sugere quando não há teto ou ele difere 20% ou mais). `assessBudgetPace` avisa, só no mês corrente, quando o gasto passou do teto ("over") ou está adiantado em relação ao mês ("ahead": a partir do dia 5, com 60% ou mais do teto gasto e 20 pontos acima da fração do mês decorrida). `BudgetInsightsCard` aparece na aba Orçamentos (antes do painel de alertas) com os avisos de ritmo e até 4 sugestões, cada uma com "Definir teto de R$ X" que chama `onUpdateCategoryBudget`.
