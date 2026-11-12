@@ -3280,7 +3280,7 @@ export function calculatePersonalDre(
 ) {
   const monthTxs = transactions.filter(
     (tx) =>
-      tx.competenceMonth === selectedMonth &&
+      getConsumptionMonth(tx) === selectedMonth &&
       !tx.isInvoicePayment &&
       !tx.isCompanionOnlyExpense
   );

@@ -2465,3 +2465,28 @@ test('contas a pagar mostram a fatura do cartão com vencimento e valor em abert
   assert.equal(late[0].isOverdue, true);
   assert.deepEqual(getPendingCardInvoices([card], purchases, '2026-10', '2027-01-10'), []);
 });
+
+test('relatório por categoria e DRE contam a compra de novembro em novembro, não no mês da fatura', () => {
+  const account: BankAccount = {
+    id: 'acc-pie', name: 'Conta', institution: 'Banco QA', type: 'checking',
+    initialBalance: 0, color: '#0f172a', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-pie', name: 'Cartão', brand: 'Visa', limit: 5000,
+    closingDay: 30, dueDay: 5, defaultAccountId: account.id, color: '#0f172a',
+  };
+  const purchase = createTransactionBatch({
+    description: 'Mercado', amount: 235, date: '2026-11-11', competenceMonth: '2026-12',
+    type: 'expense', status: 'pending', categoryId: 'cat-outros',
+    creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const report = (month: string) =>
+    calculatePeriodReport([account], [card], INITIAL_CATEGORIES, purchase, month, month);
+  assert.equal(report('2026-11').totalExpense, 235);
+  assert.equal(report('2026-11').expensesByCategory.find((slice) => slice.id === 'cat-outros')?.amount, 235);
+  assert.equal(report('2026-12').totalExpense, 0);
+  assert.equal(report('2026-12').expensesByCategory.length, 0);
+  const dre = (month: string) => calculatePersonalDre(purchase, month, [], [], [], undefined);
+  assert.equal(dre('2026-11').consumptionExpenses, 235);
+  assert.equal(dre('2026-12').consumptionExpenses, 0);
+});
