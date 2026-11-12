@@ -46,6 +46,7 @@ import {
   summarizeGlobalSearchResults,
   getConsumptionMonth,
   getPendingCardInvoices,
+  getLedgerTransactionsForMonth,
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
@@ -2489,4 +2490,23 @@ test('relatório por categoria e DRE contam a compra de novembro em novembro, n�
   const dre = (month: string) => calculatePersonalDre(purchase, month, [], [], [], undefined);
   assert.equal(dre('2026-11').consumptionExpenses, 235);
   assert.equal(dre('2026-12').consumptionExpenses, 0);
+});
+
+test('despesa fixa no cartão aparece no calendário só no primeiro lançamento, como compra nova', () => {
+  const fixed = createTransactionBatch({
+    description: 'Assinatura', amount: 60, date: '2026-11-11', competenceMonth: '2026-12',
+    type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-fixa',
+    paymentMethod: 'credit_card', recurrence: 'fixed', fixedMonthsCount: 4,
+  });
+  assert.equal(fixed.length, 4);
+  assert.equal(getLedgerTransactionsForMonth(fixed, '2026-11').length, 1);
+  assert.equal(getLedgerTransactionsForMonth(fixed, '2026-12').length, 0);
+  assert.equal(getLedgerTransactionsForMonth(fixed, '2027-01').length, 0);
+  const bank = createTransactionBatch({
+    description: 'Aluguel', amount: 900, date: '2026-11-05', competenceMonth: '2026-11',
+    type: 'expense', status: 'pending', categoryId: 'cat-outros', accountId: 'acc',
+    paymentMethod: 'pix', recurrence: 'fixed', fixedMonthsCount: 3,
+  });
+  assert.equal(getLedgerTransactionsForMonth(bank, '2026-12').length, 1, 'conta fixa do banco continua mês a mês');
+  assert.equal(calculateCreditCardSummary({ id: 'card-fixa', name: 'C', brand: 'Visa', limit: 1000, closingDay: 20, dueDay: 5, defaultAccountId: 'a', color: '#000' } as CreditCard, fixed, '2027-01').invoiceTotal, 60, 'a fatura continua cobrando todo mês');
 });

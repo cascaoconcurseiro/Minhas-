@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Despesa fixa no cartão no calendário — 12/11/2026
+
+Pedido: uma despesa fixa de R$ 60 aparecia no calendário (e no extrato) em cada mês, como se a compra tivesse sido feita naquele dia, embora já estivesse lançada no cartão; deveria se comportar como as compras no cartão. `getPurchaseTransactionsForMonth` (base de `getLedgerTransactionsForMonth`, usado por calendário, extrato e "Compras por Semana") agora representa a despesa fixa de cartão (`recurrence: 'fixed'` com `installmentGroupId`) só no primeiro lançamento do grupo; as cobranças dos meses seguintes ficam apenas na fatura, como as parcelas. Contas fixas pagas pelo banco continuam aparecendo mês a mês. Fatura, limite, pendências e fluxo de caixa não mudaram (teste confere fatura de R$ 60 em janeiro). Consequência: as cobranças futuras de uma assinatura no cartão deixam de aparecer no calendário/extrato; só na fatura. Validação: `tsc --noEmit` e 572 testes. Não conferido em navegador.
+
 ## Fluxo de caixa diário expansível — 12/11/2026
 
 Pedido: poder expandir o fluxo diário e ver todos os dias do mês. Em Relatórios, a tabela mostrava só dias com entrada/saída, dias 1/5/10/15/20/25 e o último. Novo botão "Ver todos os N dias" / "Ver só dias com movimento" (`data-testid="daily-flow-toggle"`, `aria-expanded`) no cabeçalho do bloco; padrão continua resumido. Teste novo confere o resumo, a expansão (28–31 linhas) e o retorno. Validação: `tsc --noEmit` e suíte completa. Não conferido em navegador.
