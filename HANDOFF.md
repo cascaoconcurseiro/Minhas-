@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Saldo de hoje, notificações enxutas e Neon como fonte única — 12/11/2026
+
+Corrigidas as inconsistências levantadas na análise de 12/11. (1) Patrimônio, saldo total e investimentos agora partem de `calculateCurrentPosition` (data de hoje) e não mudam ao navegar entre meses; o mês navegado continua mostrando o saldo ao fim daquele mês. App, Visão Geral (Raio-X 360) e DRE recebem `currentPosition`. (2) `calculateDailyReminders` não depende mais de `selectedMonth`: avisa atrasados de qualquer mês, vencimentos de hoje e dos próximos dias (faturas pela antecedência configurada, contas em 3 dias); itens distantes saem da lista e ficam em "Contas a pagar". Respeita `notifyRecurringEntries` e ignora gasto pago por familiar. (3) Regra única `isPendingBankObligation` usada pela Visão Geral e pelas notificações. (4) Central de notificações reduzida a avisos (sem filtros, rodapé e "Ver detalhes"); convites de família recebidos passaram do banner fixo para dentro dela e contam no sino. (5) Removida a cópia financeira em `localStorage` (nunca era lida); cópias antigas são apagadas ao abrir o app.
+
+Banco Neon conferido em 12/11 (somente leitura): RLS ativo, papéis restritos, dados do titular consistentes (cartão Itaú azul, 12 parcelas somando R$ 1.435,00). Apagados 4 workspaces órfãos do Firebase (sem lançamentos), após snapshot `antes-da-limpeza-2026-11-12`. Retenção de 6 h e branch sem proteção são limites do plano gratuito; só subir de plano resolve.
+
+Validação local: `tsc --noEmit`, 483 testes e build PWA passaram. Não verifiquei visualmente no navegador nem em produção. Próximo passo: abrir o app autenticado e conferir sino, convite e patrimônio; o usuário ainda não tem conta bancária cadastrada (só um cartão), então saldo e patrimônio aparecem zerados até cadastrar uma; limite do cartão está R$ 83.000,00 (confirmar se não era R$ 830,00).
+
 ## Exibição de compras parceladas no cartão — 12/11/2026
 
 Corrigida a origem da duplicação na lista de lançamentos e no calendário: as parcelas mensais de uma compra no cartão eram renderizadas como lançamentos em cada competência. `getLedgerTransactionsForMonth` reaproveita a compra agrupada para mostrar total e parcela uma vez na data original; a etiqueta da compra mostra o total (R$ 1.435,00) e o valor correto de cada parcela (R$ 119,59). O total diário não soma novamente o cartão, parcelamentos sem cartão continuam agendados nos meses devidos, e dados da fatura/cartão seguem intactos.

@@ -27,6 +27,7 @@ import {
 } from '../types/finance';
 import {
   calculateFinancialHealthScore360,
+  type CurrentPosition,
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
@@ -42,6 +43,8 @@ import { CreditCardFace } from './CreditCardFace';
 
 interface OverviewTabProps {
   selectedMonth: string;
+  /** Posição de hoje (saldos e dívida de cartão), independente do mês navegado. */
+  currentPosition?: CurrentPosition;
   monthlySummary: MonthlyFinancialSummary;
   accounts: BankAccount[];
   accountBalances: AccountBalanceSummary[];
@@ -78,6 +81,7 @@ interface OverviewTabProps {
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   selectedMonth,
+  currentPosition,
   monthlySummary,
   accounts,
   accountBalances,
@@ -143,6 +147,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         cardSummaries,
         categoryBreakdown,
         investments,
+        currentPosition,
       }),
     [
       selectedMonth,
@@ -153,6 +158,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       cardSummaries,
       categoryBreakdown,
       investments,
+      currentPosition,
     ]
   );
 

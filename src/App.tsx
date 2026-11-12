@@ -75,6 +75,7 @@ import {
   payCreditCardInvoice,
   toggleTransactionStatusWithCascade,
   calculateNetWorth,
+  calculateCurrentPosition,
 } from './utils/financeRules';
 import {
   DEFAULT_MONTH,
@@ -98,7 +99,6 @@ import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayl
 import {
   parsePersistedSettings,
   removeSmtpPasswordsFromSettings,
-  sanitizeStoredWorkspaceSnapshot,
   serializeSettingsWithoutSmtpSecrets,
 } from './utils/secureSettings';
 import {
@@ -378,11 +378,6 @@ export default function App() {
       : getOrCreateAutoCloudVaultId();
   }, [currentUser]);
 
-  const scopedStorageKey = useMemo(
-    () => `${STORAGE_KEY}_${autoVaultId}`,
-    [autoVaultId]
-  );
-
   const isUserAuthenticated = Boolean(
     currentUser && !currentUser.isAnonymous && currentUser.email
   );
@@ -403,19 +398,15 @@ export default function App() {
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
 
+  // O Neon é a única fonte dos dados: apaga cópias financeiras antigas deixadas neste navegador.
   useEffect(() => {
     try {
       const cacheKeys = Array.from({ length: localStorage.length }, (_, index) =>
         localStorage.key(index)
       ).filter((key): key is string => Boolean(key?.startsWith(STORAGE_KEY)));
-      for (const key of cacheKeys) {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        const sanitized = sanitizeStoredWorkspaceSnapshot(raw);
-        if (sanitized && sanitized !== raw) localStorage.setItem(key, sanitized);
-      }
+      for (const key of cacheKeys) localStorage.removeItem(key);
     } catch {
-      // Continue if browser storage is unavailable; all future writes are sanitized.
+      // Navegador sem armazenamento local: nada a limpar.
     }
   }, []);
 
@@ -1194,31 +1185,9 @@ export default function App() {
     };
   }, [isAuthReady, isUserAuthenticated, effectiveUserEmail]);
 
-  // Save a local cache and persist the authenticated workspace in Neon.
+  // Persiste o workspace autenticado no Neon (única fonte de dados).
   useEffect(() => {
     if (!effectiveUserEmail) return;
-    if (hasLoadedRemoteOnceRef.current) {
-      try {
-        localStorage.setItem(
-          scopedStorageKey,
-          JSON.stringify({
-            accounts,
-            cards,
-            categories,
-            transactions,
-            goals,
-            familyMembers,
-            investments,
-            investmentTargets,
-            trips,
-            settings: removeSmtpPasswordsFromSettings(settings),
-          })
-        );
-      } catch {
-        // Ignore quota errors
-      }
-    }
-
     if (
       isAuthReady &&
       hasLoadedRemoteOnceRef.current &&
@@ -1236,7 +1205,6 @@ export default function App() {
     isAuthReady,
     effectiveUserEmail,
     autoVaultId,
-    scopedStorageKey,
     accounts,
     cards,
     categories,
@@ -2756,14 +2724,6 @@ export default function App() {
     [trips]
   );
 
-  // Fonte única dos totais de contas e investimentos: a mesma função do patrimônio líquido.
-  const netWorthSnapshot = useMemo(
-    () => calculateNetWorth(accountBalances, investments, cardSummaries),
-    [accountBalances, investments, cardSummaries]
-  );
-  const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
-  const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
-
   const todayDateStr = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
@@ -2772,6 +2732,18 @@ export default function App() {
     return `${y}-${m}-${d}`;
   }, []);
 
+  // Posição de hoje (independe do mês navegado): fonte única do saldo total, dos investimentos e do patrimônio.
+  const currentPosition = useMemo(
+    () => calculateCurrentPosition(accounts, cards, transactions, todayDateStr),
+    [accounts, cards, transactions, todayDateStr]
+  );
+  const netWorthSnapshot = useMemo(
+    () => calculateNetWorth(currentPosition.accountBalances, investments, currentPosition.cardSummaries),
+    [currentPosition, investments]
+  );
+  const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
+  const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
+
   const dailyReminders = useMemo(() => {
     return calculateDailyReminders({
       transactions,
@@ -2779,7 +2751,6 @@ export default function App() {
       categories,
       accounts,
       familyMembers,
-      selectedMonth,
       referenceDate: todayDateStr,
       settings: settings.reminders || DEFAULT_REMINDER_SETTINGS,
     });
@@ -2789,7 +2760,6 @@ export default function App() {
     categories,
     accounts,
     familyMembers,
-    selectedMonth,
     todayDateStr,
     settings.reminders,
   ]);
@@ -2798,6 +2768,13 @@ export default function App() {
     () => summarizeReminders(dailyReminders),
     [dailyReminders]
   );
+
+  // Convites de família recebidos e ainda sem resposta aparecem na central de notificações.
+  const incomingFamilyInvites = useMemo(
+    () => familyMembers.filter((m) => m.direction === 'incoming' && m.inviteStatus === 'invited'),
+    [familyMembers]
+  );
+  const noticeCount = remindersSummary.urgentCount + incomingFamilyInvites.length;
 
   // Fluxo de Inicialização de Permissões de Notificação do Sistema Operacional
   useEffect(() => {
@@ -3093,7 +3070,7 @@ export default function App() {
           setIsSettingsOpen(true);
         }}
         onOpenReminders={() => setIsReminderModalOpen(true)}
-        urgentRemindersCount={remindersSummary.urgentCount}
+        urgentRemindersCount={noticeCount}
         pendingTransactionsCount={pendingTransactionsCount}
         budgetAlertsCount={budgetAlertsCount}
         pendingSharedCount={pendingSharedCount}
@@ -3261,18 +3238,18 @@ export default function App() {
                   type="button"
                   data-testid="header-reminders-btn"
                   onClick={() => setIsReminderModalOpen(true)}
-                  aria-label="Abrir central de lembretes e notificações"
-                  title={`Central de Lembretes: ${remindersSummary.urgentCount} pendências requerem atenção`}
+                  aria-label="Abrir notificações"
+                  title={`Notificações: ${noticeCount} ${noticeCount === 1 ? 'aviso' : 'avisos'}`}
                   className={`relative rounded-md p-1.5 transition-colors ${
-                    remindersSummary.urgentCount > 0
+                    noticeCount > 0
                       ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   <Bell className="h-4 w-4" />
-                  {remindersSummary.urgentCount > 0 && (
+                  {noticeCount > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-extrabold text-white shadow-2xs">
-                      {remindersSummary.urgentCount}
+                      {noticeCount}
                     </span>
                   )}
                 </button>
@@ -3418,62 +3395,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Global Incoming Family Invitation Notification Banner */}
-        {familyMembers.some(
-          (m) => m.direction === 'incoming' && m.inviteStatus === 'invited'
-        ) && (
-          <div
-            data-testid="global-family-invite-banner"
-            className="mx-auto max-w-7xl w-full px-3.5 sm:px-6 pt-3 animate-expand-in"
-          >
-            {familyMembers
-              .filter(
-                (m) => m.direction === 'incoming' && m.inviteStatus === 'invited'
-              )
-              .map((inv) => (
-                <div
-                  key={inv.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border-2 border-indigo-400 bg-indigo-50/95 dark:bg-indigo-950/60 px-4 py-3 shadow-xs mb-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-extrabold text-indigo-950 dark:text-indigo-200">
-                      Convite Familiar Recebido: {inv.invitedByName || inv.name} (
-                      {inv.invitedByEmail || inv.email}) convidou você para a Divisão Familiar!
-                    </p>
-                    <p className="text-[11px] text-indigo-800 dark:text-indigo-300">
-                      Aceite para sincronizar despesas compartilhadas e o encontro de contas entre as suas contas.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      data-testid="global-accept-family-invite-btn"
-                      onClick={() => handleAcceptFamilyInvite(inv)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-2xs transition-colors"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Aceitar Convite
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTab('shared')}
-                      className="rounded-lg border border-indigo-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-900 hover:bg-indigo-100 transition-colors"
-                    >
-                      Ver na Aba Família
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeclineFamilyInvite(inv)}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-                    >
-                      Recusar
-                    </button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-
         {/* Startup OS Notification Permission Initialization Strip */}
         {browserPermissionState === 'default' &&
           showNotificationInitPrompt &&
@@ -3602,6 +3523,7 @@ export default function App() {
               {activeTab === 'overview' && (
                 <OverviewTab
                   selectedMonth={selectedMonth}
+                  currentPosition={currentPosition}
                   userName={
                     settings.userName &&
                     settings.userName !== 'Você' &&
@@ -3802,6 +3724,7 @@ export default function App() {
               {activeTab === 'reports' && (
                 <ReportsAndDataTab
                   selectedMonth={selectedMonth}
+                  currentPosition={currentPosition}
                   accounts={accounts}
                   accountBalances={accountBalances}
                   cards={cards}
@@ -3944,16 +3867,13 @@ export default function App() {
         isOpen={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
         reminders={dailyReminders}
+        familyInvites={incomingFamilyInvites}
+        onAcceptFamilyInvite={handleAcceptFamilyInvite}
+        onDeclineFamilyInvite={handleDeclineFamilyInvite}
         onPayCardInvoice={(cardId) => {
           handleNavigateToCard(cardId);
         }}
         onMarkTransactionPaid={handleMarkTransactionPaid}
-        onEditTransaction={(txId) => {
-          const target = transactions.find((t) => t.id === txId);
-          if (target) {
-            handleEditTransaction(target);
-          }
-        }}
         onOpenSettingsTab={(tab) => {
           setSettingsInitialTab(tab as any);
           setIsSettingsOpen(true);

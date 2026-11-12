@@ -23,6 +23,7 @@ import {
   Transaction,
 } from '../types/finance';
 import {
+  type CurrentPosition,
   addMonthsToYearMonth,
   calculateDailyCashFlow,
   calculatePeriodReport,
@@ -45,6 +46,8 @@ import { MonthlyComparisonBarChart } from './MonthlyComparisonBarChart';
 
 interface ReportsAndDataTabProps {
   selectedMonth: string;
+  /** Posição de hoje (saldos e dívida de cartão), independente do mês navegado. */
+  currentPosition?: CurrentPosition;
   accounts: BankAccount[];
   accountBalances: AccountBalanceSummary[];
   cards: CreditCard[];
@@ -137,6 +140,7 @@ const SvgPieDonutChart: React.FC<{
 
 export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   selectedMonth,
+  currentPosition,
   accounts,
   accountBalances,
   cards,
@@ -186,8 +190,8 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
   const personalDre = useMemo(
     () => calculatePersonalDre(transactions, selectedMonth, accountBalances, investments,
-      cards.map((card) => calculateCreditCardSummary(card, transactions, selectedMonth))),
-    [transactions, selectedMonth, accountBalances, investments, cards]
+      cards.map((card) => calculateCreditCardSummary(card, transactions, selectedMonth)), currentPosition),
+    [transactions, selectedMonth, accountBalances, investments, cards, currentPosition]
   );
 
   const { activeStartMonth, activeEndMonth } = useMemo(() => {

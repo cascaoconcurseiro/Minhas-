@@ -82,7 +82,6 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     const reminders = calculateDailyReminders({
       transactions,
       cards: [card, cardOverdue],
-      selectedMonth: '2026-10',
       referenceDate: '2026-10-29',
     });
 
@@ -113,7 +112,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     };
 
     const reminders = calculateDailyReminders({
-      transactions: [transaction], cards: [card], selectedMonth: '2026-02',
+      transactions: [transaction], cards: [card],
       referenceDate: '2026-02-28',
     });
 
@@ -165,7 +164,6 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     const reminders = calculateDailyReminders({
       transactions,
       cards: [],
-      selectedMonth: '2026-10',
       referenceDate: '2026-10-29',
     });
 
@@ -182,6 +180,43 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     assert.strictEqual(net.urgency, 'due_soon');
     assert.strictEqual(net.daysRemaining, 2);
     assert.strictEqual(net.amount, 150.0);
+  });
+
+  test('notices depend only on today: far-away items are left out and old overdue items stay', () => {
+    const card: CreditCard = {
+      id: 'card-x', name: 'Cartão X', brand: 'Visa', limit: 5000, closingDay: 10, dueDay: 20,
+      defaultAccountId: 'acc-main', color: '#000000',
+    };
+    const base = { categoryId: 'cat-outros', paymentMethod: 'pix' as const, recurrence: 'single' as const, type: 'expense' as const, status: 'pending' as const };
+    const transactions: Transaction[] = [
+      { ...base, id: 'old-overdue', description: 'Conta de outubro', amount: 80, date: '2026-10-20', competenceMonth: '2026-10', accountId: 'acc-main' },
+      { ...base, id: 'far-away', description: 'Conta de dezembro', amount: 90, date: '2026-12-20', competenceMonth: '2026-12', accountId: 'acc-main' },
+      { ...base, id: 'fixed-far', description: 'Fixo de janeiro', amount: 70, date: '2027-01-05', competenceMonth: '2027-01', accountId: 'acc-main', recurrence: 'fixed' },
+      { ...base, id: 'by-member', description: 'Pago por familiar', amount: 60, date: '2026-11-10', competenceMonth: '2026-11', accountId: 'acc-main', sharedPaidBy: 'member' },
+      { ...base, id: 'dec-card', description: 'Compra no cartão', amount: 300, date: '2026-11-15', competenceMonth: '2026-12', creditCardId: 'card-x', paymentMethod: 'credit_card' },
+    ];
+
+    const reminders = calculateDailyReminders({ transactions, cards: [card], referenceDate: '2026-11-12' });
+
+    assert.deepEqual(reminders.map((r) => r.transactionId), ['old-overdue']);
+    assert.equal(reminders[0].urgency, 'overdue');
+    assert.ok(!reminders.some((r) => r.type === 'invoice_due'), 'fatura de dezembro (vence dia 20/12) ainda está longe');
+  });
+
+  test('an old open invoice keeps warning even when its month is not the one being browsed', () => {
+    const card: CreditCard = {
+      id: 'card-y', name: 'Cartão Y', brand: 'Visa', limit: 5000, closingDay: 10, dueDay: 20,
+      defaultAccountId: 'acc-main', color: '#000000',
+    };
+    const transactions: Transaction[] = [{
+      id: 'sep-purchase', description: 'Compra de setembro', amount: 150, date: '2026-09-05', competenceMonth: '2026-09',
+      type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-y',
+      paymentMethod: 'credit_card', recurrence: 'single',
+    }];
+    const reminders = calculateDailyReminders({ transactions, cards: [card], referenceDate: '2026-11-12' });
+    assert.equal(reminders.length, 1);
+    assert.equal(reminders[0].urgency, 'overdue');
+    assert.equal(reminders[0].dueDate, '2026-09-20');
   });
 
   test('summarizeReminders computes aggregate counts and urgent counts correctly', () => {

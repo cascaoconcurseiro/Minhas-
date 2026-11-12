@@ -10,7 +10,12 @@ import {
   SmtpCredentials,
   Transaction,
 } from '../types/finance';
-import { calculateCreditCardSummary, formatBRL, getClampedMonthDate } from './financeRules';
+import {
+  calculateCreditCardSummary,
+  formatBRL,
+  getClampedMonthDate,
+  isPendingBankObligation,
+} from './financeRules';
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
@@ -164,13 +169,25 @@ export interface CalculateRemindersParams {
   categories?: Category[];
   accounts?: BankAccount[];
   familyMembers?: FamilyMember[];
-  selectedMonth: string; // YYYY-MM
-  referenceDate: string; // YYYY-MM-DD
+  /** Data de hoje (YYYY-MM-DD). Os avisos dependem só dela, nunca do mês que a pessoa está navegando. */
+  referenceDate: string;
   settings?: ReminderSettings;
 }
 
+/** Antecedência, em dias, para avisar de contas a pagar (faturas usam a antecedência configurada). */
+const BILL_WARNING_DAYS = 3;
+
+function classifyUrgency(daysRemaining: number, warningDays: number): ReminderUrgency | null {
+  if (daysRemaining < 0) return 'overdue';
+  if (daysRemaining === 0) return 'due_today';
+  if (daysRemaining <= warningDays) return 'due_soon';
+  return null;
+}
+
 /**
- * Calcula todos os lembretes do sistema integrando com o estado de pendentes e faturas.
+ * Avisos que exigem atenção hoje: o que está atrasado, vence hoje ou vence nos próximos dias.
+ * Não lista o que ainda está longe (isso fica em "Contas a pagar") e considera pendências de qualquer
+ * mês, para que um atraso antigo nunca desapareça só porque o mês navegado mudou.
  */
 export function calculateDailyReminders({
   transactions,
@@ -178,39 +195,36 @@ export function calculateDailyReminders({
   categories = [],
   accounts = [],
   familyMembers = [],
-  selectedMonth,
   referenceDate,
   settings = DEFAULT_REMINDER_SETTINGS,
 }: CalculateRemindersParams): ReminderItem[] {
   const reminders: ReminderItem[] = [];
-  const daysThreshold = settings.daysBeforeInvoiceDue ?? 3;
+  const invoiceWarningDays = settings.daysBeforeInvoiceDue ?? 3;
 
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
   const memberMap = new Map(familyMembers.map((m) => [m.id, m.name]));
 
-  // 1. Faturas de Cartão de Crédito Próximas ou Vencidas
+  // 1. Faturas de cartão em aberto, de qualquer competência, vencidas ou perto de vencer
   if (settings.notifyInvoiceDue) {
     for (const card of cards) {
-      const invoice = calculateCreditCardSummary(card, transactions, selectedMonth);
-      if (invoice.invoicePendingAmount > 0) {
-        const dueDate = getClampedMonthDate(selectedMonth, card.dueDay);
-        const actualDueDay = Number(dueDate.slice(-2));
+      const invoiceMonths = new Set(
+        transactions
+          .filter((tx) => tx.creditCardId === card.id && tx.status === 'pending' && tx.competenceMonth)
+          .map((tx) => tx.competenceMonth)
+      );
+      for (const invoiceMonth of invoiceMonths) {
+        const invoice = calculateCreditCardSummary(card, transactions, invoiceMonth, referenceDate);
+        if (invoice.invoicePendingAmount <= 0) continue;
+
+        const dueDate = getClampedMonthDate(invoiceMonth, card.dueDay);
         const daysRemaining = getDaysDifference(referenceDate, dueDate);
+        const urgency = classifyUrgency(daysRemaining, invoiceWarningDays);
+        if (!urgency) continue;
 
-        let urgency: ReminderUrgency;
-        if (daysRemaining < 0) {
-          urgency = 'overdue';
-        } else if (daysRemaining === 0) {
-          urgency = 'due_today';
-        } else if (daysRemaining <= daysThreshold) {
-          urgency = 'due_soon';
-        } else {
-          urgency = 'upcoming';
-        }
-
+        const actualDueDay = Number(dueDate.slice(-2));
         reminders.push({
-          id: `card-due-${card.id}-${selectedMonth}`,
+          id: `card-due-${card.id}-${invoiceMonth}`,
           type: 'invoice_due',
           title: `Fatura ${card.name}`,
           description:
@@ -229,33 +243,20 @@ export function calculateDailyReminders({
     }
   }
 
-  // 2. Despesas e Boletos Pendentes no mês de competência (Contas bancárias/boletos/PIX - cartão de crédito é coberto pela fatura)
+  // 2. Contas e boletos pendentes (cartão é coberto pela fatura), atrasados ou perto de vencer
   if (settings.notifyPendingBills) {
     const pendingExpenses = transactions.filter(
-      (tx) =>
-        tx.competenceMonth === selectedMonth &&
-        tx.status === 'pending' &&
-        tx.type === 'expense' &&
-        !tx.creditCardId &&
-        !tx.isInvoicePayment &&
-        !tx.isCompanionOnlyExpense
+      (tx) => isPendingBankObligation(tx) && tx.type === 'expense' && !tx.isInvoicePayment
     );
 
     for (const tx of pendingExpenses) {
-      const daysRemaining = getDaysDifference(referenceDate, tx.date);
-
-      let urgency: ReminderUrgency;
-      if (daysRemaining < 0) {
-        urgency = 'overdue';
-      } else if (daysRemaining === 0) {
-        urgency = 'due_today';
-      } else if (daysRemaining <= 3) {
-        urgency = 'due_soon';
-      } else {
-        urgency = 'upcoming';
-      }
-
       const isFixed = tx.recurrence === 'fixed';
+      if (isFixed && settings.notifyRecurringEntries === false) continue;
+
+      const daysRemaining = getDaysDifference(referenceDate, tx.date);
+      const urgency = classifyUrgency(daysRemaining, BILL_WARNING_DAYS);
+      if (!urgency) continue;
+
       const catName = categoryMap.get(tx.categoryId);
       const accName = tx.accountId ? accountMap.get(tx.accountId) : undefined;
 
@@ -281,14 +282,14 @@ export function calculateDailyReminders({
     }
   }
 
-  // 3. Rateios Familiares Pendentes de Reembolso
+  // 3. Rateios de familiares que já aconteceram e ainda não foram reembolsados
   if (settings.notifySharedReimbursements) {
     const pendingShared = transactions.filter(
       (tx) =>
-        tx.competenceMonth === selectedMonth &&
         tx.isShared &&
         tx.sharedStatus === 'pending' &&
-        (tx.sharedAmount ?? 0) > 0
+        (tx.sharedAmount ?? 0) > 0 &&
+        tx.date <= referenceDate
     );
 
     for (const tx of pendingShared) {
@@ -302,7 +303,7 @@ export function calculateDailyReminders({
         description: `Rateio pendente de "${tx.description}"`,
         amount: tx.sharedAmount ?? 0,
         dueDate: tx.date,
-        urgency: daysRemaining < 0 ? 'overdue' : daysRemaining === 0 ? 'due_today' : 'due_soon',
+        urgency: daysRemaining < 0 ? 'overdue' : 'due_today',
         daysRemaining,
         transactionId: tx.id,
         memberId: tx.sharedMemberId,
@@ -310,11 +311,7 @@ export function calculateDailyReminders({
     }
   }
 
-  // Ordenação por urgência financeira:
-  // 1. overdue (mais atrasados primeiro)
-  // 2. due_today
-  // 3. due_soon (mais próximos de vencer primeiro)
-  // 4. upcoming
+  // Ordem: atrasados (mais antigos primeiro), vencem hoje, vencem em breve
   const urgencyWeight: Record<ReminderUrgency, number> = {
     overdue: 1,
     due_today: 2,
