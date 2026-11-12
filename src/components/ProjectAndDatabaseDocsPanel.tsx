@@ -76,7 +76,7 @@ O workspace e o compartilhamento familiar são persistidos no Neon. O backend va
 ## 3. Entidades Principais (src/types/finance.ts)
 - **BankAccount**: Contas correntes, poupança, espécie, investimentos e contas internacionais multi-moeda (Wise, Nomad, Avenue, C6 Global).
 - **CreditCard**: Limite, dia de fechamento (closingDay), dia de vencimento (dueDay) e conta padrão de débito.
-- **Category & Subcategory**: Categorias de receita/despesa classificadas nos blocos 50/30/20 (essential, lifestyle, financial).
+- **Category**: Categorias de receita/despesa classificadas nos blocos 50/30/20 (essential, lifestyle, financial).
 - **Transaction**: Lançamentos únicos, parcelados (até 48x) ou fixos, com suporte a conciliação OFX (fitid), antecipação de parcelas, rateio familiar bilateral e câmbio de viagens (VET + IOF).
 - **InvestmentAsset**: Renda Fixa Pós, IPCA+, FIIs, Ações B3 e ETFs com sincronização Google Finance.
 - **Trip, TripExchangeLot & TripSettlement**: Gestão de viagens internacionais com carteira de câmbio (VET médio ponderado) e divisão Splitwise.
@@ -289,7 +289,7 @@ git push -u origin main`;
                     <td className="py-2 px-3">Category[]</td>
                     <td className="py-2 px-3">Obrigatório</td>
                     <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-300">
-                      Categorias, subcategorias, tetos mensais e blocos 50/30/20
+                      Categorias, tetos mensais e blocos 50/30/20
                     </td>
                   </tr>
                   <tr>

@@ -15,7 +15,6 @@ import {
   PeriodReportSummary,
   RecurrenceType,
   ReportDistributionSlice,
-  SubcategorySpendItem,
   Transaction,
   TransactionStatus,
   TransactionType,
@@ -210,7 +209,6 @@ export interface CreateTransactionBatchInput {
   type: TransactionType;
   status: TransactionStatus;
   categoryId: string;
-  subcategoryId?: string;
   accountId?: string;
   destinationAccountId?: string;
   creditCardId?: string;
@@ -426,7 +424,6 @@ export function createTransactionBatch(
         type: input.type,
         status: instStatus,
         categoryId: input.categoryId,
-        subcategoryId: input.subcategoryId,
         accountId: input.accountId,
         destinationAccountId: input.destinationAccountId,
         creditCardId: input.creditCardId,
@@ -467,7 +464,6 @@ export function createTransactionBatch(
         type: input.type,
         status: instStatus,
         categoryId: input.categoryId,
-        subcategoryId: input.subcategoryId,
         accountId: input.accountId,
         destinationAccountId: input.destinationAccountId,
         creditCardId: input.creditCardId,
@@ -499,7 +495,6 @@ export function createTransactionBatch(
       type: input.type,
       status: input.status,
       categoryId: input.categoryId,
-      subcategoryId: input.subcategoryId,
       accountId: input.accountId,
       destinationAccountId: input.destinationAccountId,
       creditCardId: input.creditCardId,
@@ -973,17 +968,12 @@ export function getTransactionsLinkedToCreditCard(
   });
 }
 
-/** Returns transactions that would lose a category or subcategory if it were deleted. */
+/** Returns transactions that would lose their category if it were deleted. */
 export function getTransactionsLinkedToCategory(
   categoryId: string,
-  transactions: Transaction[],
-  subcategoryId?: string
+  transactions: Transaction[]
 ): Transaction[] {
-  return transactions.filter(
-    (tx) =>
-      tx.categoryId === categoryId &&
-      (subcategoryId === undefined || tx.subcategoryId === subcategoryId)
-  );
+  return transactions.filter((tx) => tx.categoryId === categoryId);
 }
 
 /**
@@ -1169,36 +1159,6 @@ export function calculateCategoryBreakdown(
         else if (spent >= cat.monthlyBudget * thresholdRatio) status = 'warning';
       }
 
-      const subMap = new Map<string, number>();
-      for (const item of catItems) {
-        const subId = item.tx.subcategoryId || 'unassigned';
-        subMap.set(subId, (subMap.get(subId) || 0) + item.effectiveAmount);
-      }
-
-      const subcategoryBreakdown: SubcategorySpendItem[] = [];
-      for (const sub of cat.subcategories || []) {
-        const subSpent = Math.round((subMap.get(sub.id) || 0) * 100) / 100;
-        if (subSpent > 0) {
-          subcategoryBreakdown.push({
-            subcategoryId: sub.id,
-            subcategoryName: sub.name,
-            spent: subSpent,
-            percentOfCategory: spent > 0 ? Math.round((subSpent / spent) * 1000) / 10 : 0,
-          });
-        }
-      }
-      const unassignedSpent = Math.round((subMap.get('unassigned') || 0) * 100) / 100;
-      if (unassignedSpent > 0 && (cat.subcategories?.length || 0) > 0) {
-        subcategoryBreakdown.push({
-          subcategoryId: 'unassigned',
-          subcategoryName: 'Geral / Sem Subcategoria',
-          spent: unassignedSpent,
-          percentOfCategory: spent > 0 ? Math.round((unassignedSpent / spent) * 1000) / 10 : 0,
-        });
-      }
-
-      subcategoryBreakdown.sort((a, b) => b.spent - a.spent);
-
       return {
         categoryId: cat.id,
         categoryName: cat.name,
@@ -1212,7 +1172,6 @@ export function calculateCategoryBreakdown(
         percentOfBudget,
         percentOfTotalExpense,
         status,
-        subcategoryBreakdown,
       };
     })
     .sort((a, b) => b.spent - a.spent);
@@ -1348,25 +1307,6 @@ export function calculatePeriodReport(
       const amount = Math.round(txs.reduce((s, t) => s + t.amount, 0) * 100) / 100;
       const percent = totalExpense > 0 ? Math.round((amount / totalExpense) * 1000) / 10 : 0;
 
-      const subTotals = new Map<string, number>();
-      for (const t of txs) {
-        const subId = t.subcategoryId || 'unassigned';
-        subTotals.set(subId, (subTotals.get(subId) || 0) + t.amount);
-      }
-
-      const subNameMap = new Map(
-        (cat?.subcategories || []).map((s) => [s.id, s.name])
-      );
-
-      const subcategories = Array.from(subTotals.entries())
-        .map(([subId, subAmt]) => ({
-          id: subId,
-          name: subNameMap.get(subId) || 'Geral / Sem Subcategoria',
-          amount: Math.round(subAmt * 100) / 100,
-          percent: amount > 0 ? Math.round((subAmt / amount) * 1000) / 10 : 0,
-        }))
-        .sort((a, b) => b.amount - a.amount);
-
       return {
         id: catId,
         name: cat?.name || 'Outras Despesas',
@@ -1375,7 +1315,6 @@ export function calculatePeriodReport(
         amount,
         percent,
         count: txs.length,
-        subcategories,
       };
     })
     .sort((a, b) => b.amount - a.amount);
@@ -1394,23 +1333,6 @@ export function calculatePeriodReport(
       const amount = Math.round(txs.reduce((s, t) => s + t.amount, 0) * 100) / 100;
       const percent = totalIncome > 0 ? Math.round((amount / totalIncome) * 1000) / 10 : 0;
 
-      const subTotals = new Map<string, number>();
-      for (const t of txs) {
-        const subId = t.subcategoryId || 'unassigned';
-        subTotals.set(subId, (subTotals.get(subId) || 0) + t.amount);
-      }
-      const subNameMap = new Map(
-        (cat?.subcategories || []).map((s) => [s.id, s.name])
-      );
-      const subcategories = Array.from(subTotals.entries())
-        .map(([subId, subAmt]) => ({
-          id: subId,
-          name: subNameMap.get(subId) || 'Receita Direta',
-          amount: Math.round(subAmt * 100) / 100,
-          percent: amount > 0 ? Math.round((subAmt / amount) * 1000) / 10 : 0,
-        }))
-        .sort((a, b) => b.amount - a.amount);
-
       return {
         id: catId,
         name: cat?.name || 'Outras Receitas',
@@ -1419,7 +1341,6 @@ export function calculatePeriodReport(
         amount,
         percent,
         count: txs.length,
-        subcategories,
       };
     })
     .sort((a, b) => b.amount - a.amount);
@@ -1850,7 +1771,6 @@ export function exportTransactionsToCSV(
     'Tipo',
     'Status',
     'Categoria',
-    'Subcategoria',
     'Conta_ou_Cartao',
     'Parcela',
     'Valor_BRL',
@@ -1862,8 +1782,6 @@ export function exportTransactionsToCSV(
     const statusLabel = tx.status === 'paid' ? 'Efetivado' : 'Pendente';
     const cat = catMap.get(tx.categoryId);
     const catName = cat?.name || 'Outros';
-    const subName =
-      cat?.subcategories?.find((s) => s.id === tx.subcategoryId)?.name || 'Geral';
     const originName = tx.creditCardId
       ? `Cartao: ${cardMap.get(tx.creditCardId) || tx.creditCardId}`
       : accMap.get(tx.accountId || '') || 'Carteira';
@@ -1880,7 +1798,6 @@ export function exportTransactionsToCSV(
       tipoLabel,
       statusLabel,
       `"${catName}"`,
-      `"${subName}"`,
       `"${originName}"`,
       parcela,
       valorSigned.toFixed(2).replace('.', ','),
@@ -1906,7 +1823,6 @@ export interface GlobalSearchMatchItem {
   matchedByNote: boolean;
   matchedByTag?: boolean;
   categoryName: string;
-  subcategoryName?: string;
 }
 
 export interface GlobalSearchFilterOptions {
@@ -1966,14 +1882,9 @@ export function searchTransactionsGlobal(
 
     const cat = catMap.get(tx.categoryId);
     const categoryName = cat?.name || 'Outros';
-    const subcategoryName = cat?.subcategories?.find(
-      (s) => s.id === tx.subcategoryId
-    )?.name;
 
     const normDesc = normalizeSearchText(tx.description);
-    const normCat = normalizeSearchText(
-      subcategoryName ? `${categoryName} ${subcategoryName}` : categoryName
-    );
+    const normCat = normalizeSearchText(categoryName);
     const normTags = normalizeSearchText((tx.tags || []).join(' '));
     const normNote = normalizeSearchText(
       [tx.notes || '', ...(tx.tags || [])].join(' ')
@@ -2019,7 +1930,6 @@ export function searchTransactionsGlobal(
           matchedByTag ||
           (Boolean(normTags) && tokens.some((tk) => normTags.includes(tk))),
         categoryName,
-        subcategoryName,
       });
     }
   }
@@ -2433,7 +2343,6 @@ export function applyCascadeTransactionEdit(
           ? {
               description: editedTx.description,
               categoryId: editedTx.categoryId,
-              subcategoryId: editedTx.subcategoryId,
               accountId: editedTx.accountId,
               destinationAccountId: editedTx.destinationAccountId,
               creditCardId: editedTx.creditCardId,
@@ -2477,7 +2386,6 @@ export function applyCascadeTransactionEdit(
           description: editedTx.description,
           amount: editedTx.amount,
           categoryId: editedTx.categoryId,
-          subcategoryId: editedTx.subcategoryId,
           accountId: editedTx.accountId,
           destinationAccountId: editedTx.destinationAccountId,
           creditCardId: editedTx.creditCardId,

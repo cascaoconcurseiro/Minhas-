@@ -20,7 +20,6 @@ export interface DailyTransactionGroup {
 export interface SmartTransactionSuggestion {
   cleanDescription: string;
   categoryId: string;
-  subcategoryId?: string;
   accountId?: string;
   creditCardId?: string;
   paymentMethod: PaymentMethod;
@@ -227,7 +226,6 @@ export function getSmartTransactionSuggestions(
       templateMap.set(key, {
         cleanDescription: cleanDesc,
         categoryId: tx.categoryId,
-        subcategoryId: tx.subcategoryId,
         accountId: tx.accountId,
         creditCardId: tx.creditCardId,
         paymentMethod: tx.paymentMethod,
@@ -256,8 +254,6 @@ export interface SmartCategorySuggestion {
   categoryName: string;
   categoryColor: string;
   categoryIcon: CategoryIconName;
-  subcategoryId?: string;
-  subcategoryName?: string;
   confidence: number; // 0.0 to 1.0 (e.g. 0.95 = 95%)
   frequency: number; // occurrences in history
   totalMatches: number;
@@ -279,7 +275,7 @@ const PORTUGUESE_STOP_WORDS = new Set([
 /**
  * Intelligent Category Prediction:
  * Analyzes transaction description against past user transactions to suggest
- * the most probable category (and subcategory) weighted by similarity, recency, and frequency.
+ * the most probable category weighted by similarity, recency, and frequency.
  */
 export function getCategorySuggestionsForDescription(
   description: string,
@@ -309,7 +305,6 @@ export function getCategorySuggestionsForDescription(
     bestMatchType: 'exact' | 'prefix' | 'word' | 'token';
     bestMatchScore: number;
     sampleDescription: string;
-    subcategoryIdCount: Map<string, number>;
     mostRecentDate: string;
   }
 
@@ -367,7 +362,6 @@ export function getCategorySuggestionsForDescription(
           bestMatchType: matchType,
           bestMatchScore: matchScore,
           sampleDescription: cleanDesc,
-          subcategoryIdCount: new Map<string, number>(),
           mostRecentDate: tx.date || '',
         };
         candidateMap.set(cat.id, cand);
@@ -379,10 +373,6 @@ export function getCategorySuggestionsForDescription(
         cand.bestMatchScore = matchScore;
         cand.bestMatchType = matchType;
         cand.sampleDescription = cleanDesc;
-      }
-      if (tx.subcategoryId) {
-        const cur = cand.subcategoryIdCount.get(tx.subcategoryId) || 0;
-        cand.subcategoryIdCount.set(tx.subcategoryId, cur + 1);
       }
       if (tx.date && tx.date > cand.mostRecentDate) {
         cand.mostRecentDate = tx.date;
@@ -408,19 +398,6 @@ export function getCategorySuggestionsForDescription(
   });
 
   return candidates.slice(0, limit).map((cand) => {
-    let dominantSubcategoryId: string | undefined;
-    let maxSubCount = 0;
-    for (const [subId, count] of cand.subcategoryIdCount.entries()) {
-      if (count > maxSubCount) {
-        maxSubCount = count;
-        dominantSubcategoryId = subId;
-      }
-    }
-
-    const subObj = dominantSubcategoryId
-      ? cand.category.subcategories.find((s) => s.id === dominantSubcategoryId)
-      : undefined;
-
     let baseConfidence = 0.6;
     if (cand.bestMatchType === 'exact') baseConfidence = 0.92;
     else if (cand.bestMatchType === 'prefix') baseConfidence = 0.82;
@@ -444,8 +421,6 @@ export function getCategorySuggestionsForDescription(
       categoryName: cand.category.name,
       categoryColor: cand.category.color,
       categoryIcon: cand.category.icon,
-      subcategoryId: dominantSubcategoryId,
-      subcategoryName: subObj?.name,
       confidence,
       frequency: cand.frequency,
       totalMatches: totalAllMatches,
@@ -487,17 +462,11 @@ export function predictCategoryFromDescription(
     ? categories.find((category) => category.id === merchantMatch.categoryId)
     : undefined;
   if (merchantMatch && merchantCategory) {
-    const normalizedSubcategoryName = normalizeText(merchantMatch.subcategoryName || '');
-    const matchedSubcategory = (merchantCategory.subcategories || []).find(
-      (subcategory) => normalizeText(subcategory.name) === normalizedSubcategoryName
-    );
     return {
       categoryId: merchantCategory.id,
       categoryName: merchantCategory.name,
       categoryColor: merchantCategory.color,
       categoryIcon: merchantCategory.icon,
-      subcategoryId: matchedSubcategory?.id,
-      subcategoryName: matchedSubcategory?.name || merchantMatch.subcategoryName,
       confidence: 0.9,
       frequency: 0,
       totalMatches: 1,

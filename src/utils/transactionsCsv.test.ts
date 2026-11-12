@@ -13,7 +13,6 @@ test('CSV export preserves negative expense values, ISO dates, and delimiters wh
     type: 'expense',
     status: 'paid',
     categoryId: 'category-fixture',
-    subcategoryId: 'subcategory-fixture',
     accountId: 'account-fixture',
     paymentMethod: 'pix',
     recurrence: 'single',
@@ -29,7 +28,6 @@ test('CSV export preserves negative expense values, ISO dates, and delimiters wh
       color: '#000000',
       icon: 'tag',
       monthlyBudget: 0,
-      subcategories: [{ id: 'subcategory-fixture', name: '@cmd' }],
     }],
     [{ id: 'account-fixture', name: '-conta' } as never],
     []
@@ -40,7 +38,6 @@ test('CSV export preserves negative expense values, ISO dates, and delimiters wh
   assert.ok(row.includes('"2026-11-07";"2026-11"'));
   assert.ok(row.includes('"\'  =HYPERLINK(""https://evil.invalid"";""abrir"")"'));
   assert.ok(row.includes('"\'\t+SUM(1;1)"'));
-  assert.ok(row.includes('"\'@cmd"'));
   assert.ok(row.includes('"\'-conta"'));
   assert.ok(row.endsWith('"-12,34"'), 'numeric expense remains a valid negative amount, not text-prefixed');
   const malformedDateRow = csv.split('\n')[2];

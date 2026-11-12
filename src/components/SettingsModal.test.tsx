@@ -37,8 +37,6 @@ function renderSettings(onExport: () => void, onImport: (jsonText: string) => bo
   onAddCategory?: (category: Omit<Category, 'id'>) => void;
   onUpdateCategoryBudget?: (id: string, budget: number) => void;
   onDeleteCategory?: (id: string) => void;
-  onAddSubcategory?: (categoryId: string, name: string) => void;
-  onDeleteSubcategory?: (categoryId: string, subcategoryId: string) => void;
   onResetWorkspaceData?: () => void;
 } = {}) {
   container = document.createElement('div');
@@ -58,8 +56,6 @@ function renderSettings(onExport: () => void, onImport: (jsonText: string) => bo
         onAddCategory: options.onAddCategory,
         onUpdateCategoryBudget: options.onUpdateCategoryBudget,
         onDeleteCategory: options.onDeleteCategory,
-        onAddSubcategory: options.onAddSubcategory,
-        onDeleteSubcategory: options.onDeleteSubcategory,
         onExportFullBackupJson: onExport,
         onImportFullBackupJson: onImport,
         onResetWorkspaceData: options.onResetWorkspaceData ?? (() => {}),
@@ -182,7 +178,6 @@ test('SettingsModal confirms restore, forwards synthetic JSON, and reports succe
       monthlyBudget: 100,
       color: '#059669',
       icon: 'shopping-cart',
-      subcategories: [],
     }],
     transactions: [],
     goals: [],
@@ -267,7 +262,7 @@ test('SettingsModal waits for asynchronous restore callback before reporting suc
     ownerUserId: 'synthetic-neon-user',
     accounts: [], cards: [], categories: [{
       id: 'synthetic-category', name: 'Teste', type: 'expense', bucket: 'essential',
-      monthlyBudget: 0, color: '#059669', icon: 'shopping-cart', subcategories: [],
+      monthlyBudget: 0, color: '#059669', icon: 'shopping-cart',
     }], transactions: [], goals: [], investments: [], trips: [],
   });
   window.confirm = (message?: string) => {
@@ -295,7 +290,7 @@ test('SettingsModal treats a rejected restore callback as failure', async () => 
     ownerUserId: 'synthetic-neon-user',
     accounts: [], cards: [], categories: [{
       id: 'synthetic-category', name: 'Teste', type: 'expense', bucket: 'essential',
-      monthlyBudget: 0, color: '#059669', icon: 'shopping-cart', subcategories: [],
+      monthlyBudget: 0, color: '#059669', icon: 'shopping-cart',
     }], transactions: [], goals: [], investments: [], trips: [],
   });
   window.confirm = () => true;
@@ -345,17 +340,14 @@ test('SettingsModal preference controls route theme, privacy and density changes
   assert.deepEqual(changes, [{ theme: 'dark' }, { privacyMode: true }, { density: 'compact' }]);
 });
 
-test('SettingsModal category and subcategory creation, budget edit and delete call domain callbacks', async () => {
+test('SettingsModal category creation, budget edit and delete call domain callbacks, with no subcategory controls', async () => {
   const category: Category = {
     id: 'cat-synthetic', name: 'Categoria teste', type: 'expense', bucket: 'essential',
     monthlyBudget: 100, color: '#059669', icon: 'shopping-cart',
-    subcategories: [{ id: 'sub-synthetic', name: 'Sub teste' }],
   };
   const added: Array<Omit<Category, 'id'>> = [];
   const budgets: Array<[string, number]> = [];
   const deleted: string[] = [];
-  const addedSubs: Array<[string, string]> = [];
-  const deletedSubs: Array<[string, string]> = [];
   const page = renderSettings(() => {}, () => true, {
     initialTab: 'categories', categories: [category, ...['a', 'b', 'c'].map((suffix) => ({
       ...category, id: `cat-${suffix}`, name: `Categoria ${suffix}`,
@@ -363,8 +355,6 @@ test('SettingsModal category and subcategory creation, budget edit and delete ca
     onAddCategory: (value) => added.push(value),
     onUpdateCategoryBudget: (id, amount) => budgets.push([id, amount]),
     onDeleteCategory: (id) => deleted.push(id),
-    onAddSubcategory: (id, name) => addedSubs.push([id, name]),
-    onDeleteSubcategory: (id, subId) => deletedSubs.push([id, subId]),
   });
   const inputs = [...page.querySelectorAll<HTMLInputElement>('input')];
   const name = inputs.find((input) => input.placeholder?.startsWith('Ex: Educação'));
@@ -382,22 +372,8 @@ test('SettingsModal category and subcategory creation, budget edit and delete ca
   assert.equal(added[0]?.name, 'Categoria nova');
   assert.equal(added[0]?.type, 'expense');
 
-  const subInput = page.querySelector<HTMLInputElement>('input[placeholder="Nova subcategoria..."]');
-  assert.ok(subInput);
-  await act(async () => {
-    set(subInput, '  Sub nova  ');
-    const button = [...page.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('+ Sub'));
-    assert.ok(button); button.click();
-  });
-  assert.deepEqual(addedSubs, [[category.id, 'Sub nova']]);
-  const removeSub = page.querySelector<HTMLButtonElement>('button[title="Excluir subcategoria"]');
-  if (removeSub) await act(async () => { removeSub.click(); });
-  else {
-    const sub = [...page.querySelectorAll('span')].find((candidate) => candidate.textContent === 'Sub teste');
-    assert.ok(sub?.parentElement?.querySelector('button'));
-    await act(async () => { sub?.parentElement?.querySelector('button')?.click(); });
-  }
-  assert.deepEqual(deletedSubs, [[category.id, 'sub-synthetic']]);
+  assert.equal(page.querySelector('input[placeholder="Nova subcategoria..."]'), null, 'não existe campo de subcategoria');
+  assert.doesNotMatch(page.textContent ?? '', /[Ss]ubcategoria/);
 
   const budgetButton = [...page.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('(Editar)'));
   assert.ok(budgetButton);

@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Check,
   Edit3,
-  FolderPlus,
   Plus,
   Trash2,
   X,
@@ -41,8 +40,6 @@ interface BudgetsTabProps {
   onAddCategory: (category: Omit<Category, 'id'>) => void;
   onUpdateCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
-  onAddSubcategory: (categoryId: string, subcategoryName: string) => void;
-  onDeleteSubcategory: (categoryId: string, subcategoryId: string) => void;
 }
 
 function parseNonNegativeBudget(raw: string): number | null {
@@ -64,8 +61,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
-  onAddSubcategory,
-  onDeleteSubcategory,
 }) => {
   const [viewMode, setViewMode] = useState<'budgets' | 'categories'>('budgets');
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
@@ -83,12 +78,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   const [catBudgetStr, setCatBudgetStr] = useState('');
   const [catColor, setCatColor] = useState<string>(CATEGORY_COLOR_PALETTE[0].hex);
   const [catIcon, setCatIcon] = useState<CategoryIconName>('home');
-  const [catSubcategoriesDraft, setCatSubcategoriesDraft] = useState<string>('');
   const [categoryFormError, setCategoryFormError] = useState('');
-
-  // Inline Add Subcategory state per category card
-  const [activeSubcatParentId, setActiveSubcatParentId] = useState<string | null>(null);
-  const [newSubcatName, setNewSubcatName] = useState('');
 
   const rule503020 = calculate503020Rule(categories, transactions, selectedMonth);
   const budgetAlerts = getBudgetAlerts(categoryBreakdown);
@@ -111,7 +101,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
     setCatBudgetStr('');
     setCatColor(CATEGORY_COLOR_PALETTE[0].hex);
     setCatIcon(defaultType === 'income' ? 'briefcase' : 'tag');
-    setCatSubcategoriesDraft('');
     setShowCatEditor(true);
   };
 
@@ -124,7 +113,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
     setCatBudgetStr(cat.monthlyBudget.toFixed(2).replace('.', ','));
     setCatColor(cat.color || CATEGORY_COLOR_PALETTE[0].hex);
     setCatIcon(cat.icon || 'tag');
-    setCatSubcategoriesDraft('');
     setShowCatEditor(true);
   };
 
@@ -155,15 +143,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
     setCategoryFormError('');
 
     if (editingFullCategory) {
-      const extraSubs = catSubcategoriesDraft
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((name, idx) => ({
-          id: `sub-${Date.now()}-${idx}`,
-          name,
-        }));
-
       onUpdateCategory({
         ...editingFullCategory,
         name: catName.trim(),
@@ -172,18 +151,8 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
         monthlyBudget: parsedBudget,
         color: catColor,
         icon: catIcon,
-        subcategories: [...(editingFullCategory.subcategories || []), ...extraSubs],
       });
     } else {
-      const initialSubs = catSubcategoriesDraft
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((name, idx) => ({
-          id: `sub-${Date.now()}-${idx}`,
-          name,
-        }));
-
       onAddCategory({
         name: catName.trim(),
         type: catType,
@@ -191,7 +160,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
         monthlyBudget: parsedBudget,
         color: catColor,
         icon: catIcon,
-        subcategories: initialSubs,
       });
     }
 
@@ -221,13 +189,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
     setBudgetEditError('');
   };
 
-  const handleConfirmAddSubcategory = (categoryId: string) => {
-    if (!newSubcatName.trim()) return;
-    onAddSubcategory(categoryId, newSubcatName.trim());
-    setNewSubcatName('');
-    setActiveSubcatParentId(null);
-  };
-
   const getBucketLabel = (bucket: BudgetBucket) => {
     if (bucket === 'essential') return 'Essencial (50%)';
     if (bucket === 'lifestyle') return 'Estilo de Vida (30%)';
@@ -238,7 +199,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
 
   return (
     <div className="module-page space-y-6">
-      {/* Sub-navigation between Monthly Budgets and Custom Category & Subcategory Manager */}
+      {/* Sub-navigation between Monthly Budgets and the Custom Category Manager */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
         <div
           role="group"
@@ -267,7 +228,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                 : 'text-slate-600 hover:text-slate-900'
             } sm:w-auto sm:px-4 sm:text-center sm:whitespace-nowrap`}
           >
-            Gerenciar Categorias & Subcategorias ({categories.length})
+            Gerenciar Categorias ({categories.length})
           </button>
         </div>
 
@@ -281,7 +242,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
         </button>
       </div>
 
-      {/* Category & Subcategory Editor Form */}
+      {/* Category Editor Form */}
       {showCatEditor && (
         <form
           onSubmit={handleSaveCategoryForm}
@@ -300,7 +261,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                   : 'Criar Nova Categoria Personalizada'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Escolha o nome, tipo (Despesa ou Receita), cor, ícone e subcategorias
+                Escolha o nome, tipo (Despesa ou Receita), cor e ícone
               </p>
             </div>
             <button
@@ -419,21 +380,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
               </div>
             </div>
 
-            <div className={catType === 'expense' ? 'lg:col-span-5' : 'lg:col-span-6'}>
-              <label htmlFor="cat-editor-subs" className="block text-xs font-semibold text-slate-700 mb-1">
-                {editingFullCategory
-                  ? 'Adicionar Novas Subcategorias (separadas por vírgula)'
-                  : 'Subcategorias Iniciais (separadas por vírgula)'}
-              </label>
-              <input
-                id="cat-editor-subs"
-                type="text"
-                value={catSubcategoriesDraft}
-                onChange={(e) => setCatSubcategoriesDraft(e.target.value)}
-                placeholder="Ex: Ração, Consultas, Banho & Tosa"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-900"
-              />
-            </div>
           </div>
 
           <div>
@@ -696,15 +642,15 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
             </div>
           </section>
 
-          {/* Category Budget Table with Subcategory Breakdown */}
+          {/* Category Budget Table */}
           <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900">
-                  Teto de Gastos Mensal por Categoria & Subcategorias
+                  Teto de Gastos Mensal por Categoria
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Acompanhe o consumo de cada orçamento e edite limites ou subcategorias
+                  Acompanhe o consumo de cada orçamento e edite os limites
                 </p>
               </div>
 
@@ -763,7 +709,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
               <table className="w-full min-w-[920px] text-left border-collapse xl:min-w-0">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/40 text-xs font-semibold text-slate-500">
-                    <th className="py-3 pl-6 pr-3">Categoria & Subcategorias</th>
+                    <th className="py-3 pl-6 pr-3">Categoria</th>
                     <th className="py-3 px-3">Progresso & Alerta</th>
                     <th className="py-3 px-3 text-right">Gasto Real + Cartão</th>
                     <th className="py-3 px-3 text-right">Teto Planejado</th>
@@ -793,18 +739,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                                 <span aria-hidden="true"> · </span>
                                 <span>{item.percentOfTotalExpense}% das despesas</span>
                               </p>
-                              {item.subcategoryBreakdown.length > 0 && (
-                                <p className="text-xs text-slate-600 mt-1 font-mono tabular-nums">
-                                  {item.subcategoryBreakdown.map((sub, i) => (
-                                    <React.Fragment key={sub.subcategoryId}>
-                                      {i > 0 && <span aria-hidden="true"> · </span>}
-                                      <span>
-                                        {sub.subcategoryName}: {formatBRL(sub.spent)}
-                                      </span>
-                                    </React.Fragment>
-                                  ))}
-                                </p>
-                              )}
                             </div>
                           </div>
                         </td>
@@ -966,15 +900,15 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
           </section>
         </>
       ) : (
-        /* Custom Category & Subcategory Manager View */
+        /* Custom Category Manager View */
         <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                Categorias e Subcategorias Personalizáveis
+                Categorias Personalizáveis
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Adicione, edite cores e ícones, crie subcategorias ou exclua categorias de gastos e receitas
+                Adicione, edite cores e ícones, ou exclua categorias de gastos e receitas
               </p>
             </div>
 
@@ -1008,7 +942,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
 
           <div className="divide-y divide-slate-200">
             {displayedCategoriesForManager.map((cat) => {
-              const isAddingSub = activeSubcatParentId === cat.id;
               return (
                 <div key={cat.id} className="p-6 space-y-3 hover:bg-slate-50/40">
                   <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1030,24 +963,11 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                               </span>
                             </>
                           )}
-                          <span aria-hidden="true"> · </span>
-                          <span>{(cat.subcategories || []).length} subcategoria(s)</span>
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSubcatParentId(isAddingSub ? null : cat.id);
-                          setNewSubcatName('');
-                        }}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        + Subcategoria
-                      </button>
                       <button
                         type="button"
                         onClick={() => openEditCategoryForm(cat)}
@@ -1068,65 +988,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Subcategories List */}
-                  <div className="pl-11 space-y-2">
-                    {(cat.subcategories || []).length === 0 ? (
-                      <p className="text-xs text-slate-400 italic">
-                        Nenhuma subcategoria cadastrada. Clique em "+ Subcategoria" para detalhar.
-                      </p>
-                    ) : (
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-700">
-                        {cat.subcategories.map((sub, idx) => (
-                          <div
-                            key={sub.id}
-                            className="inline-flex items-center gap-1.5 py-0.5"
-                          >
-                            {idx > 0 && (
-                              <span className="text-slate-300 mr-1" aria-hidden="true">
-                                ·
-                              </span>
-                            )}
-                            <span className="font-medium text-slate-800">{sub.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteSubcategory(cat.id, sub.id)}
-                              aria-label={`Remover subcategoria ${sub.name}`}
-                              className="text-slate-400 hover:text-rose-600 transition-colors"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {isAddingSub && (
-                      <div className="flex items-center gap-2 pt-1 max-w-md">
-                        <input
-                          type="text"
-                          aria-label={`Nova subcategoria para ${cat.name}`}
-                          value={newSubcatName}
-                          onChange={(e) => setNewSubcatName(e.target.value)}
-                          placeholder={`Nova subcategoria em ${cat.name}...`}
-                          className="flex-1 rounded-lg border border-emerald-600 px-3 py-1.5 text-xs text-slate-900"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleConfirmAddSubcategory(cat.id)}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                        >
-                          Adicionar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setActiveSubcatParentId(null)}
-                          className="text-xs text-slate-500 hover:text-slate-800"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </div>
               );
             })}

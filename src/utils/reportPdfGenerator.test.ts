@@ -76,7 +76,6 @@ describe('reportPdfGenerator - Monthly Financial Report PDF', () => {
         color: '#10b981',
         icon: 'briefcase',
         monthlyBudget: 0,
-        subcategories: [],
       },
       {
         id: 'cat-alimentacao',
@@ -86,7 +85,6 @@ describe('reportPdfGenerator - Monthly Financial Report PDF', () => {
         color: '#f59e0b',
         icon: 'utensils',
         monthlyBudget: 1500,
-        subcategories: [],
       },
       {
         id: 'cat-moradia',
@@ -96,7 +94,6 @@ describe('reportPdfGenerator - Monthly Financial Report PDF', () => {
         color: '#6366f1',
         icon: 'home',
         monthlyBudget: 2200,
-        subcategories: [],
       },
     ];
 

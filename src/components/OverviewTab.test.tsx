@@ -207,7 +207,6 @@ test('OverviewTab keeps cash-flow and card totals consistent for pending month d
     monthlyBudget: 500,
     color: '#059669',
     icon: 'home',
-    subcategories: [],
   };
   const transactions: Transaction[] = [
     {

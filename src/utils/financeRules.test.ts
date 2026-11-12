@@ -225,20 +225,16 @@ test('card deletion lookup includes purchases and current or legacy invoice paym
   );
 });
 
-test('category deletion lookup finds linked transactions without matching sibling subcategories', () => {
+test('category deletion lookup finds the transactions linked to a category', () => {
   const transactions = [
-    { id: 'tx-sub-1', categoryId: 'cat-food', subcategoryId: 'sub-market' },
-    { id: 'tx-sub-2', categoryId: 'cat-food', subcategoryId: 'sub-restaurant' },
-    { id: 'tx-category-2', categoryId: 'cat-home', subcategoryId: 'sub-rent' },
+    { id: 'tx-sub-1', categoryId: 'cat-food' },
+    { id: 'tx-sub-2', categoryId: 'cat-food' },
+    { id: 'tx-category-2', categoryId: 'cat-home' },
   ] as Transaction[];
 
   assert.deepEqual(
     getTransactionsLinkedToCategory('cat-food', transactions).map((tx) => tx.id),
     ['tx-sub-1', 'tx-sub-2']
-  );
-  assert.deepEqual(
-    getTransactionsLinkedToCategory('cat-food', transactions, 'sub-market').map((tx) => tx.id),
-    ['tx-sub-1']
   );
   assert.deepEqual(getTransactionsLinkedToCategory('cat-missing', transactions), []);
 });
@@ -474,7 +470,7 @@ test('card invoice settlement rejects invalid custom payments instead of treatin
   }
 });
 
-test('createTransactionBatch creates accurate installments with remainder on 1st parcel and preserves subcategoryId', () => {
+test('createTransactionBatch creates accurate installments with remainder on 1st parcel ', () => {
   const batch = createTransactionBatch({
     description: 'Geladeira Brastemp Frost Free',
     amount: 3000.01,
@@ -484,7 +480,6 @@ test('createTransactionBatch creates accurate installments with remainder on 1st
     type: 'expense',
     status: 'pending',
     categoryId: 'cat-moradia',
-    subcategoryId: 'sub-mor-manut',
     creditCardId: 'card-nubank',
     paymentMethod: 'credit_card',
     recurrence: 'installment',
@@ -496,7 +491,6 @@ test('createTransactionBatch creates accurate installments with remainder on 1st
   assert.equal(batch[1].amount, 1000.0);
   assert.equal(batch[2].amount, 1000.0);
   assert.equal(batch.every((tx) => tx.installmentPurchaseTotal === 3000.01), true);
-  assert.equal(batch[0].subcategoryId, 'sub-mor-manut');
   assert.equal(batch[0].competenceMonth, '2026-10');
   assert.equal(batch[1].competenceMonth, '2026-11');
   assert.equal(batch[2].competenceMonth, '2026-12');
@@ -799,7 +793,7 @@ test('simulateFixedIncomeBR applies Brazilian regressive IR rate and outperforms
   assert.ok(sim.advantageOverPoupanca > 0);
 });
 
-test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warning and over-limit budgets', () => {
+test('calculateCategoryBreakdown and getBudgetAlerts detect warning and over-limit budgets', () => {
   const categories: Category[] = [
     {
       id: 'c-inc',
@@ -809,7 +803,6 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
       monthlyBudget: 0,
       color: '#16a34a',
       icon: 'briefcase',
-      subcategories: [{ id: 's-clt', name: 'CLT' }],
     },
     {
       id: 'c-ess',
@@ -819,10 +812,6 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
       monthlyBudget: 3000,
       color: '#0284c7',
       icon: 'home',
-      subcategories: [
-        { id: 's-alug', name: 'Aluguel' },
-        { id: 's-cond', name: 'Condomínio' },
-      ],
     },
     {
       id: 'c-life',
@@ -832,7 +821,6 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
       monthlyBudget: 1000,
       color: '#d97706',
       icon: 'utensils',
-      subcategories: [],
     },
   ];
   const txs: Transaction[] = [
@@ -845,7 +833,6 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
       type: 'income',
       status: 'paid',
       categoryId: 'c-inc',
-      subcategoryId: 's-clt',
       accountId: 'a1',
       paymentMethod: 'pix',
       recurrence: 'single',
@@ -859,7 +846,6 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
       type: 'expense',
       status: 'paid',
       categoryId: 'c-ess',
-      subcategoryId: 's-alug',
       accountId: 'a1',
       paymentMethod: 'boleto',
       recurrence: 'single',
@@ -873,7 +859,6 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
       type: 'expense',
       status: 'paid',
       categoryId: 'c-ess',
-      subcategoryId: 's-cond',
       accountId: 'a1',
       paymentMethod: 'boleto',
       recurrence: 'single',
@@ -896,8 +881,7 @@ test('calculateCategoryBreakdown, subcategories, and getBudgetAlerts detect warn
   const catBreakdown = calculateCategoryBreakdown(categories, txs, '2026-10');
   assert.equal(catBreakdown[0].categoryId, 'c-ess');
   assert.equal(catBreakdown[0].status, 'over'); // 3200 > 3000
-  assert.equal(catBreakdown[0].subcategoryBreakdown.length, 2);
-  assert.equal(catBreakdown[0].subcategoryBreakdown[0].subcategoryName, 'Aluguel');
+  assert.equal(catBreakdown[0].spent, 3200);
   assert.equal(catBreakdown[1].categoryId, 'c-life');
   assert.equal(catBreakdown[1].status, 'warning'); // 850 >= 80% of 1000
 
@@ -938,7 +922,6 @@ test('calculatePeriodReport computes multi-month comparative summary and categor
       monthlyBudget: 0,
       color: '#059669',
       icon: 'briefcase',
-      subcategories: [],
     },
     {
       id: 'c-exp',
@@ -948,7 +931,6 @@ test('calculatePeriodReport computes multi-month comparative summary and categor
       monthlyBudget: 2000,
       color: '#1e293b',
       icon: 'home',
-      subcategories: [],
     },
   ];
   const txs: Transaction[] = [
@@ -1053,7 +1035,7 @@ test('createTransactionBatch correctly distributes sharedAmount across installme
   assert.equal(sharedBatch[2].sharedAmount, 250);
 });
 
-test('searchTransactionsGlobal filters transactions by description, category, subcategory, and notes with accent insensitivity', () => {
+test('searchTransactionsGlobal filters transactions by description, category and notes with accent insensitivity', () => {
   const categories: Category[] = [
     {
       id: 'cat-saude',
@@ -1063,7 +1045,6 @@ test('searchTransactionsGlobal filters transactions by description, category, su
       monthlyBudget: 650,
       color: '#dc2626',
       icon: 'heart-pulse',
-      subcategories: [{ id: 'sub-med', name: 'Medicamentos Contínuos' }],
     },
     {
       id: 'cat-freela',
@@ -1073,7 +1054,6 @@ test('searchTransactionsGlobal filters transactions by description, category, su
       monthlyBudget: 0,
       color: '#0d9488',
       icon: 'wallet',
-      subcategories: [],
     },
   ];
 
@@ -1087,7 +1067,6 @@ test('searchTransactionsGlobal filters transactions by description, category, su
       type: 'expense',
       status: 'paid',
       categoryId: 'cat-saude',
-      subcategoryId: 'sub-med',
       accountId: 'acc-1',
       paymentMethod: 'pix',
       recurrence: 'single',
@@ -1438,7 +1417,6 @@ test('shared expenses paid by member count only user share while pending and avo
       monthlyBudget: 1000,
       color: '#10b981',
       icon: 'shopping-cart',
-      subcategories: [],
     },
   ];
 

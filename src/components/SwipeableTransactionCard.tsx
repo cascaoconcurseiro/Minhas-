@@ -176,9 +176,6 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
     : transaction.isInvoicePayment
     ? 'Fatura Paga'
     : category?.name || 'Geral';
-  const subName = category?.subcategories?.find(
-    (s) => s.id === transaction.subcategoryId
-  )?.name;
 
   return (
     <div className="relative overflow-hidden select-none touch-pan-y group">
@@ -345,7 +342,6 @@ export const SwipeableTransactionCard: React.FC<SwipeableTransactionCardProps> =
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 <span className="font-medium text-slate-700 dark:text-slate-300">
                   {catName}
-                  {subName ? ` › ${subName}` : ''}
                 </span>
                 <span aria-hidden="true">·</span>
                 <span className="inline-flex min-w-0 items-center gap-1.5">

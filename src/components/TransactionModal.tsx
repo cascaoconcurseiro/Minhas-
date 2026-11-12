@@ -102,7 +102,6 @@ interface TransactionModalProps {
   transactions: Transaction[];
   familyMembers: FamilyMember[];
   onAddFamilyMember?: (newMember: Omit<FamilyMember, 'id'>) => FamilyMember | void;
-  onAddSubcategory?: (categoryId: string, name: string) => string | void;
   investments?: InvestmentAsset[];
   trips?: Trip[];
   selectedMonth: string;
@@ -143,7 +142,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   transactions,
   familyMembers,
   onAddFamilyMember,
-  onAddSubcategory,
   investments = [],
   trips = [],
   selectedMonth,
@@ -165,9 +163,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [date, setDate] = useState(getLocalDateISO());
   const [status, setStatus] = useState<TransactionStatus>('paid');
   const [categoryId, setCategoryId] = useState('');
-  const [subcategoryId, setSubcategoryId] = useState('');
-  const [isAddingSubcategory, setIsAddingSubcategory] = useState(false);
-  const [newSubcategoryName, setNewSubcategoryName] = useState('');
   const [accountId, setAccountId] = useState('');
   const [destinationAccountId, setDestinationAccountId] = useState('');
   const [creditCardId, setCreditCardId] = useState('');
@@ -350,7 +345,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setDate(editingTransaction.date);
       setStatus(editingTransaction.status);
       setCategoryId(editingTransaction.categoryId);
-      setSubcategoryId(editingTransaction.subcategoryId || '');
       setAccountId(editingTransaction.accountId || accounts[0]?.id || '');
       if (editingTransaction.targetInvestmentAssetId) {
         setTransferSubMode('investment_contribution');
@@ -554,11 +548,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setDate(foundTrip.startDate);
       }
       const travelCat = categories.find(
-        (c) => c.id === 'cat-lazer' || c.type === 'expense'
+        (c) => c.id === 'cat-viagens' || c.id === 'cat-lazer' || c.type === 'expense'
       );
       if (travelCat) {
         setCategoryId(travelCat.id);
-        setSubcategoryId('sub-laz-viagem');
       }
     } else {
       setIsTripLinked(false);
@@ -588,7 +581,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const firstExp = categories.find((c) => c.type === 'expense');
       if (!initialTripId) {
         setCategoryId(firstExp?.id || '');
-        setSubcategoryId(firstExp?.subcategories?.[0]?.id || '');
       }
     } else if (defaultMode === 'income') {
       setStatus('paid');
@@ -596,13 +588,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setAccountId(accounts[0]?.id || '');
       const firstInc = categories.find((c) => c.type === 'income');
       setCategoryId(firstInc?.id || '');
-      setSubcategoryId(firstInc?.subcategories?.[0]?.id || '');
     } else if (defaultMode === 'transfer') {
       setStatus('paid');
       setPaymentMethod('transfer');
       setAccountId(accounts[0]?.id || '');
       setDestinationAccountId(accounts[1]?.id || accounts[0]?.id || '');
-      setSubcategoryId('');
     } else {
       setStatus('paid');
       setPaymentMethod(initialTripId ? 'debit_card' : 'pix');
@@ -626,7 +616,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const firstExp = categories.find((c) => c.type === 'expense');
       if (!initialTripId) {
         setCategoryId(firstExp?.id || '');
-        setSubcategoryId(firstExp?.subcategories?.[0]?.id || '');
       }
     }
   }, [
@@ -939,7 +928,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const incCat = categories.find((c) => c.type === 'income');
       if (incCat) {
         setCategoryId(incCat.id);
-        setSubcategoryId(incCat.subcategories?.[0]?.id || '');
       }
       setPaymentMethod('pix');
       setStatus('paid');
@@ -951,7 +939,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const expCat = categories.find((c) => c.type === 'expense');
       if (expCat && !tripId) {
         setCategoryId(expCat.id);
-        setSubcategoryId(expCat.subcategories?.[0]?.id || '');
       }
       setPaymentMethod('credit_card');
       setStatus('pending');
@@ -961,7 +948,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } else if (mode === 'transfer') {
       setPaymentMethod('transfer');
       setStatus('paid');
-      setSubcategoryId('');
       setRecurrence('single');
       setIsMultiCurrencyOpen(false);
       setIsTripLinked(false);
@@ -970,7 +956,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       const expCat = categories.find((c) => c.type === 'expense');
       if (expCat && !tripId) {
         setCategoryId(expCat.id);
-        setSubcategoryId(expCat.subcategories?.[0]?.id || '');
       }
       setPaymentMethod('pix');
       setStatus('paid');
@@ -1027,7 +1012,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const selectedCategoryObj =
     filteredCategories.find((c) => c.id === categoryId) || filteredCategories[0];
-  const availableSubcategories = selectedCategoryObj?.subcategories || [];
 
   const numericPreview = parseBRLInput(amountStr);
 
@@ -1165,17 +1149,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       (category) => category.id === smartCategorySuggestion.categoryId
     );
     if (!suggestedCategory) return null;
-    const suggestedSubcategory = (suggestedCategory.subcategories || []).find(
-      (subcategory) =>
-        subcategory.id === smartCategorySuggestion.subcategoryId ||
-        (Boolean(smartCategorySuggestion.subcategoryName) &&
-          subcategory.name.trim().toLocaleLowerCase() ===
-            smartCategorySuggestion.subcategoryName?.trim().toLocaleLowerCase())
-    );
-    return {
-      categoryId: suggestedCategory.id,
-      subcategoryId: suggestedSubcategory?.id || '',
-    };
+    return { categoryId: suggestedCategory.id };
   }, [smartCategorySuggestion, categories]);
 
   // Auto-apply category suggestion when confidence is high and user hasn't manually overridden
@@ -1192,12 +1166,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       return;
     }
 
-    if (
-      categoryId !== smartCategoryTarget.categoryId ||
-      subcategoryId !== smartCategoryTarget.subcategoryId
-    ) {
+    if (categoryId !== smartCategoryTarget.categoryId) {
       setCategoryId(smartCategoryTarget.categoryId);
-      setSubcategoryId(smartCategoryTarget.subcategoryId);
       setAutoAppliedCategoryNotice(
         `Categoria "${smartCategorySuggestion.categoryName}" sugerida automaticamente`
       );
@@ -1210,7 +1180,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     smartCategorySuggestion,
     smartCategoryTarget,
     categoryId,
-    subcategoryId,
     categories,
   ]);
 
@@ -1345,7 +1314,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setAmountStr(sug.lastAmount.toFixed(2).replace('.', ','));
     }
     setCategoryId(sug.categoryId);
-    setSubcategoryId(sug.subcategoryId || '');
     setPaymentMethod(sug.paymentMethod);
     if (sug.creditCardId && entryMode === 'credit_card') {
       setCreditCardId(sug.creditCardId);
@@ -1419,42 +1387,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleCategoryChange = (newCatId: string, isManual = true) => {
     setCategoryId(newCatId);
-    const found = categories.find((c) => c.id === newCatId);
-    setSubcategoryId(found?.subcategories?.[0]?.id || '');
     if (isManual) {
       setUserManuallySelectedCategory(true);
       setAutoAppliedCategoryNotice(null);
     }
   };
 
-  const handleCreateSubcategory = () => {
-    if (!selectedCategoryObj || !onAddSubcategory) return;
-    const name = newSubcategoryName.trim();
-    if (!name) {
-      setError('Informe o nome da subcategoria.');
-      return;
-    }
-    const createdId = onAddSubcategory(selectedCategoryObj.id, name);
-    if (createdId) setSubcategoryId(createdId);
-    setNewSubcategoryName('');
-    setIsAddingSubcategory(false);
-    setError('');
-  };
-
   const handleApplySmartCategory = (sug: SmartCategorySuggestion) => {
     setCategoryId(sug.categoryId);
-    const suggestedCategory = categories.find((category) => category.id === sug.categoryId);
-    const subcategoryById = (suggestedCategory?.subcategories || []).find(
-      (subcategory) => subcategory.id === sug.subcategoryId
-    );
-    const existingSubcategory = sug.subcategoryName
-      ? (suggestedCategory?.subcategories || []).find(
-          (subcategory) => subcategory.name.trim().toLocaleLowerCase() === sug.subcategoryName?.trim().toLocaleLowerCase()
-        )
-      : undefined;
-    const subcategoryId = subcategoryById?.id || existingSubcategory?.id ||
-      (sug.subcategoryName ? onAddSubcategory?.(sug.categoryId, sug.subcategoryName) : undefined);
-    setSubcategoryId(subcategoryId || '');
     setUserManuallySelectedCategory(false);
     setAutoAppliedCategoryNotice(
       `Categoria "${sug.categoryName}" aplicada com base no histórico!`
@@ -1622,8 +1562,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             ? 'cat-aportes'
             : categories[0]?.id || 'cat-moradia'
           : categoryId,
-      subcategoryId:
-        entryMode === 'transfer' ? undefined : subcategoryId || undefined,
       accountId: entryMode === 'credit_card' ? undefined : accountId,
       destinationAccountId:
         entryMode === 'transfer' &&
@@ -2111,11 +2049,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   size="sm"
                                 />
                                 {smartCategorySuggestion.categoryName}
-                                {smartCategorySuggestion.subcategoryName && (
-                                  <span className="text-slate-500 dark:text-slate-400 font-normal text-[10px]">
-                                    › {smartCategorySuggestion.subcategoryName}
-                                  </span>
-                                )}
                               </span>
                               <span className="rounded-full bg-emerald-200/80 dark:bg-emerald-800/60 px-2 py-0.5 text-[10px] font-extrabold text-emerald-900 dark:text-emerald-200">
                                 {Math.round(smartCategorySuggestion.confidence * 100)}% provável
@@ -2332,11 +2265,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   size="sm"
                                 />
                                 {smartCategorySuggestion.categoryName}
-                                {smartCategorySuggestion.subcategoryName && (
-                                  <span className="text-slate-500 dark:text-slate-400 font-normal text-[10px]">
-                                    › {smartCategorySuggestion.subcategoryName}
-                                  </span>
-                                )}
                               </span>
                               <span className="rounded-full bg-emerald-200/80 dark:bg-emerald-800/60 px-2 py-0.5 text-[10px] font-extrabold text-emerald-900 dark:text-emerald-200">
                                 {Math.round(smartCategorySuggestion.confidence * 100)}% provável
@@ -2744,18 +2672,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Row 1: Category + Subcategory + Account/Card in a unified 3-column grid */}
-                <div
-                  className={`grid grid-cols-1 gap-3 ${
-                    availableSubcategories.length > 0
-                      ? 'sm:grid-cols-3'
-                      : 'sm:grid-cols-2'
-                  }`}
-                >
+                {/* Row 1: Category + Account/Card */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <label htmlFor="tx-category-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Categoria Principal
+                        Categoria
                       </label>
                       {smartCategorySuggestion && categoryId === smartCategorySuggestion.categoryId && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
@@ -2786,9 +2708,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       </select>
                     </div>
                     {smartCategorySuggestion && smartCategoryTarget &&
-                      (categoryId !== smartCategoryTarget.categoryId ||
-                        subcategoryId !== smartCategoryTarget.subcategoryId ||
-                        Boolean(smartCategorySuggestion.subcategoryName && !smartCategoryTarget.subcategoryId)) && (
+                      categoryId !== smartCategoryTarget.categoryId && (
                       <button
                         type="button"
                         onClick={() => handleApplySmartCategory(smartCategorySuggestion)}
@@ -2797,73 +2717,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         <Sparkles className="h-3 w-3 shrink-0" />
                         <span>Sugerir: {smartCategorySuggestion.categoryName} ({Math.round(smartCategorySuggestion.confidence * 100)}%)</span>
                       </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {availableSubcategories.length > 0 && (
-                      <>
-                        <label htmlFor="tx-subcategory-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                          Subcategoria
-                        </label>
-                        <select
-                          id="tx-subcategory-select"
-                          value={subcategoryId}
-                          onChange={(e) => {
-                            setSubcategoryId(e.target.value);
-                            setUserManuallySelectedCategory(true);
-                            setAutoAppliedCategoryNotice(null);
-                          }}
-                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
-                        >
-                          <option value="">Geral / Sem subcategoria</option>
-                          {availableSubcategories.map((sub) => (
-                            <option key={sub.id} value={sub.id}>
-                              {sub.name}
-                            </option>
-                          ))}
-                        </select>
-                      </>
-                    )}
-                    {onAddSubcategory && (
-                      <div>
-                        {!isAddingSubcategory ? (
-                          <button
-                            type="button"
-                            data-testid="open-quick-add-subcategory"
-                            onClick={() => setIsAddingSubcategory(true)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:underline dark:text-blue-300"
-                          >
-                            <Plus className="h-3 w-3" />
-                            Criar subcategoria
-                          </button>
-                        ) : (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <input
-                              data-testid="quick-add-subcategory-name"
-                              aria-label="Nome da nova subcategoria"
-                              autoFocus
-                              maxLength={60}
-                              value={newSubcategoryName}
-                              onChange={(e) => setNewSubcategoryName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleCreateSubcategory();
-                                }
-                              }}
-                              placeholder="Nome da subcategoria"
-                              className="min-w-[150px] flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                            />
-                            <button type="button" data-testid="save-quick-add-subcategory" onClick={handleCreateSubcategory} className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white">
-                              Adicionar
-                            </button>
-                            <button type="button" onClick={() => { setIsAddingSubcategory(false); setNewSubcategoryName(''); }} className="rounded-md px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
-                              Cancelar
-                            </button>
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
 
