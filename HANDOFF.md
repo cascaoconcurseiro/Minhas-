@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## DRE por mês da compra, recarga após nova versão e erros do console — 12/11/2026
+
+Pedido: o usuário relatou que a pizza ainda contava gastos de novembro em dezembro e colou erros do console. (1) `calculatePersonalDre` ainda filtrava pela competência da fatura; agora usa `getConsumptionMonth`, como pizza/orçamento/resumo (a pizza de Relatórios vem de `calculatePeriodReport`, já corrigida no PR #25; teste novo cobre relatório e DRE em nov/dez). Se a pizza ainda mostrar errado, pode ser aba aberta com a versão anterior: recarregar a página. (2) Erros 404 em `/assets/*.js` e "Failed to fetch dynamically imported module": aba aberta com a versão antiga pediu arquivos que a nova publicação substituiu. `main.tsx` agora trata `vite:preloadError` recarregando uma vez (trava de 30 s por sessão para não entrar em laço). (3) Avisos "Loading the font ... violates CSP font-src": o app só pede fontes de `fonts.googleapis.com`/`fonts.gstatic.com`, ambos permitidos em `vercel.json`; nenhuma outra fonte externa existe no código nem no CSS gerado. Hipótese, não confirmada: extensão do navegador injetando fontes na página (comum com corretores/tradutores). A URL bloqueada vinha ocultada no log; testar em janela anônima sem extensões. Não alterei o CSP.
+
 ## Auditoria de velocidade e bugs — 12/11/2026
 
 **Velocidade (medido):** com 6.000 lançamentos sintéticos, resumo mensal 2,1 ms, categorias 0,8 ms, fluxo diário 1,4 ms, comparativo de 6 meses 4,2 ms, faturas pendentes 1,1 ms; os cálculos não são gargalo. O peso está no download: bundle principal ~144 kB gzip, aba Relatórios ~118 kB (recharts), e o gerador de PDF (jspdf ~130 kB gzip) carregava junto com Relatórios e Viagens. Mudança: PDFs agora são importados só ao clicar em exportar (`ReportsAndDataTab`, `TripsTab`, `TripPdfReportModal`). As abas já eram `lazy`. Não medi tempo real no navegador/rede móvel nem a latência da API/Neon.
