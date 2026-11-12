@@ -3,12 +3,17 @@ import { ArrowRight, CreditCard as CreditCardIcon, Check } from 'lucide-react';
 import {
   BankAccount,
   Category,
+  CategorySpendItem,
   CreditCard,
   CreditCardSummary,
   MonthlyFinancialSummary,
   Transaction,
 } from '../types/finance';
-import { formatBRL, formatShortDateBR } from '../utils/financeRules';
+import { formatBRL, formatShortDateBR, summarizePendingBankMovements } from '../utils/financeRules';
+import { calculateSharedMonthTotals } from '../utils/sharedFinanceRules';
+
+/** Categoria padrão de moradia (seedData). */
+const HOUSING_CATEGORY_ID = 'cat-moradia';
 
 interface OverviewHomeCardsProps {
   monthlySummary: MonthlyFinancialSummary;
@@ -22,6 +27,7 @@ interface OverviewHomeCardsProps {
   onNavigateToCard?: (cardId: string) => void;
   transactions: Transaction[];
   selectedMonth: string;
+  categoryBreakdown: CategorySpendItem[];
 }
 
 const CARD_SHELL =
@@ -43,6 +49,7 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
   onNavigateToCard,
   transactions,
   selectedMonth,
+  categoryBreakdown,
 }) => {
   const projected = monthlySummary.totalProjectedBalance;
   const income = monthlySummary.incomeTotal;
@@ -51,8 +58,10 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
   const leftover = Math.max(0, projected);
   const barBase = Math.max(income, paid + pending + leftover, 1);
 
-  const pendingTotal = pendingBills.reduce((sum, tx) => sum + tx.amount, 0);
-  const visibleBills = pendingBills.slice(0, 6);
+  const pendingSummary = summarizePendingBankMovements(pendingBills);
+  const pendingTotal = pendingSummary.payableTotal;
+  const payableBills = pendingSummary.payableItems;
+  const visibleBills = payableBills.slice(0, 6);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? '';
   const accountName = (id?: string) => accounts.find((a) => a.id === id)?.name ?? '';
 
@@ -133,7 +142,7 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
               {formatBRL(pendingTotal)}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {pendingBills.length} pendente(s) neste mês
+              {payableBills.length} pendente(s) neste mês
             </p>
           </div>
         </div>
@@ -238,25 +247,19 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
       </article>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:col-span-3 min-w-0">
-      {/* Moradia: gastos da categoria de moradia no mês */}
+      {/* Moradia: usa o mesmo resumo por categoria das demais telas */}
       {(() => {
-        const housingIds = new Set(
-          categories.filter((c) => /moradia|aluguel|condom/i.test(c.name)).map((c) => c.id)
-        );
-        const housing = transactions.filter(
-          (tx) =>
-            tx.competenceMonth === selectedMonth &&
-            tx.type === 'expense' &&
-            housingIds.has(tx.categoryId)
-        );
-        const housingTotal = housing.reduce((sum, tx) => sum + tx.amount, 0);
+        const housing = categoryBreakdown.find((item) => item.categoryId === HOUSING_CATEGORY_ID);
+        const housingTotal = housing?.spent ?? 0;
         const share = pct(housingTotal, Math.max(income, 1));
-        const lines = housing.sort((a, b) => b.amount - a.amount).slice(0, 5);
         return (
           <article className={`${CARD_SHELL} min-w-0`}>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Moradia</p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Quanto gastamos para morar</p>
-            <p className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight tabular-nums text-slate-900 dark:text-white">
+            <p
+              data-testid="overview-housing-total"
+              className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight tabular-nums text-slate-900 dark:text-white"
+            >
               {formatBRL(housingTotal)}
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -265,42 +268,29 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
             <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <span className="block h-full bg-blue-600" style={{ width: `${share}%` }} />
             </div>
-            <ul className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
-              {lines.length === 0 && (
-                <li className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
-                  Nenhum gasto de moradia neste mês.
-                </li>
-              )}
-              {lines.map((tx) => (
-                <li key={tx.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="truncate text-slate-700 dark:text-slate-200">{tx.description}</span>
-                  <span className="shrink-0 font-semibold tabular-nums text-slate-900 dark:text-white">
-                    {formatBRL(tx.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <dt className="text-slate-500 dark:text-slate-400">Já pago</dt>
+                <dd className="mt-1 text-base font-semibold tabular-nums text-slate-900 dark:text-white">
+                  {formatBRL(housing?.realizedSpent ?? 0)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500 dark:text-slate-400">Pendente</dt>
+                <dd className="mt-1 text-base font-semibold tabular-nums text-slate-900 dark:text-white">
+                  {formatBRL(housing?.pendingSpent ?? 0)}
+                </dd>
+              </div>
+            </dl>
           </article>
         );
       })()}
 
-      {/* Divisão da casa: despesas compartilhadas ainda não acertadas */}
+      {/* Divisão da casa: mesma regra da aba Nossa casa */}
       {(() => {
-        const shared = transactions.filter(
-          (tx) =>
-            tx.competenceMonth === selectedMonth &&
-            (tx.sharedAmount ?? 0) > 0 &&
-            tx.sharedStatus !== 'received' &&
-            tx.sharedPaidBy !== undefined
-        );
-        const theyOwe = shared
-          .filter((tx) => tx.sharedPaidBy === 'me')
-          .reduce((sum, tx) => sum + (tx.sharedAmount ?? 0), 0);
-        const iOwe = shared
-          .filter((tx) => tx.sharedPaidBy === 'member')
-          .reduce((sum, tx) => sum + (tx.sharedAmount ?? 0), 0);
-        const total = theyOwe + iOwe;
-        const mine = pct(theyOwe, total);
+        const shared = calculateSharedMonthTotals(transactions, selectedMonth);
+        const total = Math.round((shared.owedToMe + shared.iOwe) * 100) / 100;
+        const mine = pct(shared.owedToMe, total);
         return (
           <article className={`${CARD_SHELL} min-w-0`}>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Divisão da casa</p>
@@ -308,18 +298,34 @@ export const OverviewHomeCards: React.FC<OverviewHomeCardsProps> = ({
             <p className="mt-3 text-2xl sm:text-3xl font-bold tracking-tight tabular-nums text-slate-900 dark:text-white">
               {formatBRL(total)}
             </p>
-            <div className="mt-4 flex h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="img" aria-label={`Te devem ${formatBRL(theyOwe)}, você deve ${formatBRL(iOwe)}`}>
-              <span className="h-full bg-emerald-500" style={{ width: `${mine}%` }} />
-              <span className="h-full bg-rose-400" style={{ width: `${100 - mine}%` }} />
-            </div>
+            {total > 0 && (
+              <div
+                className="mt-4 flex h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+                role="img"
+                aria-label={`Te devem ${formatBRL(shared.owedToMe)}, você deve ${formatBRL(shared.iOwe)}`}
+              >
+                <span className="h-full bg-emerald-500" style={{ width: `${mine}%` }} />
+                <span className="h-full bg-rose-400" style={{ width: `${100 - mine}%` }} />
+              </div>
+            )}
             <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
               <div>
                 <dt className="text-slate-500 dark:text-slate-400">Te devem</dt>
-                <dd className="mt-1 text-base font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{formatBRL(theyOwe)}</dd>
+                <dd
+                  data-testid="overview-shared-owed-to-me"
+                  className="mt-1 text-base font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
+                >
+                  {formatBRL(shared.owedToMe)}
+                </dd>
               </div>
               <div>
                 <dt className="text-slate-500 dark:text-slate-400">Você deve</dt>
-                <dd className="mt-1 text-base font-semibold tabular-nums text-rose-700 dark:text-rose-400">{formatBRL(iOwe)}</dd>
+                <dd
+                  data-testid="overview-shared-i-owe"
+                  className="mt-1 text-base font-semibold tabular-nums text-rose-700 dark:text-rose-400"
+                >
+                  {formatBRL(shared.iOwe)}
+                </dd>
               </div>
             </dl>
             {total === 0 && (

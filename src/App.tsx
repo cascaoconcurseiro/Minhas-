@@ -74,6 +74,7 @@ import {
   formatMonthYearPT,
   payCreditCardInvoice,
   toggleTransactionStatusWithCascade,
+  calculateNetWorth,
 } from './utils/financeRules';
 import {
   DEFAULT_MONTH,
@@ -2791,19 +2792,13 @@ export default function App() {
     [trips]
   );
 
-  const accountsTotalBalance = useMemo(
-    () => accountBalances.reduce((sum, b) => sum + b.currentBalance, 0),
-    [accountBalances]
+  // Fonte única dos totais de contas e investimentos: a mesma função do patrimônio líquido.
+  const netWorthSnapshot = useMemo(
+    () => calculateNetWorth(accountBalances, investments, cardSummaries),
+    [accountBalances, investments, cardSummaries]
   );
-
-  const investmentsTotalValue = useMemo(
-    () =>
-      investments.reduce(
-        (sum, asset) => sum + Math.round(asset.quantity * asset.currentPrice * 100) / 100,
-        0
-      ),
-    [investments]
-  );
+  const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
+  const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
 
   const todayDateStr = useMemo(() => {
     const now = new Date();

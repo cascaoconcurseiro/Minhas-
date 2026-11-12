@@ -193,6 +193,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         onNavigateToCard={onNavigateToCard}
         transactions={transactions}
         selectedMonth={selectedMonth}
+        categoryBreakdown={categoryBreakdown}
       />
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
