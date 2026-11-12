@@ -1,5 +1,12 @@
 # Checklist — Minhas Economias
 
+## Gasto por mês da compra — 2026-11-12
+- [x] Pizza, orçamento, despesas do mês, 50/30/20 e relatório por mês da compra/parcela; faturas e caixa por vencimento.
+- [x] Corrigir cartões espremidos na Visão Geral acima de 1366 px (CSS).
+- [x] Lint, build e 568 testes.
+- [ ] Conferir o painel renderizado (desktop largo e celular) com dados reais após o deploy.
+- [ ] Revisar Compartilhado, Viagens e contagens de pendências do menu, que ainda usam a competência da fatura.
+
 ## Recuperação da API — 2026-11-11
 - [x] Identificar nos logs de produção a causa dos HTTP 500: import ESM sem extensão em `sharedFinanceRules.ts` no runtime Node 26.
 - [x] Extrair a validação de recibos para um módulo sem dependências de interface e revisar `.claude/launch.json` antes do commit autorizado.

@@ -100,6 +100,20 @@ function isCreditCardInvoicePurchase(tx: Transaction): boolean {
   return !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member';
 }
 
+/**
+ * Mês em que o gasto foi consumido (visão de competência de consumo).
+ * Compras no cartão contam no mês da compra (cada parcela, no mês da própria
+ * parcela) e não no mês de vencimento da fatura. Parcelas antecipadas mantêm
+ * o mês original. Lançamentos de banco seguem a competência salva.
+ */
+export function getConsumptionMonth(tx: Transaction): string {
+  if (tx.creditCardId && !tx.isInvoicePayment) {
+    const date = tx.originalDateBeforeAnticipation || tx.date;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date.slice(0, 7);
+  }
+  return tx.competenceMonth;
+}
+
 function getCashMovementMonth(tx: Transaction): string {
   return tx.isInvoicePayment && /^\d{4}-\d{2}-\d{2}$/.test(tx.date)
     ? tx.date.slice(0, 7)
@@ -1059,7 +1073,7 @@ export function calculateMonthlySummary(
     }
   }
 
-  const monthTxs = transactions.filter((tx) => tx.competenceMonth === selectedMonth);
+  const monthTxs = transactions.filter((tx) => getConsumptionMonth(tx) === selectedMonth);
 
   let incomeRealized = 0;
   let incomePending = 0;
@@ -1149,7 +1163,7 @@ export function calculateCategoryBreakdown(
   }> = [];
 
   for (const tx of transactions) {
-    if (tx.competenceMonth !== selectedMonth) continue;
+    if (getConsumptionMonth(tx) !== selectedMonth) continue;
     const eff = getEffectiveExpenseAmountForUser(tx);
     if (!eff) continue;
     monthExpenses.push({
@@ -1231,7 +1245,7 @@ export function calculate503020Rule(
   const catMap = new Map(categories.map((c) => [c.id, c]));
   const monthTxs = transactions.filter(
     (tx) =>
-      tx.competenceMonth === selectedMonth &&
+      getConsumptionMonth(tx) === selectedMonth &&
       !tx.isInvoicePayment &&
       !tx.isCompanionOnlyExpense
   );
@@ -1292,7 +1306,7 @@ export function calculatePeriodReport(
 
   const periodTxs = transactions.filter(
     (tx) =>
-      monthSet.has(tx.competenceMonth) &&
+      monthSet.has(getConsumptionMonth(tx)) &&
       !tx.isInvoicePayment &&
       tx.type !== 'transfer' &&
       !tx.isCompanionOnlyExpense
@@ -3138,14 +3152,16 @@ export function previewCategoryBudget(
   editingId?: string,
   scope: CascadeScope = 'single'
 ) {
-  const month = draft.competenceMonth || draft.date.slice(0, 7);
+  const month = draft.creditCardId
+    ? draft.date.slice(0, 7)
+    : draft.competenceMonth || draft.date.slice(0, 7);
   const category = categories.find((item) => item.id === draft.categoryId);
   if (!category || category.type !== 'expense') return null;
   let projected: Transaction[];
   let draftRows: Transaction[];
   const original = editingId ? transactions.find((tx) => tx.id === editingId) : undefined;
   if (original) {
-    const edit = applyCascadeTransactionEdit(transactions, { ...original, ...draft, competenceMonth: month }, scope);
+    const edit = applyCascadeTransactionEdit(transactions, { ...original, ...draft, competenceMonth: draft.competenceMonth || draft.date.slice(0, 7) }, scope);
     if (edit.error) return null;
     projected = edit.updatedTransactions;
     draftRows = projected.filter((tx) => tx.id === original.id);
@@ -3164,9 +3180,9 @@ export function previewCategoryBudget(
   const projectedSpent = after?.spent || 0;
   return {
     hasBudget: category.monthlyBudget > 0, categoryName: category.name, month, budgetLimit: category.monthlyBudget,
-    draftMonthlyAmount: draftRows.filter((tx) => tx.competenceMonth === month)
+    draftMonthlyAmount: draftRows.filter((tx) => getConsumptionMonth(tx) === month)
       .reduce((sum, tx) => sum + Math.round((getEffectiveExpenseAmountForUser(tx)?.amount || 0) * 100), 0) / 100,
-    draftSharedAmount: draftRows.filter((tx) => tx.competenceMonth === month)
+    draftSharedAmount: draftRows.filter((tx) => getConsumptionMonth(tx) === month)
       .reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100), 0) / 100,
     spentBefore, projectedSpent,
     remainingAfter: Math.round((category.monthlyBudget - projectedSpent) * 100) / 100,

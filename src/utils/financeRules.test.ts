@@ -44,6 +44,7 @@ import {
   searchTransactionsGlobal,
   simulateFixedIncomeBR,
   summarizeGlobalSearchResults,
+  getConsumptionMonth,
 } from './financeRules';
 import { BankAccount, Category, CreditCard, Transaction } from '../types/finance';
 import { INITIAL_CATEGORIES } from './seedData';
@@ -81,7 +82,7 @@ test('settled shared expenses and reimbursement movements require reversal befor
   assert.ok(applyCascadeTransactionEdit([reimb],{...reimb,amount:200}).error);
 });
 
-test('budget preview uses the saved invoice month and exact first installment cents', () => {
+test('budget preview uses the purchase month and exact first installment cents', () => {
   const category: Category = { ...INITIAL_CATEGORIES.find((item) => item.type === 'expense')!, monthlyBudget: 100 };
   const draft = {
     description: 'Synthetic installments', amount: .08, date: '2026-11-11', competenceMonth: '2026-12',
@@ -93,10 +94,11 @@ test('budget preview uses the saved invoice month and exact first installment ce
   const december = createTransactionBatch({ ...draft, amount: 20, recurrence: 'single' });
   const preview = previewCategoryBudget([category], [...existing, ...december], draft)!;
   const saved = createTransactionBatch(draft);
-  assert.equal(preview.month, '2026-12');
-  assert.equal(preview.spentBefore, 20);
-  assert.equal(preview.projectedSpent, 20 + saved[0].amount);
-  assert.equal(preview.projectedSpent, 20.02);
+  assert.equal(saved[0].competenceMonth, '2026-12', 'a fatura continua vencendo em dezembro');
+  assert.equal(preview.month, '2026-11', 'o gasto conta no mês da compra, não no vencimento da fatura');
+  assert.equal(preview.spentBefore, 110);
+  assert.equal(preview.projectedSpent, 110 + saved[0].amount);
+  assert.equal(preview.projectedSpent, 110.02);
   assert.equal(preview.draftMonthlyAmount, saved[0].amount);
   const warning = previewCategoryBudget([category], december, { ...draft, amount: 60, recurrence: 'single' })!;
   assert.equal(warning.statusAfter, 'warning');
@@ -346,7 +348,8 @@ test('paying a card invoice reduces bank cash once without duplicating purchase 
   const beforePayment = calculateMonthlySummary([account], [card], purchase, '2026-11');
   assert.equal(beforePayment.totalCurrentBalance, 1000);
   assert.equal(beforePayment.totalProjectedBalance, 900);
-  assert.equal(beforePayment.expensePending, 100);
+  assert.equal(beforePayment.expensePending, 0, 'a compra de outubro não é gasto de novembro, mesmo com fatura em novembro');
+  assert.equal(calculateMonthlySummary([account], [card], purchase, '2026-10').expensePending, 100);
 
   const settled = payCreditCardInvoice(card, purchase, '2026-11', account.id, '2026-11-18');
   const payment = settled.find((tx) => tx.isInvoicePayment);
@@ -358,20 +361,24 @@ test('paying a card invoice reduces bank cash once without duplicating purchase 
   const afterPayment = calculateMonthlySummary([account], [card], settled, '2026-11');
   assert.equal(afterPayment.totalCurrentBalance, 900, 'pagamento debita uma vez do dinheiro da conta');
   assert.equal(afterPayment.totalProjectedBalance, 900);
-  assert.equal(afterPayment.expenseRealized, 100, 'consumo é reconhecido pela compra, não pelo pagamento duplicado');
-  assert.equal(afterPayment.expensePending, 0);
-  assert.equal(afterPayment.expenseTotal, 100);
+  assert.equal(afterPayment.expenseTotal, 0, 'pagar a fatura em novembro não cria gasto em novembro');
+  const consumption = calculateMonthlySummary([account], [card], settled, '2026-10');
+  assert.equal(consumption.expenseRealized, 100, 'consumo é reconhecido pela compra, não pelo pagamento duplicado');
+  assert.equal(consumption.expensePending, 0);
+  assert.equal(consumption.expenseTotal, 100);
   assert.equal(calculateAccountBalances([account], settled, '2026-11')[0].monthExpense, 100);
 
-  const category = calculateCategoryBreakdown(INITIAL_CATEGORIES, settled, '2026-11')
+  const category = calculateCategoryBreakdown(INITIAL_CATEGORIES, settled, '2026-10')
     .find((item) => item.categoryId === 'cat-outros');
-  assert.equal(category?.spent, 100, 'o total por categoria mantém apenas a compra');
+  assert.equal(category?.spent, 100, 'o total por categoria mantém apenas a compra, no mês da compra');
+  assert.equal(calculateCategoryBreakdown(INITIAL_CATEGORIES, settled, '2026-11')
+    .find((item) => item.categoryId === 'cat-outros')?.spent, 0);
   const report = calculatePeriodReport(
-    [account], [card], INITIAL_CATEGORIES, settled, '2026-11', '2026-11'
+    [account], [card], INITIAL_CATEGORIES, settled, '2026-10', '2026-11'
   );
   assert.equal(report.totalExpense, 100, 'relatório de período exclui o pagamento da compra já reconhecida');
   assert.equal(report.expensesByCategory.find((item) => item.id === 'cat-outros')?.amount, 100);
-  assert.equal(report.monthlySeries[0].cumulativeBalance, 900, 'saldo de caixa ainda reflete a liquidação');
+  assert.equal(report.monthlySeries.at(-1)?.cumulativeBalance, 900, 'saldo de caixa ainda reflete a liquidação');
   assert.deepEqual(calculateCalendarDaySummary([payment]), {
     pendingExpense: 0, paidExpense: 0, income: 0, dayBalance: 0,
   });
@@ -2391,4 +2398,44 @@ test('calendar cell total sums the day, counts installment purchases by their fu
   assert.equal(totals.expense, 1620);
   assert.equal(totals.income, 300);
   assert.deepEqual(calculateCalendarCellTotals([]), { expense: 0, income: 0 });
+});
+
+test('compra de novembro com fatura em dezembro é gasto de novembro e saída de caixa de dezembro', () => {
+  const account: BankAccount = {
+    id: 'acc-itau', name: 'Conta', institution: 'Banco QA', type: 'checking',
+    initialBalance: 5000, color: '#0f172a', includeInTotal: true,
+  };
+  const card: CreditCard = {
+    id: 'card-itau', name: 'Itaú azul', brand: 'Visa', limit: 10000,
+    closingDay: 30, dueDay: 5, defaultAccountId: account.id, color: '#0f172a',
+  };
+  const food = INITIAL_CATEGORIES.find((item) => item.type === 'expense')!;
+  const single = createTransactionBatch({
+    description: 'Mercado', amount: 200, date: '2026-11-11', competenceMonth: '2026-12',
+    type: 'expense', status: 'pending', categoryId: food.id,
+    creditCardId: card.id, paymentMethod: 'credit_card', recurrence: 'single',
+  });
+  const installments = createTransactionBatch({
+    description: 'Eletrônico', amount: 300, date: '2026-11-11', competenceMonth: '2026-12',
+    type: 'expense', status: 'pending', categoryId: food.id, creditCardId: card.id,
+    paymentMethod: 'credit_card', recurrence: 'installment', installmentTotal: 3, amountMode: 'total_divided',
+  });
+  const all = [...single, ...installments];
+
+  assert.deepEqual(installments.map(getConsumptionMonth), ['2026-11', '2026-12', '2027-01']);
+  assert.deepEqual(installments.map((tx) => tx.competenceMonth), ['2026-12', '2027-01', '2027-02']);
+
+  const spent = (month: string) => calculateCategoryBreakdown(INITIAL_CATEGORIES, all, month)
+    .find((item) => item.categoryId === food.id)?.spent;
+  assert.equal(spent('2026-11'), 300, 'novembro: compra à vista + parcela 1');
+  assert.equal(spent('2026-12'), 100, 'dezembro: parcela 2');
+  assert.equal(spent('2027-01'), 100, 'janeiro: parcela 3');
+  assert.equal(calculateMonthlySummary([account], [card], all, '2026-11').expenseTotal, 300);
+
+  assert.equal(calculateCreditCardSummary(card, all, '2026-12').invoicePendingAmount, 300, 'a fatura continua por vencimento');
+
+  const november = calculateDailyCashFlow([account], [card], all, '2026-11');
+  assert.equal(november.reduce((sum, day) => sum + day.expense, 0), 0, 'nenhuma saída de caixa em novembro');
+  const december = calculateDailyCashFlow([account], [card], all, '2026-12');
+  assert.equal(december[4].expense, 300, 'fatura sai do caixa no vencimento, dia 5/12');
 });

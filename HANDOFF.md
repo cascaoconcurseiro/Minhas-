@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Gasto por mês da compra, caixa por vencimento — 12/11/2026
+
+Pedido: compra de novembro no cartão com fatura em dezembro aparecia como gasto de dezembro (pizza, orçamento, despesas do mês). Decisão confirmada: duas visões separadas. **Gasto** conta no mês da compra (cada parcela no mês da própria parcela, parcela antecipada no mês original); **caixa** conta quando o dinheiro sai (fatura no vencimento/pagamento).
+
+Mudanças: novo `getConsumptionMonth` em `financeRules.ts`, usado em `calculateMonthlySummary`, `calculateCategoryBreakdown` (pizza/orçamento), regra 50/30/20, relatório de período, maiores gastos do PDF e prévia de orçamento do formulário (cartão usa o mês da data). Faturas (`calculateCreditCardSummary`), fluxo diário e saldo projetado seguem por vencimento/pagamento, sem alteração. Texto do fluxo diário em Relatórios explica a diferença. Layout: acima de 1366 px os cartões "Resumo do mês", "Cartões", "Previsão do saldo", "Saúde dos dados" e "Gastos que se repetem" ocupavam 1 de 12 colunas do grid e ficavam espremidos; agora ocupam a linha inteira (`src/index.css`).
+
+Validação: `tsc --noEmit`, build, 568 testes. Três testes antigos foram atualizados para a nova regra e há teste novo (compra à vista + 3x em 11/11 com fatura em dezembro: gasto 300/100/100 em nov/dez/jan, fatura de dezembro R$ 300, saída de caixa só em 5/12). Não conferi o layout em navegador (sem sessão autenticada). Dados salvos não foram alterados. Ainda por revisar: Compartilhado, Viagens e contagens de pendências do menu ainda usam a competência da fatura.
+
 ## Ajuste para celulares — 12/11/2026
 
 Pedido: a versão no celular não estava ajustada para todos os smartphones. Medido no navegador (Chromium, emulando celular, com dados fictícios e a API simulada) em 320x568, 360x740/2400, 375x667 e 390x844: nenhuma tela tinha rolagem horizontal, mas havia texto cortado com "…" (inclusive valores em reais), cabeçalho empurrando o ícone de configurações para fora, o menu "Mais" cortando texto em 320 px e formulários usando `vh` (que no celular inclui a área atrás da barra do navegador).
