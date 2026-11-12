@@ -2,6 +2,7 @@ import {
   InvestmentAsset,
   InvestmentAssetClass,
   InvestmentTargetMap,
+  SavingsGoal,
   Transaction,
 } from '../types/finance';
 
@@ -12,6 +13,29 @@ export const DEFAULT_INVESTMENT_TARGETS: InvestmentTargetMap = {
   acoes_br: 15,
   exterior_etf: 10,
 };
+
+export function getInvestmentDeletionRestriction(asset: InvestmentAsset, transactions: Transaction[], goals: SavingsGoal[]): string | null {
+  if (asset.quantity !== 0) return 'Este ativo ainda possui saldo. Registre o resgate antes de excluí-lo.';
+  if (transactions.some(tx => tx.targetInvestmentAssetId === asset.id)) return 'Este ativo possui movimentações no histórico e deve ser mantido na carteira, mesmo com saldo zero.';
+  if (goals.some(goal => goal.linkedAssetId === asset.id)) return 'Este ativo está vinculado a uma meta. Revise o vínculo da meta antes de excluí-lo.';
+  return null;
+}
+
+export function createGoalInvestmentContribution(goal: SavingsGoal, asset: InvestmentAsset, amount: number, date: string, accountId?: string, id = 'goal-contribution'): { asset: InvestmentAsset; goal: SavingsGoal; transaction?: Transaction } {
+  const cents = Math.round(amount * 100);
+  if (goal.linkedAssetId !== asset.id || !Number.isFinite(amount) || !Number.isSafeInteger(cents) || cents <= 0 || !Number.isFinite(asset.currentPrice) || asset.currentPrice <= 0) {
+    throw new RangeError('Confira o valor e o investimento vinculado à meta.');
+  }
+  const quantity = Math.round((cents / 100 / asset.currentPrice) * 10000) / 10000;
+  const movement = createInvestmentCashMovement(asset, 'buy', quantity, asset.currentPrice, accountId || 'unlinked', date, id);
+  const updatedAsset = { ...applyAssetOperation(asset, 'buy', quantity, asset.currentPrice), currentPrice: asset.currentPrice };
+  const previousValue = Math.round(asset.quantity * asset.currentPrice * 100);
+  const nextValue = Math.round(updatedAsset.quantity * updatedAsset.currentPrice * 100);
+  if (!Number.isSafeInteger(nextValue) || movement.amount !== cents / 100 || nextValue - previousValue !== cents) {
+    throw new RangeError('O valor não corresponde à quantidade do ativo com quatro casas decimais. Registre o aporte pela quantidade na carteira de investimentos.');
+  }
+  return { asset: updatedAsset, goal: { ...goal, currentAmount: nextValue / 100 }, transaction: accountId ? movement : undefined };
+}
 
 export function createInvestmentCashMovement(asset: InvestmentAsset, mode: 'buy' | 'sell', quantity: number, price: number, accountId: string, date: string, id: string): Transaction {
   const parsed = new Date(`${date}T00:00:00.000Z`);

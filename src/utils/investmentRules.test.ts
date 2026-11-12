@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   applyAssetOperation,
   createInvestmentCashMovement,
+  getInvestmentDeletionRestriction,
+  createGoalInvestmentContribution,
   applyGoogleFinanceQuotesToAssets,
   calculateAssetPositionMetrics,
   calculatePortfolioSummary,
@@ -16,6 +18,43 @@ import {
 } from './investmentRules';
 import { InvestmentAsset } from '../types/finance';
 import { calculateAccountBalances, calculatePersonalDre } from './financeRules';
+
+test('goal investment contribution reconciles exact cash with position and derives goal balance from asset', () => {
+  const asset = { ...SAMPLE_ASSETS[1], quantity: 2, averagePrice: 100, currentPrice: 100 };
+  const goal = { id: 'goal', name: 'Reserva', linkedAssetId: asset.id, targetAmount: 5000, currentAmount: 999, monthlyContribution: 100, deadline: '2027-11-11', indexer: 'CDI_100' as const, category: 'Reserva' };
+  const result = createGoalInvestmentContribution(goal, asset, 250.75, '2026-10-08', 'bank', 'contribution');
+  assert.equal(result.goal.currentAmount, 450.75);
+  assert.equal(result.asset.quantity, 4.5075);
+  assert.equal(result.transaction?.amount, 250.75);
+  assert.equal(result.transaction?.type, 'transfer');
+  assert.equal(result.transaction?.date, '2026-10-08');
+  assert.equal(result.transaction?.competenceMonth, '2026-10');
+  const recordedElsewhere = createGoalInvestmentContribution(goal, asset, 100, '2026-10-08');
+  assert.equal(recordedElsewhere.transaction, undefined);
+  assert.equal(recordedElsewhere.goal.currentAmount, 300);
+  assert.equal(asset.quantity, 2);
+  assert.equal(goal.currentAmount, 999);
+});
+
+test('goal contribution rejects precision mismatch without debiting full amount or changing inputs', () => {
+  const asset = { ...SAMPLE_ASSETS[0], currentPrice: 14000 };
+  const goal = { id: 'goal', name: 'Reserva', linkedAssetId: asset.id, targetAmount: 5000, currentAmount: 0, monthlyContribution: 100, deadline: '2027-11-11', indexer: 'CDI_100' as const, category: 'Reserva' };
+  assert.throws(() => createGoalInvestmentContribution(goal, asset, 100, '2026-11-11', 'bank'), /quatro casas/);
+  for (const amount of [NaN, Infinity, -1, 0, .001]) assert.throws(() => createGoalInvestmentContribution(goal, asset, amount, '2026-11-11', 'bank'), RangeError);
+  assert.equal(asset.quantity, 2);
+  assert.equal(goal.currentAmount, 0);
+});
+
+test('deleting an investment preserves positions, transaction links and goal links', () => {
+  const asset = SAMPLE_ASSETS[1];
+  const empty = { ...asset, quantity: 0 };
+  assert.match(getInvestmentDeletionRestriction(asset, [], [])!, /saldo/);
+  const movement = createInvestmentCashMovement(asset, 'sell', 1, 100, 'bank', '2026-11-11', 'sell');
+  assert.match(getInvestmentDeletionRestriction(empty, [movement], [])!, /histórico/);
+  const goal = { id: 'goal', name: 'Reserva', linkedAssetId: empty.id, targetAmount: 5000, currentAmount: 0, monthlyContribution: 100, deadline: '2027-11-11', indexer: 'CDI_100' as const, category: 'Reserva' };
+  assert.match(getInvestmentDeletionRestriction(empty, [], [goal])!, /meta/);
+  assert.equal(getInvestmentDeletionRestriction(empty, [], []), null);
+});
 
 test('investment principal moves between bank and asset without becoming revenue or consumption', () => {
   const asset = { ...SAMPLE_ASSETS[1], quantity: 10, averagePrice: 100, currentPrice: 100 };
