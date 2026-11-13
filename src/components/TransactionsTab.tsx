@@ -1,3 +1,4 @@
+import { describeTransferForeignLeg } from '../utils/transferRules';
 import { confirmTransactionDeletion } from '../utils/transactionDeletion';
 import React, { useMemo, useState } from 'react';
 import {
@@ -830,7 +831,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                           : tx.type === 'transfer'
                           ? `${accMap.get(tx.accountId || '') || 'Origem'} → ${
                               accMap.get(tx.destinationAccountId || '') || 'Destino'
-                            }`
+                            }${describeTransferForeignLeg(tx, accounts)}`
                           : accMap.get(tx.accountId || '') || 'Carteira';
 
                         const installmentMeta =
@@ -920,7 +921,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                       : tx.type === 'transfer'
                       ? `${accMap.get(tx.accountId || '') || 'Origem'} → ${
                           accMap.get(tx.destinationAccountId || '') || 'Destino'
-                        }`
+                        }${describeTransferForeignLeg(tx, accounts)}`
                       : accMap.get(tx.accountId || '') || 'Carteira';
                     const originMarks = getTransactionOriginMarks(tx);
 
@@ -1189,7 +1190,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
               : actionSheetTx.type === 'transfer'
               ? `${accMap.get(actionSheetTx.accountId || '') || 'Origem'} → ${
                   accMap.get(actionSheetTx.destinationAccountId || '') || 'Destino'
-                }`
+                }${describeTransferForeignLeg(actionSheetTx, accounts)}`
               : accMap.get(actionSheetTx.accountId || '') || 'Carteira'
             : ''
         }

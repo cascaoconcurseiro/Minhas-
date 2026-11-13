@@ -1,4 +1,5 @@
 import type { BankAccount, CurrencyCode, Transaction } from '../types/finance';
+import { formatForeignCurrency } from './travelRules';
 
 /**
  * Regras de transferência entre contas. Só funções puras: o formulário, o saldo e a
@@ -186,4 +187,17 @@ export function findSelfTransfers(transactions: Transaction[]): Transaction[] {
   return transactions.filter(
     (tx) => tx.type === 'transfer' && Boolean(tx.accountId) && tx.accountId === tx.destinationAccountId
   );
+}
+
+/** Texto curto da perna estrangeira de uma transferência, ex.: " · US$ 100,00 a R$ 5,40" (vazio se não houver). */
+export function describeTransferForeignLeg(tx: Transaction, accounts: BankAccount[]): string {
+  if (tx.type !== 'transfer') return '';
+  const foreignAmount = tx.transferFromAmount || tx.transferToAmount;
+  if (!foreignAmount || foreignAmount <= 0) return '';
+  const source = accounts.find((account) => account.id === tx.accountId);
+  const destination = accounts.find((account) => account.id === tx.destinationAccountId);
+  const currency = tx.transferFromAmount ? getAccountCurrency(source) : getAccountCurrency(destination);
+  if (currency === 'BRL') return '';
+  const rate = tx.transferExchangeRate ? ` a ${formatForeignCurrency(tx.transferExchangeRate, 'BRL')}` : '';
+  return ` · ${formatForeignCurrency(foreignAmount, currency)}${rate}`;
 }

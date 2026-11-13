@@ -1,5 +1,18 @@
 # Handoff — Minhas Economias
 
+## Varredura completa da lógica: o que mais foi achado e corrigido — 13/11/2026
+
+Segunda passada (depois do PR #37), cobrindo todos os handlers do `App.tsx`:
+
+1. **Compra de cartão marcada como paga direto** (lista, deslizar, folha de ações ou "efetivar em lote") quitava a dívida sem sair dinheiro de conta nenhuma. `toggleTransactionStatusWithCascade` agora recusa (`blocked: true`) e `canSettleTransactionDirectly` filtra o lote; só a fatura quita. Compra "paga" sem fatura (dado antigo errado) ainda pode ser reaberta.
+2. **Estorno de pagamento de fatura** deixava `invoicePaymentId` apontando para o pagamento apagado nas compras reabertas; agora limpa o vínculo.
+3. **Operações ligadas:** `getLinkedOperationRestriction` impede apagar/editar/duplicar isolado: aporte/resgate de ativo (a carteira já foi atualizada), lançamento de compra de câmbio de viagem (`tx-fxlot-`) e compra já quitada por fatura (só se estiver paga). Compra pendente com vínculo antigo não fica travada. Mensagem orienta: operação inversa em Investimentos, lote em Viagens, estornar a fatura.
+4. **Só conta em reais, também no domínio:** operação de ativo, provento, aporte de meta, importação em lote (CSV) e Pix de acerto de viagem. Importação em lote e acerto de viagem agora avisam e levam ao cadastro quando não há conta em reais. Trocados os `accounts[0]` restantes que podiam escolher conta internacional.
+5. **Lista de transferências** mostra o valor na moeda estrangeira e a cotação (`describeTransferForeignLeg`).
+6. Excluir conta é bloqueado também quando ela é a conta de débito de um lote de câmbio (`debitAccountId`).
+
+Observado e não alterado: exportação CSV não inclui os campos de câmbio das transferências; `Trip.linkedAccountId` sem tela; saldo insuficiente/limite do cartão continuam só avisos. Validação: `tsc`, testes e build; sem teste em navegador/Neon.
+
 ## Lógica de transferências, câmbio, duplicidade e cadastros que faltam — 13/11/2026
 
 Pedido do usuário: revisar toda a lógica financeira (não só transferência). Achados confirmados no código e corrigidos:

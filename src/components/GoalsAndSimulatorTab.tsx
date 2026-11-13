@@ -644,7 +644,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                           .toFixed(2)
                           .replace('.', ',')
                       );
-                      setContributeAccountId(accounts[0]?.id || '');
+                      setContributeAccountId(brlAccounts[0]?.id || '');
                     }}
                     className="rounded-lg border border-emerald-600/30 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-600 hover:text-white transition-colors whitespace-nowrap shrink-0"
                   >

@@ -1448,7 +1448,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       if (accounts.length === 0) {
         return { kind: 'account', testId: 'missing-account', message: 'Você ainda não tem conta cadastrada. Cadastre as contas de origem e de destino da transferência.', action: 'Cadastrar conta' };
       }
-      if (transferSubMode === 'bank_to_bank' && accounts.length === 1) {
+      if (transferSubMode === 'bank_to_bank' && accounts.length === 1 && investments.length === 0) {
         return { kind: 'account', testId: 'transfer-needs-second-account', message: 'Para transferir entre contas é preciso ter outra conta cadastrada: não existe transferir de uma conta para ela mesma. Cadastre a conta de destino.', action: 'Cadastrar outra conta' };
       }
       return null;
@@ -1457,7 +1457,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       return { kind: 'account', testId: 'missing-account', message: `Você ainda não tem conta cadastrada. Cadastre a conta ${entryMode === 'income' ? 'onde a receita cai' : 'de onde a despesa sai'} para o saldo ficar certo.`, action: 'Cadastrar conta' };
     }
     return null;
-  }, [entryMode, transferSubMode, accounts, cards, selectedTrip, isTripLinked, currencyRegime, isPaidByCompanion, isShared, sharedPaidBy]);
+  }, [entryMode, transferSubMode, accounts, cards, investments, selectedTrip, isTripLinked, currencyRegime, isPaidByCompanion, isShared, sharedPaidBy]);
 
   const handleUndoAutoSharing = () => {
     sharingTouchedRef.current = true;

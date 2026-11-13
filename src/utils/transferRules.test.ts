@@ -126,3 +126,12 @@ test('legacy transfers: self transfers and unconverted foreign transfers are fla
     ['legacy', 'cross']
   );
 });
+
+import { describeTransferForeignLeg } from './transferRules';
+
+test('transfer list note shows the foreign amount and rate only when there is one', () => {
+  const accounts = [nubank, nomadUsd];
+  const out = tx({ accountId: 'nomad', destinationAccountId: 'nubank', transferFromAmount: 100, transferExchangeRate: 5.4 });
+  assert.match(describeTransferForeignLeg(out, accounts), /^ · .*100,00 a R\$\s5,40$/);
+  assert.equal(describeTransferForeignLeg(tx({ accountId: 'nubank', destinationAccountId: 'itau' }), accounts), '');
+});

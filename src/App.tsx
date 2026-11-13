@@ -62,6 +62,7 @@ import {
   applyCascadeTransactionEdit,
   calculateAccountBalances,
   duplicateFinancialTransaction,
+  canSettleTransactionDirectly,
   getTransactionEditRestriction,
   isSharedTransactionCreatedByOther,
   calculateCategoryBreakdown,
@@ -1727,6 +1728,10 @@ export default function App() {
       cards,
       cascadeScope
     );
+    if (res.blocked) {
+      showNotice(res.actionDescription, undefined, true);
+      return;
+    }
     setTransactions(res.updatedTransactions);
     showNotice(res.actionDescription, prevSnapshot);
   };
@@ -1734,12 +1739,22 @@ export default function App() {
   const handleBatchSettleTransactions = (txIds: string[]) => {
     if (txIds.length === 0) return;
     const prevSnapshot = [...transactions];
-    const idSet = new Set(txIds);
+    // Só movimentos bancários pendentes: compra de cartão se quita pela fatura e o que já está pago não muda.
+    const eligible = new Set(
+      transactions
+        .filter((tx) => txIds.includes(tx.id) && tx.status === 'pending' && canSettleTransactionDirectly(tx))
+        .map((tx) => tx.id)
+    );
+    const skipped = txIds.length - eligible.size;
+    if (eligible.size === 0) {
+      showNotice('Nada a efetivar: compras de cartão se quitam pagando a fatura, e o restante já está pago.', undefined, true);
+      return;
+    }
     setTransactions((prev) =>
-      prev.map((tx) => (idSet.has(tx.id) ? { ...tx, status: 'paid' } : tx))
+      prev.map((tx) => (eligible.has(tx.id) ? { ...tx, status: 'paid' } : tx))
     );
     showNotice(
-      `${txIds.length} lançamento(s) efetivado(s) em lote com sucesso!`,
+      `${eligible.size} lançamento(s) efetivado(s) em lote${skipped > 0 ? ` (${skipped} ignorado(s): compra de cartão ou já pago)` : ''}.`,
       prevSnapshot
     );
   };
@@ -1787,6 +1802,10 @@ export default function App() {
     const prevSnapshot = [...transactions];
     const scope: CascadeScope = deleteGroup ? 'all_series' : 'single';
     const res = applyCascadeTransactionDelete(transactions, txId, scope, cards);
+    if (res.deletedCount === 0 && res.actionDescription) {
+      showNotice(res.actionDescription, undefined, true);
+      return;
+    }
     const updatedIds = new Set(res.updatedTransactions.map((t) => t.id));
     const deletedSharedIds = prevSnapshot
       .filter((t) => !updatedIds.has(t.id) && t.isShared)
@@ -2114,7 +2133,7 @@ export default function App() {
     if (!targetGoal || !Number.isFinite(amount) || !Number.isSafeInteger(Math.round(amount * 100)) || Math.round(amount * 100) <= 0) return;
     const parsedDate = new Date(`${contributionDate}T00:00:00.000Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(contributionDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== contributionDate) { showNotice('Informe uma data válida para o aporte.', undefined, true); return; }
-    if (debitAccountId && !accounts.some(account => account.id === debitAccountId)) { showNotice('Selecione uma conta válida.', undefined, true); return; }
+    if (debitAccountId && !accounts.some(account => account.id === debitAccountId && getAccountCurrency(account) === 'BRL')) { showNotice('Selecione uma conta em reais para debitar o aporte.', undefined, true); return; }
     if (targetGoal?.linkedAssetId) {
       const linkedAsset = investments.find((a) => a.id === targetGoal.linkedAssetId);
       if (!linkedAsset) { showNotice('O investimento vinculado à meta não foi encontrado.', undefined, true); return; }
@@ -2434,7 +2453,7 @@ export default function App() {
   const handleDeleteAccount = (accountId: string) => {
     const tripsUsingAccount = trips.filter((trip) =>
       trip.linkedAccountId === accountId ||
-      trip.exchangeLots.some((lot) => lot.accountId === accountId)
+      trip.exchangeLots.some((lot) => lot.accountId === accountId || lot.debitAccountId === accountId)
     );
     if (tripsUsingAccount.length > 0) {
       showNotice(
@@ -2516,7 +2535,7 @@ export default function App() {
     let ledgerTx: Transaction | undefined;
     try {
       if (operationType !== 'update_quote' && settlementAccountId) {
-        if (!accounts.some((account) => account.id === settlementAccountId)) throw new Error('Selecione uma conta válida.');
+        if (!accounts.some((account) => account.id === settlementAccountId && getAccountCurrency(account) === 'BRL')) throw new Error('Selecione uma conta em reais: compra e venda de ativo movimentam reais.');
         ledgerTx = createInvestmentCashMovement(targetAsset, operationType, quantityDelta, unitPrice, settlementAccountId, operationDate, `tx-inv-${Date.now()}`);
       }
       if (!Number.isFinite(unitPrice) || unitPrice <= 0 || (operationType !== 'update_quote' && (!Number.isFinite(quantityDelta) || quantityDelta <= 0)) || (operationType === 'sell' && quantityDelta > targetAsset.quantity)) throw new Error('Confira a quantidade e o preço da operação.');
@@ -2565,7 +2584,7 @@ export default function App() {
     dividendDate: string = getLocalDateISO()
   ) => {
     const parsedDate = new Date(`${dividendDate}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dividendDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dividendDate || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId)) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dividendDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dividendDate || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId && getAccountCurrency(account) === 'BRL')) return;
     const dividendTx: Transaction = {
       id: `tx-div-${Date.now()}`,
       description: `Proventos / Dividendos — ${asset.ticker} (${asset.name})`,
@@ -2587,6 +2606,15 @@ export default function App() {
   };
 
   const handleImportQuickCsvLines = (linesText: string, targetAccountId: string): number => {
+    const importAccount = accounts.find((account) => account.id === targetAccountId);
+    if (!importAccount) {
+      showNotice('Escolha uma conta cadastrada para importar os lançamentos.', undefined, true);
+      return 0;
+    }
+    if (getAccountCurrency(importAccount) !== 'BRL') {
+      showNotice('A importação por lote é em reais. Escolha uma conta em reais (conta internacional: lance pelo formulário, com o câmbio).', undefined, true);
+      return 0;
+    }
     const imported: Transaction[] = parseQuickCsvLines(linesText).valid.map((row, idx) => ({
       id: `tx-imp-${Date.now()}-${idx}`,
       description: row.description,
@@ -3995,6 +4023,7 @@ export default function App() {
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
                   accounts={accounts}
+                  onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   accountBalances={accountBalances}
                   cards={cards}
                   categories={categories}

@@ -1,3 +1,5 @@
+import { getAccountCurrency } from '../utils/transferRules';
+import { MissingSetupNotice } from './MissingSetupNotice';
 import React, { useEffect, useMemo, useState } from 'react';
 import { parseQuickCsvLines } from '../utils/quickCsvImport';
 import {
@@ -48,6 +50,8 @@ interface ReportsAndDataTabProps {
   /** Posição de hoje (saldos e dívida de cartão), independente do mês navegado. */
   currentPosition?: CurrentPosition;
   accounts: BankAccount[];
+  /** Leva ao cadastro de conta quando falta uma conta em reais. */
+  onRequestCreateAccount?: () => void;
   accountBalances: AccountBalanceSummary[];
   cards: CreditCard[];
   categories: Category[];
@@ -141,6 +145,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   selectedMonth,
   currentPosition,
   accounts,
+  onRequestCreateAccount,
   accountBalances,
   cards,
   categories,
@@ -170,7 +175,9 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
   // Quick CSV paste import state
   const [csvPasteText, setCsvPasteText] = useState('');
-  const [importTargetAccId, setImportTargetAccId] = useState(accounts[0]?.id || '');
+  // A importação em lote é em reais: só contas em reais podem receber.
+  const brlImportAccounts = accounts.filter((account) => getAccountCurrency(account) === 'BRL');
+  const [importTargetAccId, setImportTargetAccId] = useState(brlImportAccounts[0]?.id || '');
   const [importFeedback, setImportFeedback] = useState('');
   const historyAuditRows = useMemo(
     () => auditLegacyFinancialRecords(transactions, cards),
@@ -313,10 +320,10 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
   const handleRunImport = (e: React.FormEvent) => {
     e.preventDefault();
-    if (accounts.length === 0) return;
+    if (brlImportAccounts.length === 0) return;
     const count = onImportQuickCsvLines(
       csvPasteText,
-      importTargetAccId || accounts[0]?.id || ''
+      importTargetAccId || brlImportAccounts[0]?.id || ''
     );
     if (count > 0) {
       const { rejected } = parseQuickCsvLines(csvPasteText);
@@ -1293,7 +1300,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   onChange={(e) => setImportTargetAccId(e.target.value)}
                   className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-800"
                 >
-                  {accounts.map((a) => (
+                  {brlImportAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       Importar em: {a.name}
                     </option>
@@ -1317,10 +1324,12 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                 placeholder={'Cole linhas no formato Data;Descrição;Valor\n2026-10-21;Padaria Real;-28,50\n2026-10-22;Reembolso PIX;150,00'}
                 className="w-full rounded-lg border border-slate-300 p-2.5 text-xs font-mono text-slate-900 focus:border-emerald-600 focus:outline-none"
               />
-              {accounts.length === 0 && (
-                <p role="alert" className="text-xs font-medium text-amber-700">
-                  Cadastre uma conta antes de importar lançamentos.
-                </p>
+              {brlImportAccounts.length === 0 && (
+                <MissingSetupNotice
+                  testId="missing-brl-account-for-import"
+                  message={accounts.length === 0 ? 'Cadastre uma conta antes de importar lançamentos.' : 'A importação em lote é em reais e não há conta em reais cadastrada. Cadastre uma conta.'}
+                  onAction={onRequestCreateAccount}
+                />
               )}
               {importFeedback && (
                 <p className="text-xs font-medium text-emerald-700">{importFeedback}</p>
@@ -1328,7 +1337,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  disabled={accounts.length === 0}
+                  disabled={brlImportAccounts.length === 0}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   <Upload className="h-3.5 w-3.5" />
