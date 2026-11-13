@@ -28,3 +28,13 @@ test('sem banco informado usa o nome da conta', () => {
   assert.equal(getAccountLabel(acc({ institution: '', name: 'Carteira', type: 'cash' })), 'Carteira');
   assert.equal(getAccountLabel(acc({ institution: '', name: '' })), 'Conta corrente');
 });
+
+test('getAccountLabelWithBank acrescenta o banco só quando existe e não repete', async () => {
+  const { getAccountLabelWithBank } = await import('./accountLabels');
+  const named = { id: 'w', name: 'Reserva viagem', institution: 'Wise', type: 'international' } as BankAccount;
+  const noBank = { id: 'n', name: 'Carteira', institution: '', type: 'cash' } as BankAccount;
+  const generic = { id: 'g', name: 'Conta corrente', institution: 'Nubank', type: 'checking' } as BankAccount;
+  assert.equal(getAccountLabelWithBank(named, [named]), 'Reserva viagem (Wise)');
+  assert.equal(getAccountLabelWithBank(noBank, [noBank]), 'Carteira');
+  assert.equal(getAccountLabelWithBank(generic, [generic]), 'Nubank');
+});

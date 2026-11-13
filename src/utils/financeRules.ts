@@ -3421,11 +3421,7 @@ export function calculatePersonalDre(
     } else if (tx.type === 'expense') {
       const effective = getEffectiveExpenseAmountForUser(tx);
       if (!effective) continue;
-      if (
-        tx.categoryId === 'cat-aportes' ||
-        tx.categoryId === 'cat-rendimentos' ||
-        tx.description.toLowerCase().includes('aporte')
-      ) {
+      if (tx.categoryId === 'cat-aportes' || tx.categoryId === 'cat-rendimentos') {
         investmentContributions += effective.amount;
       } else {
         consumptionExpenses += effective.amount;

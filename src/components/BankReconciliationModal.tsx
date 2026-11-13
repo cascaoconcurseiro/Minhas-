@@ -1,3 +1,4 @@
+import { getAccountLabelWithBank } from '../utils/accountLabels';
 import React, { useId, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -432,7 +433,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                 >
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.institution})
+                      {getAccountLabelWithBank(acc, accounts)}
                     </option>
                   ))}
                 </select>

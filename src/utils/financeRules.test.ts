@@ -2563,3 +2563,14 @@ test('parcelados e recorrentes do mês incluem cartão e banco, uma linha por co
   assert.equal(getInstallmentAndRecurringItemsForMonth(all, '2027-01').length, 3);
   assert.equal(getInstallmentAndRecurringItemsForMonth(all, '2026-10').length, 0);
 });
+
+test('DRE: só a categoria define aporte, não a palavra na descrição', async () => {
+  const { calculatePersonalDre } = await import('./financeRules');
+  const base = { amount: 100, date: '2026-11-10', competenceMonth: '2026-11', type: 'expense', status: 'paid', recurrence: 'single', paymentMethod: 'pix', accountId: 'a' };
+  const dre = calculatePersonalDre([
+    { ...base, id: '1', description: 'Aporte para reforma da casa', categoryId: 'cat-moradia' },
+    { ...base, id: '2', description: 'Compra de cotas', categoryId: 'cat-aportes' },
+  ] as never, '2026-11', [], [], []);
+  assert.equal(dre.consumptionExpenses, 100);
+  assert.equal(dre.investmentContributions, 100);
+});

@@ -1,3 +1,4 @@
+import { getAccountLabelWithBank } from '../utils/accountLabels';
 import { getAccountCurrency } from '../utils/transferRules';
 import { MissingSetupNotice } from './MissingSetupNotice';
 import { calculateSharedMemberSummary, getDomesticSharedTransactions } from '../utils/sharedFinanceRules';
@@ -1283,7 +1284,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                   >
                     {brlAccounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
-                        {acc.name} ({acc.institution})
+                        {getAccountLabelWithBank(acc, accounts)}
                       </option>
                     ))}
                   </select>

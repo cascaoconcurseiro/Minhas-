@@ -57,3 +57,14 @@ export function getAccountLabel(
   );
   return sameBank.length > 0 ? `${institution} · ${TYPE_LABELS[account.type] ?? name}` : institution;
 }
+
+/** Como `getAccountLabel`, acrescentando o banco entre parênteses quando o nome não o diz (e só se houver banco). */
+export function getAccountLabelWithBank(
+  account: Pick<BankAccount, 'id' | 'name' | 'institution' | 'type'>,
+  allAccounts: Array<Pick<BankAccount, 'id' | 'name' | 'institution' | 'type'>> = []
+): string {
+  const label = getAccountLabel(account, allAccounts);
+  const institution = account.institution?.trim() ?? '';
+  if (!institution || normalize(label).includes(normalize(institution))) return label;
+  return `${label} (${institution})`;
+}

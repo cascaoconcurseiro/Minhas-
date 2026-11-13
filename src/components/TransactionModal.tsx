@@ -3741,7 +3741,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                           {matchingIntl.map((acc) => (
                                             <option key={acc.id} value={acc.id}>
                                               {CURRENCY_CATALOG[selectedTrip.currency]?.flag}{' '}
-                                              {acc.name} ({acc.institution} · {selectedTrip.currency})
+                                              {acc.name} ({acc.institution ? `${acc.institution} · ` : ''}{selectedTrip.currency})
                                             </option>
                                           ))}
                                         </select>

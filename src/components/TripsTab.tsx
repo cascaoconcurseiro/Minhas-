@@ -1,4 +1,5 @@
 import { newEntityId } from '../utils/ids';
+import { getAccountLabelWithBank } from '../utils/accountLabels';
 import { getAccountCurrency } from '../utils/transferRules';
 import { MissingSetupNotice } from './MissingSetupNotice';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -2601,7 +2602,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     <option value="">Não gerar débito no extrato bancário</option>
                     {brlAccounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
-                        Debitar de: {acc.name} ({acc.institution})
+                        Debitar de: {getAccountLabelWithBank(acc, accounts)}
                       </option>
                     ))}
                   </select>
@@ -2972,7 +2973,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                           >
                             {brlAccounts.map((acc) => (
                               <option key={acc.id} value={acc.id}>
-                                {acc.name} ({acc.institution})
+                                {getAccountLabelWithBank(acc, accounts)}
                               </option>
                             ))}
                           </select>

@@ -1222,7 +1222,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-extrabold uppercase tracking-wider text-sky-900">
-                        Conta Internacional em {intlMetrics.currency} ({activeAccount.institution})
+                        Conta Internacional em {intlMetrics.currency}{activeAccount.institution ? ` (${activeAccount.institution})` : ''}
                       </span>
                     </div>
                     <p className="text-xs text-sky-800 mt-0.5">
