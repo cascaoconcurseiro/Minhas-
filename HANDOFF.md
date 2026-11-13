@@ -40,6 +40,9 @@ Pedido do usuário: revisar toda a lógica financeira (não só transferência).
 9. **Nomes repetidos:** conta e cartão com nome já existente são recusados no cadastro.
 
 Não alterado/observado: `Trip.linkedAccountId` não é preenchido por nenhuma tela (o formulário usa a primeira conta internacional da moeda); aviso de saldo não vale para conta internacional (saldo em R$ dela é estimativa). Validação local: `tsc`, 664 testes, build PWA. NÃO verificado em navegador nem com dados reais/Neon.
+## Conflito de workspace repetido: resolve sozinho quando é só cópia mais nova — 13/11/2026
+
+Sintoma (print): o aviso "Este workspace mudou em outro lugar" aparecia toda hora; a cópia local tinha 1 viagem e o Neon 0 (a viagem nunca chegava à nuvem e "sumia" ao recarregar). Causa provável: o Neon recusa a revisão (409) quando a resposta de um salvamento anterior se perde (rede/"Falha na sincronização") e a aba tenta de novo com a revisão antiga, conflitando com a própria gravação. Mudança em `App.tsx`: a aba guarda assinaturas (`workspaceContentSignature`, ignora datas) do conteúdo que enviou/recebeu; ao receber 409, se o conteúdo atual do Neon é um que esta aba já conhecia, regrava a cópia local com a revisão atual, sem abrir o aviso. Se o Neon tem conteúdo desconhecido (outro aparelho alterou de fato), o aviso continua, com o backup obrigatório. Não verificado em produção; se o aviso ainda aparecer, há outro aparelho/aba salvando dados diferentes.
 
 ## Atualização forçada mais agressiva + ícone do banco dentro do seletor — 13/11/2026
 

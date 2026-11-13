@@ -36,3 +36,12 @@ test('does not retry authentication, validation, revision conflicts, or invalid 
   }
   assert.equal(isRetryableWorkspaceSaveError(new Error('unknown failure')), false);
 });
+
+test('assinatura do conteúdo ignora datas e muda com os dados', async () => {
+  const { workspaceContentSignature } = await import('./workspaceSyncRecovery');
+  const a = { tripsJson: '[]', updatedAt: '2026-11-13T10:00:00Z' };
+  const b = { tripsJson: '[]', updatedAt: '2026-11-13T11:00:00Z' };
+  const c = { tripsJson: '[{"id":"t"}]', updatedAt: '2026-11-13T10:00:00Z' };
+  assert.equal(workspaceContentSignature(a), workspaceContentSignature(b));
+  assert.notEqual(workspaceContentSignature(a), workspaceContentSignature(c));
+});

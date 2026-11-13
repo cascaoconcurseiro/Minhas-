@@ -158,6 +158,7 @@ import {
   describeCommitmentAfterPurchase,
   getCommitmentAlerts,
 } from './utils/cardCommitment';
+import { workspaceContentSignature } from './utils/workspaceSyncRecovery';
 import { buildAppNotices, countBellNotices, type AppNoticeAction } from './utils/appNotices';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
@@ -359,6 +360,16 @@ export default function App() {
   const authenticatedUidRef = useRef<string | null>(null);
   const loadedWorkspaceUidRef = useRef<string | null>(null);
   const neonWorkspaceRevisionRef = useRef<number | null>(null);
+  // Assinaturas do conteúdo que esta aba já enviou ou recebeu do Neon. Se o Neon recusar a revisão mas
+  // estiver com um conteúdo que esta aba já conhece, a cópia local é só mais nova: grava por cima sem perguntar.
+  const knownRemoteSignaturesRef = useRef<string[]>([]);
+  const rememberRemoteSignature = (payload: Record<string, unknown>) => {
+    const signature = workspaceContentSignature(payload);
+    knownRemoteSignaturesRef.current = [
+      ...knownRemoteSignaturesRef.current.filter((item) => item !== signature),
+      signature,
+    ].slice(-30);
+  };
   const neonSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const workspaceConflictRef = useRef<WorkspaceConflictState | null>(null);
   const latestNeonPayloadRef = useRef<Record<string, unknown> | null>(null);
@@ -737,6 +748,7 @@ export default function App() {
       }
 
       try {
+        rememberRemoteSignature(payload);
         const saved = await saveNeonWorkspace(payload, revision);
         if (authenticatedUidRef.current !== authenticatedUser.uid) {
           throw new Error('A conta ativa mudou durante a gravação do workspace.');
@@ -747,6 +759,13 @@ export default function App() {
           try {
             const remoteSnapshot = await loadNeonWorkspace();
             if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
+            if (knownRemoteSignaturesRef.current.includes(workspaceContentSignature(remoteSnapshot.payload))) {
+              // O Neon tem um conteúdo que esta aba já conhecia (ex.: resposta de um salvamento anterior se perdeu).
+              const resaved = await saveNeonWorkspace(payload, remoteSnapshot.revision);
+              if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
+              neonWorkspaceRevisionRef.current = resaved.revision;
+              return;
+            }
             const conflict = {
               localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
               remoteSnapshot,
@@ -1043,6 +1062,7 @@ export default function App() {
         if (!active || authenticatedUidRef.current !== loadUid) return;
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
+        rememberRemoteSignature(snapshot.payload);
         const rawAccounts = parseWorkspaceArray<BankAccount>(data.accountsJson, INITIAL_ACCOUNTS, 'accountsJson');
         const rawCards = parseWorkspaceArray<CreditCard>(data.cardsJson, INITIAL_CREDIT_CARDS, 'cardsJson');
         const parsedCategories = parseWorkspaceArray<Category>(data.categoriesJson, INITIAL_CATEGORIES, 'categoriesJson');
