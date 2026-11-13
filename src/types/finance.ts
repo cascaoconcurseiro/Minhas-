@@ -149,6 +149,10 @@ export interface Transaction {
   sharedOriginEmail?: string; // Email of the user who originally created the shared transaction
   sharedTargetEmail?: string; // Email of the linked family member
   targetInvestmentAssetId?: string; // Optional link when a transfer/expense is a direct investment contribution
+  // Transferência com conta em moeda estrangeira: `amount` segue em reais; estes campos guardam a perna estrangeira
+  transferFromAmount?: number; // Valor que saiu da conta de origem, na moeda da origem (só quando a origem é internacional)
+  transferToAmount?: number; // Valor que entrou na conta de destino, na moeda do destino (só quando o destino é internacional)
+  transferExchangeRate?: number; // Cotação efetiva da transferência (R$ por 1 unidade da moeda estrangeira)
   // Travel & Multi-Currency (TravelSpend + Splitwise)
   tripId?: string;
   originalCurrency?: CurrencyCode;
@@ -462,7 +466,8 @@ export interface TripExchangeLot {
   effectiveRateBrl: number; // VET (Valor Efetivo Total) em R$ por 1 unidade estrangeira
   totalBrlPaid: number; // Custo total em R$ saído da conta bancária
   sourceLabel: string; // Ex: "Wise — Remessa 1", "Nomad Global", "Espécie Confidence Câmbio"
-  accountId?: string;
+  accountId?: string; // Conta internacional (na moeda do lote) onde a moeda comprada entra
+  debitAccountId?: string; // Conta em reais de onde saiu o dinheiro da compra
 }
 
 export interface TripExpenseShare {

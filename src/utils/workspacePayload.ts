@@ -109,6 +109,8 @@ function validateFinancialItem(item: Record<string, unknown>, field: string): bo
       'installmentPurchaseTotal',
       'sharedAmount',
       'originalAmount',
+      'transferFromAmount',
+      'transferToAmount',
       'originalAmountBeforeDiscount',
       'myPersonalShareBrl',
       'myPersonalShareForeign',
@@ -145,6 +147,7 @@ function validateFinancialItem(item: Record<string, unknown>, field: string): bo
       !isValidYearMonth(item.competenceMonth) ||
       !['paid', 'pending'].includes(String(item.status))
     ) return false;
+    if ('transferExchangeRate' in item && !isSafePositiveNumber(item.transferExchangeRate)) return false;
   }
   if (field === 'accountsJson' && 'type' in item && !isSafeMoneyValue(item.initialBalance, true)) {
     return false;

@@ -1,3 +1,5 @@
+import { getAccountCurrency } from '../utils/transferRules';
+import { MissingSetupNotice } from './MissingSetupNotice';
 import { calculateSharedMemberSummary, getDomesticSharedTransactions } from '../utils/sharedFinanceRules';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -39,6 +41,8 @@ interface SharedExpensesTabProps {
   transactions: Transaction[];
   familyMembers: FamilyMember[];
   accounts: BankAccount[];
+  /** Leva ao cadastro de conta quando falta uma conta em reais. */
+  onRequestCreateAccount?: () => void;
   cards: CreditCardType[];
   categories: Category[];
   onAddFamilyMember: (member: Omit<FamilyMember, 'id'>) => void | boolean | Promise<void | boolean>;
@@ -79,6 +83,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   transactions,
   familyMembers,
   accounts,
+  onRequestCreateAccount,
   cards,
   categories,
   onAddFamilyMember,
@@ -118,15 +123,15 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
     description: string;
   } | null>(null);
 
-  const [settleAccountId, setSettleAccountId] = useState(accounts[0]?.id || '');
+  // O acerto (Pix) é em reais: só contas em reais podem receber ou pagar.
+  const brlAccounts = accounts.filter((account) => getAccountCurrency(account) === 'BRL');
+  const [settleAccountId, setSettleAccountId] = useState(brlAccounts[0]?.id || '');
   const selectedSettlementAccount =
-    accounts.find((account) => account.id === settleAccountId) ?? accounts[0] ?? null;
+    brlAccounts.find((account) => account.id === settleAccountId) ?? brlAccounts[0] ?? null;
   useEffect(() => {
-    if (
-      (!settleAccountId || !accounts.some((a) => a.id === settleAccountId)) &&
-      accounts.length > 0
-    ) {
-      setSettleAccountId(accounts[0].id);
+    const brl = accounts.filter((a) => getAccountCurrency(a) === 'BRL');
+    if ((!settleAccountId || !brl.some((a) => a.id === settleAccountId)) && brl.length > 0) {
+      setSettleAccountId(brl[0].id);
     }
   }, [accounts, settleAccountId]);
   const [settleDate, setSettleDate] = useState(() => {
@@ -315,8 +320,8 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
   const handleConfirmSettlement = () => {
     if (!settlementTarget) return;
-    if (!settleAccountId || !accounts.some((account) => account.id === settleAccountId)) {
-      setSettlementError('Cadastre ou selecione uma conta bancária válida antes de liquidar.');
+    if (!settleAccountId || !brlAccounts.some((account) => account.id === settleAccountId)) {
+      setSettlementError('Cadastre ou selecione uma conta bancária em reais antes de liquidar.');
       return;
     }
     const parsedDate = new Date(`${settleDate}T00:00:00.000Z`);
@@ -1259,6 +1264,13 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                     {settlementError}
                   </p>
                 )}
+                {brlAccounts.length === 0 && (
+                  <MissingSetupNotice
+                    testId="missing-brl-account-for-settlement"
+                    message="Não há conta em reais cadastrada para registrar este acerto. Cadastre uma conta."
+                    onAction={onRequestCreateAccount}
+                  />
+                )}
                 <div>
                   <label htmlFor="shared-settlement-account" className="block text-xs font-semibold text-slate-700 mb-1">
                     Conta Bancária para Conciliação (PIX):
@@ -1269,7 +1281,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                     onChange={(e) => setSettleAccountId(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 focus:border-emerald-600 focus:outline-none"
                   >
-                    {accounts.map((acc) => (
+                    {brlAccounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
                         {acc.name} ({acc.institution})
                       </option>

@@ -197,6 +197,31 @@ test('international account separates paid foreign expenses from pending balance
   assert.match(banner.textContent ?? '', /978/);
 });
 
+test('international account balance follows transfers using their foreign leg', () => {
+  const account: BankAccount = {
+    id: 'account-usd-transfers', name: 'Conta USD', institution: 'Banco sintético',
+    type: 'international', currency: 'USD', initialBalance: 5000,
+    initialBalanceForeign: 1000, color: '#059669', includeInTotal: false,
+  };
+  const transfer = (id: string, over: Partial<Transaction>): Transaction => ({
+    id, description: `Transferência ${id}`, amount: 500, date: '2026-11-10', competenceMonth: '2026-11',
+    type: 'transfer', status: 'paid', categoryId: 'cat-synthetic', paymentMethod: 'transfer', recurrence: 'single', ...over,
+  });
+  const page = renderAccountsTab({
+    accounts: [account],
+    transactions: [
+      transfer('out-paid', { accountId: account.id, destinationAccountId: 'brl', transferFromAmount: 100, transferExchangeRate: 5 }),
+      transfer('in-paid', { accountId: 'brl', destinationAccountId: account.id, amount: 250, transferToAmount: 50, transferExchangeRate: 5 }),
+      transfer('out-pending', { accountId: account.id, destinationAccountId: 'brl', status: 'pending', amount: 100, transferFromAmount: 20, transferExchangeRate: 5 }),
+      transfer('legacy-no-leg', { accountId: account.id, destinationAccountId: 'brl' }),
+    ],
+  });
+  const accountCard = page.querySelector<HTMLElement>(`[data-testid="account-card-${account.id}"]`);
+  assert.ok(accountCard);
+  assert.match(accountCard.textContent ?? '', /950/, 'saldo atual: 1000 - 100 + 50');
+  assert.match(accountCard.textContent ?? '', /930/, 'saldo previsto desconta a transferência pendente');
+});
+
 test('AccountsTab rejects malformed balance text instead of saving it as zero', async () => {
   let addCalls = 0;
   const page = renderAccountsTab({ onAddAccount: () => { addCalls += 1; } });

@@ -64,6 +64,14 @@ import {
 import { computeModalScrollState } from '../utils/modalScrollRules';
 import { assessAmount, findProbableDuplicate, learnPaymentHabit } from '../utils/decisionEngine';
 import {
+  getAccountCurrency,
+  getTransferDestinationAccounts,
+  pickDefaultTransferDestination,
+  planTransferCurrency,
+  resolveBankTransfer,
+} from '../utils/transferRules';
+import { assessAccountBalanceImpact, assessCardLimitImpact, assessDateSanity } from '../utils/spendingGuards';
+import {
   describeLearnedSharing,
   getDescriptionLearningKey,
   learnSharingFromHistory,
@@ -124,6 +132,8 @@ interface TransactionModalProps {
   defaultMode?: 'expense' | 'income' | 'credit_card' | 'transfer';
   initialDate?: string;
   initialTripId?: string;
+  /** Leva a pessoa a cadastrar o que falta (conta ou cartão); o App fecha este formulário e abre o cadastro. */
+  onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
 }
 
 const CURRENCY_OPTIONS: CurrencyCode[] = [
@@ -164,6 +174,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   defaultMode = 'expense',
   initialDate,
   initialTripId,
+  onRequestCreate,
 }) => {
   const [entryMode, setEntryMode] = useState<
     'expense' | 'income' | 'credit_card' | 'transfer'
@@ -244,6 +255,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [transferSubMode, setTransferSubMode] = useState<
     'bank_to_bank' | 'investment_contribution' | 'card_bill_payment'
   >('bank_to_bank');
+  const [transferForeignAmountStr, setTransferForeignAmountStr] = useState<string>('');
   const [billPaymentCardId, setBillPaymentCardId] = useState<string>('');
   const [billPaymentInvoiceMonth, setBillPaymentInvoiceMonth] = useState(selectedMonth);
   const selectedCreditCard = cards.find((card) => card.id === creditCardId) ?? cards[0] ?? null;
@@ -261,6 +273,31 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   );
   const selectedPaymentAccount = accounts.find((account) => account.id === accountId) ?? null;
   const selectedDestinationAccount = accounts.find((account) => account.id === destinationAccountId) ?? null;
+  const destinationAccountOptions = getTransferDestinationAccounts(accounts, accountId);
+  const isInvestmentDestination = destinationAccountId.startsWith('inv:');
+  const isBankTransfer = entryMode === 'transfer' && transferSubMode === 'bank_to_bank' && !isInvestmentDestination;
+  const isInvestmentTransfer = entryMode === 'transfer' && isInvestmentDestination;
+  const transferPlan = isBankTransfer
+    ? planTransferCurrency(selectedPaymentAccount, selectedDestinationAccount)
+    : isInvestmentTransfer
+    ? planTransferCurrency(selectedPaymentAccount, null)
+    : null;
+  // Moeda estrangeira da transferência: da conta internacional envolvida (origem, destino ou aporte a partir dela).
+  const transferForeignCurrency =
+    transferPlan && transferPlan.kind !== 'brl' && transferPlan.kind !== 'unsupported'
+      ? (transferPlan.foreignCurrency ?? getAccountCurrency(selectedPaymentAccount))
+      : null;
+  const transferForeignAmount = transferForeignCurrency
+    ? parseCurrencyInput(transferForeignAmountStr, transferForeignCurrency)
+    : 0;
+  // Não existe transferir de uma conta para ela mesma: se origem e destino coincidirem, troca o destino.
+  useEffect(() => {
+    if (entryMode !== 'transfer' || transferSubMode !== 'bank_to_bank') return;
+    if (destinationAccountId.startsWith('inv:')) return;
+    if (accountId && (!destinationAccountId || destinationAccountId === accountId)) {
+      setDestinationAccountId(pickDefaultTransferDestination(accounts, accountId));
+    }
+  }, [entryMode, transferSubMode, accountId, destinationAccountId, accounts]);
 
   // Intelligent Category Suggestion based on historical transactions
   const [userManuallySelectedCategory, setUserManuallySelectedCategory] = useState(false);
@@ -378,11 +415,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setTransferSubMode('bank_to_bank');
         setDestinationAccountId(
           editingTransaction.destinationAccountId ||
-            accounts[1]?.id ||
-            accounts[0]?.id ||
-            ''
+            pickDefaultTransferDestination(accounts, editingTransaction.accountId || '')
         );
       }
+      const savedForeignLeg =
+        editingTransaction.transferFromAmount || editingTransaction.transferToAmount || 0;
+      setTransferForeignAmountStr(
+        savedForeignLeg > 0 ? savedForeignLeg.toFixed(2).replace('.', ',') : ''
+      );
       setCreditCardId(editingTransaction.creditCardId || cards[0]?.id || '');
       setInvoiceCompetenceMonth(
         editingTransaction.competenceMonth ||
@@ -528,6 +568,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setAutoHabitNotice(null);
     autoHabitKeyRef.current = null;
     setTransferSubMode('bank_to_bank');
+    setTransferForeignAmountStr('');
     setBillPaymentCardId(cards[0]?.id || '');
     setBillPaymentInvoiceMonth(selectedMonth);
 
@@ -615,7 +656,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setStatus('paid');
       setPaymentMethod('transfer');
       setAccountId(accounts[0]?.id || '');
-      setDestinationAccountId(accounts[1]?.id || accounts[0]?.id || '');
+      setDestinationAccountId(pickDefaultTransferDestination(accounts, accounts[0]?.id || ''));
     } else {
       setStatus('paid');
       setPaymentMethod(initialTripId ? 'debit_card' : 'pix');
@@ -1014,13 +1055,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         const pending = calculateCreditCardSummary(targetCard, transactions, selectedMonth).invoicePendingAmount;
         setAmountStr(pending > 0 ? pending.toFixed(2).replace('.', ',') : '');
       }
-      const fallbackDest =
-        accounts.find((a) => a.id !== accountId)?.id || accounts[0]?.id || '';
-      setDestinationAccountId(fallbackDest);
+      setDestinationAccountId(pickDefaultTransferDestination(accounts, accountId));
     } else {
-      const fallbackDest =
-        accounts.find((a) => a.id !== accountId)?.id || accounts[0]?.id || '';
-      setDestinationAccountId(fallbackDest);
+      setDestinationAccountId(pickDefaultTransferDestination(accounts, accountId));
       if (
         description.startsWith('Aporte em ') ||
         description.startsWith('Pagamento Fatura ')
@@ -1322,13 +1359,105 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   }, [description, numericPreview, transactions, entryMode, editingTransaction]);
 
   const duplicateWarning = useMemo(() => {
-    if (entryMode === 'income' || entryMode === 'transfer') return null;
+    if (transferSubMode === 'card_bill_payment' && entryMode === 'transfer') return null;
     return findProbableDuplicate(
-      { description, amount: numericPreview, date },
+      {
+        description,
+        amount: numericPreview,
+        date,
+        type: entryMode === 'income' ? 'income' : entryMode === 'transfer' ? 'transfer' : 'expense',
+        accountId: entryMode === 'transfer' ? accountId : undefined,
+        destinationKey: entryMode === 'transfer' ? destinationAccountId : undefined,
+      },
       transactions,
       editingTransaction?.id
     );
-  }, [description, numericPreview, date, transactions, entryMode, editingTransaction]);
+  }, [description, numericPreview, date, transactions, entryMode, transferSubMode, accountId, destinationAccountId, editingTransaction]);
+
+  // Avisos (não bloqueiam): saldo da conta que ficaria negativo e compra acima do limite do cartão.
+  const spendingWarning = useMemo(() => {
+    if (!(numericPreview > 0) || (selectedTrip && isPaidByCompanion)) return null;
+    if (isShared && sharedPaidBy === 'member' && entryMode !== 'transfer') return null;
+    if (entryMode === 'credit_card') {
+      const card = cards.find((c) => c.id === creditCardId);
+      const purchaseTotal =
+        recurrence === 'installment' && installmentTotal > 1 && amountMode === 'per_installment'
+          ? numericPreview * installmentTotal
+          : numericPreview;
+      return assessCardLimitImpact({
+        card,
+        transactions,
+        purchaseTotal,
+        date,
+        ignoreGroupId: editingTransaction?.installmentGroupId,
+        ignoreTransactionId: editingTransaction?.id,
+      });
+    }
+    const spendsFromAccount =
+      entryMode === 'expense' || entryMode === 'transfer';
+    if (!spendsFromAccount) return null;
+    return assessAccountBalanceImpact({
+      account: selectedPaymentAccount,
+      accounts,
+      transactions,
+      amount: numericPreview,
+      date,
+      status,
+      ignoreTransactionId: editingTransaction?.id,
+    });
+  }, [
+    numericPreview, entryMode, cards, creditCardId, recurrence, installmentTotal, amountMode,
+    transactions, date, editingTransaction, selectedTrip, isPaidByCompanion, selectedPaymentAccount,
+    accounts, status, isShared, sharedPaidBy,
+  ]);
+
+  const dateWarning = useMemo(
+    () =>
+      assessDateSanity({
+        date,
+        status: entryMode === 'credit_card' ? 'pending' : status,
+        today: getLocalDateISO(),
+      }),
+    [date, status, entryMode]
+  );
+
+  // O que falta cadastrar para este lançamento fazer sentido (conta, segunda conta ou cartão).
+  const missingSetup = useMemo((): { kind: 'account' | 'card' | 'international_account'; testId: string; message: string; action: string } | null => {
+    // Viagem em espécie, cartão no exterior, gasto de acompanhante e gasto pago por familiar não usam conta bancária.
+    const tripWithoutBank = Boolean(isTripLinked && selectedTrip && (currencyRegime === 'cash_fx' || currencyRegime === 'credit_card_intl'));
+    const noBankNeeded = tripWithoutBank || Boolean(selectedTrip && isPaidByCompanion) || (isShared && sharedPaidBy === 'member' && entryMode !== 'transfer');
+    if (entryMode === 'expense' && isTripLinked && selectedTrip && currencyRegime === 'global_account' && !(selectedTrip.isArchived) &&
+      !accounts.some((account) => account.type === 'international' && account.currency === selectedTrip.currency)) {
+      return { kind: 'international_account', testId: 'missing-international-account', message: `Esta viagem é em ${selectedTrip.currency} e não há conta internacional em ${selectedTrip.currency} cadastrada. Cadastre a conta global (Wise, Nomad...) ou escolha outra forma de pagamento.`, action: 'Cadastrar conta internacional' };
+    }
+    if (entryMode === 'credit_card') {
+      return cards.length === 0
+        ? { kind: 'card', testId: 'missing-card', message: 'Você ainda não tem cartão de crédito cadastrado. Cadastre o cartão para lançar esta compra na fatura certa.', action: 'Cadastrar cartão' }
+        : null;
+    }
+    if (entryMode === 'transfer') {
+      if (transferSubMode === 'card_bill_payment') {
+        if (cards.length === 0) {
+          return { kind: 'card', testId: 'missing-card', message: 'Não há cartão cadastrado para pagar a fatura. Cadastre o cartão primeiro.', action: 'Cadastrar cartão' };
+        }
+        if (!accounts.some((account) => getAccountCurrency(account) === 'BRL')) {
+          return { kind: 'account', testId: 'missing-account', message: 'A fatura é em reais e não há conta em reais cadastrada para pagá-la. Cadastre uma conta.', action: 'Cadastrar conta' };
+        }
+        return null;
+      }
+      if (accounts.length === 0) {
+        return { kind: 'account', testId: 'missing-account', message: 'Você ainda não tem conta cadastrada. Cadastre as contas de origem e de destino da transferência.', action: 'Cadastrar conta' };
+      }
+      if (transferSubMode === 'bank_to_bank' && accounts.length === 1) {
+        return { kind: 'account', testId: 'transfer-needs-second-account', message: 'Para transferir entre contas é preciso ter outra conta cadastrada: não existe transferir de uma conta para ela mesma. Cadastre a conta de destino.', action: 'Cadastrar outra conta' };
+      }
+      return null;
+    }
+    if (accounts.length === 0 && !noBankNeeded) {
+      return { kind: 'account', testId: 'missing-account', message: `Você ainda não tem conta cadastrada. Cadastre a conta ${entryMode === 'income' ? 'onde a receita cai' : 'de onde a despesa sai'} para o saldo ficar certo.`, action: 'Cadastrar conta' };
+    }
+    return null;
+  }, [entryMode, transferSubMode, accounts, cards, selectedTrip, isTripLinked, currencyRegime, isPaidByCompanion, isShared, sharedPaidBy]);
 
   const handleUndoAutoSharing = () => {
     sharingTouchedRef.current = true;
@@ -1479,6 +1608,24 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       );
       return;
     }
+    if (missingSetup) {
+      setError(missingSetup.message);
+      return;
+    }
+    if (
+      entryMode !== 'transfer' && entryMode !== 'credit_card' &&
+      !activeMultiCurrency &&
+      !(selectedTrip && isPaidByCompanion) &&
+      !(isShared && sharedPaidBy === 'member') &&
+      !accounts.some((account) => account.id === accountId)
+    ) {
+      setError('Escolha a conta do lançamento.');
+      return;
+    }
+    if (entryMode === 'credit_card' && !cards.some((card) => card.id === creditCardId)) {
+      setError('Escolha o cartão da compra.');
+      return;
+    }
     if (
       activeMultiCurrency &&
       originalCurrency !== 'BRL' &&
@@ -1516,16 +1663,32 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       ? destinationAccountId.slice(4)
       : undefined;
 
-    if (
-      entryMode === 'transfer' &&
-      transferSubMode === 'bank_to_bank' &&
-      !isDirectInvestmentTransfer &&
-      accountId === destinationAccountId
-    ) {
-      setError(
-        'Selecione contas de origem e destino diferentes para a transferência.'
-      );
+    let transferLegs: { transferFromAmount?: number; transferToAmount?: number; transferExchangeRate?: number } = {};
+    const isCardBillPayment = entryMode === 'transfer' && transferSubMode === 'card_bill_payment';
+    if (isCardBillPayment && getAccountCurrency(selectedPaymentAccount) !== 'BRL') {
+      setError('A fatura do cartão é em reais. Pague por uma conta em reais.');
       return;
+    }
+    if (entryMode === 'transfer' && !isCardBillPayment) {
+      const resolved = resolveBankTransfer({
+        source: selectedPaymentAccount,
+        destination: isDirectInvestmentTransfer ? null : selectedDestinationAccount,
+        destinationIsInvestment: isDirectInvestmentTransfer,
+        amountBrl: numericAmount,
+        foreignAmount: transferForeignAmount,
+      });
+      if ('error' in resolved && resolved.error) {
+        setError(resolved.error);
+        return;
+      }
+      if (
+        transferForeignCurrency &&
+        !isCurrencyInputValid(transferForeignAmountStr, transferForeignCurrency)
+      ) {
+        setError(`Informe o valor em ${transferForeignCurrency} usando até ${CURRENCY_CATALOG[transferForeignCurrency].decimals} casa(s) decimal(is).`);
+        return;
+      }
+      if ('legs' in resolved) transferLegs = resolved.legs;
     }
 
     let finalSharedAmount: number | undefined = undefined;
@@ -1598,6 +1761,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           ? destinationAccountId
           : undefined,
       targetInvestmentAssetId: extractedAssetId,
+      transferFromAmount: transferLegs.transferFromAmount,
+      transferToAmount: transferLegs.transferToAmount,
+      transferExchangeRate: transferLegs.transferExchangeRate,
       isInvoicePayment: isCardBillSettlement ? true : undefined,
       settledCardId: isCardBillSettlement ? billPaymentCardId : undefined,
       creditCardId: entryMode === 'credit_card' ? creditCardId : undefined,
@@ -2437,6 +2603,26 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </p>
                 )}
 
+                {dateWarning && (
+                  <p
+                    role="status"
+                    data-testid="date-warning"
+                    className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900 dark:text-amber-200"
+                  >
+                    {dateWarning}
+                  </p>
+                )}
+
+                {spendingWarning && (
+                  <p
+                    role="alert"
+                    data-testid="spending-warning"
+                    className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900 dark:text-amber-200"
+                  >
+                    {spendingWarning.message} Você ainda pode salvar.
+                  </p>
+                )}
+
                 {amountWarning && (
                   <p
                     role="status"
@@ -2448,6 +2634,26 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 )}
               </div>
             </div>
+
+            {missingSetup && (
+              <div
+                role="alert"
+                data-testid={missingSetup.testId}
+                className="flex flex-col gap-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">{missingSetup.message}</p>
+                {onRequestCreate && (
+                  <button
+                    type="button"
+                    data-testid="missing-setup-action"
+                    onClick={() => onRequestCreate(missingSetup.kind)}
+                    className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
+                  >
+                    {missingSetup.action}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Core Unified Configuration Grid: Category, Account/Card, Transfer/Invoice Sub-Selector, Date & Recurrence */}
             {entryMode === 'transfer' ? (
@@ -2661,7 +2867,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
                       >
                         <optgroup label="Contas Bancárias & Carteiras">
-                          {accounts.map((acc) => (
+                          {destinationAccountOptions.map((acc) => (
                             <option key={acc.id} value={acc.id}>
                               {getAccountLabel(acc, accounts)}
                             </option>
@@ -2691,6 +2897,56 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     </div>
                   )}
                 </div>
+
+                {transferPlan?.kind === 'unsupported' && (
+                  <p role="alert" data-testid="transfer-unsupported-currency" className="rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-800 dark:text-rose-200">
+                    {transferPlan.message}
+                  </p>
+                )}
+
+                {transferSubMode === 'card_bill_payment' && getAccountCurrency(selectedPaymentAccount) !== 'BRL' && (
+                  <p role="alert" data-testid="bill-foreign-account-warning" className="rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-800 dark:text-rose-200">
+                    A fatura do cartão é em reais. Pague a fatura por uma conta em reais; para usar dinheiro de uma conta em {getAccountCurrency(selectedPaymentAccount)}, primeiro transfira para uma conta em reais informando o câmbio.
+                  </p>
+                )}
+
+                {transferForeignCurrency && (
+                  <div data-testid="transfer-fx-block" className="rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/30 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-sky-900 dark:text-sky-200">
+                      {isInvestmentTransfer
+                        ? `Aporte saindo de conta em ${transferForeignCurrency}: informe quanto saiu em ${transferForeignCurrency}. O valor em R$ acima é o equivalente em reais.`
+                        : transferPlan?.sourceIsForeign && transferPlan.destinationIsForeign
+                        ? `As duas contas são em ${transferForeignCurrency}: informe o valor em ${transferForeignCurrency}. O valor em R$ acima é só o equivalente em reais do dia.`
+                        : transferPlan?.sourceIsForeign
+                        ? `O dinheiro sai em ${transferForeignCurrency} e entra em reais: informe quanto saiu em ${transferForeignCurrency}. O valor em R$ acima é o que entrou na conta de destino.`
+                        : `O dinheiro sai em reais e entra em ${transferForeignCurrency}: informe quanto entrou em ${transferForeignCurrency}. O valor em R$ acima é o que saiu da conta de origem.`}
+                    </p>
+                    <div>
+                      <label htmlFor="tx-transfer-foreign-amount" className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                        Valor em {transferForeignCurrency}
+                      </label>
+                      <div className="relative flex items-stretch">
+                        <span className="inline-flex items-center justify-center rounded-l-xl border border-r-0 border-sky-400 dark:border-sky-700 bg-sky-100 dark:bg-sky-950 px-2.5 py-2 text-sm font-extrabold font-mono text-sky-900 dark:text-sky-200 select-none">
+                          {CURRENCY_CATALOG[transferForeignCurrency]?.flag} {CURRENCY_CATALOG[transferForeignCurrency]?.symbol}
+                        </span>
+                        <CurrencyInput
+                          id="tx-transfer-foreign-amount"
+                          data-testid="tx-transfer-foreign-amount-input"
+                          currency={transferForeignCurrency}
+                          value={transferForeignAmountStr}
+                          onValueChange={setTransferForeignAmountStr}
+                          placeholder="0,00"
+                          className="w-full rounded-r-xl border border-sky-400 dark:border-sky-700 bg-white dark:bg-slate-900 px-3 py-2 text-lg font-extrabold font-mono tabular-nums text-slate-900 dark:text-white focus:border-sky-600 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    {transferForeignAmount > 0 && numericPreview > 0 && (
+                      <p data-testid="transfer-fx-rate" className="text-[11px] text-slate-600 dark:text-slate-300">
+                        Cotação efetiva: <strong>{formatExchangeRateBR(numericPreview / transferForeignAmount)}</strong> por {transferForeignCurrency} (já com taxas e IOF, se houver).
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">

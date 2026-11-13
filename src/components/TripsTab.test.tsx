@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { Transaction, Trip, TripSettlement } from '../types/finance';
+import type { BankAccount, Transaction, Trip, TripExchangeLot, TripSettlement } from '../types/finance';
 import { TripsTab } from './TripsTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -18,6 +18,9 @@ function renderTripsTab(options: {
   onDeleteTrip?: (tripId: string) => void;
   transactions?: Transaction[];
   onRecordSettlement?: (tripId: string, settlement: TripSettlement) => void;
+  accounts?: BankAccount[];
+  onAddExchangeLot?: (tripId: string, lot: TripExchangeLot, debitFromAccountId?: string) => void;
+  onRequestCreateAccount?: (kind: 'account' | 'international_account') => void;
 }) {
   container = document.createElement('div');
   document.body.append(container);
@@ -29,12 +32,13 @@ function renderTripsTab(options: {
         trips: options.trips ?? [],
         transactions: options.transactions ?? [],
         categories: [],
-        accounts: [],
+        accounts: options.accounts ?? [],
+        onRequestCreateAccount: options.onRequestCreateAccount,
         familyMembers: [],
         onAddTrip: options.onAddTrip ?? (() => {}),
         onUpdateTrip: options.onUpdateTrip ?? (() => {}),
         onDeleteTrip: options.onDeleteTrip ?? (() => {}),
-        onAddExchangeLot: () => {},
+        onAddExchangeLot: options.onAddExchangeLot ?? (() => {}),
         onDeleteExchangeLot: () => {},
         onRecordSettlement: options.onRecordSettlement ?? (() => {}),
         onOpenNewTripExpense: () => {},
@@ -256,4 +260,59 @@ test('zero partial settlement is rejected instead of silently settling the full 
   assert.equal(recorded.length, 0);
   assert.ok(page.querySelector('[role="dialog"]'), 'invalid amount keeps the settlement form open');
   assert.match(page.querySelector('[role="alert"]')?.textContent || '', /maior que zero/);
+});
+
+test('exchange purchase debits a BRL account and credits an international account of the trip currency', async () => {
+  const lots: Array<{ lot: TripExchangeLot; debit?: string }> = [];
+  const accounts: BankAccount[] = [
+    { id: 'nubank', name: 'Nubank', institution: 'Nubank', type: 'checking', initialBalance: 0, color: '#7c3aed', includeInTotal: true },
+    { id: 'nomad-usd', name: 'Nomad USD', institution: 'Nomad', type: 'international', currency: 'USD', initialBalance: 0, color: '#000', includeInTotal: false },
+    { id: 'wise-eur', name: 'Wise EUR', institution: 'Wise', type: 'international', currency: 'EUR', initialBalance: 0, color: '#000', includeInTotal: false },
+  ];
+  const page = renderTripsTab({
+    trips: [createSyntheticTrip()],
+    accounts,
+    onAddExchangeLot: (_tripId, lot, debit) => lots.push({ lot, debit }),
+  });
+  await act(async () => { page.querySelector<HTMLElement>('[data-testid="trip-card-trip-synthetic"]')?.click(); });
+  await act(async () => {
+    [...page.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('+ Câmbio'))?.click();
+  });
+  const selects = [...page.querySelectorAll<HTMLSelectElement>('select')];
+  const debit = selects.find((s) => [...s.options].some((o) => o.textContent?.includes('Debitar de')));
+  const credit = selects.find((s) => [...s.options].some((o) => o.textContent?.includes('Entra em')));
+  assert.ok(debit && credit);
+  assert.deepEqual([...debit.options].filter((o) => o.value).map((o) => o.value), ['nubank'], 'só conta em reais pode ser debitada');
+  assert.deepEqual([...credit.options].filter((o) => o.value).map((o) => o.value), ['wise-eur'], 'só conta internacional na moeda da viagem recebe a moeda');
+  assert.equal(credit.value, 'wise-eur', 'a conta da moeda já vem escolhida');
+
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(debit, 'nubank');
+    debit.dispatchEvent(new window.Event('change', { bubbles: true }));
+    const form0 = [...page.querySelectorAll<HTMLFormElement>('form')].find((f) => f.contains(debit))!;
+    setInputValue([...form0.querySelectorAll<HTMLInputElement>('input[required]')].filter((i) => i.type === 'text' && i.value === '')[1]!, '100,00');
+  });
+  const form = [...page.querySelectorAll<HTMLFormElement>('form')].find((f) => f.contains(debit));
+  assert.ok(form);
+  await act(async () => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+  assert.equal(lots.length, 1, page.querySelector('[role="alert"]')?.textContent ?? 'sem alerta');
+  assert.equal(lots[0].lot.accountId, 'wise-eur');
+  assert.equal(lots[0].lot.debitAccountId, 'nubank');
+  assert.equal(lots[0].debit, 'nubank');
+});
+
+test('exchange purchase without an international account of the currency offers to register one', async () => {
+  const requests: string[] = [];
+  const page = renderTripsTab({
+    trips: [createSyntheticTrip()],
+    accounts: [{ id: 'nubank', name: 'Nubank', institution: 'Nubank', type: 'checking', initialBalance: 0, color: '#7c3aed', includeInTotal: true }],
+    onRequestCreateAccount: (kind) => requests.push(kind),
+  });
+  await act(async () => { page.querySelector<HTMLElement>('[data-testid="trip-card-trip-synthetic"]')?.click(); });
+  await act(async () => {
+    [...page.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('+ Câmbio'))?.click();
+  });
+  assert.ok(page.querySelector('[data-testid="missing-international-account-for-lot"]'));
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="missing-setup-notice-action"]')?.click(); });
+  assert.deepEqual(requests, ['international_account']);
 });

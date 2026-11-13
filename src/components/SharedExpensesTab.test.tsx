@@ -228,7 +228,7 @@ test('shared settlement cannot close or save when no valid bank account is selec
   await act(async () => { confirmButton.click(); });
   assert.equal(settlementCalls, 0);
   assert.ok(page.querySelector('[role="dialog"]'), 'modal remains open so the user can correct the missing account');
-  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /conta bancária válida/);
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /conta bancária em reais/);
 });
 
 test('shared settlement rejects an empty date even when the bank account is valid', async () => {

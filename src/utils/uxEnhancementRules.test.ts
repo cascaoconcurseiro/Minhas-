@@ -504,3 +504,16 @@ test('known merchant descriptions auto-suggest their seeded category', () => {
 });
 
 
+
+test('account statement places an invoice payment by its bank date, like the balance does', () => {
+  const payment: Transaction = {
+    id: 'pay', description: 'Pagamento Fatura', amount: 100, date: '2026-11-05', competenceMonth: '2026-10',
+    type: 'expense', status: 'paid', categoryId: 'cat-fatura', accountId: 'a', paymentMethod: 'boleto',
+    recurrence: 'single', isInvoicePayment: true,
+  };
+  const october = calculateAccountStatementWithRunningBalance('a', 500, [payment], '2026-10');
+  const november = calculateAccountStatementWithRunningBalance('a', 500, [payment], '2026-11');
+  assert.equal(october.entriesChronological.length, 0, 'não aparece em outubro (a data do banco é novembro)');
+  assert.equal(november.entriesChronological.length, 1);
+  assert.equal(november.closingRealizedBalance, 400);
+});

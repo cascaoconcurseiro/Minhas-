@@ -41,6 +41,7 @@ import {
   parseBRLInput,
 } from '../utils/financeRules';
 import { CURRENCY_CATALOG, formatForeignCurrency } from '../utils/travelRules';
+import { getTransferForeignLeg } from '../utils/transferRules';
 import { calculateAccountStatementWithRunningBalance } from '../utils/uxEnhancementRules';
 import { CategoryIconBadge } from './CategoryIconBadge';
 import { CurrencyInput } from './CurrencyInput';
@@ -129,6 +130,10 @@ interface AccountsTabProps {
   transactions: Transaction[];
   trips?: Trip[];
   initialSelectedAccountId?: string;
+  /** Abre o cadastro de nova conta ao entrar na tela (pedido pelo formulário de lançamento). */
+  autoOpenCreate?: boolean;
+  autoOpenCreateType?: AccountType;
+  onAutoOpenHandled?: () => void;
   onToggleAccountInTotal: (accountId: string) => void;
   onAddAccount: (account: Omit<BankAccount, 'id'>) => BankAccount | void;
   onUpdateAccount?: (account: BankAccount) => void;
@@ -163,6 +168,9 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   transactions,
   trips = [],
   initialSelectedAccountId,
+  autoOpenCreate,
+  autoOpenCreateType = 'checking',
+  onAutoOpenHandled,
   onToggleAccountInTotal,
   onAddAccount,
   onUpdateAccount,
@@ -316,6 +324,13 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     setShowAccountForm(true);
   };
 
+  useEffect(() => {
+    if (!autoOpenCreate) return;
+    openNewAccountForm(autoOpenCreateType);
+    onAutoOpenHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCreate]);
+
   // Compute foreign balance for an international account
   const getInternationalAccountForeignMetrics = (acc: BankAccount) => {
     const currency: CurrencyCode =
@@ -355,6 +370,24 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     let receivedForeign = 0;
     let pendingIncomeForeign = 0;
     for (const tx of transactions) {
+      // Transferência de/para conta internacional: usa a perna em moeda estrangeira gravada na transferência.
+      const transferLeg = tx.competenceMonth <= selectedMonth ? getTransferForeignLeg(tx, acc) : null;
+      if (transferLeg) {
+        if (transferLeg.direction === 'out') {
+          if (tx.status === 'paid') spentForeign += transferLeg.amount;
+          else pendingForeign += transferLeg.amount;
+        } else if (tx.status === 'paid') {
+          receivedForeign += transferLeg.amount;
+          const acquisitionCents = Math.round(transferLeg.amount * (transferLeg.rate || 0) * 100);
+          if (transferLeg.rate && transferLeg.rate > 0 && Number.isSafeInteger(acquisitionCents) && acquisitionCents > 0) {
+            costBasisForeign += transferLeg.amount;
+            costBasisBrl += acquisitionCents / 100;
+          }
+        } else {
+          pendingIncomeForeign += transferLeg.amount;
+        }
+        continue;
+      }
       if (
         tx.accountId === acc.id &&
         (tx.type === 'expense' || tx.type === 'income') &&
@@ -411,6 +444,11 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     e.preventDefault();
     if (!accName.trim()) {
       setFormError('Informe o nome da conta ou carteira (ex: Itaú Conta Corrente ou Wise Euro).');
+      return;
+    }
+    const normalizedName = accName.trim().toLocaleLowerCase('pt-BR');
+    if (accounts.some((other) => other.id !== editingAccount?.id && other.name.trim().toLocaleLowerCase('pt-BR') === normalizedName)) {
+      setFormError('Já existe uma conta com esse nome. Use um nome diferente para não confundir os saldos.');
       return;
     }
     const isIntl = accType === 'international';

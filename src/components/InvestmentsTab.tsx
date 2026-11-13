@@ -1,3 +1,5 @@
+import { getAccountCurrency } from '../utils/transferRules';
+import { MissingSetupNotice } from './MissingSetupNotice';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownRight,
@@ -57,6 +59,8 @@ interface InvestmentsTabProps {
   assets: InvestmentAsset[];
   targetMap?: InvestmentTargetMap;
   accounts: BankAccount[];
+  /** Leva ao cadastro de conta quando falta uma conta em reais. */
+  onRequestCreateAccount?: () => void;
   transactions?: Transaction[];
   monthlyLivingExpense: number;
   onAddAsset: (asset: Omit<InvestmentAsset, 'id'>) => void;
@@ -86,6 +90,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
   assets,
   targetMap = DEFAULT_INVESTMENT_TARGETS,
   accounts,
+  onRequestCreateAccount,
   transactions = [],
   monthlyLivingExpense,
   onAddAsset,
@@ -144,13 +149,13 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
   const [operationDate, setOperationDate] = useState(getLocalDateISO);
   const [opQtyStr, setOpQtyStr] = useState('1');
   const [opPriceStr, setOpPriceStr] = useState('');
-  const [opAccountId, setOpAccountId] = useState<string>(accounts[0]?.id || '');
+  // Compra e resgate de ativos movimentam reais: só contas em reais podem ser debitadas/creditadas.
+  const brlAccounts = accounts.filter((account) => getAccountCurrency(account) === 'BRL');
+  const [opAccountId, setOpAccountId] = useState<string>(brlAccounts[0]?.id || '');
   useEffect(() => {
-    if (
-      (!opAccountId || !accounts.some((a) => a.id === opAccountId)) &&
-      accounts.length > 0
-    ) {
-      setOpAccountId(accounts[0].id);
+    const brl = accounts.filter((a) => getAccountCurrency(a) === 'BRL');
+    if ((!opAccountId || !brl.some((a) => a.id === opAccountId)) && brl.length > 0) {
+      setOpAccountId(brl[0].id);
     }
   }, [accounts, opAccountId]);
   const [opLinkBankAccount, setOpLinkBankAccount] = useState(true);
@@ -458,8 +463,8 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       setOpQtyStr(asset.assetClass.startsWith('renda_fixa') ? '1' : '10');
       setOpPriceStr(asset.currentPrice.toFixed(2).replace('.', ','));
     }
-    setOpAccountId(accounts[0]?.id || '');
-    setOpLinkBankAccount(accounts.length > 0);
+    setOpAccountId(brlAccounts[0]?.id || '');
+    setOpLinkBankAccount(brlAccounts.length > 0);
   };
 
   const handleConfirmOperation = (e: React.FormEvent) => {
@@ -1337,7 +1342,14 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 </div>
               </div>
 
-              {activeOperation.mode !== 'update_quote' && (
+              {activeOperation.mode !== 'update_quote' && brlAccounts.length === 0 && (
+                <MissingSetupNotice
+                  testId="missing-brl-account-for-investment"
+                  message="Você não tem conta em reais cadastrada para debitar ou creditar esta operação. Cadastre uma conta, ou registre sem vincular a conta."
+                  onAction={onRequestCreateAccount}
+                />
+              )}
+              {activeOperation.mode !== 'update_quote' && brlAccounts.length > 0 && (
                 <div>
                   <label className="block text-[11px] font-semibold text-emerald-950 mb-1">
                     {activeOperation.mode === 'buy'
@@ -1349,7 +1361,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                     onChange={(e) => setOpAccountId(e.target.value)}
                     className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs text-slate-900"
                   >
-                    {accounts.map((acc) => (
+                    {brlAccounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
                         {acc.name}
                       </option>

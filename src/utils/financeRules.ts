@@ -114,7 +114,8 @@ export function getConsumptionMonth(tx: Transaction): string {
   return tx.competenceMonth;
 }
 
-function getCashMovementMonth(tx: Transaction): string {
+/** Mês em que o dinheiro realmente se move na conta: pagamento de fatura usa a data do pagamento. */
+export function getCashMovementMonth(tx: Transaction): string {
   return tx.isInvoicePayment && /^\d{4}-\d{2}-\d{2}$/.test(tx.date)
     ? tx.date.slice(0, 7)
     : tx.competenceMonth;
@@ -241,6 +242,9 @@ export interface CreateTransactionBatchInput {
   targetInvestmentAssetId?: string;
   isInvoicePayment?: boolean;
   settledCardId?: string;
+  transferFromAmount?: number;
+  transferToAmount?: number;
+  transferExchangeRate?: number;
   // Travel & Multi-Currency fields
   tripId?: string;
   originalCurrency?: CurrencyCode;
@@ -525,6 +529,9 @@ export function createTransactionBatch(
       targetInvestmentAssetId: input.targetInvestmentAssetId,
       isInvoicePayment: input.isInvoicePayment,
       settledCardId: input.settledCardId,
+      transferFromAmount: input.transferFromAmount,
+      transferToAmount: input.transferToAmount,
+      transferExchangeRate: input.transferExchangeRate,
       ...tripExtras,
     },
   ];

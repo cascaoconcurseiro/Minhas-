@@ -4,7 +4,7 @@ import {
   PaymentMethod,
   Transaction,
 } from '../types/finance';
-import { getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth } from './financeRules';
+import { getCashMovementMonth, getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth } from './financeRules';
 import { matchCategoryByDescription } from './ofxParser';
 
 export interface DailyTransactionGroup {
@@ -886,7 +886,7 @@ export function calculateAccountStatementWithRunningBalance(
   for (const tx of transactions) {
     if (tx.creditCardId) continue;
     if (tx.isCompanionOnlyExpense || tx.sharedPaidBy === 'member') continue;
-    if (tx.competenceMonth >= selectedMonth) continue;
+    if (getCashMovementMonth(tx) >= selectedMonth) continue;
     if (tx.status !== 'paid') continue;
 
     if (tx.type === 'income' && tx.accountId === accountId) {
@@ -907,7 +907,7 @@ export function calculateAccountStatementWithRunningBalance(
     .filter((tx) => {
       if (tx.creditCardId) return false;
       if (tx.isCompanionOnlyExpense || tx.sharedPaidBy === 'member') return false;
-      if (tx.competenceMonth !== selectedMonth) return false;
+      if (getCashMovementMonth(tx) !== selectedMonth) return false;
       return tx.accountId === accountId || tx.destinationAccountId === accountId;
     })
     .sort((a, b) => {
