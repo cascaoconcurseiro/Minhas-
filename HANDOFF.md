@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Novo lançamento começa sem categoria — 13/11/2026
+
+Pedido: o lançamento novo não deve vir com a primeira categoria (Moradia) pré-escolhida; o sistema aprende. `TransactionModal`: despesa, cartão e receita novos começam com categoria vazia ("Escolha a categoria…"), trocar entre despesa/cartão/receita limpa a categoria se ela não for do tipo, e salvar sem categoria é bloqueado com mensagem (depois da checagem do valor). A edição mantém a categoria salva; viagem e transferência seguem como antes. O aprendizado já existia (sugestão por descrição do histórico, aplicada sozinha com confiança ≥ 65%): conferido no navegador que, depois de salvar "Zafari" numa categoria, digitar "Zafari" de novo já preenche essa categoria. Testes de `TransactionModal` atualizados (escolhem categoria) e novo caso de bloqueio sem categoria. Limite: a primeira vez de cada estabelecimento exige escolher; o ícone da categoria só aparece depois de escolhida.
+
 ## Face ID só em celular/tablet — 13/11/2026
 
 No computador o app estava oferecendo Face ID (Windows Hello/Touch ID do Mac contam como biometria da plataforma). `isPasskeySupported` (`passkeyClient.ts`) agora exige aparelho de mão (`isHandheldDevice`: iPhone/iPad/Android, iPad em modo desktop com toque, ou ponteiro principal por toque). No computador somem o convite, o cartão de Face ID em Conta e o botão de entrar com Face ID na tela de login. Passkeys já cadastradas no computador continuam guardadas, só deixam de ser oferecidas lá. Teste novo em `FaceIdCard.test.tsx`. Limite: computador com tela de toque como ponteiro principal (tablet 2 em 1 em modo tablet) conta como aparelho de mão.

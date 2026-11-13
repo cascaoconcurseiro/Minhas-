@@ -645,16 +645,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setInvoiceCompetenceMonth(
         resolveCreditCardInvoiceMonth(initialPurchaseDate, firstCard)
       );
-      const firstExp = categories.find((c) => c.type === 'expense');
+      // Sem categoria até a pessoa escolher (ou o sistema sugerir pelo histórico): evita classificar errado por padrão
       if (!initialTripId) {
-        setCategoryId(firstExp?.id || '');
+        setCategoryId('');
       }
     } else if (defaultMode === 'income') {
       setStatus('paid');
       setPaymentMethod('pix');
       setAccountId(accounts[0]?.id || '');
-      const firstInc = categories.find((c) => c.type === 'income');
-      setCategoryId(firstInc?.id || '');
+      setCategoryId('');
     } else if (defaultMode === 'transfer') {
       setStatus('paid');
       setPaymentMethod('transfer');
@@ -680,9 +679,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           accounts.find((a) => a.type !== 'international') || accounts[0];
         setAccountId(domesticAcc?.id || '');
       }
-      const firstExp = categories.find((c) => c.type === 'expense');
       if (!initialTripId) {
-        setCategoryId(firstExp?.id || '');
+        setCategoryId('');
       }
     }
   }, [
@@ -1005,9 +1003,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setEntryMode(mode);
     setError('');
     if (mode === 'income') {
-      const incCat = categories.find((c) => c.type === 'income');
-      if (incCat) {
-        setCategoryId(incCat.id);
+      if (!editingTransaction && categories.find((c) => c.id === categoryId)?.type !== 'income') {
+        setCategoryId('');
       }
       setPaymentMethod('pix');
       setStatus('paid');
@@ -1016,9 +1013,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
       setIsShared(false);
     } else if (mode === 'credit_card') {
-      const expCat = categories.find((c) => c.type === 'expense');
-      if (expCat && !tripId && !editingTransaction) {
-        setCategoryId(expCat.id);
+      if (!tripId && !editingTransaction && categories.find((c) => c.id === categoryId)?.type !== 'expense') {
+        setCategoryId('');
       }
       setPaymentMethod('credit_card');
       setStatus('pending');
@@ -1033,9 +1029,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setIsTripLinked(false);
       setIsShared(false);
     } else {
-      const expCat = categories.find((c) => c.type === 'expense');
-      if (expCat && !tripId && !editingTransaction) {
-        setCategoryId(expCat.id);
+      if (!tripId && !editingTransaction && categories.find((c) => c.id === categoryId)?.type !== 'expense') {
+        setCategoryId('');
       }
       const originalBankMethod =
         editingTransaction && editingTransaction.paymentMethod && editingTransaction.paymentMethod !== 'credit_card'
@@ -1092,7 +1087,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   );
 
   const selectedCategoryObj =
-    filteredCategories.find((c) => c.id === categoryId) || filteredCategories[0];
+    filteredCategories.find((c) => c.id === categoryId);
 
   const numericPreview = parseBRLInput(amountStr);
 
@@ -1671,6 +1666,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
     if (numericAmount <= 0) {
       setError('Informe um valor válido maior que zero.');
+      return;
+    }
+    if (entryMode !== 'transfer' && !categoryId) {
+      setError('Escolha a categoria do lançamento. O sistema aprende e passa a sugerir sozinho nas próximas vezes.');
       return;
     }
 
@@ -2995,6 +2994,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         onChange={(e) => handleCategoryChange(e.target.value)}
                         className="w-full min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
                       >
+                        {!categoryId && <option value="">Escolha a categoria…</option>}
                         {filteredCategories.map((cat) => (
                           <option key={cat.id} value={cat.id}>
                             {cat.name}

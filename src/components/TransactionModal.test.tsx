@@ -108,6 +108,13 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new window.Event('input', { bubbles: true }));
 }
 
+function chooseCategory(page: HTMLElement, id: string) {
+  const select = page.querySelector<HTMLSelectElement>('#tx-category-select');
+  assert.ok(select, 'seletor de categoria');
+  Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(select, id);
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+}
+
 afterEach(() => {
   if (root) act(() => root?.unmount());
   root = null;
@@ -140,6 +147,14 @@ test('transaction modal rejects zero amount and saves a valid synthetic expense'
 
   await act(async () => {
     setInputValue(amount, '12,34');
+    submit.click();
+  });
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Escolha a categoria/);
+  assert.equal(savedInputs.length, 0, 'sem categoria escolhida não salva');
+  await act(async () => {
+    chooseCategory(page, 'category-test');
+  });
+  await act(async () => {
     submit.click();
   });
 
@@ -442,6 +457,7 @@ test('transaction modal submits the date selected in the date control', async ()
   const date = page.querySelector<HTMLInputElement>('[data-testid="tx-date-input"]');
   assert.ok(date);
   assert.equal(date.value, getLocalDateISO());
+  await act(async () => { chooseCategory(page, 'category-test'); });
 
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Compra com data sintética');
@@ -506,6 +522,7 @@ test('credit-card purchase creates pending installments tied to the chosen card'
   const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard] });
   assert.equal(page.querySelector('[data-testid="mode-credit-card-btn"]'), null);
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  await act(async () => { chooseCategory(page, 'category-test'); });
   await act(async () => {
     page.querySelector<HTMLButtonElement>('[data-testid="recurrence-installment-btn"]')?.click();
   });
@@ -583,6 +600,7 @@ test('budget warning follows the purchase month instead of the invoice month or 
     cards: [testCard], transactions: [base, { ...base, id: 'dec-budget', amount: 40, competenceMonth: '2026-12' }],
   });
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  await act(async () => { chooseCategory(page, 'category-test'); });
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-date-input"]')!, '2026-11-11');
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '50,00');
