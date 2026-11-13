@@ -2,7 +2,7 @@ import { getAccountCurrency, resolveBankTransfer } from './utils/transferRules';
 import { newEntityId } from './utils/ids';
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { setUpdateBlocker } from './pwa/updateBlockers';
+import { hasUpdateBlockers, setUpdateBlocker } from './pwa/updateBlockers';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
   Bell,
@@ -1218,6 +1218,51 @@ export default function App() {
     };
     window.addEventListener('online', retryAfterReconnect);
     return () => window.removeEventListener('online', retryAfterReconnect);
+  }, [isAuthReady, isUserAuthenticated]);
+
+  // Ao voltar para o app: (1) reenvia o que ficou sem salvar e (2) se outro aparelho gravou uma versão
+  // mais nova no Neon e esta aba não tem nada pendente, recarrega para pegá-la (evita o aviso de conflito).
+  const cloudSyncStatusRef = useRef(cloudSyncStatus);
+  cloudSyncStatusRef.current = cloudSyncStatus;
+  useEffect(() => {
+    if (!isAuthReady || !isUserAuthenticated) return;
+    let checking = false;
+    let lastCheckAt = 0;
+    const onReturn = async () => {
+      if (document.hidden || checking || !navigator.onLine || !hasLoadedRemoteOnceRef.current) return;
+      if (workspaceConflictRef.current) return;
+      if (Date.now() - lastCheckAt < 15_000) return;
+      lastCheckAt = Date.now();
+      checking = true;
+      const uid = authenticatedUidRef.current;
+      try {
+        if (cloudSyncStatusRef.current === 'error' && latestNeonPayloadRef.current) {
+          void persistNeonWorkspacePayload(latestNeonPayloadRef.current);
+          return;
+        }
+        if (cloudSyncStatusRef.current !== 'synced') return;
+        await neonSaveQueueRef.current;
+        if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
+        const remote = await loadNeonWorkspace();
+        if (authenticatedUidRef.current !== uid || workspaceConflictRef.current) return;
+        const known = neonWorkspaceRevisionRef.current;
+        if (known === null || remote.revision <= known) return;
+        if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current || hasUpdateBlockers()) return;
+        if (document.querySelector('dialog[open], [role="dialog"]')) return;
+        window.location.reload();
+      } catch {
+        // Sem rede ou sessão expirada: tenta de novo na próxima volta ao app.
+      } finally {
+        checking = false;
+      }
+    };
+    const onVisible = () => void onReturn();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [isAuthReady, isUserAuthenticated]);
 
   // Poll Neon for family invitations and incoming shared expenses while the app is open.

@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Auditoria de sincronização: aparelho desatualizado e reenvio ao voltar — 13/11/2026
+
+Auditoria do caminho de gravação (`App.tsx` + `backend/app.ts`). Achados: (1) o app só lia o workspace do Neon ao abrir; com dois aparelhos abertos (celular + computador) o que ficou parado seguia com a revisão antiga e, na próxima edição, abria o aviso de conflito — provável origem do aviso "toda hora". (2) Depois de 8 tentativas falhas, o reenvio só voltava no evento `online`; voltar ao app não reenviava. (3) O servidor só incrementa a revisão no `PUT` do próprio cliente (nenhuma escrita paralela no backend), então não há outro escritor escondido. Correção: ao voltar ao app (foco/visibilidade, no máx. a cada 15 s), se o status é erro reenvia a última cópia; se está sincronizado, sem retry pendente, sem janela aberta e sem bloqueio, compara a revisão do Neon e, se for mais nova, recarrega a página para pegar a versão da nuvem. Combinado com a correção anterior do 409 por conteúdo já conhecido. Limites: a checagem só roda quando o app volta ao primeiro plano; edições feitas em dois aparelhos ao mesmo tempo continuam pedindo escolha manual. Não verificado em produção.
+
 ## Auditoria: correções dos 7 achados abertos — 13/11/2026
 
 1. **Importação de extrato x transferência lançada à mão:** `checkItemDuplicate` (`ofxParser.ts`) reconhece a saída (conta de origem) e a entrada (conta de destino) de uma transferência já registrada (mesmo valor, até 1 dia de diferença; usa a perna em moeda estrangeira quando o extrato é estrangeiro) e marca como duplicada (vem desmarcada). Antes criava despesa/receita novas e o dinheiro saía duas vezes.
