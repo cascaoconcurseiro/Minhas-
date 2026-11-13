@@ -22,9 +22,17 @@ afterEach(() => {
   if (originalPKC === undefined) delete globals.PublicKeyCredential;
   else globals.PublicKeyCredential = originalPKC;
   window.localStorage.clear();
+  setUserAgent(originalUserAgent);
 });
 
+const originalUserAgent = navigator.userAgent;
+function setUserAgent(value: string) {
+  Object.defineProperty(navigator, 'userAgent', { value, configurable: true });
+}
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
+
 function supportFaceId(supported: boolean) {
+  setUserAgent(IPHONE_UA);
   const stub = { isUserVerifyingPlatformAuthenticatorAvailable: async () => supported };
   globals.PublicKeyCredential = stub;
   (window as unknown as Record<string, unknown>).PublicKeyCredential = stub;
@@ -84,4 +92,13 @@ test('ativar sem a preparação pronta avisa para tocar de novo, sem esperar a r
     assert.match(describePasskeyFailure(error), /PasskeyError/);
   }
   assert.match(message, /Preparando o Face ID/);
+});
+
+test('no computador o Face ID não é oferecido, mesmo com leitor biométrico', async () => {
+  const stub = { isUserVerifyingPlatformAuthenticatorAvailable: async () => true };
+  globals.PublicKeyCredential = stub;
+  (window as unknown as Record<string, unknown>).PublicKeyCredential = stub;
+  setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36');
+  const { isPasskeySupported } = await import('../lib/passkeyClient');
+  assert.equal(await isPasskeySupported(), false);
 });

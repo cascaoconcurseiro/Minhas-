@@ -62,9 +62,23 @@ export function dismissPasskeyOffer(): void {
   writeFlag(OFFER_KEY, 'dismissed');
 }
 
-/** O aparelho tem Face ID, Touch ID ou biometria equivalente que o navegador consegue usar. */
+/** Celular ou tablet (toque como ponteiro principal). No computador o Face ID não é oferecido. */
+export function isHandheldDevice(): boolean {
+  try {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) return true;
+    // iPad com Safari em modo "site para computador" se identifica como Mac, mas tem toque
+    if (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1) return true;
+    return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/** O aparelho tem Face ID, Touch ID ou biometria equivalente que o navegador consegue usar (só em celular/tablet). */
 export async function isPasskeySupported(): Promise<boolean> {
   try {
+    if (!isHandheldDevice()) return false;
     if (typeof window === 'undefined' || !window.PublicKeyCredential) return false;
     if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') return false;
     return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();

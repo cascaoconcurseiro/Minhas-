@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Face ID só em celular/tablet — 13/11/2026
+
+No computador o app estava oferecendo Face ID (Windows Hello/Touch ID do Mac contam como biometria da plataforma). `isPasskeySupported` (`passkeyClient.ts`) agora exige aparelho de mão (`isHandheldDevice`: iPhone/iPad/Android, iPad em modo desktop com toque, ou ponteiro principal por toque). No computador somem o convite, o cartão de Face ID em Conta e o botão de entrar com Face ID na tela de login. Passkeys já cadastradas no computador continuam guardadas, só deixam de ser oferecidas lá. Teste novo em `FaceIdCard.test.tsx`. Limite: computador com tela de toque como ponteiro principal (tablet 2 em 1 em modo tablet) conta como aparelho de mão.
+
 ## Teste amplo do sistema (navegador + lógica) — 13/11/2026
 
 Método: (1) 688 testes unitários/integração; (2) fuzz de lógica (carteiras aleatórias: resumo × relatório × categorias × 50/30/20 × DRE; pagar/estornar fatura, excluir série, alternar status, acerto/reabertura de compartilhado; rateio de viagem e simplificação de dívidas; operações de investimento); (3) E2E em Chromium com servidor simulado com estado (build de produção em `vite preview`): navegação das 10 abas em desktop e celular (sem estouro horizontal nem erro de console), criar/editar (conta ⇄ cartão)/duplicar/excluir lançamento, receita, parcelado 3x no cartão, transferência, fixa de 12 meses, compartilhada, validação de valor vazio, importação de extrato CSV pela tela, criar viagem/conta/cartão (com validação de dia de fechamento), modal de lançamento em 360×640, 390×844 e 768×1024, e dois aparelhos ao mesmo tempo (um enxerga o lançamento do outro em ~4 s, sem laço de gravações, 503 com nova tentativa, 409 sem aviso, offline→online); (4) auditoria de integridade (`runFinancialIntegrityAudit`) no estado final: 7/7 verificações, 0 problemas.
