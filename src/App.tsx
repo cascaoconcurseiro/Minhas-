@@ -730,15 +730,10 @@ export default function App() {
             if (authenticatedUidRef.current !== authenticatedUser.uid) {
               throw new Error('A conta ativa mudou durante a leitura do workspace.');
             }
-            const conflict = {
-              localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
-              remoteSnapshot: existing,
-            };
-            workspaceConflictRef.current = conflict;
-            setWorkspaceConflict(conflict);
-            setWorkspaceConflictError(null);
-            setIsWorkspaceConflictOpen(true);
-            setCloudSyncStatus('error');
+            // O que chegou primeiro ao Neon prevalece: adota a versão da nuvem sem perguntar.
+            neonWorkspaceRevisionRef.current = existing.revision;
+            try { localStorage.removeItem(scopedStorageKey); } catch { /* sem armazenamento local */ }
+            window.location.reload();
             throw new NeonWorkspaceError(
               'O workspace Neon foi criado em outra aba durante a inicialização.',
               409
@@ -774,7 +769,6 @@ export default function App() {
                 JSON.stringify({ at: new Date().toISOString(), payload })
               );
               localStorage.removeItem(scopedStorageKey);
-              localStorage.setItem('minhas-economias:sync-notice', '1');
             } catch {
               // Sem armazenamento local: segue só com a versão da nuvem.
             }
@@ -790,11 +784,7 @@ export default function App() {
             setWorkspaceConflictError(
               'O Neon recusou a revisão, mas não foi possível carregar a versão mais recente. Suas alterações locais foram mantidas; tente sincronizar novamente quando a conexão voltar.'
             );
-            showNotice(
-              'O Neon recusou a sincronização. As alterações locais foram preservadas, mas a versão atual da nuvem não pôde ser carregada.',
-              undefined,
-              true
-            );
+
           }
           if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
           setCloudSyncStatus('error');
@@ -1225,18 +1215,6 @@ export default function App() {
     };
     window.addEventListener('online', retryAfterReconnect);
     return () => window.removeEventListener('online', retryAfterReconnect);
-  }, [isAuthReady, isUserAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthReady || !isUserAuthenticated) return;
-    try {
-      if (localStorage.getItem('minhas-economias:sync-notice')) {
-        localStorage.removeItem('minhas-economias:sync-notice');
-        showNotice('Outro aparelho salvou antes. Atualizei com a versão mais recente da nuvem.', undefined, true);
-      }
-    } catch {
-      // sem armazenamento local
-    }
   }, [isAuthReady, isUserAuthenticated]);
 
   // Ao voltar para o app: (1) reenvia o que ficou sem salvar e (2) se outro aparelho gravou uma versão

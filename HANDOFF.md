@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Sincronização sem nenhum aviso — 13/11/2026
+
+Pedido: o sistema é em tempo real e não deve mostrar aviso nenhum. Removidos o aviso "Outro aparelho salvou antes…" e o aviso de recusa do Neon; a criação concorrente do workspace (409 no POST) também adota a versão da nuvem sem modal. O indicador "Falha na sincronização" no rodapé do menu continua (é status, não aviso). A cópia local descartada segue guardada em `localStorage` (`minhas-economias:descartado:<uid>`).
+
 ## Sincronização em tempo real: quem chega primeiro ao Neon prevalece — 13/11/2026
 
 Pedido: "é em tempo real, prevalece o que chegar primeiro, igual a um app real". O aviso de conflito com escolha manual deixou de aparecer no 409: se o Neon tem conteúdo diferente do que a aba conhece, a aba adota a versão da nuvem (guarda a cópia descartada em `localStorage` `minhas-economias:descartado:<uid>` para recuperação, limpa o cache local e recarrega) e mostra "Outro aparelho salvou antes…". Além disso, a aba confere o Neon a cada 20 s e ao voltar ao app e, se há revisão mais nova, sem nada pendente, sem janela aberta e sem toque nos últimos 3 s, recarrega para pegar a versão nova. O modal só resta como último recurso quando a versão da nuvem não pode ser lida. Risco aceito: a edição feita em um aparelho ao mesmo tempo em que outro salvou primeiro é descartada (recuperável só pela cópia local guardada, sem tela para isso). Não é tempo real de verdade (sem push): atraso de até ~20 s. Validação: tsc, testes (teste do modal "keep-local" trocado por teste do novo comportamento), build; não verificado em produção.
