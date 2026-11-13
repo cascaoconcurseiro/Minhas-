@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Editar compra de cartão preserva o mês da fatura ajustado — 13/11/2026
+
+Decisão (deixada ao critério técnico): ao abrir uma compra de cartão já salva, o mês da fatura salvo é mantido (inclusive ajuste manual) e só é recalculado quando a data ou o cartão mudam. Exceção para lançamentos antigos: se o mês salvo é igual ao mês da própria compra, continua recalculando pela regra do fechamento (comportamento anterior, coberto pelo teste existente). Novo teste em `TransactionModal.test.tsx`. Limite: um ajuste manual para exatamente o mês da compra seria recalculado ao reabrir.
+
 ## Auditoria de lógica (negócio) — 13/11/2026
 
 Conferido sem defeito (sondagens executadas): trocar uma despesa de banco para cartão (saldo da conta volta, aparece na fatura do mês certo, mês de consumo e saldo projetado coerentes); parcelas em centavos (resto distribuído); mês da fatura (`resolveCreditCardInvoiceMonth`, inclusive vencimento no mês seguinte); datas em UTC; previsão de saldo (`cashForecast`). Achado corrigido: ao trocar o parceiro de uma despesa compartilhada na edição, a cópia espelho ficava para sempre na conta do parceiro antigo. Agora `triggerCrossAccountSharedTxSync` ganhou `deletedOnlyForMemberId`: o parceiro antigo recebe o apagamento e o novo recebe o lançamento. Observação não alterada (decisão de negócio): ao abrir um lançamento de cartão para editar, o mês da fatura é recalculado pela data e pelo fechamento do cartão (teste existente cobre isso), então um ajuste manual do mês da fatura se perde ao reabrir e salvar. Fora do escopo desta passada: série parcelada/fixa compartilhada com troca de parceiro; relatórios, DRE, orçamentos e importação não foram revistos agora.

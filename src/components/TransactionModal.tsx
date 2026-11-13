@@ -700,6 +700,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   // Automatically recalculate the invoice due month when the purchase date or card changes.
   useEffect(() => {
     if (!isOpen || entryMode !== 'credit_card') return;
+    // Ao abrir uma compra de cartão já salva, mantém a fatura que ela tem (inclusive ajuste manual). Só recalcula
+    // quando a data ou o cartão forem alterados, ou quando o mês salvo é o da própria compra (lançamento antigo,
+    // que guardava o mês da compra no lugar do mês da fatura).
+    if (
+      editingTransaction &&
+      editingTransaction.creditCardId &&
+      date === editingTransaction.date &&
+      creditCardId === editingTransaction.creditCardId &&
+      editingTransaction.competenceMonth &&
+      editingTransaction.competenceMonth !== editingTransaction.date.slice(0, 7)
+    ) {
+      return;
+    }
     const chosenCard = cards.find((c) => c.id === creditCardId) || cards[0];
     setInvoiceCompetenceMonth(resolveCreditCardInvoiceMonth(date, chosenCard));
   }, [isOpen, editingTransaction, entryMode, date, creditCardId, cards]);

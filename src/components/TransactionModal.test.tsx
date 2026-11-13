@@ -560,6 +560,19 @@ test('editing a shared expense also offers the credit card option', async () => 
   assert.ok(page.querySelector('[data-testid="payment-method-card"]'));
 });
 
+test('editing a card purchase keeps a manually adjusted invoice month when date and card are unchanged', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const tx: Transaction = {
+    id: 'card-manual', description: 'Compra ajustada', amount: 90, date: '2026-11-10', competenceMonth: '2027-01',
+    type: 'expense', status: 'pending', categoryId: 'category-test', creditCardId: testCard.id,
+    recurrence: 'single', paymentMethod: 'credit_card',
+  };
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard], editingTransaction: tx });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].competenceMonth, '2027-01');
+});
+
 test('budget warning follows the purchase month instead of the invoice month or the month open behind the modal', async () => {
   const base: Transaction = {
     id: 'nov-budget', description: 'Synthetic existing expense', amount: 290,
