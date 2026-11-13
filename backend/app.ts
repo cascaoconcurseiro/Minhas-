@@ -467,6 +467,25 @@ async function startServer() {
     }
   });
 
+  // Consulta leve (só a revisão) para os aparelhos perceberem em segundos que outro aparelho gravou.
+  app.get('/api/workspace/revision', async (_req, res) => {
+    const user = res.locals.authUser as AuthUserIdentity;
+    try {
+      const revision = await withWorkspaceRls(user, async (client) => {
+        const result = await client.query(
+          `SELECT revision FROM public.finance_workspaces WHERE owner_user_id = $1 LIMIT 1`,
+          [user.uid]
+        );
+        return result.rows[0] ? Number(result.rows[0].revision) : null;
+      });
+      res.set('Cache-Control', 'no-store');
+      res.json({ revision });
+    } catch (error) {
+      console.error('Erro ao consultar revisão do workspace Neon:', error);
+      res.status(503).json({ error: 'Não foi possível consultar a revisão.' });
+    }
+  });
+
   app.post('/api/workspace', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     if (!user.email) {

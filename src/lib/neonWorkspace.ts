@@ -121,6 +121,11 @@ export async function loadNeonWorkspace(): Promise<NeonWorkspaceSnapshot> {
   return parseNeonWorkspaceSnapshot(response);
 }
 
+export async function loadNeonWorkspaceRevision(): Promise<number | null> {
+  const response = await authorizedRequest<{ revision: number | null }>('/api/workspace/revision');
+  return typeof response.revision === 'number' ? response.revision : null;
+}
+
 export function createNeonWorkspace(
   payload: Record<string, unknown>
 ): Promise<{ revision: number; updatedAt: string }> {

@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Tempo real: consulta leve da revisão a cada 4 s, sem recarregar a página — 13/11/2026
+
+Pedido: tudo em tempo real. Vercel/serverless não mantém conexão aberta (sem WebSocket), então o "tempo real" é por consulta curta: novo `GET /api/workspace/revision` (só o número da revisão, autenticado, sem cache) e `loadNeonWorkspaceRevision` no cliente. `App.tsx` consulta a cada 4 s (aba visível) e ao voltar ao app; se a revisão do Neon é maior que a conhecida e não há nada pendente, dispara o recarregamento no lugar (`setWorkspaceLoadAttempt`), sem `window.location.reload`. O 409 de gravação e o conflito na criação usam o mesmo caminho: adota a versão da nuvem em silêncio. Se a última gravação falhou, reenvia no mesmo ciclo. Atraso típico: até ~4 s. Custo: uma consulta pequena a cada 4 s por aba aberta. Não verificado em produção; um tempo real instantâneo exigiria serviço de mensageria (ex.: Pusher/Ably) ou SSE em infraestrutura própria.
+
 ## Sincronização sem nenhum aviso — 13/11/2026
 
 Pedido: o sistema é em tempo real e não deve mostrar aviso nenhum. Removidos o aviso "Outro aparelho salvou antes…" e o aviso de recusa do Neon; a criação concorrente do workspace (409 no POST) também adota a versão da nuvem sem modal. O indicador "Falha na sincronização" no rodapé do menu continua (é status, não aviso). A cópia local descartada segue guardada em `localStorage` (`minhas-economias:descartado:<uid>`).

@@ -122,6 +122,7 @@ test('rotas protegidas aceitam a sessão emitida e recusam token adulterado ou e
   const tampered = `${login.body.token.slice(0, -2)}xx`;
   const bad = await fetch(`${baseUrl}/api/workspace`, { headers: { Authorization: `Bearer ${tampered}` } });
   assert.equal(bad.status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/workspace/revision`)).status, 401);
 
   const expired = signSessionToken(
     { uid: 'x', email: 'x@example.com', email_verified: true, name: 'x' },

@@ -35,6 +35,7 @@ import {
   loadNeonFamilyInvitations,
   loadNeonSharedSnapshot,
   loadNeonWorkspace,
+  loadNeonWorkspaceRevision,
   NeonWorkspaceError,
   type NeonWorkspaceSnapshot,
   revokeNeonFamilyInvitation,
@@ -733,7 +734,7 @@ export default function App() {
             // O que chegou primeiro ao Neon prevalece: adota a versão da nuvem sem perguntar.
             neonWorkspaceRevisionRef.current = existing.revision;
             try { localStorage.removeItem(scopedStorageKey); } catch { /* sem armazenamento local */ }
-            window.location.reload();
+            setWorkspaceLoadAttempt((attempt) => attempt + 1);
             throw new NeonWorkspaceError(
               'O workspace Neon foi criado em outra aba durante a inicialização.',
               409
@@ -773,7 +774,7 @@ export default function App() {
               // Sem armazenamento local: segue só com a versão da nuvem.
             }
             neonWorkspaceRevisionRef.current = remoteSnapshot.revision;
-            window.location.reload();
+            setWorkspaceLoadAttempt((attempt) => attempt + 1);
             return;
           } catch (refreshError) {
             if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
@@ -1217,24 +1218,16 @@ export default function App() {
     return () => window.removeEventListener('online', retryAfterReconnect);
   }, [isAuthReady, isUserAuthenticated]);
 
-  // Ao voltar para o app: (1) reenvia o que ficou sem salvar e (2) se outro aparelho gravou uma versão
-  // mais nova no Neon e esta aba não tem nada pendente, recarrega para pegá-la (evita o aviso de conflito).
+  // Tempo real: a cada poucos segundos (e ao voltar ao app) confere a revisão no Neon e, se outro aparelho
+  // gravou, recarrega os dados no lugar, sem recarregar a página. Também reenvia o que ficou sem salvar.
   const cloudSyncStatusRef = useRef(cloudSyncStatus);
   cloudSyncStatusRef.current = cloudSyncStatus;
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated) return;
     let checking = false;
-    let lastCheckAt = 0;
-    let lastUserActivityAt = 0;
-    const markActivity = () => { lastUserActivityAt = Date.now(); };
-    document.addEventListener('keydown', markActivity, true);
-    document.addEventListener('pointerdown', markActivity, true);
-    const onReturn = async () => {
+    const check = async () => {
       if (document.hidden || checking || !navigator.onLine || !hasLoadedRemoteOnceRef.current) return;
       if (workspaceConflictRef.current) return;
-      if (Date.now() - lastCheckAt < 15_000) return;
-      if (Date.now() - lastUserActivityAt < 3_000) return;
-      lastCheckAt = Date.now();
       checking = true;
       const uid = authenticatedUidRef.current;
       try {
@@ -1245,27 +1238,24 @@ export default function App() {
         if (cloudSyncStatusRef.current !== 'synced') return;
         await neonSaveQueueRef.current;
         if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
-        const remote = await loadNeonWorkspace();
+        const remoteRevision = await loadNeonWorkspaceRevision();
         if (authenticatedUidRef.current !== uid || workspaceConflictRef.current) return;
         const known = neonWorkspaceRevisionRef.current;
-        if (known === null || remote.revision <= known) return;
-        if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current || hasUpdateBlockers()) return;
-        if (document.querySelector('dialog[open], [role="dialog"]')) return;
-        window.location.reload();
+        if (remoteRevision === null || known === null || remoteRevision <= known) return;
+        if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
+        setWorkspaceLoadAttempt((attempt) => attempt + 1);
       } catch {
-        // Sem rede ou sessão expirada: tenta de novo na próxima volta ao app.
+        // Sem rede ou sessão expirada: tenta de novo no próximo ciclo.
       } finally {
         checking = false;
       }
     };
-    const onVisible = () => void onReturn();
+    const onVisible = () => void check();
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
-    const poll = window.setInterval(onVisible, 20_000);
+    const poll = window.setInterval(onVisible, 4_000);
     return () => {
       window.clearInterval(poll);
-      document.removeEventListener('keydown', markActivity, true);
-      document.removeEventListener('pointerdown', markActivity, true);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };

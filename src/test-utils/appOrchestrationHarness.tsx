@@ -137,6 +137,7 @@ mock.module('../lib/neonWorkspace', () => ({
     loadCalls += 1;
     return loadWorkspace();
   },
+  loadNeonWorkspaceRevision: async () => null,
   NeonWorkspaceError: SyntheticNeonWorkspaceError,
   revokeNeonFamilyInvitation: async () => {},
   respondToNeonFamilyInvitation: async () => {},
