@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Marcar aviso do sino como lido — 13/11/2026
+
+Cada aviso do sino (previsão, cartão, dados para revisar) ganhou o botão "Marcar como lido" (`ReminderCenterModal`, prop `onDismissNotice`). `App.tsx` guarda os avisos dispensados em `localStorage` (`minhas-economias:dismissed-notices`, chave `id|título`, até 200), então só vale neste aparelho/navegador e o aviso volta se o conteúdo mudar (ex.: novo valor ou mês). A bolinha do sino deixa de contar o aviso dispensado. Lembretes e convites não mudaram. Validação: `tsc`, testes, build; não verificado no navegador do usuário.
+
 ## Editar lançamento: trocar forma de pagamento, nome do banco e criador — 13/11/2026
 
 Pedido do usuário: lançou "Zafari" por engano como Pix/conta corrente e, ao editar, não havia como passar para cartão de crédito; no formulário aparecia "Conta corrente" em vez do banco; e na edição só o criador de um lançamento compartilhado pode editar tudo.

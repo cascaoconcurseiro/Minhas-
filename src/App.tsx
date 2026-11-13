@@ -2898,6 +2898,16 @@ export default function App() {
     );
   }, [transactions, todayDateStr, settings.cardCommitmentLimitPercent, settings.cardCommitmentWarnPercent]);
   // Tudo que avisa fica no sininho: previsão de saldo negativo, cartão acima do limite e dados para revisar.
+  const [dismissedNotices, setDismissedNotices] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('minhas-economias:dismissed-notices');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const noticeKey = (notice: { id: string; title: string }) => `${notice.id}|${notice.title}`;
   const appNotices = useMemo(
     () =>
       buildAppNotices({
@@ -2905,9 +2915,16 @@ export default function App() {
         dataHealthIssues,
         commitmentAlerts,
         commitmentLimitPercent: settings.cardCommitmentLimitPercent,
-      }),
-    [cashForecast, dataHealthIssues, commitmentAlerts, settings.cardCommitmentLimitPercent]
+      }).filter((notice) => !dismissedNotices.includes(noticeKey(notice))),
+    [cashForecast, dataHealthIssues, commitmentAlerts, settings.cardCommitmentLimitPercent, dismissedNotices]
   );
+  const handleDismissNotice = (notice: { id: string; title: string }) => {
+    setDismissedNotices((current) => {
+      const next = [...current, noticeKey(notice)].slice(-200);
+      try { localStorage.setItem('minhas-economias:dismissed-notices', JSON.stringify(next)); } catch { /* sem armazenamento */ }
+      return next;
+    });
+  };
   const noticeCount = remindersSummary.urgentCount + incomingFamilyInvites.length + countBellNotices(appNotices);
 
   const handleNoticeAction = (action: AppNoticeAction) => {
@@ -4048,6 +4065,7 @@ export default function App() {
         familyInvites={incomingFamilyInvites}
         notices={appNotices}
         onNoticeAction={handleNoticeAction}
+        onDismissNotice={handleDismissNotice}
         onAcceptFamilyInvite={handleAcceptFamilyInvite}
         onDeclineFamilyInvite={handleDeclineFamilyInvite}
         onPayCardInvoice={(cardId) => {

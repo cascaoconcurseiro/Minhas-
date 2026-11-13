@@ -141,3 +141,18 @@ test('mostra no sino os avisos de previsão, cartão e dados para revisar; infor
   act(() => commitBtn.click());
   assert.deepEqual(actions, ['forecast', 'commitment']);
 });
+
+test('aviso do sino tem botão "Marcar como lido"', () => {
+  const dismissed: string[] = [];
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => root?.render(React.createElement(ReminderCenterModal, {
+    isOpen: true, onClose: () => {}, reminders: [], onDismissNotice: (n: { id: string }) => dismissed.push(n.id),
+    notices: [{ id: 'health-x', tone: 'info', title: 'Contas sem saldo' }],
+  })));
+  const btn = document.querySelector('[data-testid="notice-dismiss-health-x"]') as HTMLButtonElement;
+  assert.ok(btn);
+  act(() => btn.click());
+  assert.deepEqual(dismissed, ['health-x']);
+});

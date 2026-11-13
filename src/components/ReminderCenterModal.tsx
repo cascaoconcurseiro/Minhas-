@@ -26,6 +26,8 @@ interface ReminderCenterModalProps {
   /** Previsão de saldo negativo, cartão perto ou acima do limite e dados para revisar. */
   notices?: AppNotice[];
   onNoticeAction?: (action: AppNoticeAction) => void;
+  /** Marca o aviso como lido (some até o conteúdo mudar). */
+  onDismissNotice?: (notice: AppNotice) => void;
 }
 
 const urgencyStyles: Record<string, string> = {
@@ -53,6 +55,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
   onOpenSettingsTab,
   notices = [],
   onNoticeAction,
+  onDismissNotice,
 }) => {
   if (!isOpen) return null;
 
@@ -187,8 +190,19 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                       <p className="text-xs text-slate-600 dark:text-slate-400 break-words">{notice.detail}</p>
                     )}
                   </div>
-                  {notice.action && notice.actionLabel && onNoticeAction && (
-                    <div className="flex justify-end">
+                  {((notice.action && notice.actionLabel && onNoticeAction) || onDismissNotice) && (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {onDismissNotice && (
+                        <button
+                          type="button"
+                          data-testid={`notice-dismiss-${notice.id}`}
+                          onClick={() => onDismissNotice(notice)}
+                          className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-xs font-bold text-slate-700 dark:text-slate-200"
+                        >
+                          Marcar como lido
+                        </button>
+                      )}
+                      {notice.action && notice.actionLabel && onNoticeAction && (
                       <button
                         type="button"
                         onClick={() => {
@@ -199,6 +213,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                       >
                         {notice.actionLabel}
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
