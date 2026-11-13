@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { formatBRL } from '../utils/financeRules';
 import type { CashForecast } from '../utils/cashForecast';
 
@@ -15,7 +15,7 @@ function formatDay(date: string): string {
 const WIDTH = 300;
 const HEIGHT = 72;
 
-/** Previsão do saldo dos próximos dias, com aviso de saldo negativo. */
+/** Previsão do saldo dos próximos dias. O aviso de saldo negativo fica no bloco de avisos da Visão Geral. */
 export const CashForecastCard: React.FC<CashForecastCardProps> = ({ forecast }) => {
   if (!forecast) return null;
 
@@ -36,29 +36,15 @@ export const CashForecastCard: React.FC<CashForecastCardProps> = ({ forecast }) 
     <section
       aria-label="Previsão do saldo"
       data-testid="cash-forecast"
-      className={`rounded-xl border p-4 sm:p-5 space-y-3 ${
-        negative
-          ? 'border-rose-300 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20'
-          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
-      }`}
+      id="overview-cash-forecast"
+      className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-3 min-w-0"
     >
       <div className="flex items-center gap-2">
-        {negative ? (
-          <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
-        ) : (
-          <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0" />
-        )}
+        <TrendingUp className={`h-4 w-4 shrink-0 ${negative ? 'text-rose-600' : 'text-emerald-600'}`} />
         <h2 className="text-sm font-bold text-slate-900 dark:text-white">
           Previsão do saldo · próximos {forecast.horizonDays} dias
         </h2>
       </div>
-
-      {negative && (
-        <p data-testid="cash-forecast-warning" className="text-sm font-semibold text-rose-700 dark:text-rose-300">
-          Seu saldo previsto fica negativo em {formatDay(negative.date)} ({formatBRL(negative.balance)}).
-          Veja o que vence até lá.
-        </p>
-      )}
 
       <svg
         role="img"

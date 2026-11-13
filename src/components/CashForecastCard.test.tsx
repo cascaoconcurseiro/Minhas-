@@ -51,9 +51,10 @@ test('shows today, the lowest point and the end balance, without a warning when 
   assert.ok(page.querySelector('svg polyline'));
 });
 
-test('warns with the day and the amount when the balance turns negative', () => {
+test('o aviso de saldo negativo não fica no cartão (vai para o bloco de avisos); o ponto mais baixo aparece em vermelho', () => {
   const page = render(forecast({ firstNegative: { date: '2026-12-05', balance: -500 }, lowPoint: { date: '2026-12-05', balance: -500 } }));
-  const warning = page.querySelector('[data-testid="cash-forecast-warning"]');
-  assert.match(warning?.textContent ?? '', /fica negativo em 05\/12/);
-  assert.match(warning?.textContent ?? '', /500,00/);
+  assert.equal(page.querySelector('[data-testid="cash-forecast-warning"]'), null);
+  assert.match(page.textContent ?? '', /Mais baixo \(05\/12\)/);
+  assert.ok(page.querySelector('.text-rose-700'), 'valor negativo em vermelho');
+  assert.equal(page.querySelector('[data-testid="cash-forecast"]')?.id, 'overview-cash-forecast');
 });

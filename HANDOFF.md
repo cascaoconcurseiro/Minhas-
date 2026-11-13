@@ -1,5 +1,13 @@
 # Handoff — Minhas Economias
 
+## Avisos da Visão Geral no padrão do painel — 13/11/2026
+
+Problema (prints do usuário no computador): os avisos que eu tinha adicionado (previsão do saldo negativa, dados para revisar, cartão acima do limite) entravam como cartões soltos de largura total ANTES dos indicadores, em cores fortes. A partir de 1366 px o painel é uma grade de 12 colunas com posições fixas (`index.css`, `.overview-dashboard`: o cartão de contas a pagar usa `grid-row: 2 / span 2`), então esses blocos deslocavam as linhas, deixavam um buraco grande à direita e bagunçavam o painel.
+
+Mudança: `OverviewNotices.tsx` junta tudo num único bloco "Avisos" (contador, uma linha por aviso, do mais grave ao menos grave, 3 visíveis + "Ver todos os N avisos"), no mesmo estilo dos outros cartões (borda lateral colorida pela gravidade) e renderizado DENTRO do `<header>` da Visão Geral, então não muda as linhas da grade. `buildOverviewNotices` monta a lista (saldo previsto negativo com botão "Ver previsão", cartão perto/acima do limite com "Ver mês a mês", e os itens de dados para revisar). A previsão do saldo (`CashForecastCard`, id `overview-cash-forecast`) virou um cartão normal, neutro (o aviso de saldo negativo agora fica só no bloco de avisos), posicionado logo depois do índice de saúde financeira, assim como "Gastos que se repetem". Removidos `DataHealthCard` e `CardCommitmentAlertCard` (e o teste do primeiro), substituídos por `OverviewNotices`.
+
+Validação: `tsc`, 630 testes, build; medido no Chromium em 1920, 1440 e 1280 px (posições dos cartões na grade) e em 390 px. Não verificado no navegador do usuário.
+
 ## Aviso "Nova versão disponível" — 12/11/2026
 
 O usuário continuou vendo versões antigas (a lista do cartão com 12 meses depois de já publicada a de 6). Causa: a atualização automática só entra quando a pessoa para de mexer; quem usa sem parar, ou está numa versão antiga do cliente (sem as melhorias de rapidez), fica na versão em cache. Mudança: `src/pwa/UpdateAvailableBanner.tsx` (renderizado por `PwaUpdateNotice`): se uma versão nova está pronta e não entrou em 30 s, aparece uma barra discreta "Nova versão do app disponível" com o botão "Atualizar" (recarrega o app por toque, via `checkAndApplyUpdate`). `pwaControl` ganhou `subscribeUpdatePending`. Quem está numa versão ANTERIOR a esta ainda não tem o aviso: precisa de um recarregamento forçado (computador: Ctrl+Shift+R; celular: fechar e abrir o app, ou "Buscar atualização agora" no card de versão em Conta, Login & Nuvem). Validação: `tsc`, 628 testes, build. Não verificado com service worker real em produção.

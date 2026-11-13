@@ -178,7 +178,6 @@
   }
 
   /* Cartões de resumo sem posição própria ocupavam 1 de 12 colunas e ficavam espremidos. */
-  .overview-dashboard > section[data-testid="data-health"],
   .overview-dashboard > section[data-testid="cash-forecast"],
   .overview-dashboard > section[data-testid="recurring-suggestions"] {
     grid-column: 1 / -1;

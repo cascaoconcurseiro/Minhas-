@@ -43,11 +43,10 @@ import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
 import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
 import { CashForecastCard } from './CashForecastCard';
-import { DataHealthCard } from './DataHealthCard';
 import type { DataHealthIssue } from '../utils/dataHealth';
 import type { CashForecast } from '../utils/cashForecast';
 import type { RecurringCandidate } from '../utils/recurrenceDetection';
-import { CardCommitmentAlertCard } from './CardCommitmentAlertCard';
+import { OverviewNotices, buildOverviewNotices } from './OverviewNotices';
 import type { CardCommitmentMonth } from '../utils/cardCommitment';
 
 interface OverviewTabProps {
@@ -202,10 +201,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   return (
     <div className="overview-dashboard space-y-6 min-w-0 max-w-full">
       {/* Clean Executive Greeting Header */}
-      <header
-        data-testid="user-welcome-greeting"
-        className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 pt-0.5"
-      >
+      <header data-testid="user-welcome-greeting" className="space-y-3 pt-0.5">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
         <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight font-display">
           {greetingPrefix}{firstName ? `, ${firstName}` : ''}! 👋
         </h2>
@@ -214,22 +211,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             ? `${pendingCount} lançamento(s) a pagar/receber em ${formatMonthYearPT(selectedMonth)}${selectedMonth === todayMonth && (pendingBills.some((tx) => tx.competenceMonth < selectedMonth) || pendingInvoices.some((inv) => inv.invoiceMonth < selectedMonth)) ? ', incluindo atrasados' : ''}`
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
-      </header>
+        </div>
 
-      <CardCommitmentAlertCard alerts={commitmentAlerts} limitPercent={commitmentLimitPercent} onOpen={onOpenCommitment} />
-
-      <DataHealthCard issues={dataHealthIssues} />
-
-      <CashForecastCard forecast={cashForecast} />
-
-      {onScheduleRecurring && onDismissRecurring && (
-        <RecurringSuggestionsCard
-          suggestions={recurringSuggestions}
-          categories={categories}
-          onSchedule={onScheduleRecurring}
-          onDismiss={onDismissRecurring}
+        {/* Avisos num bloco só, dentro do cabeçalho: não mudam a posição dos cartões da grade. */}
+        <OverviewNotices
+          notices={buildOverviewNotices({
+            forecast: cashForecast,
+            dataHealthIssues,
+            commitmentAlerts,
+            commitmentLimitPercent,
+          })}
+          onOpenCommitment={onOpenCommitment}
         />
-      )}
+      </header>
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
       <section aria-label="Indicadores financeiros do mês" className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 min-w-0">
@@ -487,6 +481,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
         )}
       </section>
+
+      <CashForecastCard forecast={cashForecast} />
+
+      {onScheduleRecurring && onDismissRecurring && (
+        <RecurringSuggestionsCard
+          suggestions={recurringSuggestions}
+          categories={categories}
+          onSchedule={onScheduleRecurring}
+          onDismiss={onDismissRecurring}
+        />
+      )}
 
       {/* Structured Budget Alerts Center (Individual Scannable Cards) */}
       {showOverviewAlerts && budgetAlerts.length > 0 && (
