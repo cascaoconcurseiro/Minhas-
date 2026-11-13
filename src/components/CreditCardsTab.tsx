@@ -680,7 +680,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     onClick={() => {
                       setSelectedCardId(card.id);
                       setActiveViewCardId(card.id);
-                      setPaymentAccountId(card.defaultAccountId || accounts[0]?.id || '');
+                      setPaymentAccountId(card.defaultAccountId || brlAccounts[0]?.id || '');
                       setShowPartialPayPanel(false);
                       setAnticipatingGroupId(null);
                     }}
@@ -795,7 +795,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                         onClick={() => {
                           setSelectedCardId(card.id);
                           setActiveViewCardId(card.id);
-                          setPaymentAccountId(card.defaultAccountId || accounts[0]?.id || '');
+                          setPaymentAccountId(card.defaultAccountId || brlAccounts[0]?.id || '');
                           setShowPartialPayPanel(false);
                           setAnticipatingGroupId(null);
                         }}
@@ -860,7 +860,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       setEditCardClosing(activeCard.closingDay);
                       setEditCardDue(activeCard.dueDay);
                       setEditCardAccount(
-                        activeCard.defaultAccountId || accounts[0]?.id || ''
+                        activeCard.defaultAccountId || brlAccounts[0]?.id || ''
                       );
                       setIsEditingActiveCard(true);
                     }

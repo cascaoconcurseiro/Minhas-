@@ -549,9 +549,9 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     setSettlementCustomRateStr(
       debt.impliedEffectiveRate.toFixed(4).replace('.', ',')
     );
-    setSettlementBankAccountId(accounts[0]?.id || '');
+    setSettlementBankAccountId(brlAccounts[0]?.id || '');
     setSettlementRecordInBank(
-      accounts.length > 0 &&
+      brlAccounts.length > 0 &&
       (debt.fromParticipantId === 'me' || debt.toParticipantId === 'me')
     );
     setSettlementNotes('');
@@ -2952,7 +2952,14 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                         </span>
                       </label>
 
-                      {settlementRecordInBank && (
+                      {settlementRecordInBank && brlAccounts.length === 0 && (
+                        <MissingSetupNotice
+                          testId="missing-brl-account-for-trip-settlement"
+                          message="Não há conta em reais cadastrada para registrar este Pix. Cadastre uma conta ou desmarque o registro no banco."
+                          onAction={onRequestCreateAccount ? () => onRequestCreateAccount('account') : undefined}
+                        />
+                      )}
+                      {settlementRecordInBank && brlAccounts.length > 0 && (
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                             Conta Bancária do PIX:

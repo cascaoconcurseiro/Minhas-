@@ -2255,6 +2255,8 @@ export function reverseCreditCardInvoicePayment(
                 ? undefined
                 : Math.round(((t.sharedAmount || 0) + (extraSharedFromPartial || 0)) * 100) / 100,
             status: 'pending' as TransactionStatus,
+            // A compra reaberta deixa de apontar para o pagamento estornado.
+            invoicePaymentId: undefined,
           };
         }
       }
@@ -2276,6 +2278,16 @@ export function reverseCreditCardInvoicePayment(
  * Se for um pagamento de fatura de cartão (`isInvoicePayment: true`), reverter faz o estorno em cascata:
  * remove o débito da conta bancária e reabre as compras do cartão naquele mês de volta para `pending`.
  */
+/**
+ * Pode ser efetivado/revertido direto? Compra de cartão não: ela só quita pagando a fatura (que debita a conta).
+ * Marcar a compra como paga sem pagar a fatura apagaria a dívida sem sair dinheiro de nenhuma conta.
+ */
+export function canSettleTransactionDirectly(tx: Transaction): boolean {
+  if (tx.isInvoicePayment) return true; // o estorno em cascata tem tratamento próprio
+  if (tx.creditCardId) return false;
+  return true;
+}
+
 export function toggleTransactionStatusWithCascade(
   transactions: Transaction[],
   targetId: string,
@@ -2284,6 +2296,7 @@ export function toggleTransactionStatusWithCascade(
 ): {
   updatedTransactions: Transaction[];
   actionDescription: string;
+  blocked?: boolean;
 } {
   const target = transactions.find((t) => t.id === targetId);
   if (!target) {
@@ -2296,6 +2309,19 @@ export function toggleTransactionStatusWithCascade(
     return {
       updatedTransactions: rev.updatedTransactions,
       actionDescription: rev.actionDescription,
+    };
+  }
+
+  // Compra de cartão: só a fatura quita. Compra já paga por uma fatura volta a pendente estornando o pagamento da fatura.
+  // Compra "paga" sem fatura (histórico antigo errado) pode ser reaberta direto.
+  if (target.creditCardId && (target.status === 'pending' || target.invoicePaymentId)) {
+    return {
+      updatedTransactions: transactions,
+      blocked: true,
+      actionDescription:
+        target.status === 'pending'
+          ? 'Compra de cartão só é quitada pagando a fatura (aba Cartões). Marcar como paga aqui não tiraria dinheiro de nenhuma conta.'
+          : 'Esta compra foi quitada por um pagamento de fatura. Estorne o pagamento da fatura para reabri-la.',
     };
   }
 
@@ -2341,8 +2367,27 @@ export function toggleTransactionStatusWithCascade(
  * - 'this_and_future': altera este e todos os meses seguintes da mesma série (parcelas ou fixos)
  * - 'all_series': altera todos os lançamentos da série (passados e futuros)
  */
+/**
+ * Lançamentos ligados a outra operação (aporte/resgate de ativo, compra de câmbio de viagem, compra já quitada por fatura):
+ * apagar ou editar só o lançamento deixaria a carteira, o lote ou a fatura em desacordo com a conta.
+ */
+export function getLinkedOperationRestriction(tx: Transaction, action: 'editar' | 'apagar' | 'duplicar'): string | null {
+  if (tx.type === 'transfer' && tx.targetInvestmentAssetId) {
+    return `Aporte ou resgate de investimento não pode ${action === 'duplicar' ? 'ser duplicado' : `ser ${action === 'editar' ? 'editado' : 'apagado'} aqui`}: a carteira de ativos já foi atualizada. Para corrigir, registre a operação inversa na aba Investimentos.`;
+  }
+  if (tx.id.startsWith('tx-fxlot-')) {
+    return `Este lançamento vem de uma compra de câmbio da viagem. Para ${action === 'duplicar' ? 'repetir' : 'corrigir'}, use o lote na aba Viagens (remover e registrar de novo).`;
+  }
+  if (tx.invoicePaymentId && tx.creditCardId && tx.status === 'paid') {
+    return `Esta compra foi quitada por um pagamento de fatura. Estorne o pagamento da fatura antes de ${action === 'duplicar' ? 'duplicar' : action === 'editar' ? 'editar' : 'apagar'} a compra.`;
+  }
+  return null;
+}
+
 export function getTransactionEditRestriction(tx: Transaction): string | null {
   if (tx.isInvoicePayment) return 'Estorne o pagamento da fatura antes de corrigir seus dados.';
+  const linked = getLinkedOperationRestriction(tx, 'editar');
+  if (linked) return linked;
   if (tx.id.startsWith('tx-reimb-') || (tx.isShared && tx.sharedStatus === 'received')) {
     return 'Reabra o acerto em Compartilhado antes de editar, para estornar o movimento vinculado.';
   }
@@ -2359,6 +2404,8 @@ export function isSharedTransactionCreatedByOther(tx: Transaction, currentUserEm
 
 export function duplicateFinancialTransaction(tx: Transaction, id: string): Transaction | null {
   if (tx.isInvoicePayment || tx.id.startsWith('tx-reimb-') || tx.id.startsWith('tx-mirror-')) return null;
+  if (tx.type === 'transfer' && tx.targetInvestmentAssetId) return null;
+  if (tx.id.startsWith('tx-fxlot-')) return null;
   const copy: Transaction = { ...tx, id, description: `${tx.description} (Cópia)`,
     status: tx.creditCardId ? 'pending' : 'paid', recurrence: 'single' };
   for (const field of ['installmentGroupId', 'installmentNumber', 'installmentTotal', 'installmentPurchaseTotal',
@@ -2630,6 +2677,13 @@ export function applyCascadeTransactionDelete(
   }
   for (const tx of transactions) {
     if (linked.has(tx.id) && tx.id.startsWith('tx-reimb-')) deleting.add(tx.id);
+  }
+  for (const tx of transactions) {
+    if (!deleting.has(tx.id)) continue;
+    const blocked = getLinkedOperationRestriction(tx, 'apagar');
+    if (blocked) {
+      return { updatedTransactions: transactions, deletedCount: 0, actionDescription: blocked };
+    }
   }
   let reopened = 0;
   const updatedTransactions = transactions.filter((tx) => !deleting.has(tx.id)).map((tx) => {
