@@ -70,3 +70,17 @@ test('cartão com dias inválidos e sem limite', () => {
   assert.ok(ids.includes('card_invalid_days'));
   assert.ok(ids.includes('card_without_limit'));
 });
+
+test('aponta transferência para a mesma conta e transferência entre moedas sem câmbio', () => {
+  const usd = account({ id: 'u1', name: 'Nomad', type: 'international', currency: 'USD' });
+  const issues = run({
+    accounts: [account(), usd],
+    transactions: [
+      tx({ id: 's', type: 'transfer', accountId: 'a1', destinationAccountId: 'a1' }),
+      tx({ id: 'fx', type: 'transfer', accountId: 'u1', destinationAccountId: 'a1' }),
+      tx({ id: 'fx-ok', type: 'transfer', accountId: 'u1', destinationAccountId: 'a1', transferFromAmount: 10, transferExchangeRate: 5 }),
+    ],
+  });
+  assert.equal(issues.find((i) => i.id === 'transfer_same_account')?.count, 1);
+  assert.equal(issues.find((i) => i.id === 'transfer_unconverted')?.count, 1);
+});

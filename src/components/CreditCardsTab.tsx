@@ -1,3 +1,5 @@
+import { getAccountCurrency } from '../utils/transferRules';
+import { MissingSetupNotice } from './MissingSetupNotice';
 import { confirmTransactionDeletion } from '../utils/transactionDeletion';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -43,6 +45,11 @@ interface CreditCardsTabProps {
   categories: Category[];
   transactions: Transaction[];
   initialSelectedCardId?: string;
+  /** Abre o cadastro de novo cartão ao entrar na tela (pedido pelo formulário de lançamento). */
+  autoOpenCreate?: boolean;
+  onAutoOpenHandled?: () => void;
+  /** Leva ao cadastro de conta quando falta uma conta em reais. */
+  onRequestCreateAccount?: () => void;
   onPayInvoice: (cardId: string, accountId: string, customAmount?: number) => void;
   onAnticipateInstallments?: (
     installmentGroupId: string,
@@ -69,6 +76,9 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   categories,
   transactions,
   initialSelectedCardId,
+  autoOpenCreate,
+  onAutoOpenHandled,
+  onRequestCreateAccount,
   onPayInvoice,
   onAnticipateInstallments,
   onReverseAnticipation,
@@ -96,10 +106,17 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
     }
   }, [initialSelectedCardId]);
 
+  // Fatura e cartão são em reais: só contas em reais podem pagar ou ser a conta padrão.
+  const brlAccounts = accounts.filter((account) => getAccountCurrency(account) === 'BRL');
   const [paymentAccountId, setPaymentAccountId] = useState<string>(
-    cards[0]?.defaultAccountId || accounts[0]?.id || ''
+    cards[0]?.defaultAccountId || brlAccounts[0]?.id || ''
   );
-  const [showNewCardForm, setShowNewCardForm] = useState(false);
+  const [showNewCardForm, setShowNewCardForm] = useState(Boolean(autoOpenCreate));
+  useEffect(() => {
+    if (!autoOpenCreate) return;
+    setShowNewCardForm(true);
+    onAutoOpenHandled?.();
+  }, [autoOpenCreate, onAutoOpenHandled]);
 
   // Partial / Custom Invoice Payment State
   const [showPartialPayPanel, setShowPartialPayPanel] = useState(false);
@@ -118,7 +135,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const [newCardClosing, setNewCardClosing] = useState(20);
   const [newCardDue, setNewCardDue] = useState(28);
   const [newCardColor, setNewCardColor] = useState('#0f172a');
-  const [newCardAccount, setNewCardAccount] = useState(accounts[0]?.id || '');
+  const [newCardAccount, setNewCardAccount] = useState(brlAccounts[0]?.id || '');
   const [formError, setFormError] = useState('');
 
   // Edit active card state
@@ -142,24 +159,23 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
 
   useEffect(() => {
     setPaymentAccountId((currentAccountId) => {
+      const brl = accounts.filter((a) => getAccountCurrency(a) === 'BRL');
       if (
         activeCard?.defaultAccountId &&
-        accounts.some((a) => a.id === activeCard.defaultAccountId)
+        brl.some((a) => a.id === activeCard.defaultAccountId)
       ) {
         return activeCard.defaultAccountId;
       }
-      return accounts.some((a) => a.id === currentAccountId)
+      return brl.some((a) => a.id === currentAccountId)
         ? currentAccountId
-        : accounts[0]?.id || '';
+        : brl[0]?.id || '';
     });
   }, [activeCard?.id, activeCard?.defaultAccountId, accounts]);
 
   useEffect(() => {
-    if (
-      (!newCardAccount || !accounts.some((a) => a.id === newCardAccount)) &&
-      accounts.length > 0
-    ) {
-      setNewCardAccount(accounts[0].id);
+    const brl = accounts.filter((a) => getAccountCurrency(a) === 'BRL');
+    if ((!newCardAccount || !brl.some((a) => a.id === newCardAccount)) && brl.length > 0) {
+      setNewCardAccount(brl[0].id);
     }
   }, [accounts, newCardAccount]);
 
@@ -233,13 +249,22 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
       setFormError('Informe um limite total válido.');
       return;
     }
+    const normalizedCardName = newCardName.trim().toLocaleLowerCase('pt-BR');
+    if (cards.some((other) => other.name.trim().toLocaleLowerCase('pt-BR') === normalizedCardName)) {
+      setFormError('Já existe um cartão com esse nome. Use um nome diferente para não confundir as faturas.');
+      return;
+    }
+    if (brlAccounts.length === 0) {
+      setFormError('Cadastre uma conta em reais antes do cartão: é por ela que a fatura será paga.');
+      return;
+    }
     onAddCard({
       name: newCardName.trim(),
       brand: newCardBrand,
       limit: limitVal,
       closingDay: newCardClosing,
       dueDay: newCardDue,
-      defaultAccountId: newCardAccount || accounts[0]?.id || '',
+      defaultAccountId: newCardAccount || brlAccounts[0]?.id || '',
       color: newCardColor,
     });
     setNewCardName('');
@@ -378,6 +403,13 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
               </div>
             </div>
 
+            {brlAccounts.length === 0 && (
+              <MissingSetupNotice
+                testId="missing-brl-account-for-card"
+                message="Para cadastrar um cartão é preciso ter uma conta em reais (o cartão é pago por ela). Cadastre a conta primeiro."
+                onAction={onRequestCreateAccount}
+              />
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <div className="flex items-center gap-2 text-xs text-slate-600">
                 <label htmlFor="card-default-acc">Conta padrão:</label>
@@ -387,7 +419,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   onChange={(e) => setNewCardAccount(e.target.value)}
                   className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-900"
                 >
-                  {accounts.map((a) => (
+                  {brlAccounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name}
                     </option>
@@ -611,7 +643,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       onChange={(e) => setNewCardAccount(e.target.value)}
                       className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900"
                     >
-                      {accounts.map((a) => (
+                      {brlAccounts.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name}
                         </option>
@@ -1002,7 +1034,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     onChange={(e) => setEditCardAccount(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900"
                   >
-                    {accounts.map((a) => (
+                    {brlAccounts.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
                       </option>
@@ -1119,7 +1151,13 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 </p>
               </div>
 
-              {activeSummary.invoicePendingAmount > 0 ? (
+              {activeSummary.invoicePendingAmount > 0 && brlAccounts.length === 0 ? (
+                <MissingSetupNotice
+                  testId="missing-brl-account-for-invoice"
+                  message="Não há conta em reais cadastrada para pagar esta fatura (a fatura é em reais). Cadastre uma conta."
+                  onAction={onRequestCreateAccount}
+                />
+              ) : activeSummary.invoicePendingAmount > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     aria-label="Conta para debitar pagamento da fatura"
@@ -1127,7 +1165,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     onChange={(e) => setPaymentAccountId(e.target.value)}
                     className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800"
                   >
-                    {accounts.map((acc) => (
+                    {brlAccounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
                         Debitar: {acc.name}
                       </option>

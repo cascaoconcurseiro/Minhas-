@@ -1,3 +1,4 @@
+import { getAccountCurrency, resolveBankTransfer } from './utils/transferRules';
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { setUpdateBlocker } from './pwa/updateBlockers';
@@ -531,6 +532,20 @@ export default function App() {
     if (tab === activeTab) return;
     triggerDataLoadingTransition(150);
     setActiveTab(tab);
+  };
+
+  // Cadastro pedido pelo formulário de lançamento (falta conta ou cartão): fecha o formulário e abre a tela certa já no cadastro.
+  const [pendingCreateRequest, setPendingCreateRequest] = useState<'account' | 'card' | 'international_account' | null>(null);
+  const handleRequestCreateFromTransaction = (kind: 'account' | 'card' | 'international_account') => {
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+    setModalInitialTripId(undefined);
+    setModalInitialDate(undefined);
+    setPendingCreateRequest(kind);
+    setInitialSelectedAccountId(undefined);
+    setInitialSelectedCardId(undefined);
+    triggerDataLoadingTransition(120);
+    setActiveTab(kind === 'card' ? 'cards' : 'accounts');
   };
 
   const handleNavigateToAccount = (accountId: string) => {
@@ -1525,6 +1540,19 @@ export default function App() {
   ) => {
     const prevSnapshot = [...transactions];
 
+    if (input.type === 'transfer' && input.destinationAccountId) {
+      const resolvedTransfer = resolveBankTransfer({
+        source: accounts.find((account) => account.id === input.accountId),
+        destination: accounts.find((account) => account.id === input.destinationAccountId),
+        amountBrl: input.amount,
+        foreignAmount: input.transferFromAmount ?? input.transferToAmount,
+      });
+      if (resolvedTransfer.error) {
+        showNotice(resolvedTransfer.error, undefined, true);
+        return;
+      }
+    }
+
     if (editingId) {
       const targetTx = transactions.find((t) => t.id === editingId);
       if (targetTx) {
@@ -1542,6 +1570,9 @@ export default function App() {
           accountId: input.accountId,
           destinationAccountId: input.destinationAccountId,
           targetInvestmentAssetId: input.targetInvestmentAssetId,
+          transferFromAmount: input.transferFromAmount,
+          transferToAmount: input.transferToAmount,
+          transferExchangeRate: input.transferExchangeRate,
           creditCardId: input.creditCardId,
           paymentMethod: input.paymentMethod,
           notes: input.notes,
@@ -1802,7 +1833,19 @@ export default function App() {
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
     const effectiveAccountId =
-      paymentAccountId || card.defaultAccountId || accounts[0]?.id || '';
+      paymentAccountId ||
+      card.defaultAccountId ||
+      accounts.find((account) => getAccountCurrency(account) === 'BRL')?.id ||
+      '';
+    const paymentAccount = accounts.find((account) => account.id === effectiveAccountId);
+    if (!paymentAccount) {
+      showNotice('Não há conta cadastrada para pagar a fatura. Cadastre uma conta em reais primeiro.', undefined, true);
+      return;
+    }
+    if (getAccountCurrency(paymentAccount) !== 'BRL') {
+      showNotice('A fatura é em reais: pague por uma conta em reais.', undefined, true);
+      return;
+    }
     const prevSnapshot = [...transactions];
     const paymentDate = getLocalDateISO();
     const updated = payCreditCardInvoice(
@@ -1913,6 +1956,20 @@ export default function App() {
     );
     if (debitFromAccountId && lot.totalBrlPaid > 0) {
       const targetTrip = trips.find((t) => t.id === tripId);
+      const debitAccount = accounts.find((account) => account.id === debitFromAccountId);
+      if (debitAccount && getAccountCurrency(debitAccount) !== 'BRL') {
+        showNotice('Os reais da compra de câmbio precisam sair de uma conta em reais.', undefined, true);
+        return;
+      }
+      // A compra de câmbio é uma TRANSFERÊNCIA (reais -> conta internacional), não um gasto: se fosse despesa,
+      // contaria duas vezes (na compra da moeda e depois nos gastos da viagem). Sem conta internacional vinculada,
+      // continua como saída de reais.
+      const creditAccount = accounts.find(
+        (account) =>
+          account.id === lot.accountId &&
+          account.type === 'international' &&
+          account.currency === lot.currency
+      );
       const fxTx: Transaction = {
         id: `tx-fxlot-${lot.id}`,
         description: `Compra de Câmbio (${lot.currency} ${lot.foreignAmount.toFixed(2)}) — ${
@@ -1921,11 +1978,12 @@ export default function App() {
         amount: lot.totalBrlPaid,
         date: lot.date,
         competenceMonth: lot.date.slice(0, 7),
-        type: 'expense',
+        type: creditAccount ? 'transfer' : 'expense',
         status: 'paid',
         categoryId: 'cat-viagens',
         accountId: debitFromAccountId,
-        paymentMethod: 'pix',
+        destinationAccountId: creditAccount?.id,
+        paymentMethod: creditAccount ? 'transfer' : 'pix',
         recurrence: 'single',
         notes: `Lote de câmbio para ${targetTrip?.name || 'Viagem'} (VET R$ ${lot.effectiveRateBrl.toFixed(4)}) [lot:${lot.id}]`,
       };
@@ -3761,6 +3819,9 @@ export default function App() {
                   transactions={transactions}
                   trips={trips}
                   initialSelectedAccountId={initialSelectedAccountId}
+                  autoOpenCreate={pendingCreateRequest === 'account' || pendingCreateRequest === 'international_account'}
+                  autoOpenCreateType={pendingCreateRequest === 'international_account' ? 'international' : 'checking'}
+                  onAutoOpenHandled={() => setPendingCreateRequest(null)}
                   onToggleAccountInTotal={handleToggleAccountInTotal}
                   onAddAccount={handleAddAccount}
                   onUpdateAccount={handleUpdateAccount}
@@ -3785,6 +3846,7 @@ export default function App() {
                   assets={investments}
                   targetMap={investmentTargets}
                   accounts={accounts}
+                  onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   transactions={transactions}
                   monthlyLivingExpense={monthlySummary.expenseTotal}
                   onAddAsset={handleAddInvestmentAsset}
@@ -3832,6 +3894,9 @@ export default function App() {
                   categories={categories}
                   transactions={transactions}
                   initialSelectedCardId={initialSelectedCardId}
+                  autoOpenCreate={pendingCreateRequest === 'card'}
+                  onAutoOpenHandled={() => setPendingCreateRequest(null)}
+                  onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   onPayInvoice={handlePayCardInvoice}
                   onAnticipateInstallments={handleAnticipateInstallments}
                   onReverseAnticipation={handleReverseAnticipation}
@@ -3855,6 +3920,7 @@ export default function App() {
                   transactions={transactions}
                   familyMembers={familyMembers}
                   accounts={accounts}
+                  onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   cards={cards}
                   categories={categories}
                   userPixKey={settings.userPixKey}
@@ -3880,6 +3946,7 @@ export default function App() {
                   transactions={transactions}
                   categories={categories}
                   accounts={accounts}
+                  onRequestCreateAccount={handleRequestCreateFromTransaction}
                   familyMembers={familyMembers}
                   privacyMode={settings.privacyMode}
                   onAddTrip={handleAddTrip}
@@ -3915,6 +3982,7 @@ export default function App() {
                   goals={goals}
                   investments={investments}
                   accounts={accounts}
+                  onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   onContributeGoal={handleContributeGoal}
                   onAddGoal={handleAddGoal}
                   onUpdateGoal={handleUpdateGoal}
@@ -4035,6 +4103,7 @@ export default function App() {
         defaultMode={modalDefaultMode}
         initialDate={modalInitialDate}
         initialTripId={modalInitialTripId}
+        onRequestCreate={handleRequestCreateFromTransaction}
         />}
 
         {/* Settings & Preferences Modal */}

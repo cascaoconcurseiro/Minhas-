@@ -1,3 +1,5 @@
+import { getAccountCurrency } from '../utils/transferRules';
+import { MissingSetupNotice } from './MissingSetupNotice';
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -24,6 +26,8 @@ interface GoalsAndSimulatorTabProps {
   goals: SavingsGoal[];
   investments?: InvestmentAsset[];
   accounts?: BankAccount[];
+  /** Leva ao cadastro de conta quando falta uma conta em reais. */
+  onRequestCreateAccount?: () => void;
   onContributeGoal: (
     goalId: string,
     amount: number,
@@ -39,6 +43,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   goals,
   investments = [],
   accounts = [],
+  onRequestCreateAccount,
   onContributeGoal,
   onAddGoal,
   onUpdateGoal,
@@ -49,7 +54,8 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   const [contributeAccountId, setContributeAccountId] = useState<string>('');
   const [contributeDate, setContributeDate] = useState(getLocalDateISO);
   const [contributeError, setContributeError] = useState('');
-  const contributeAccount = accounts.find((account) => account.id === contributeAccountId) ?? null;
+  const brlAccounts = accounts.filter((account) => getAccountCurrency(account) === 'BRL');
+  const contributeAccount = brlAccounts.find((account) => account.id === contributeAccountId) ?? null;
   const [showGoalForm, setShowGoalForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
 
@@ -574,7 +580,16 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                       className="w-24 rounded-lg border border-emerald-600 px-2.5 py-1 text-xs font-mono tabular-nums text-slate-900"
                     />
                     {!goal.linkedAssetId && <p className="w-full text-xs text-slate-500">Reserva do dinheiro existente. Para transferir para um investimento, vincule o ativo à meta.</p>}
-                    {goal.linkedAssetId && accounts.length > 0 && (
+                    {goal.linkedAssetId && brlAccounts.length === 0 && (
+                      <div className="w-full">
+                        <MissingSetupNotice
+                          testId="missing-brl-account-for-goal"
+                          message="Para debitar o aporte de uma conta é preciso ter conta em reais cadastrada. Cadastre uma conta ou registre como aporte já feito fora."
+                          onAction={onRequestCreateAccount}
+                        />
+                      </div>
+                    )}
+                    {goal.linkedAssetId && brlAccounts.length > 0 && (
                       <>
                         <select
                           aria-label="Conta para debitar o aporte"
@@ -583,7 +598,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
                           className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
                         >
                           <option value="">Aporte já feito fora das contas cadastradas</option>
-                          {accounts.map((acc) => (
+                          {brlAccounts.map((acc) => (
                             <option key={acc.id} value={acc.id}>
                               Debitar: {acc.name}
                             </option>

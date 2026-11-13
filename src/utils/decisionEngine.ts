@@ -189,32 +189,58 @@ function daysBetween(a: string, b: string): number {
   return Math.abs(Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000));
 }
 
-/** "Noul" (verdadeiro/falso): este lançamento provavelmente já foi registrado? */
+/**
+ * Este lançamento provavelmente já foi registrado? Vale para despesa, receita e transferência.
+ * Mesma descrição, mesmo valor e até 2 dias de diferença. Transferência também exige a mesma
+ * origem e o mesmo destino (duas transferências de mesmo valor entre contas diferentes são normais).
+ */
 export function findProbableDuplicate(
-  input: { description: string; amount: number; date: string },
+  input: {
+    description: string;
+    amount: number;
+    date: string;
+    type?: 'expense' | 'income' | 'transfer';
+    accountId?: string;
+    /** Conta de destino ou `inv:<id>` quando o destino é um ativo de investimento. */
+    destinationKey?: string;
+  },
   transactions: Transaction[],
   ignoreTransactionId?: string
 ): DuplicateSuspicion | null {
   const key = normalizeDescription(input.description);
   if (key.length < 2 || !Number.isFinite(input.amount) || input.amount <= 0) return null;
-  const match = transactions.find(
-    (tx) =>
-      tx.id !== ignoreTransactionId &&
-      tx.type === 'expense' &&
-      !tx.isInvoicePayment &&
-      !tx.id.startsWith('tx-mirror-') &&
+  const type = input.type ?? 'expense';
+  const match = transactions.find((tx) => {
+    if (
+      tx.id === ignoreTransactionId ||
+      tx.type !== type ||
+      tx.isInvoicePayment ||
+      tx.id.startsWith('tx-mirror-') ||
+      tx.id.startsWith('tx-reimb-') ||
       // Parcelas e lançamentos fixos se repetem por natureza
-      tx.recurrence !== 'installment' &&
-      tx.recurrence !== 'fixed' &&
-      Math.abs(tx.amount - input.amount) < 0.01 &&
-      normalizeDescription(tx.description) === key &&
-      daysBetween(tx.date, input.date) <= 2
-  );
+      tx.recurrence === 'installment' ||
+      tx.recurrence === 'fixed' ||
+      Math.abs(tx.amount - input.amount) >= 0.01 ||
+      normalizeDescription(tx.description) !== key ||
+      daysBetween(tx.date, input.date) > 2
+    ) {
+      return false;
+    }
+    if (type === 'transfer') {
+      const txDestination =
+        tx.destinationAccountId || (tx.targetInvestmentAssetId ? `inv:${tx.targetInvestmentAssetId}` : '');
+      if ((tx.accountId || '') !== (input.accountId || '') || txDestination !== (input.destinationKey || '')) {
+        return false;
+      }
+    }
+    return true;
+  });
   if (!match) return null;
   const [year, month, day] = match.date.split('-');
+  const label = type === 'income' ? 'uma receita igual' : type === 'transfer' ? 'uma transferência igual' : 'um lançamento igual';
   return {
     transactionId: match.id,
     date: match.date,
-    message: `Já existe um lançamento igual em ${day}/${month}/${year} (${formatBRL(match.amount)}). Confira para não duplicar.`,
+    message: `Já existe ${label} em ${day}/${month}/${year} (${formatBRL(match.amount)}). Confira para não duplicar.`,
   };
 }

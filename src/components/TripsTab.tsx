@@ -1,3 +1,5 @@
+import { getAccountCurrency } from '../utils/transferRules';
+import { MissingSetupNotice } from './MissingSetupNotice';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Archive,
@@ -74,6 +76,8 @@ interface TripsTabProps {
   transactions: Transaction[];
   categories: Category[];
   accounts: BankAccount[];
+  /** Leva ao cadastro de conta quando falta uma conta (em reais ou internacional). */
+  onRequestCreateAccount?: (kind: 'account' | 'international_account') => void;
   familyMembers?: FamilyMember[];
   privacyMode?: boolean;
   onAddTrip: (trip: Trip) => void;
@@ -129,6 +133,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   transactions,
   categories,
   accounts,
+  onRequestCreateAccount,
   familyMembers = [],
   privacyMode = false,
   onAddTrip,
@@ -189,8 +194,11 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   const [lotBaseRateStr, setLotBaseRateStr] = useState('6,18');
   const [lotIofPercentStr, setLotIofPercentStr] = useState('1,1');
   const [lotDebitAccountId, setLotDebitAccountId] = useState<string>('');
+  const [lotCreditAccountId, setLotCreditAccountId] = useState<string>('');
+  // Câmbio: os reais saem de uma conta em reais e a moeda entra numa conta internacional da mesma moeda.
+  const brlAccounts = accounts.filter((account) => getAccountCurrency(account) === 'BRL');
   const selectedLotDebitAccount =
-    accounts.find((account) => account.id === lotDebitAccountId) ?? null;
+    brlAccounts.find((account) => account.id === lotDebitAccountId) ?? null;
 
   // Add Participant Form State
   const [newParticipantName, setNewParticipantName] = useState('');
@@ -207,19 +215,16 @@ export const TripsTab: React.FC<TripsTabProps> = ({
   >('effective_vet');
   const [settlementCustomRateStr, setSettlementCustomRateStr] = useState('');
   const [settlementBankAccountId, setSettlementBankAccountId] = useState<string>(
-    accounts[0]?.id || ''
+    brlAccounts[0]?.id || ''
   );
   useEffect(() => {
-    if (
-      (!settlementBankAccountId ||
-        !accounts.some((a) => a.id === settlementBankAccountId)) &&
-      accounts.length > 0
-    ) {
-      setSettlementBankAccountId(accounts[0].id);
+    const brl = accounts.filter((a) => getAccountCurrency(a) === 'BRL');
+    if ((!settlementBankAccountId || !brl.some((a) => a.id === settlementBankAccountId)) && brl.length > 0) {
+      setSettlementBankAccountId(brl[0].id);
     }
   }, [accounts, settlementBankAccountId]);
   const selectedSettlementBankAccount =
-    accounts.find((account) => account.id === settlementBankAccountId) ?? accounts[0] ?? null;
+    brlAccounts.find((account) => account.id === settlementBankAccountId) ?? brlAccounts[0] ?? null;
   const [settlementRecordInBank, setSettlementRecordInBank] = useState<boolean>(true);
   const [settlementNotes, setSettlementNotes] = useState('');
   const [settlementError, setSettlementError] = useState<string | null>(null);
@@ -444,6 +449,14 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     );
     setLotIofPercentStr('1,1');
     setLotDebitAccountId('');
+    const creditCandidates = accounts.filter(
+      (account) => account.type === 'international' && account.currency === activeTrip.currency
+    );
+    setLotCreditAccountId(
+      creditCandidates.find((account) => account.id === activeTrip.linkedAccountId)?.id ??
+        creditCandidates[0]?.id ??
+        ''
+    );
     setIsLotModalOpen(true);
   };
 
@@ -484,7 +497,8 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       effectiveRateBrl: conv.effectiveRate,
       totalBrlPaid: conv.totalBrl,
       sourceLabel: lotSourceLabel.trim() || 'Compra de Câmbio',
-      accountId: lotDebitAccountId || undefined,
+      accountId: lotCreditAccountId || undefined,
+      debitAccountId: lotDebitAccountId || undefined,
     };
 
     onAddExchangeLot(
@@ -2542,6 +2556,39 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                 </div>
 
                 <div>
+                  {(() => {
+                    const creditCandidates = accounts.filter(
+                      (account) => account.type === 'international' && account.currency === activeTrip?.currency
+                    );
+                    return (
+                      <div className="mb-3 space-y-2">
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Em qual conta a moeda ({activeTrip?.currency}) entra? (Opcional)
+                        </label>
+                        {creditCandidates.length === 0 ? (
+                          <MissingSetupNotice
+                            testId="missing-international-account-for-lot"
+                            message={`Não há conta internacional em ${activeTrip?.currency} cadastrada. Sem ela a moeda comprada não entra no saldo de nenhuma conta (se for espécie, pode deixar assim).`}
+                            actionLabel="Cadastrar conta internacional"
+                            onAction={onRequestCreateAccount ? () => onRequestCreateAccount('international_account') : undefined}
+                          />
+                        ) : (
+                          <select
+                            value={lotCreditAccountId}
+                            onChange={(e) => setLotCreditAccountId(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white"
+                          >
+                            <option value="">Espécie / não vinculada a uma conta</option>
+                            {creditCandidates.map((account) => (
+                              <option key={account.id} value={account.id}>
+                                Entra em: {account.name} ({account.currency})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Descontar Reais (R$) de alguma conta bancária? (Opcional)
                   </label>
@@ -2551,7 +2598,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-white"
                   >
                     <option value="">Não gerar débito no extrato bancário</option>
-                    {accounts.map((acc) => (
+                    {brlAccounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
                         Debitar de: {acc.name} ({acc.institution})
                       </option>
@@ -2915,7 +2962,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
                             onChange={(e) => setSettlementBankAccountId(e.target.value)}
                             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-white font-semibold"
                           >
-                            {accounts.map((acc) => (
+                            {brlAccounts.map((acc) => (
                               <option key={acc.id} value={acc.id}>
                                 {acc.name} ({acc.institution})
                               </option>

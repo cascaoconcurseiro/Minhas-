@@ -1,3 +1,4 @@
+import { findSelfTransfers, findUnconvertedForeignTransfers } from './transferRules';
 import type { BankAccount, Category, CreditCard, FamilyMember, Transaction } from '../types/finance';
 
 /**
@@ -13,7 +14,9 @@ export interface DataHealthIssue {
     | 'shared_amount_over_total'
     | 'account_without_balance'
     | 'card_invalid_days'
-    | 'card_without_limit';
+    | 'card_without_limit'
+    | 'transfer_same_account'
+    | 'transfer_unconverted';
   severity: 'warn' | 'info';
   title: string;
   detail: string;
@@ -104,6 +107,28 @@ export function assessDataHealth(input: {
       title: 'Divisão maior que o valor do lançamento',
       detail: `${plural(sharedOver, 'lançamento tem', 'lançamentos têm')} a parte do familiar maior que o valor total.`,
       count: sharedOver,
+    });
+  }
+
+  const selfTransfers = findSelfTransfers(transactions).length;
+  if (selfTransfers > 0) {
+    issues.push({
+      id: 'transfer_same_account',
+      severity: 'warn',
+      title: 'Transferências de uma conta para ela mesma',
+      detail: `${plural(selfTransfers, 'transferência tem', 'transferências têm')} origem e destino iguais: o dinheiro sai e volta, sem efeito real. Corrija ou apague.`,
+      count: selfTransfers,
+    });
+  }
+
+  const unconverted = findUnconvertedForeignTransfers(transactions, accounts).length;
+  if (unconverted > 0) {
+    issues.push({
+      id: 'transfer_unconverted',
+      severity: 'warn',
+      title: 'Transferências entre moedas diferentes sem câmbio',
+      detail: `${plural(unconverted, 'transferência envolve', 'transferências envolvem')} conta em moeda estrangeira sem o valor na moeda e a cotação: o saldo em moeda estrangeira não reflete o movimento. Edite e informe o câmbio.`,
+      count: unconverted,
     });
   }
 

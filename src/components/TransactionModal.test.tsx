@@ -24,6 +24,7 @@ function renderTransactionModal(
     onAddFamilyMember?: (member: Omit<FamilyMember, 'id'>) => FamilyMember | void;
     editingTransaction?: Transaction;
     transactions?: Transaction[];
+    onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
   } = {}
 ) {
   container = document.createElement('div');
@@ -56,6 +57,7 @@ function renderTransactionModal(
         onClose,
         onSaveBatch,
         accounts: options.accounts ?? [account],
+        onRequestCreate: options.onRequestCreate,
         cards,
         categories: options.categories ?? [category],
         transactions: options.transactions ?? [],
@@ -753,7 +755,7 @@ test('editing an incomplete legacy installment split does not infer a false purc
   assert.equal(saved?.input.installmentPurchaseTotal, undefined);
 });
 
-test('bank transfer rejects same source and destination, then submits both distinct accounts', async () => {
+test('bank transfer never offers the source account as destination, then submits both distinct accounts', async () => {
   const saved: CreateTransactionBatchInput[] = [];
   const accounts = [
     {
@@ -765,22 +767,15 @@ test('bank transfer rejects same source and destination, then submits both disti
   const page = renderTransactionModal((input) => saved.push(input), () => {}, { accounts });
   await act(async () => {
     page.querySelector<HTMLButtonElement>('[data-testid="mode-transfer-btn"]')?.click();
-    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Transferência sintética');
-    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '50,00');
-    const destination = page.querySelector<HTMLSelectElement>('#tx-transfer-destination-select');
-    assert.ok(destination);
-    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(destination, 'account-test');
-    destination.dispatchEvent(new window.Event('change', { bubbles: true }));
-    page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
   });
-  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /contas de origem e destino diferentes/);
-  assert.equal(saved.length, 0);
+  const destination = page.querySelector<HTMLSelectElement>('#tx-transfer-destination-select');
+  assert.ok(destination);
+  const offered = [...destination.querySelectorAll('optgroup')[0].querySelectorAll('option')].map((option) => option.value);
+  assert.deepEqual(offered, [secondAccount.id], 'a conta de origem não aparece como destino');
 
   await act(async () => {
-    const destination = page.querySelector<HTMLSelectElement>('#tx-transfer-destination-select');
-    assert.ok(destination);
-    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(destination, secondAccount.id);
-    destination.dispatchEvent(new window.Event('change', { bubbles: true }));
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Transferência sintética');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '50,00');
     page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
   });
   assert.equal(saved.length, 1);
@@ -788,6 +783,7 @@ test('bank transfer rejects same source and destination, then submits both disti
   assert.equal(saved[0].accountId, 'account-test');
   assert.equal(saved[0].destinationAccountId, secondAccount.id);
   assert.equal(saved[0].paymentMethod, 'transfer');
+  assert.equal(saved[0].transferExchangeRate, undefined, 'contas em reais não têm câmbio');
 });
 
 test('card bill payment selects the invoice month separately from the bank payment date', async () => {
@@ -826,4 +822,89 @@ test('card bill payment selects the invoice month separately from the bank payme
   assert.equal(saved[0].settledCardId, testCard.id);
   assert.equal(saved[0].competenceMonth, '2026-10');
   assert.equal(saved[0].amount, 75);
+});
+
+const nomadUsdAccount: BankAccount = {
+  id: 'nomad-usd', name: 'Nomad USD', institution: 'Nomad', type: 'international', currency: 'USD',
+  initialBalance: 0, initialBalanceForeign: 500, color: '#000000', includeInTotal: false,
+};
+
+test('transfer from a USD account asks for the exchange and saves the foreign leg and rate', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const nubank: BankAccount = { id: 'nubank-test', name: 'Nubank', institution: 'Nubank', type: 'checking', initialBalance: 1000, color: '#7c3aed', includeInTotal: true };
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { accounts: [nomadUsdAccount, nubank] });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="mode-transfer-btn"]')?.click();
+  });
+  await act(async () => {
+    const origin = page.querySelector<HTMLSelectElement>('#tx-transfer-origin-select')!;
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(origin, 'nomad-usd');
+    origin.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  assert.ok(page.querySelector('[data-testid="transfer-fx-block"]'), 'mostra o bloco de câmbio quando há conta em dólar');
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Envio Nomad');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '540,00');
+    page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
+  });
+  assert.equal(saved.length, 0, 'sem o valor em USD não salva');
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /USD/);
+
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-transfer-foreign-amount-input"]')!, '100,00');
+  });
+  assert.match(page.querySelector('[data-testid="transfer-fx-rate"]')?.textContent ?? '', /5,40/);
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
+  });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].accountId, 'nomad-usd');
+  assert.equal(saved[0].destinationAccountId, 'nubank-test');
+  assert.equal(saved[0].amount, 540);
+  assert.equal(saved[0].transferFromAmount, 100);
+  assert.equal(saved[0].transferToAmount, undefined);
+  assert.equal(saved[0].transferExchangeRate, 5.4);
+});
+
+test('with no account registered the form explains it and sends the person to create one', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const requests: string[] = [];
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { accounts: [], onRequestCreate: (kind) => requests.push(kind) });
+  assert.match(page.querySelector('[data-testid="missing-account"]')?.textContent ?? '', /não tem conta cadastrada/);
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="missing-setup-action"]')?.click();
+  });
+  assert.deepEqual(requests, ['account']);
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Mercado');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '10,00');
+    page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click();
+  });
+  assert.equal(saved.length, 0, 'não salva despesa sem conta');
+});
+
+test('transfer with a single account explains that a second account is needed', async () => {
+  const requests: string[] = [];
+  const page = renderTransactionModal(() => {}, () => {}, { onRequestCreate: (kind) => requests.push(kind) });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="mode-transfer-btn"]')?.click();
+  });
+  assert.match(page.querySelector('[data-testid="transfer-needs-second-account"]')?.textContent ?? '', /ela mesma/);
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="missing-setup-action"]')?.click();
+  });
+  assert.deepEqual(requests, ['account']);
+});
+
+test('credit card purchase with no card registered offers to register one', async () => {
+  const requests: string[] = [];
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [], onRequestCreate: (kind) => requests.push(kind) });
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click();
+  });
+  assert.ok(page.querySelector('[data-testid="missing-card"]'));
+  await act(async () => {
+    page.querySelector<HTMLButtonElement>('[data-testid="missing-setup-action"]')?.click();
+  });
+  assert.deepEqual(requests, ['card']);
 });

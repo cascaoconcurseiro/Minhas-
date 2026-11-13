@@ -73,3 +73,17 @@ test('findProbableDuplicate catches the same purchase registered twice, but not 
   const fixed = tx({ amount: 135, date: '2026-11-11', recurrence: 'fixed' });
   assert.equal(findProbableDuplicate({ description: 'apolo', amount: 135, date: '2026-11-11' }, [fixed]), null);
 });
+
+test('findProbableDuplicate also covers income and transfers (transfers need the same source and destination)', () => {
+  const income = tx({ id: 'sal', type: 'income', description: 'Salário', amount: 5000, date: '2026-11-05' });
+  assert.ok(findProbableDuplicate({ description: 'salario', amount: 5000, date: '2026-11-05', type: 'income' }, [income]));
+  assert.equal(findProbableDuplicate({ description: 'salario', amount: 5000, date: '2026-11-05' }, [income]), null, 'despesa não confunde com receita');
+
+  const transfer = tx({ id: 'tr', type: 'transfer', description: 'Reserva', amount: 300, date: '2026-11-05', accountId: 'a', destinationAccountId: 'b' });
+  const base = { description: 'reserva', amount: 300, date: '2026-11-06', type: 'transfer' as const };
+  const dup = findProbableDuplicate({ ...base, accountId: 'a', destinationKey: 'b' }, [transfer]);
+  assert.ok(dup);
+  assert.match(dup.message, /transferência igual/);
+  assert.equal(findProbableDuplicate({ ...base, accountId: 'a', destinationKey: 'c' }, [transfer]), null, 'outro destino não é duplicidade');
+  assert.equal(findProbableDuplicate({ ...base, accountId: 'x', destinationKey: 'b' }, [transfer]), null, 'outra origem não é duplicidade');
+});

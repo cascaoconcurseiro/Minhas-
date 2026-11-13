@@ -1,5 +1,15 @@
 # Checklist — Minhas Economias
 
+## Transferências, câmbio e cadastros que faltam — 2026-11-13
+- [x] Destino nunca é a própria origem; câmbio obrigatório entre contas de moedas diferentes; saldo em moeda estrangeira segue a transferência.
+- [x] Duplicidade em receita e transferência; avisos de saldo, limite do cartão e data.
+- [x] Avisos "falta conta/cartão" com botão para cadastrar; só conta em reais em fatura, meta, ativo, acerto e câmbio de viagem.
+- [x] Compra de câmbio de viagem como transferência (sem contar duas vezes); extrato alinhado ao saldo.
+- [x] `tsc`, 664 testes e build PWA.
+- [ ] Conferir no navegador (celular e computador) o bloco de câmbio, os avisos e os botões de cadastro após o deploy.
+- [ ] Decidir se `Trip.linkedAccountId` deve ter tela própria; decidir se saldo insuficiente/limite do cartão devem BLOQUEAR em vez de avisar.
+- [ ] Revisar transferências antigas sinalizadas em Saúde dos dados (`transfer_unconverted`).
+
 ## Documentação alinhada ao código — 2026-11-12
 - [x] Remover referências a Firebase/ID token de README, security_spec, docs/* e `.env.example`; documentar login próprio, rotas `/api/auth/*`, variáveis e CI.
 - [x] Lint (sem erros), 575 testes em 77 arquivos e build PWA aprovados.
