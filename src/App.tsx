@@ -364,6 +364,7 @@ export default function App() {
   // Assinaturas do conteúdo que esta aba já enviou ou recebeu do Neon. Se o Neon recusar a revisão mas
   // estiver com um conteúdo que esta aba já conhece, a cópia local é só mais nova: grava por cima sem perguntar.
   const knownRemoteSignaturesRef = useRef<string[]>([]);
+  const lastConfirmedSignatureRef = useRef<string | null>(null);
   const rememberRemoteSignature = (payload: Record<string, unknown>) => {
     const signature = workspaceContentSignature(payload);
     knownRemoteSignaturesRef.current = [
@@ -719,6 +720,7 @@ export default function App() {
               throw new Error('A conta ativa mudou durante a criação do workspace.');
             }
             neonWorkspaceRevisionRef.current = created.revision;
+            lastConfirmedSignatureRef.current = workspaceContentSignature(payload);
             return;
           } catch (importError) {
             if (
@@ -750,6 +752,7 @@ export default function App() {
           throw new Error('A conta ativa mudou durante a gravação do workspace.');
         }
         neonWorkspaceRevisionRef.current = saved.revision;
+        lastConfirmedSignatureRef.current = workspaceContentSignature(payload);
       } catch (error) {
         if (error instanceof NeonWorkspaceError && error.status === 409) {
           try {
@@ -760,6 +763,7 @@ export default function App() {
               const resaved = await saveNeonWorkspace(payload, remoteSnapshot.revision);
               if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
               neonWorkspaceRevisionRef.current = resaved.revision;
+              lastConfirmedSignatureRef.current = workspaceContentSignature(payload);
               return;
             }
             // Como em um app em tempo real: o que chegou primeiro ao Neon prevalece. Esta aba adota a versão
@@ -816,6 +820,17 @@ export default function App() {
     showResultNotice = false
   ) => {
     latestNeonPayloadRef.current = payload;
+    // Nada mudou desde a última versão confirmada no Neon (ex.: acabou de carregar a versão de outro aparelho):
+    // não grava de novo, senão dois aparelhos ficariam trocando revisões sem fim.
+    if (
+      !showResultNotice &&
+      lastConfirmedSignatureRef.current !== null &&
+      neonWorkspaceRevisionRef.current !== null &&
+      lastConfirmedSignatureRef.current === workspaceContentSignature(payload)
+    ) {
+      setCloudSyncStatus('synced');
+      return;
+    }
     const activeConflict = workspaceConflictRef.current;
     if (activeConflict) {
       const updatedConflict = updateWorkspaceConflictLocalPayload(activeConflict, payload);
@@ -1061,6 +1076,7 @@ export default function App() {
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
         rememberRemoteSignature(snapshot.payload);
+        lastConfirmedSignatureRef.current = workspaceContentSignature(snapshot.payload);
         const rawAccounts = parseWorkspaceArray<BankAccount>(data.accountsJson, INITIAL_ACCOUNTS, 'accountsJson');
         const rawCards = parseWorkspaceArray<CreditCard>(data.cardsJson, INITIAL_CREDIT_CARDS, 'cardsJson');
         const parsedCategories = parseWorkspaceArray<Category>(data.categoriesJson, INITIAL_CATEGORIES, 'categoriesJson');
@@ -1556,6 +1572,7 @@ export default function App() {
     showNotice(`Lançamento "${tx.description}" duplicado na competência.`, transactions);
   };
 
+  const sharedSyncVersionRef = useRef<Record<string, number>>({});
   const triggerCrossAccountSharedTxSync = (
     nextTransactions: Transaction[],
     nextMembers: FamilyMember[] = familyMembers,
@@ -1584,16 +1601,26 @@ export default function App() {
         (tx) => String(tx.sharedMemberId || '') === member.id
       );
       if (memberTransactions.length === 0 && !deletedSharedSyncIds?.length) continue;
-      void syncNeonSharedTransactions({
-        partnerEmail,
-        transactions: memberTransactions as unknown as Array<Record<string, unknown>>,
-        deletedSharedIds: deletedSharedSyncIds,
-      }).catch((error) => {
-        console.error(
-          `Falha ao sincronizar despesas compartilhadas com ${partnerEmail}.`,
-          error instanceof Error ? error.message : String(error)
-        );
-      });
+      const syncVersion = (sharedSyncVersionRef.current[partnerEmail] ?? 0) + 1;
+      sharedSyncVersionRef.current[partnerEmail] = syncVersion;
+      const sendToPartner = (attempt: number) => {
+        void syncNeonSharedTransactions({
+          partnerEmail,
+          transactions: memberTransactions as unknown as Array<Record<string, unknown>>,
+          deletedSharedIds: deletedSharedSyncIds,
+        }).catch((error) => {
+          console.error(
+            `Falha ao sincronizar despesas compartilhadas com ${partnerEmail}.`,
+            error instanceof Error ? error.message : String(error)
+          );
+          // Tenta de novo (até 6 vezes) enquanto não houver uma sincronização mais nova para a mesma pessoa.
+          if (attempt >= 6) return;
+          window.setTimeout(() => {
+            if (sharedSyncVersionRef.current[partnerEmail] === syncVersion) sendToPartner(attempt + 1);
+          }, Math.min(2_000 * 2 ** attempt, 60_000));
+        });
+      };
+      sendToPartner(0);
     }
   };
 
