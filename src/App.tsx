@@ -766,14 +766,21 @@ export default function App() {
               neonWorkspaceRevisionRef.current = resaved.revision;
               return;
             }
-            const conflict = {
-              localPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
-              remoteSnapshot,
-            };
-            workspaceConflictRef.current = conflict;
-            setWorkspaceConflict(conflict);
-            setWorkspaceConflictError(null);
-            setIsWorkspaceConflictOpen(true);
+            // Como em um app em tempo real: o que chegou primeiro ao Neon prevalece. Esta aba adota a versão
+            // da nuvem; a cópia descartada fica guardada neste aparelho para recuperação.
+            try {
+              localStorage.setItem(
+                `minhas-economias:descartado:${authenticatedUser.uid}`,
+                JSON.stringify({ at: new Date().toISOString(), payload })
+              );
+              localStorage.removeItem(scopedStorageKey);
+              localStorage.setItem('minhas-economias:sync-notice', '1');
+            } catch {
+              // Sem armazenamento local: segue só com a versão da nuvem.
+            }
+            neonWorkspaceRevisionRef.current = remoteSnapshot.revision;
+            window.location.reload();
+            return;
           } catch (refreshError) {
             if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
             console.error(
@@ -1220,6 +1227,18 @@ export default function App() {
     return () => window.removeEventListener('online', retryAfterReconnect);
   }, [isAuthReady, isUserAuthenticated]);
 
+  useEffect(() => {
+    if (!isAuthReady || !isUserAuthenticated) return;
+    try {
+      if (localStorage.getItem('minhas-economias:sync-notice')) {
+        localStorage.removeItem('minhas-economias:sync-notice');
+        showNotice('Outro aparelho salvou antes. Atualizei com a versão mais recente da nuvem.', undefined, true);
+      }
+    } catch {
+      // sem armazenamento local
+    }
+  }, [isAuthReady, isUserAuthenticated]);
+
   // Ao voltar para o app: (1) reenvia o que ficou sem salvar e (2) se outro aparelho gravou uma versão
   // mais nova no Neon e esta aba não tem nada pendente, recarrega para pegá-la (evita o aviso de conflito).
   const cloudSyncStatusRef = useRef(cloudSyncStatus);
@@ -1228,10 +1247,15 @@ export default function App() {
     if (!isAuthReady || !isUserAuthenticated) return;
     let checking = false;
     let lastCheckAt = 0;
+    let lastUserActivityAt = 0;
+    const markActivity = () => { lastUserActivityAt = Date.now(); };
+    document.addEventListener('keydown', markActivity, true);
+    document.addEventListener('pointerdown', markActivity, true);
     const onReturn = async () => {
       if (document.hidden || checking || !navigator.onLine || !hasLoadedRemoteOnceRef.current) return;
       if (workspaceConflictRef.current) return;
       if (Date.now() - lastCheckAt < 15_000) return;
+      if (Date.now() - lastUserActivityAt < 3_000) return;
       lastCheckAt = Date.now();
       checking = true;
       const uid = authenticatedUidRef.current;
@@ -1259,7 +1283,11 @@ export default function App() {
     const onVisible = () => void onReturn();
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
+    const poll = window.setInterval(onVisible, 20_000);
     return () => {
+      window.clearInterval(poll);
+      document.removeEventListener('keydown', markActivity, true);
+      document.removeEventListener('pointerdown', markActivity, true);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };

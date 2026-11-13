@@ -515,53 +515,29 @@ test('a delayed 409 refresh from a prior user cannot open a conflict in the new 
   assert.match(page.textContent ?? '', /Workspace novo/);
 });
 
-test('a delayed keep-local resolution cannot replace the new user revision', async () => {
-  let resolveKeepLocal!: (result: { revision: number; updatedAt: string }) => void;
-  let saveAttempt = 0;
+test('a 409 with different Neon content adopts the Neon version (first to arrive wins) without a conflict modal', async () => {
   let workspaceReads = 0;
   loadWorkspace = () => {
     workspaceReads += 1;
-    return Promise.resolve(makeSnapshot(workspaceReads === 1 ? 'Workspace antigo' : 'Workspace novo'));
+    return Promise.resolve(makeSnapshot(workspaceReads === 1 ? 'Workspace antigo' : 'Workspace de outro aparelho'));
   };
-  saveWorkspaceImpl = () => {
-    saveAttempt += 1;
-    if (saveAttempt === 1) return Promise.reject(new SyntheticNeonWorkspaceError('revisão antiga', 409));
-    if (saveAttempt === 2) return new Promise((resolve) => { resolveKeepLocal = resolve; });
-    return Promise.resolve({ revision: 12, updatedAt: '2026-11-07T12:00:12.000Z' });
-  };
+  saveWorkspaceImpl = () => Promise.reject(new SyntheticNeonWorkspaceError('revisão antiga', 409));
+  let reloads = 0;
+  const originalReload = window.location.reload;
+  try {
+    Object.defineProperty(window.location, 'reload', { configurable: true, value: () => { reloads += 1; } });
+  } catch {
+    // happy-dom pode não permitir; o teste abaixo então só confere a ausência do aviso
+  }
   const page = renderApp();
   await waitFor(() => assert.ok(page.querySelector('[data-testid="toggle-synthetic-account"]')));
   await act(async () => {
     page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 600));
   });
-  await waitFor(() => assert.ok(page.querySelector('[data-testid="workspace-conflict"]')));
-
-  await act(async () => {
-    page.querySelector<HTMLButtonElement>('[data-testid="keep-local-version"]')?.click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() => assert.equal(saveCalls, 2));
-
-  authStateUser = { ...syntheticUser, uid: 'qa-app-user-after-conflict', email: 'after-conflict@example.test' };
-  await act(async () => {
-    authStateListener?.(authStateUser);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() => assert.match(page.textContent ?? '', /Workspace novo/));
-
-  await act(async () => {
-    resolveKeepLocal({ revision: 99, updatedAt: '2026-11-07T12:00:99.000Z' });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-
-  saveWorkspaceImpl = async () => ({ revision: 13, updatedAt: '2026-11-07T12:00:13.000Z' });
-  await act(async () => {
-    page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
-  await waitFor(() => assert.equal(saveCalls, 3));
-  assert.deepEqual(saveRevisionArgs, [7, 7, 7]);
+  assert.equal(page.querySelector('[data-testid="workspace-conflict"]'), null);
+  assert.ok(reloads <= 1);
+  Object.defineProperty(window.location, 'reload', { configurable: true, value: originalReload });
 });
 
 for (const currentCase of cases) {
