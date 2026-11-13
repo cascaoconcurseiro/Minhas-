@@ -1576,7 +1576,9 @@ export default function App() {
   const triggerCrossAccountSharedTxSync = (
     nextTransactions: Transaction[],
     nextMembers: FamilyMember[] = familyMembers,
-    deletedSharedSyncIds?: string[]
+    deletedSharedSyncIds?: string[],
+    /** Quando informado, os ids apagados valem só para esta pessoa (ex.: o lançamento mudou de parceiro). */
+    deletedOnlyForMemberId?: string
   ) => {
     if (!effectiveUserEmail) return;
     const sharedList = nextTransactions.filter((t) => t.isShared && !t.tripId);
@@ -1600,14 +1602,16 @@ export default function App() {
       const memberTransactions = sharedList.filter(
         (tx) => String(tx.sharedMemberId || '') === member.id
       );
-      if (memberTransactions.length === 0 && !deletedSharedSyncIds?.length) continue;
+      const deletedForThisMember =
+        deletedOnlyForMemberId && deletedOnlyForMemberId !== member.id ? undefined : deletedSharedSyncIds;
+      if (memberTransactions.length === 0 && !deletedForThisMember?.length) continue;
       const syncVersion = (sharedSyncVersionRef.current[partnerEmail] ?? 0) + 1;
       sharedSyncVersionRef.current[partnerEmail] = syncVersion;
       const sendToPartner = (attempt: number) => {
         void syncNeonSharedTransactions({
           partnerEmail,
           transactions: memberTransactions as unknown as Array<Record<string, unknown>>,
-          deletedSharedIds: deletedSharedSyncIds,
+          deletedSharedIds: deletedForThisMember,
         }).catch((error) => {
           console.error(
             `Falha ao sincronizar despesas compartilhadas com ${partnerEmail}.`,
@@ -1718,11 +1722,20 @@ export default function App() {
         );
         setTransactions(nextList);
         if (updatedSingleTx.isShared || targetTx.isShared) {
+          const memberChanged =
+            Boolean(targetTx.isShared && updatedSingleTx.isShared) &&
+            Boolean(targetTx.sharedMemberId) &&
+            targetTx.sharedMemberId !== updatedSingleTx.sharedMemberId;
           const deletedIds =
-            targetTx.isShared && !updatedSingleTx.isShared
+            (targetTx.isShared && !updatedSingleTx.isShared) || memberChanged
               ? [targetTx.sharedSyncId || targetTx.id]
               : undefined;
-          triggerCrossAccountSharedTxSync(nextList, familyMembers, deletedIds);
+          triggerCrossAccountSharedTxSync(
+            nextList,
+            familyMembers,
+            deletedIds,
+            memberChanged ? targetTx.sharedMemberId : undefined
+          );
         }
         showNotice('Lançamento atualizado com sucesso.', prevSnapshot);
         return;
