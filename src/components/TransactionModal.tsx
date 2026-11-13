@@ -88,6 +88,8 @@ import {
 
 type DomesticSharedSplitMode = 'half' | 'percentage' | 'custom';
 
+import { getAccountLabel } from '../utils/accountLabels';
+
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -236,6 +238,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const billPaymentInvoiceSummary = selectedBillPaymentCard
     ? calculateCreditCardSummary(selectedBillPaymentCard, transactions, billPaymentInvoiceMonth)
     : null;
+  const canSwitchPaymentMethod = Boolean(
+    !editingTransaction ||
+      (editingTransaction.type === 'expense' &&
+        !editingTransaction.isInvoicePayment &&
+        !editingTransaction.invoicePaymentId &&
+        (editingTransaction.recurrence ?? 'single') === 'single' &&
+        !editingTransaction.tripId &&
+        !editingTransaction.isShared)
+  );
   const selectedPaymentAccount = accounts.find((account) => account.id === accountId) ?? null;
   const selectedDestinationAccount = accounts.find((account) => account.id === destinationAccountId) ?? null;
 
@@ -937,7 +948,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setIsShared(false);
     } else if (mode === 'credit_card') {
       const expCat = categories.find((c) => c.type === 'expense');
-      if (expCat && !tripId) {
+      if (expCat && !tripId && !editingTransaction) {
         setCategoryId(expCat.id);
       }
       setPaymentMethod('credit_card');
@@ -954,10 +965,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setIsShared(false);
     } else {
       const expCat = categories.find((c) => c.type === 'expense');
-      if (expCat && !tripId) {
+      if (expCat && !tripId && !editingTransaction) {
         setCategoryId(expCat.id);
       }
-      setPaymentMethod('pix');
+      const originalBankMethod =
+        editingTransaction && editingTransaction.paymentMethod && editingTransaction.paymentMethod !== 'credit_card'
+          ? editingTransaction.paymentMethod
+          : 'pix';
+      setPaymentMethod(originalBankMethod);
+      if (!accountId && accounts[0]?.id) setAccountId(accounts[0].id);
       setStatus('paid');
       if (recurrence === 'installment') {
         setRecurrence('single');
@@ -1794,7 +1810,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             data-testid="transaction-modal-scroll-body"
             className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar native-scroll modal-form-scroll bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-4"
           >
-            {(entryMode === 'expense' || entryMode === 'credit_card') && !editingTransaction && (
+            {(entryMode === 'expense' || entryMode === 'credit_card') && canSwitchPaymentMethod && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3">
                 <span className="mr-1 text-xs font-bold text-slate-700 dark:text-slate-300">Forma de pagamento</span>
                 <button
@@ -2529,7 +2545,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           color={selectedPaymentAccount.color}
                           size="xs"
                         />
-                        <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                        <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
                       </div>
                     )}
                   </div>
@@ -2641,7 +2657,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         <optgroup label="Contas Bancárias & Carteiras">
                           {accounts.map((acc) => (
                             <option key={acc.id} value={acc.id}>
-                              {acc.name}
+                              {getAccountLabel(acc, accounts)}
                             </option>
                           ))}
                         </optgroup>
@@ -2850,7 +2866,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   color={selectedPaymentAccount.color}
                                   size="xs"
                                 />
-                                <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                                <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
                               </div>
                             )}
                           </div>
@@ -2892,7 +2908,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             <option key={acc.id} value={acc.id}>
                               {acc.type === 'international' && acc.currency
                                 ? `${CURRENCY_CATALOG[acc.currency]?.flag || '🌎'} ${acc.name} (${acc.currency})`
-                                : acc.name}
+                                : getAccountLabel(acc, accounts)}
                             </option>
                           ))}
                         </select>
@@ -2904,7 +2920,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               color={selectedPaymentAccount.color}
                               size="xs"
                             />
-                            <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                            <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
                           </div>
                         )}
                       </>
@@ -3476,7 +3492,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                               color={selectedPaymentAccount.color}
                                               size="xs"
                                             />
-                                            <span>Conta selecionada: {selectedPaymentAccount.name}</span>
+                                            <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
                                           </div>
                                         )}
                                       </>

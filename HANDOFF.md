@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Editar lançamento: trocar forma de pagamento, nome do banco e criador — 13/11/2026
+
+Pedido do usuário: lançou "Zafari" por engano como Pix/conta corrente e, ao editar, não havia como passar para cartão de crédito; no formulário aparecia "Conta corrente" em vez do banco; e na edição só o criador de um lançamento compartilhado pode editar tudo.
+
+Mudanças: (1) `TransactionModal` mostra o seletor "Forma de pagamento" (Conta/débito ⇄ Cartão de crédito) também na edição, para despesas simples (sem fatura paga, sem parcelas/fixo, sem viagem, não compartilhadas); na troca mantém categoria e demais campos, voltando para a forma bancária original ao retornar. (2) Novo `src/utils/accountLabels.ts` (`getAccountLabel`): nomes genéricos ("Conta corrente", "Poupança", "Carteira") aparecem como o banco; nomes próprios são mantidos; usado nos seletores e em "Conta selecionada". (3) `isSharedTransactionCreatedByOther` (`financeRules.ts`): lançamento compartilhado recebido de outra pessoa (`tx-mirror-` ou `sharedOriginEmail` diferente do e-mail logado) não abre para edição em `handleEditTransaction` (mensagem explicando); os próprios abrem normalmente. Validação: `tsc`, 636 testes, build. Não verificado no navegador do usuário.
+
 ## Avisos só no sininho, fora da Visão Geral — 13/11/2026
 
 O usuário pediu que os avisos (saldo previsto negativo, cartão acima/perto do limite, dados para revisar) fiquem no sino e não no painel. Revertido o bloco "Avisos" do cabeçalho da Visão Geral (`OverviewNotices` removido; o cabeçalho voltou a ser só a saudação). A Visão Geral não mostra mais avisos nem recebe `dataHealthIssues`/`commitmentAlerts`.

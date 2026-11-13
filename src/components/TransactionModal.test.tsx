@@ -531,6 +531,23 @@ test('credit-card purchase creates pending installments tied to the chosen card'
   assert.equal(saved[0].accountId, undefined);
 });
 
+test('editing a pix expense can switch it to the credit card and keeps its category', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const tx: Transaction = {
+    id: 'zafari', description: 'Zafari', amount: 80, date: '2026-11-13', competenceMonth: '2026-11',
+    type: 'expense', status: 'paid', categoryId: 'category-test', accountId: 'account-test',
+    recurrence: 'single', paymentMethod: 'pix',
+  };
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard], editingTransaction: tx });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].creditCardId, testCard.id);
+  assert.equal(saved[0].paymentMethod, 'credit_card');
+  assert.equal(saved[0].categoryId, 'category-test');
+  assert.equal(saved[0].accountId, undefined);
+});
+
 test('budget warning follows the purchase month instead of the invoice month or the month open behind the modal', async () => {
   const base: Transaction = {
     id: 'nov-budget', description: 'Synthetic existing expense', amount: 290,

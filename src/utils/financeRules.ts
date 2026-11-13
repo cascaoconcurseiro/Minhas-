@@ -2342,6 +2342,14 @@ export function getTransactionEditRestriction(tx: Transaction): string | null {
   return null;
 }
 
+/** Em lançamentos compartilhados, só quem criou pode editar tudo. */
+export function isSharedTransactionCreatedByOther(tx: Transaction, currentUserEmail?: string | null): boolean {
+  if (tx.id.startsWith('tx-mirror-')) return true;
+  const origin = tx.sharedOriginEmail?.trim().toLowerCase();
+  if (!tx.isShared || !origin) return false;
+  return origin !== (currentUserEmail || '').trim().toLowerCase();
+}
+
 export function duplicateFinancialTransaction(tx: Transaction, id: string): Transaction | null {
   if (tx.isInvoicePayment || tx.id.startsWith('tx-reimb-') || tx.id.startsWith('tx-mirror-')) return null;
   const copy: Transaction = { ...tx, id, description: `${tx.description} (Cópia)`,

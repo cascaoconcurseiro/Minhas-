@@ -62,6 +62,7 @@ import {
   calculateAccountBalances,
   duplicateFinancialTransaction,
   getTransactionEditRestriction,
+  isSharedTransactionCreatedByOther,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
   calculateMonthlySummary,
@@ -1447,7 +1448,9 @@ export default function App() {
   };
 
   const handleEditTransaction = (tx: Transaction) => {
-    const restriction = getTransactionEditRestriction(tx);
+    const restriction = isSharedTransactionCreatedByOther(tx, effectiveUserEmail)
+      ? 'Este lançamento compartilhado foi criado por outra pessoa. Só quem criou pode editá-lo por completo.'
+      : getTransactionEditRestriction(tx);
     if (restriction) {
       showNotice(
         restriction,
