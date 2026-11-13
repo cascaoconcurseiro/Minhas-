@@ -4248,6 +4248,7 @@ export default function App() {
         initialDate={modalInitialDate}
         initialTripId={modalInitialTripId}
         onRequestCreate={handleRequestCreateFromTransaction}
+        budgetWarningPercent={settings.budgetWarningPercent}
         />}
 
         {/* Settings & Preferences Modal */}

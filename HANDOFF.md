@@ -1,5 +1,16 @@
 # Handoff — Minhas Economias
 
+## Auditoria profunda: relatórios, orçamento e importação — 13/11/2026
+
+Método: fuzz com 300 carteiras aleatórias comparando resumo mensal × relatório do período × gastos por categoria × regra 50/30/20 × DRE (receitas e despesas batem em todos os meses), e 200 ciclos aleatórios de pagar fatura (total e parcial) × estornar × excluir série × alternar status (tudo volta ao estado original). Sem divergência. Defeitos achados e corrigidos:
+1. IMPORTAÇÃO CSV com colunas "Débito" e "Crédito" separadas: o débito era lido como RECEITA e os créditos eram descartados. Agora crédito entra e débito sai (`ofxParser.ts`).
+2. CSV com coluna "D/C" (ou Tipo) e valor sem sinal: tudo virava receita. Agora D/Débito/Saída vira despesa.
+3. Valores com "R$", entre parênteses ou com sinal no fim ("12,30-") eram descartados; agora são lidos (`parseBankAmount`).
+4. Extrato com "Histórico" e "Descrição" separados (ex.: Inter) perdia o nome da outra parte; agora junta ("Pix enviado - JOAO").
+5. CSV sem coluna de ID gerava `csv-row-N` pela posição da linha: o segundo arquivo do mesmo banco tinha linhas marcadas como repetidas do primeiro e deixava de importar. Agora o id depende de data, valor, descrição e ordem entre linhas iguais, e ids antigos `csv-row-N` já salvos são ignorados na checagem de repetidos.
+6. Prévia de orçamento no formulário usava 80% fixo para o aviso; agora usa o percentual das Configurações (`previewCategoryBudget` + prop `budgetWarningPercent`).
+Observação sem alteração: na DRE, despesa cuja descrição contém "aporte" é tratada como aporte de investimento mesmo fora da categoria de aportes. Testes novos em `csvImportFormats.test.ts`. Não revistos: viagens/câmbio, metas, investimentos e relatório em PDF.
+
 ## Editar compra de cartão preserva o mês da fatura ajustado — 13/11/2026
 
 Decisão (deixada ao critério técnico): ao abrir uma compra de cartão já salva, o mês da fatura salvo é mantido (inclusive ajuste manual) e só é recalculado quando a data ou o cartão mudam. Exceção para lançamentos antigos: se o mês salvo é igual ao mês da própria compra, continua recalculando pela regra do fechamento (comportamento anterior, coberto pelo teste existente). Novo teste em `TransactionModal.test.tsx`. Limite: um ajuste manual para exatamente o mês da compra seria recalculado ao reabrir.

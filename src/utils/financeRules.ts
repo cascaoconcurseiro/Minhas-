@@ -3333,8 +3333,10 @@ export function previewCategoryBudget(
   transactions: Transaction[],
   draft: CreateTransactionBatchInput,
   editingId?: string,
-  scope: CascadeScope = 'single'
+  scope: CascadeScope = 'single',
+  warningThresholdPercent = 80
 ) {
+  const warningRatio = Math.max(50, Math.min(99, warningThresholdPercent)) / 100;
   const month = draft.creditCardId
     ? draft.date.slice(0, 7)
     : draft.competenceMonth || draft.date.slice(0, 7);
@@ -3370,7 +3372,7 @@ export function previewCategoryBudget(
     spentBefore, projectedSpent,
     remainingAfter: Math.round((category.monthlyBudget - projectedSpent) * 100) / 100,
     percentAfter: category.monthlyBudget > 0 ? Math.round(projectedSpent / category.monthlyBudget * 1000) / 10 : 0,
-    statusAfter: projectedSpent > category.monthlyBudget ? 'over' : projectedSpent >= category.monthlyBudget * .8 ? 'warning' : 'ok',
+    statusAfter: projectedSpent > category.monthlyBudget ? 'over' : projectedSpent >= category.monthlyBudget * warningRatio ? 'warning' : 'ok',
   };
 }
 

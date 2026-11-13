@@ -96,7 +96,13 @@ function isValidCalendarDate(isoDate: string): boolean {
  * Supports "-123.45", "-123,45", "1.234,56", "+500".
  */
 export function parseBankAmount(amountStr: string): number {
-  let clean = amountStr.trim().replace(/\s/g, '');
+  let clean = amountStr.trim().replace(/R\$/gi, '').replace(/\s/g, '');
+  // Contabilidade: (123,45) e 123,45- significam valor negativo
+  const parenthesized = /^\(.*\)$/.test(clean);
+  if (parenthesized) clean = clean.slice(1, -1);
+  const trailingMinus = /^[\d.,]+-$/.test(clean);
+  if (trailingMinus) clean = clean.slice(0, -1);
+  if ((parenthesized || trailingMinus) && !clean.startsWith('-')) clean = `-${clean.replace(/^\+/, '')}`;
   if (!clean || !/^[+-]?[\d.,]+$/.test(clean)) return Number.NaN;
   const sign = clean.startsWith('-') ? '-' : '';
   clean = clean.replace(/^[+-]/, '');
@@ -237,6 +243,19 @@ export function normalizeCsvDate(rawDate: string): string {
 }
 
 /**
+ * Identificador criado para linhas de CSV sem coluna de ID: depende do conteúdo (data, valor, descrição e a
+ * ordem entre linhas iguais), não da posição da linha. Com a posição, o arquivo seguinte do mesmo banco gerava
+ * os mesmos ids e as linhas novas eram tratadas como repetidas.
+ */
+function syntheticCsvFitid(date: string, amount: number, description: string, counts: Map<string, number>): string {
+  const slug = description.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
+  const key = `csv-${date}-${Math.round(amount * 100)}-${slug}`;
+  const next = (counts.get(key) ?? 0) + 1;
+  counts.set(key, next);
+  return `${key}-${next}`;
+}
+
+/**
  * Parses Brazilian bank CSV exports (Nubank, Itaú, Bradesco, Inter, Santander, etc.).
  */
 export function parseBrazilianCSV(csvText: string): ParseStatementResult {
@@ -298,7 +317,11 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
   let dateIdx = -1;
   let descIdx = -1;
   let amountIdx = -1;
+  let extraDescIdx = -1;
   let fitidIdx = -1;
+  let debitIdx = -1;
+  let creditIdx = -1;
+  let typeIdx = -1;
 
   if (hasHeader) {
     dateIdx = headerCols.findIndex((c) => c.includes('data') || c.includes('date'));
@@ -313,6 +336,13 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
     amountIdx = headerCols.findIndex(
       (c) => c.includes('valor') || c.includes('amount') || c.includes('quantia')
     );
+    // Extratos com "Histórico" e "Descrição" separados (ex.: Inter): junta os dois para não perder o nome
+    if (descIdx >= 0 && headerCols[descIdx].includes('hist')) {
+      extraDescIdx = headerCols.findIndex((c, index) => index !== descIdx && c.includes('desc'));
+    }
+    debitIdx = headerCols.findIndex((c) => /^(d[ée]bito|debit|sa[ií]da|saidas?|valor d[ée]bito)s?$/.test(c));
+    creditIdx = headerCols.findIndex((c) => /^(cr[ée]dito|credit|entrada|entradas|valor cr[ée]dito)s?$/.test(c));
+    typeIdx = headerCols.findIndex((c) => /^(d\/c|c\/d|dc|natureza|tipo|tipo lan[cç]amento|d[ée]bito\/cr[ée]dito|cr[ée]dito\/d[ée]bito)$/.test(c));
     fitidIdx = headerCols.findIndex(
       (c) =>
         c.includes('id') ||
@@ -322,6 +352,7 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
     );
   }
 
+  const hasAmountHeader = amountIdx >= 0;
   // Fallbacks if header wasn't fully identified
   if (dateIdx < 0) dateIdx = 0;
   if (descIdx < 0) descIdx = 1;
@@ -329,6 +360,7 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
 
   const dataRows = hasHeader ? lines.slice(1) : lines;
   const items: ParsedBankStatementItem[] = [];
+  const syntheticCounts = new Map<string, number>();
   let skippedInvalidCount = 0;
 
   dataRows.forEach((line, rowIdx) => {
@@ -339,8 +371,20 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
     }
 
     const rawDate = cols[dateIdx] || '';
-    const rawDesc = cols[descIdx] || 'Lançamento Manual';
-    const rawAmt = cols[amountIdx] || '';
+    const baseDesc = cols[descIdx] || 'Lançamento Manual';
+    const extraDesc = extraDescIdx >= 0 ? (cols[extraDescIdx] || '').trim() : '';
+    const rawDesc = extraDesc && extraDesc.toLowerCase() !== baseDesc.toLowerCase() ? `${baseDesc} - ${extraDesc}` : baseDesc;
+    // Extratos com colunas separadas de débito e crédito: crédito entra (+), débito sai (-)
+    const hasSplitColumns = debitIdx >= 0 && creditIdx >= 0 && !hasAmountHeader;
+    let rawAmt = cols[amountIdx] || '';
+    if (hasSplitColumns) {
+      const credit = parseBankAmount(cols[creditIdx] || '');
+      const debit = parseBankAmount(cols[debitIdx] || '');
+      const creditValue = Number.isFinite(credit) ? Math.abs(credit) : 0;
+      const debitValue = Number.isFinite(debit) ? Math.abs(debit) : 0;
+      const net = Math.round((creditValue - debitValue) * 100) / 100;
+      rawAmt = net === 0 ? '' : net.toFixed(2).replace('.', ',');
+    }
     const fitid = fitidIdx >= 0 ? cols[fitidIdx] : undefined;
 
     // Skip empty or summary rows
@@ -350,7 +394,12 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
     }
 
     const parsedDate = normalizeCsvDate(rawDate);
-    const parsedAmount = parseBankAmount(rawAmt);
+    let parsedAmount = parseBankAmount(rawAmt);
+    // Coluna D/C (ou Tipo): o valor vem sem sinal e a coluna diz se saiu ou entrou
+    if (typeIdx >= 0 && !hasSplitColumns && Number.isFinite(parsedAmount) && parsedAmount > 0) {
+      const marker = (cols[typeIdx] || '').trim().toLowerCase();
+      if (/^(d|deb|d[ée]bito|debit|saida|sa[ií]da|despesa)$/.test(marker)) parsedAmount = -parsedAmount;
+    }
     if (!parsedDate || !Number.isFinite(parsedAmount) || parsedAmount === 0) {
       skippedInvalidCount += 1;
       return;
@@ -359,7 +408,7 @@ export function parseBrazilianCSV(csvText: string): ParseStatementResult {
     const rawType: 'income' | 'expense' = parsedAmount < 0 ? 'expense' : 'income';
 
     items.push({
-      fitid: fitid?.trim() || `csv-row-${rowIdx + 1}`,
+      fitid: fitid?.trim() || syntheticCsvFitid(parsedDate, parsedAmount, rawDesc, syntheticCounts),
       date: parsedDate,
       amount: Math.abs(parsedAmount),
       description: rawDesc,
@@ -814,7 +863,8 @@ export function checkItemDuplicate(
   exchangeRate?: number
 ): { isDuplicate: boolean; reason?: string } {
   // 1. Exact FITID match
-  if (item.fitid) {
+  // Ids antigos 'csv-row-N' vinham da posição da linha e não identificam o lançamento: ignora-os
+  if (item.fitid && !/^csv-row-\d+$/.test(item.fitid)) {
     const fitidMatch = existingTransactions.find((tx) => tx.fitid && tx.fitid === item.fitid);
     if (fitidMatch) {
       return {

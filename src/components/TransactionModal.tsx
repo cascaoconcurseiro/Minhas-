@@ -134,6 +134,8 @@ interface TransactionModalProps {
   initialTripId?: string;
   /** Leva a pessoa a cadastrar o que falta (conta ou cartão); o App fecha este formulário e abre o cadastro. */
   onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
+  /** Percentual do teto da categoria em que o aviso de orçamento começa (Configurações). */
+  budgetWarningPercent?: number;
 }
 
 const CURRENCY_OPTIONS: CurrencyCode[] = [
@@ -175,6 +177,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   initialDate,
   initialTripId,
   onRequestCreate,
+  budgetWarningPercent = 80,
 }) => {
   const [entryMode, setEntryMode] = useState<
     'expense' | 'income' | 'credit_card' | 'transfer'
@@ -1524,7 +1527,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       installmentPurchaseTotal: recurrence === 'installment' && !legacyInstallmentTotalUnknown
         ? Math.round((amountMode === 'total_divided' ? numericPreview : numericPreview * installmentTotal) * 100) / 100
         : undefined,
-    }, editingTransaction?.id, cascadeScope);
+    }, editingTransaction?.id, cascadeScope, budgetWarningPercent);
   }, [
     entryMode,
     categoryId,
@@ -1539,6 +1542,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     installmentTotal,
     editingTransaction,
     selectedMonth,
+    budgetWarningPercent,
   ]);
 
   const availableTagSuggestions = useMemo(() => {
