@@ -548,6 +548,16 @@ test('editing a pix expense can switch it to the credit card and keeps its categ
   assert.equal(saved[0].accountId, undefined);
 });
 
+test('editing a shared expense also offers the credit card option', async () => {
+  const tx: Transaction = {
+    id: 'zafari-shared', description: 'Zafari', amount: 60.27, date: '2026-11-12', competenceMonth: '2026-11',
+    type: 'expense', status: 'paid', categoryId: 'category-test', accountId: 'account-test',
+    recurrence: 'single', paymentMethod: 'pix', isShared: true, sharedMemberId: 'm1',
+  };
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard], editingTransaction: tx });
+  assert.ok(page.querySelector('[data-testid="payment-method-card"]'));
+});
+
 test('budget warning follows the purchase month instead of the invoice month or the month open behind the modal', async () => {
   const base: Transaction = {
     id: 'nov-budget', description: 'Synthetic existing expense', amount: 290,

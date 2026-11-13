@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Editar compartilhado: cartão e banco no rodapé — 13/11/2026
+
+Print do usuário: o Zafari era "Rateio Familiar" (compartilhado), e o seletor de forma de pagamento não aparecia porque eu tinha excluído compartilhados; o rodapé ainda mostrava "Conta corrente". Agora o seletor aparece também para compartilhados (criados pelo próprio usuário; os de outra pessoa continuam bloqueados) e o rodapé "Impacto mensal" usa `getAccountLabel` (banco).
+
 ## Marcar aviso do sino como lido — 13/11/2026
 
 Cada aviso do sino (previsão, cartão, dados para revisar) ganhou o botão "Marcar como lido" (`ReminderCenterModal`, prop `onDismissNotice`). `App.tsx` guarda os avisos dispensados em `localStorage` (`minhas-economias:dismissed-notices`, chave `id|título`, até 200), então só vale neste aparelho/navegador e o aviso volta se o conteúdo mudar (ex.: novo valor ou mês). A bolinha do sino deixa de contar o aviso dispensado. Lembretes e convites não mudaram. Validação: `tsc`, testes, build; não verificado no navegador do usuário.

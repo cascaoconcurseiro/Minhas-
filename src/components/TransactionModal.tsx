@@ -244,8 +244,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         !editingTransaction.isInvoicePayment &&
         !editingTransaction.invoicePaymentId &&
         (editingTransaction.recurrence ?? 'single') === 'single' &&
-        !editingTransaction.tripId &&
-        !editingTransaction.isShared)
+        !editingTransaction.tripId)
   );
   const selectedPaymentAccount = accounts.find((account) => account.id === accountId) ?? null;
   const selectedDestinationAccount = accounts.find((account) => account.id === destinationAccountId) ?? null;
@@ -1686,7 +1685,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const selectedAccountName =
-    accounts.find((a) => a.id === accountId)?.name || 'Conta Principal';
+    (() => {
+      const acc = accounts.find((a) => a.id === accountId);
+      return acc ? getAccountLabel(acc, accounts) : 'Conta Principal';
+    })();
   const selectedCardName =
     cards.find((c) => c.id === creditCardId)?.name || 'Cartão de Crédito';
 
