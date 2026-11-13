@@ -153,6 +153,7 @@ import {
   describeCommitmentAfterPurchase,
   getCommitmentAlerts,
 } from './utils/cardCommitment';
+import { buildAppNotices, countBellNotices, type AppNoticeAction } from './utils/appNotices';
 import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
 import { learnSharingFromHistory } from './utils/learningRules';
 import {
@@ -2893,7 +2894,30 @@ export default function App() {
       referenceMonth
     );
   }, [transactions, todayDateStr, settings.cardCommitmentLimitPercent, settings.cardCommitmentWarnPercent]);
-  const noticeCount = remindersSummary.urgentCount + incomingFamilyInvites.length + commitmentAlerts.length;
+  // Tudo que avisa fica no sininho: previsão de saldo negativo, cartão acima do limite e dados para revisar.
+  const appNotices = useMemo(
+    () =>
+      buildAppNotices({
+        forecast: cashForecast,
+        dataHealthIssues,
+        commitmentAlerts,
+        commitmentLimitPercent: settings.cardCommitmentLimitPercent,
+      }),
+    [cashForecast, dataHealthIssues, commitmentAlerts, settings.cardCommitmentLimitPercent]
+  );
+  const noticeCount = remindersSummary.urgentCount + incomingFamilyInvites.length + countBellNotices(appNotices);
+
+  const handleNoticeAction = (action: AppNoticeAction) => {
+    if (action === 'commitment') {
+      handleSelectTab('cards');
+      return;
+    }
+    handleSelectTab('overview');
+    // A previsão fica na Visão Geral: espera a tela abrir e rola até o gráfico.
+    window.setTimeout(() => {
+      document.getElementById('overview-cash-forecast')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 400);
+  };
 
   // Fluxo de Inicialização de Permissões de Notificação do Sistema Operacional
   useEffect(() => {
@@ -3674,11 +3698,7 @@ export default function App() {
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
-                  commitmentAlerts={commitmentAlerts}
-                  commitmentLimitPercent={settings.cardCommitmentLimitPercent}
-                  onOpenCommitment={() => handleSelectTab('cards')}
                   cashForecast={cashForecast}
-                  dataHealthIssues={dataHealthIssues}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={
@@ -4023,9 +4043,8 @@ export default function App() {
         onClose={() => setIsReminderModalOpen(false)}
         reminders={dailyReminders}
         familyInvites={incomingFamilyInvites}
-        commitmentAlerts={commitmentAlerts}
-        commitmentLimitPercent={settings.cardCommitmentLimitPercent}
-        onOpenCommitment={() => handleSelectTab('cards')}
+        notices={appNotices}
+        onNoticeAction={handleNoticeAction}
         onAcceptFamilyInvite={handleAcceptFamilyInvite}
         onDeclineFamilyInvite={handleDeclineFamilyInvite}
         onPayCardInvoice={(cardId) => {

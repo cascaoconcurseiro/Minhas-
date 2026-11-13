@@ -1,5 +1,11 @@
 # Handoff — Minhas Economias
 
+## Avisos só no sininho, fora da Visão Geral — 13/11/2026
+
+O usuário pediu que os avisos (saldo previsto negativo, cartão acima/perto do limite, dados para revisar) fiquem no sino e não no painel. Revertido o bloco "Avisos" do cabeçalho da Visão Geral (`OverviewNotices` removido; o cabeçalho voltou a ser só a saudação). A Visão Geral não mostra mais avisos nem recebe `dataHealthIssues`/`commitmentAlerts`.
+
+Agora `src/utils/appNotices.ts` (`buildAppNotices`, `countBellNotices`, tipos `AppNotice`/`AppNoticeAction`) monta a lista, e `ReminderCenterModal` (sino) mostra cada aviso em cartão (vermelho = grave, amarelo = atenção, neutro = informativo) com botão: "Ver previsão" (abre a Visão Geral e rola até o gráfico `#overview-cash-forecast`) e "Ver mês a mês" (abre Cartões). A bolinha do sino conta só os que pedem atenção (grave e atenção); os informativos (ex.: "Contas sem saldo e sem movimento") aparecem na lista sem contar. A previsão do saldo continua como cartão normal do painel (`CashForecastCard`), sem aviso embutido. Validação: `tsc`, 629 testes (novo `appNotices.test.ts`, teste do sino atualizado), build; conferido no Chromium (1440 px e 390 px).
+
 ## Avisos da Visão Geral no padrão do painel — 13/11/2026
 
 Problema (prints do usuário no computador): os avisos que eu tinha adicionado (previsão do saldo negativa, dados para revisar, cartão acima do limite) entravam como cartões soltos de largura total ANTES dos indicadores, em cores fortes. A partir de 1366 px o painel é uma grade de 12 colunas com posições fixas (`index.css`, `.overview-dashboard`: o cartão de contas a pagar usa `grid-row: 2 / span 2`), então esses blocos deslocavam as linhas, deixavam um buraco grande à direita e bagunçavam o painel.

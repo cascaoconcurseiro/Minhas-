@@ -116,22 +116,28 @@ test('family invites live in the notification center and can be accepted or decl
   assert.deepEqual(declined, ['fam-1']);
 });
 
-test('mostra no sino o aviso de cartão perto ou acima do limite e leva para os cartões', () => {
-  let opened = 0;
+test('mostra no sino os avisos de previsão, cartão e dados para revisar; informativo não conta na bolinha', () => {
+  const actions: string[] = [];
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
   act(() => root?.render(React.createElement(ReminderCenterModal, {
-    isOpen: true, onClose: () => {}, reminders: [], commitmentLimitPercent: 30, onOpenCommitment: () => { opened += 1; },
-    commitmentAlerts: [{ month: '2026-12', income: 5000, cardTotal: 1700, installmentTotal: 700, otherTotal: 1000,
-      cardPercent: 34, installmentPercent: 14, status: 'over' }],
+    isOpen: true, onClose: () => {}, reminders: [], onNoticeAction: (action: string) => actions.push(action),
+    notices: [
+      { id: 'forecast-negative', tone: 'danger', title: 'Saldo previsto fica negativo em 05/12 (-R$ 649,59)', detail: 'Veja o que vence até lá.', action: 'forecast', actionLabel: 'Ver previsão' },
+      { id: 'commitment-2026-12', tone: 'danger', title: 'Cartão em 34% da renda em dezembro de 2026', detail: 'R$ 1.700,00 no cartão, acima do seu limite de 30%.', action: 'commitment', actionLabel: 'Ver mês a mês' },
+      { id: 'health-account_without_balance', tone: 'info', title: 'Contas sem saldo e sem movimento', detail: 'Conta corrente: informe o saldo inicial.' },
+    ],
   })));
-  const notice = document.querySelector('[data-testid="commitment-notice-2026-12"]');
-  assert.ok(notice);
-  assert.match(notice.textContent ?? '', /Cartão em 34% da renda/);
-  assert.match(notice.textContent ?? '', /acima do limite de 30%/);
-  assert.doesNotMatch(document.body.textContent ?? '', /Nada exige atenção/);
-  const btn = [...notice.querySelectorAll('button')].find((b) => b.textContent === 'Ver mês a mês') as HTMLButtonElement;
-  act(() => btn.click());
-  assert.equal(opened, 1);
+  const text = document.body.textContent ?? '';
+  assert.match(text, /Saldo previsto fica negativo em 05\/12/);
+  assert.match(text, /Cartão em 34% da renda/);
+  assert.match(text, /Contas sem saldo e sem movimento/);
+  assert.doesNotMatch(text, /Nada exige atenção/);
+  assert.equal(document.querySelector('#reminder-modal-title span')?.textContent, '2', 'só os 2 que pedem atenção contam');
+  const forecastBtn = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Ver previsão') as HTMLButtonElement;
+  const commitBtn = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Ver mês a mês') as HTMLButtonElement;
+  act(() => forecastBtn.click());
+  act(() => commitBtn.click());
+  assert.deepEqual(actions, ['forecast', 'commitment']);
 });

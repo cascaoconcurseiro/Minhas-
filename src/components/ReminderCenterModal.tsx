@@ -8,8 +8,8 @@ import {
   X,
 } from 'lucide-react';
 import { FamilyMember, ReminderItem } from '../types/finance';
-import { formatBRL, formatMonthYearPT } from '../utils/financeRules';
-import type { CardCommitmentMonth } from '../utils/cardCommitment';
+import { formatBRL } from '../utils/financeRules';
+import { countBellNotices, type AppNotice, type AppNoticeAction } from '../utils/appNotices';
 
 interface ReminderCenterModalProps {
   isOpen: boolean;
@@ -23,10 +23,9 @@ interface ReminderCenterModalProps {
   onPayCardInvoice?: (cardId: string) => void;
   onMarkTransactionPaid?: (transactionId: string) => void;
   onOpenSettingsTab?: (tab: string) => void;
-  /** Meses em que o cartão está perto ou acima do limite da renda. */
-  commitmentAlerts?: CardCommitmentMonth[];
-  commitmentLimitPercent?: number;
-  onOpenCommitment?: () => void;
+  /** Previsão de saldo negativo, cartão perto ou acima do limite e dados para revisar. */
+  notices?: AppNotice[];
+  onNoticeAction?: (action: AppNoticeAction) => void;
 }
 
 const urgencyStyles: Record<string, string> = {
@@ -52,13 +51,13 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
   onPayCardInvoice,
   onMarkTransactionPaid,
   onOpenSettingsTab,
-  commitmentAlerts = [],
-  commitmentLimitPercent,
-  onOpenCommitment,
+  notices = [],
+  onNoticeAction,
 }) => {
   if (!isOpen) return null;
 
-  const totalNotices = reminders.length + familyInvites.length + commitmentAlerts.length;
+  const totalNotices = reminders.length + familyInvites.length + countBellNotices(notices);
+  const hasItems = reminders.length + familyInvites.length + notices.length > 0;
 
   return (
     <div
@@ -113,7 +112,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
-          {totalNotices === 0 ? (
+          {!hasItems ? (
             <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center space-y-2">
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
                 <CheckCircle2 className="h-5 w-5" />
@@ -122,7 +121,7 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                 Nada exige atenção hoje
               </h3>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Contas atrasadas, vencimentos próximos e convites aparecem aqui.
+                Contas atrasadas, vencimentos próximos, previsão de saldo, cartão e convites aparecem aqui.
               </p>
             </div>
           ) : (
@@ -170,42 +169,35 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                 </div>
               ))}
 
-              {commitmentAlerts.map((row) => (
+              {notices.map((notice) => (
                 <div
-                  key={`commitment-${row.month}`}
-                  data-testid={`commitment-notice-${row.month}`}
+                  key={notice.id}
+                  data-testid={`notice-${notice.id}`}
                   className={`rounded-xl border p-3.5 space-y-2.5 ${
-                    row.status === 'over'
+                    notice.tone === 'danger'
                       ? 'border-rose-300 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20'
-                      : 'border-amber-300 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/20'
+                      : notice.tone === 'warn'
+                      ? 'border-amber-300 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/20'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        Cartão em {(row.cardPercent ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% da renda
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {formatMonthYearPT(row.month)} ·{' '}
-                        {row.status === 'over' ? 'acima' : 'perto'} do limite de{' '}
-                        {(commitmentLimitPercent ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-mono font-extrabold tabular-nums text-slate-900 dark:text-white">
-                      {formatBRL(row.cardTotal)}
-                    </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white break-words">{notice.title}</p>
+                    {notice.detail && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 break-words">{notice.detail}</p>
+                    )}
                   </div>
-                  {onOpenCommitment && (
+                  {notice.action && notice.actionLabel && onNoticeAction && (
                     <div className="flex justify-end">
                       <button
                         type="button"
                         onClick={() => {
                           onClose();
-                          onOpenCommitment();
+                          onNoticeAction(notice.action!);
                         }}
                         className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 dark:bg-white px-3 text-xs font-bold text-white dark:text-slate-900"
                       >
-                        Ver mês a mês
+                        {notice.actionLabel}
                       </button>
                     </div>
                   )}

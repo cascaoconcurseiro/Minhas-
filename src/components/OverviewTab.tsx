@@ -43,11 +43,8 @@ import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
 import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
 import { CashForecastCard } from './CashForecastCard';
-import type { DataHealthIssue } from '../utils/dataHealth';
 import type { CashForecast } from '../utils/cashForecast';
 import type { RecurringCandidate } from '../utils/recurrenceDetection';
-import { OverviewNotices, buildOverviewNotices } from './OverviewNotices';
-import type { CardCommitmentMonth } from '../utils/cardCommitment';
 
 interface OverviewTabProps {
   selectedMonth: string;
@@ -70,12 +67,6 @@ interface OverviewTabProps {
   recurringSuggestions?: RecurringCandidate[];
   /** Previsão do saldo dos próximos dias (null sem conta incluída no total). */
   cashForecast?: CashForecast | null;
-  /** Cadastros incompletos ou inconsistentes para a pessoa revisar. */
-  dataHealthIssues?: DataHealthIssue[];
-  /** Meses em que o cartão está perto ou acima do limite da renda. */
-  commitmentAlerts?: CardCommitmentMonth[];
-  commitmentLimitPercent?: number;
-  onOpenCommitment?: () => void;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
@@ -117,10 +108,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onChangeClarityMode,
   recurringSuggestions = [],
   cashForecast = null,
-  dataHealthIssues = [],
-  commitmentAlerts = [],
-  commitmentLimitPercent,
-  onOpenCommitment,
   onScheduleRecurring,
   onDismissRecurring,
   onToggleStatus,
@@ -201,8 +188,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   return (
     <div className="overview-dashboard space-y-6 min-w-0 max-w-full">
       {/* Clean Executive Greeting Header */}
-      <header data-testid="user-welcome-greeting" className="space-y-3 pt-0.5">
-        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+      <header
+        data-testid="user-welcome-greeting"
+        className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 pt-0.5"
+      >
         <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight font-display">
           {greetingPrefix}{firstName ? `, ${firstName}` : ''}! 👋
         </h2>
@@ -211,18 +200,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             ? `${pendingCount} lançamento(s) a pagar/receber em ${formatMonthYearPT(selectedMonth)}${selectedMonth === todayMonth && (pendingBills.some((tx) => tx.competenceMonth < selectedMonth) || pendingInvoices.some((inv) => inv.invoiceMonth < selectedMonth)) ? ', incluindo atrasados' : ''}`
             : `Sem pendências bancárias em ${formatMonthYearPT(selectedMonth)}`}
         </p>
-        </div>
-
-        {/* Avisos num bloco só, dentro do cabeçalho: não mudam a posição dos cartões da grade. */}
-        <OverviewNotices
-          notices={buildOverviewNotices({
-            forecast: cashForecast,
-            dataHealthIssues,
-            commitmentAlerts,
-            commitmentLimitPercent,
-          })}
-          onOpenCommitment={onOpenCommitment}
-        />
       </header>
 
       {/* Row 1: 4 Primary Cashflow KPI Metrics (2x2 on Mobile, 4 Columns on Desktop) */}
