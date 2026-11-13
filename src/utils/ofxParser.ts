@@ -824,6 +824,30 @@ export function checkItemDuplicate(
     }
   }
 
+  // 1b. Transferência entre contas já lançada à mão: a saída (ou entrada) do extrato é a mesma movimentação.
+  // Sem isto o dinheiro sairia duas vezes da conta (a transferência e uma despesa nova).
+  const transferMatch = existingTransactions.find((tx) => {
+    if (tx.type !== 'transfer' || !tx.accountId || !tx.destinationAccountId) return false;
+    if (tx.status !== 'paid') return false;
+    const isOutgoing = item.rawType === 'expense';
+    const sideAccountId = isOutgoing ? tx.accountId : tx.destinationAccountId;
+    if (targetAccountId && sideAccountId !== targetAccountId) return false;
+    if (daysApart(tx.date, item.date) > 1) return false;
+    const foreignLeg = isOutgoing ? tx.transferFromAmount : tx.transferToAmount;
+    const legAmount = statementCurrency !== 'BRL' && foreignLeg ? foreignLeg : tx.amount;
+    const itemAmount =
+      statementCurrency !== 'BRL' && !foreignLeg && Number.isFinite(exchangeRate)
+        ? Math.round(item.amount * (exchangeRate || 1) * 100) / 100
+        : item.amount;
+    return Math.abs(legAmount - itemAmount) < 0.01;
+  });
+  if (transferMatch) {
+    return {
+      isDuplicate: true,
+      reason: `Já registrada como transferência entre contas (${transferMatch.description} em ${transferMatch.date})`,
+    };
+  }
+
   // 2. Exact Date + Amount match on same account (or matching description)
   const normImportDesc = cleanDescriptionForComparison(item.description);
   const amountInBrlCents = Math.round(item.amount * (exchangeRate || 1) * 100);

@@ -21,6 +21,38 @@ export function getInvestmentDeletionRestriction(asset: InvestmentAsset, transac
   return null;
 }
 
+/**
+ * Aporte direto em um ativo: valida ANTES de mexer no dinheiro. Exige ativo existente, cotação válida e que o valor
+ * em reais caiba exatamente na quantidade (4 casas), para a carteira subir o mesmo valor que saiu da conta.
+ */
+export function planAssetContribution(
+  asset: InvestmentAsset | undefined,
+  amount: number
+): { error: string } | { error?: undefined; quantity: number } {
+  if (!asset) return { error: 'O ativo escolhido para o aporte não foi encontrado. Escolha outro destino.' };
+  const cents = Math.round(amount * 100);
+  if (!Number.isFinite(amount) || !Number.isSafeInteger(cents) || cents <= 0) {
+    return { error: 'Informe um valor de aporte válido.' };
+  }
+  if (!Number.isFinite(asset.currentPrice) || asset.currentPrice <= 0) {
+    return { error: `${asset.ticker} está sem cotação. Atualize a cotação do ativo na aba Investimentos antes de aportar.` };
+  }
+  const quantity = Math.round((amount / asset.currentPrice) * 10000) / 10000;
+  const representedCents = Math.round(quantity * asset.currentPrice * 100);
+  if (!(quantity > 0) || representedCents !== cents) {
+    return {
+      error: `R$ ${amount.toFixed(2).replace('.', ',')} não corresponde a uma quantidade exata de ${asset.ticker} (cota R$ ${asset.currentPrice.toFixed(2).replace('.', ',')}, 4 casas). Registre o aporte pela quantidade na aba Investimentos.`,
+    };
+  }
+  return { quantity };
+}
+
+/** Preço de ativo: 2 casas a partir de R$ 1; abaixo disso até 6 casas, para ativos de centavos não zerarem. */
+export function roundAssetPrice(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  return value >= 1 ? Math.round(value * 100) / 100 : Math.round(value * 1_000_000) / 1_000_000;
+}
+
 export function createGoalInvestmentContribution(goal: SavingsGoal, asset: InvestmentAsset, amount: number, date: string, accountId?: string, id = 'goal-contribution'): { asset: InvestmentAsset; goal: SavingsGoal; transaction?: Transaction } {
   const cents = Math.round(amount * 100);
   if (goal.linkedAssetId !== asset.id || !Number.isFinite(amount) || !Number.isSafeInteger(cents) || cents <= 0 || !Number.isFinite(asset.currentPrice) || asset.currentPrice <= 0) {
@@ -411,12 +443,12 @@ export function applyAssetOperation(
   quantityDelta: number,
   unitPrice: number
 ): InvestmentAsset {
-  const safeUnit = Math.max(0.01, unitPrice);
+  const safeUnit = Math.max(0.000001, unitPrice);
 
   if (operationType === 'update_quote') {
     return {
       ...asset,
-      currentPrice: Math.round(safeUnit * 100) / 100,
+      currentPrice: roundAssetPrice(safeUnit),
     };
   }
 
@@ -427,14 +459,14 @@ export function applyAssetOperation(
     const nextQty = Math.round((asset.quantity + safeQty) * 10000) / 10000;
     const nextAvg =
       nextQty > 0
-        ? Math.round(((oldCost + addedCost) / nextQty) * 100) / 100
+        ? roundAssetPrice((oldCost + addedCost) / nextQty)
         : safeUnit;
 
     return {
       ...asset,
       quantity: nextQty,
       averagePrice: nextAvg,
-      currentPrice: Math.round(safeUnit * 100) / 100,
+      currentPrice: roundAssetPrice(safeUnit),
     };
   }
 
@@ -473,6 +505,7 @@ export interface GoogleFinanceSyncResponse {
 export interface GoogleFinancePortfolioSyncResult {
   updatedAssets: InvestmentAsset[];
   updatedCount: number;
+  rejectedQuotes: Array<{ ticker: string; previousPrice: number; quotedPrice: number }>;
   quotes: ParsedGoogleFinanceQuote[];
   fetchedAt: string;
   sources: GoogleFinanceSyncSource[];
@@ -778,8 +811,11 @@ export function applyGoogleFinanceQuotesToAssets(
   updatedAssets: InvestmentAsset[];
   updatedCount: number;
   matchedTickers: string[];
+  /** Cotações ignoradas por variação absurda (mais que o dobro ou menos que a metade do preço anterior). */
+  rejectedQuotes: Array<{ ticker: string; previousPrice: number; quotedPrice: number }>;
 } {
   const fetchedAt = options?.fetchedAt || new Date().toISOString();
+  const rejectedQuotes: Array<{ ticker: string; previousPrice: number; quotedPrice: number }> = [];
   const quoteMap = new Map<string, ParsedGoogleFinanceQuote>();
 
   for (const quote of quotes) {
@@ -806,11 +842,24 @@ export function applyGoogleFinanceQuotesToAssets(
       quoteMap.get(cleanAssetTicker) || quoteMap.get(baseAssetTicker);
 
     if (matched && Number.isFinite(matched.priceBrl) && matched.priceBrl > 0) {
+      // A cotação vem de leitura de página e, às vezes, de IA: um preço fora da faixa provavelmente é erro e não pode
+      // inflar ou derrubar o patrimônio em silêncio.
+      if (asset.currentPrice > 0) {
+        const ratio = matched.priceBrl / asset.currentPrice;
+        if (ratio > 2 || ratio < 0.5) {
+          rejectedQuotes.push({
+            ticker: asset.ticker.trim().toUpperCase(),
+            previousPrice: asset.currentPrice,
+            quotedPrice: matched.priceBrl,
+          });
+          return asset;
+        }
+      }
       updatedCount++;
       matchedTickers.push(asset.ticker.trim().toUpperCase());
       return {
         ...asset,
-        currentPrice: Math.round(matched.priceBrl * 100) / 100,
+        currentPrice: roundAssetPrice(matched.priceBrl),
         dailyChangePercent:
           typeof matched.changePercent === 'number'
             ? matched.changePercent
@@ -828,6 +877,7 @@ export function applyGoogleFinanceQuotesToAssets(
     updatedAssets,
     updatedCount,
     matchedTickers,
+    rejectedQuotes,
   };
 }
 
@@ -911,7 +961,7 @@ export async function syncAssetsWithGoogleFinance(
     authToken
   );
 
-  const { updatedAssets, updatedCount } = applyGoogleFinanceQuotesToAssets(
+  const { updatedAssets, updatedCount, rejectedQuotes } = applyGoogleFinanceQuotesToAssets(
     allAssets,
     quotes,
     {
@@ -923,6 +973,7 @@ export async function syncAssetsWithGoogleFinance(
   return {
     updatedAssets,
     updatedCount,
+    rejectedQuotes,
     quotes,
     fetchedAt,
     sources,

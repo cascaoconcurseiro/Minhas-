@@ -1,6 +1,7 @@
-import { describe, it } from 'node:test';
+import { describe, it, test } from 'node:test';
 import assert from 'node:assert';
 import {
+  checkItemDuplicate,
   compactTransactionForStorage,
   convertCandidatesToTransactions,
   extractOfxTag,
@@ -667,4 +668,21 @@ describe('smart statement import', () => {
     assert.equal(result.updatedTransactions.length, 1);
     assert.equal('settlesPendingTransactionId' in result.updatedTransactions[0], false);
   });
+});
+
+test('statement lines that are a manually registered transfer are flagged as duplicates on the right side only', () => {
+  const transfer = {
+    id: 'tr', description: 'Transferência Nubank → Itaú', amount: 500, date: '2026-11-05', competenceMonth: '2026-11',
+    type: 'transfer' as const, status: 'paid' as const, categoryId: 'c', accountId: 'nubank', destinationAccountId: 'itau',
+    paymentMethod: 'transfer' as const, recurrence: 'single' as const,
+  };
+  const outgoing = { description: 'TRANSF ENVIADA PIX', amount: 500, date: '2026-11-05', rawType: 'expense' as const, fitid: 'F1' };
+  const incoming = { description: 'TRANSF RECEBIDA PIX', amount: 500, date: '2026-11-06', rawType: 'income' as const, fitid: 'F2' };
+  assert.equal(checkItemDuplicate(outgoing, [transfer], 'nubank').isDuplicate, true, 'saída na conta de origem');
+  assert.equal(checkItemDuplicate(incoming, [transfer], 'itau').isDuplicate, true, 'entrada na conta de destino, um dia depois');
+  assert.equal(checkItemDuplicate(incoming, [transfer], 'nubank').isDuplicate, false, 'entrada na conta errada não é a transferência');
+  assert.equal(checkItemDuplicate(outgoing, [transfer], 'itau').isDuplicate, false, 'saída na conta de destino não é a transferência');
+  assert.equal(checkItemDuplicate({ ...outgoing, amount: 501 }, [transfer], 'nubank').isDuplicate, false, 'valor diferente');
+  assert.equal(checkItemDuplicate({ ...outgoing, date: '2026-11-20' }, [transfer], 'nubank').isDuplicate, false, 'data distante');
+  assert.match(String(checkItemDuplicate(outgoing, [transfer], 'nubank').reason), /transferência entre contas/);
 });

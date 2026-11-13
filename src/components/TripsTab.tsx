@@ -1,3 +1,4 @@
+import { newEntityId } from '../utils/ids';
 import { getAccountCurrency } from '../utils/transferRules';
 import { MissingSetupNotice } from './MissingSetupNotice';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -373,7 +374,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
           );
           if (match) return match;
           return {
-            id: `part-${Date.now()}-${idx}`,
+            id: `${newEntityId('part')}-${idx}`,
             name,
             color: PARTICIPANT_COLORS[(idx + 1) % PARTICIPANT_COLORS.length],
           };
@@ -406,14 +407,14 @@ export const TripsTab: React.FC<TripsTabProps> = ({
         color: '#059669',
       },
       ...companionNames.map((name, idx) => ({
-        id: `part-${Date.now()}-${idx}`,
+        id: `${newEntityId('part')}-${idx}`,
         name,
         color: PARTICIPANT_COLORS[(idx + 1) % PARTICIPANT_COLORS.length],
       })),
     ];
 
     const newTrip: Trip = {
-      id: `trip-${Date.now()}`,
+      id: newEntityId('trip'),
       name: tripName.trim(),
       destination: tripDestination.trim() || tripName.trim(),
       startDate: tripStartDate,
@@ -488,7 +489,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     }
 
     const newLot: TripExchangeLot = {
-      id: `lot-${Date.now()}`,
+      id: newEntityId('lot'),
       date: lotDate,
       currency: activeTrip.currency,
       foreignAmount,
@@ -522,7 +523,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
       participants: [
         ...activeTrip.participants,
         {
-          id: `part-${Date.now()}`,
+          id: newEntityId('part'),
           name: newParticipantName.trim(),
           color: nextColor,
           email: cleanEmail || undefined,
@@ -589,7 +590,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
     const isSettledInBrl = settlementMethod === 'pix_brl';
 
     const newSettlement: TripSettlement = {
-      id: `st-${Date.now()}`,
+      id: newEntityId('st'),
       date: getLocalDateISO(),
       fromParticipantId: activeSettlementDebt.fromParticipantId,
       toParticipantId: activeSettlementDebt.toParticipantId,

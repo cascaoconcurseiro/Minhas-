@@ -11,7 +11,7 @@ import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
-import { parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
+import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
 import { parseWorkspaceArray } from '../src/utils/workspacePayload.ts';
 import { parseSharedSettlementReceipts } from '../src/utils/sharedSettlementReceipts.ts';
 import {
@@ -418,8 +418,21 @@ async function startServer() {
   app.use('/api/workspace', verifyAuthUser);
   app.use('/api/family', verifyAuthUser);
   app.use('/api/reminders/send-email', verifyAuthUser);
-  app.use('/api/fx/live-rate', verifyAuthUser);
-  app.use('/api/investments/sync-quotes', verifyAuthUser);
+  // Rotas que chamam IA/Google gastam cota: limite por usuário (cada chamada conta), por instância do servidor.
+  const createUsageLimit = (maxCalls: number, windowMs: number): RequestHandler => {
+    const limiter = createAttemptLimiter(maxCalls, windowMs);
+    return (req, res, next) => {
+      const key = String((res.locals.authUser as AuthUserIdentity | undefined)?.uid ?? req.ip ?? 'anon');
+      if (limiter.isBlocked(key)) {
+        res.status(429).json({ error: 'Muitas consultas em pouco tempo. Aguarde um pouco e tente de novo.' });
+        return;
+      }
+      limiter.recordFailure(key);
+      next();
+    };
+  };
+  app.use('/api/fx/live-rate', verifyAuthUser, createUsageLimit(20, 60 * 60 * 1000));
+  app.use('/api/investments/sync-quotes', verifyAuthUser, createUsageLimit(60, 60 * 60 * 1000));
 
   app.get('/api/workspace', async (_req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
@@ -1097,6 +1110,14 @@ async function startServer() {
           error:
             'Não foi possível extrair um valor numérico de cotação da busca em tempo real. Tente consultar novamente em instantes.',
           rawResponse: responseText,
+        });
+        return;
+      }
+
+      if (!isPlausibleLiveRate(rawCurrency, parsedRate)) {
+        res.status(502).json({
+          error:
+            'A cotação encontrada ficou fora da faixa esperada para essa moeda e foi descartada por segurança. Informe a cotação manualmente ou tente novamente.',
         });
         return;
       }

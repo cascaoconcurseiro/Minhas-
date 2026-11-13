@@ -311,3 +311,43 @@ test('formatGoogleFinanceSymbol, parseGoogleFinanceHtmlQuote, applyGoogleFinance
   assert.equal(fracResult.updatedAssets[0].currentPrice, 40.5);
 });
 
+
+import { planAssetContribution, roundAssetPrice } from './investmentRules';
+
+test('direct contribution is validated before the money leaves the account', () => {
+  const asset = { ...SAMPLE_ASSETS[1], quantity: 2, averagePrice: 100, currentPrice: 100 };
+  assert.match(String(planAssetContribution(undefined, 100).error), /não foi encontrado/);
+  assert.match(String(planAssetContribution({ ...asset, currentPrice: 0 }, 100).error), /sem cotação/);
+  assert.ok(planAssetContribution(asset, 0).error);
+  assert.ok(planAssetContribution(asset, Number.NaN).error);
+  const ok = planAssetContribution(asset, 250);
+  assert.equal(ok.error, undefined);
+  assert.equal(ok.error ? 0 : ok.quantity, 2.5);
+  const expensive = { ...asset, currentPrice: 14000 };
+  assert.match(String(planAssetContribution(expensive, 100).error), /quantidade exata/, 'R$100 em cota de R$14.000 não cabe em 4 casas');
+  assert.equal(planAssetContribution({ ...asset, currentPrice: 10.37 }, 100).error, undefined, 'arredondamento em centavos fecha');
+});
+
+test('asset prices below R$ 1 keep up to 6 decimals instead of collapsing to zero', () => {
+  assert.equal(roundAssetPrice(12.345), 12.35);
+  assert.equal(roundAssetPrice(0.00123456), 0.001235);
+  const cheap = { ...SAMPLE_ASSETS[1], quantity: 0, averagePrice: 0.001, currentPrice: 0.001 };
+  const bought = applyAssetOperation(cheap, 'buy', 1000000, 0.0012);
+  assert.equal(bought.currentPrice, 0.0012);
+  assert.equal(bought.averagePrice, 0.0012);
+  assert.equal(applyAssetOperation(cheap, 'update_quote', 0, 0.00005).currentPrice, 0.00005);
+});
+
+test('synced quotes that jump more than 2x or fall under half are ignored and reported', () => {
+  const asset = { ...SAMPLE_ASSETS[1], ticker: 'PETR4', currentPrice: 30 };
+  const wild = applyGoogleFinanceQuotesToAssets([asset], [{ ticker: 'PETR4', priceBrl: 300 } as never]);
+  assert.equal(wild.updatedCount, 0);
+  assert.equal(wild.updatedAssets[0].currentPrice, 30);
+  assert.deepEqual(wild.rejectedQuotes, [{ ticker: 'PETR4', previousPrice: 30, quotedPrice: 300 }]);
+  const crash = applyGoogleFinanceQuotesToAssets([asset], [{ ticker: 'PETR4', priceBrl: 10 } as never]);
+  assert.equal(crash.rejectedQuotes.length, 1);
+  const normal = applyGoogleFinanceQuotesToAssets([asset], [{ ticker: 'PETR4', priceBrl: 33.5 } as never]);
+  assert.equal(normal.updatedCount, 1);
+  assert.equal(normal.updatedAssets[0].currentPrice, 33.5);
+  assert.equal(normal.rejectedQuotes.length, 0);
+});

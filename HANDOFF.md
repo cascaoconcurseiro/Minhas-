@@ -1,5 +1,17 @@
 # Handoff — Minhas Economias
 
+## Auditoria: correções dos 7 achados abertos — 13/11/2026
+
+1. **Importação de extrato x transferência lançada à mão:** `checkItemDuplicate` (`ofxParser.ts`) reconhece a saída (conta de origem) e a entrada (conta de destino) de uma transferência já registrada (mesmo valor, até 1 dia de diferença; usa a perna em moeda estrangeira quando o extrato é estrangeiro) e marca como duplicada (vem desmarcada). Antes criava despesa/receita novas e o dinheiro saía duas vezes.
+2. **Aporte direto em ativo (formulário):** `planAssetContribution` (`investmentRules.ts`) valida ANTES de criar o lançamento: ativo existe, cotação > 0 e o valor cabe exatamente na quantidade (4 casas). Senão avisa e nada é gravado.
+3. **Cotações sem conferência:** `applyGoogleFinanceQuotesToAssets` ignora preço que seja mais que o dobro ou menos que a metade do anterior e devolve `rejectedQuotes` (a tela avisa quais foram ignoradas). `/api/fx/live-rate` descarta cotação fora de 0,5x–2x da referência da moeda (`isPlausibleLiveRate`, `travelRules.ts`).
+4. **Preço de ativo:** `roundAssetPrice` mantém 2 casas a partir de R$ 1 e até 6 casas abaixo disso; mínimo 0,000001 (antes mínimo R$ 0,01).
+5. **Acerto compartilhado:** `settleSharedExpenses` recusa conta que não seja em reais.
+6. **Ids:** `newEntityId` (`src/utils/ids.ts`, prefixo + hora + sufixo aleatório) em conta, cartão, categoria, familiar, meta, ativo, viagem, lote, participante, acerto e operações de investimento/provento/meta.
+7. **Limite de uso:** `/api/fx/live-rate` (20/h) e `/api/investments/sync-quotes` (60/h) por usuário, resposta 429; é por instância do servidor (best-effort, como o limite de login).
+
+Validação: `tsc`, testes (inclui backend) e build; sem teste em navegador/Neon. Não alterado: saldo/limite do cartão só avisam; `Trip.linkedAccountId` sem tela; CSV sem câmbio das transferências.
+
 ## Varredura completa da lógica: o que mais foi achado e corrigido — 13/11/2026
 
 Segunda passada (depois do PR #37), cobrindo todos os handlers do `App.tsx`:

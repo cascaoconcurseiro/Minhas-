@@ -600,6 +600,18 @@ export function parseLiveExchangeRateFromText(rawText: string): number | null {
   return null;
 }
 
+/**
+ * A cotação "ao vivo" vem de uma IA lendo a web: só vale se ficar numa faixa plausível em torno da cotação de referência
+ * da moeda (entre metade e o dobro). Fora disso é quase certamente erro de leitura e não pode virar câmbio de ninguém.
+ */
+export function isPlausibleLiveRate(currency: string, rate: number): boolean {
+  const meta = (CURRENCY_CATALOG as Record<string, { defaultCommercialRateBrl: number } | undefined>)[currency];
+  if (!meta || !(meta.defaultCommercialRateBrl > 0)) return false;
+  if (!Number.isFinite(rate) || rate <= 0) return false;
+  const ratio = rate / meta.defaultCommercialRateBrl;
+  return ratio >= 0.5 && ratio <= 2;
+}
+
 export interface LiveRateComparisonResult {
   liveCommercialRate: number;
   liveEstimatedWiseVet: number; // Comercial + 1.1% IOF

@@ -1,4 +1,5 @@
 import { getAccountCurrency, resolveBankTransfer } from './utils/transferRules';
+import { newEntityId } from './utils/ids';
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { setUpdateBlocker } from './pwa/updateBlockers';
@@ -98,6 +99,7 @@ import {
 import {
   applyAssetOperation,
   createInvestmentCashMovement,
+  planAssetContribution,
   createGoalInvestmentContribution,
   getInvestmentDeletionRestriction,
   DEFAULT_INVESTMENT_TARGETS,
@@ -1667,6 +1669,18 @@ export default function App() {
       }
     }
 
+    // Aporte direto em ativo: confirma ativo, cotação e valor ANTES de tirar o dinheiro da conta.
+    if (input.type === 'transfer' && input.targetInvestmentAssetId && input.amount > 0) {
+      const contributionPlan = planAssetContribution(
+        investments.find((asset) => asset.id === input.targetInvestmentAssetId),
+        input.amount
+      );
+      if (contributionPlan.error) {
+        showNotice(contributionPlan.error, undefined, true);
+        return;
+      }
+    }
+
     const createdBatch = createTransactionBatch(input);
     const nextAllTransactions = [...createdBatch, ...transactions];
     setTransactions(nextAllTransactions);
@@ -1896,7 +1910,7 @@ export default function App() {
   const handleAddCard = (newCard: Omit<CreditCard, 'id'>) => {
     const created: CreditCard = {
       ...newCard,
-      id: `card-${Date.now()}`,
+      id: newEntityId('card'),
     };
     setCards((prev) => [...prev, created]);
     showNotice(`Cartão ${created.name} adicionado.`);
@@ -2048,7 +2062,7 @@ export default function App() {
 
     if (bankAccountEffect && bankAccountEffect.brlAmount > 0) {
       const settleTx: Transaction = {
-        id: `tx-tripsettle-${Date.now()}`,
+        id: newEntityId('tx-tripsettle'),
         description: bankAccountEffect.description,
         amount: bankAccountEffect.brlAmount,
         date: settlement.date,
@@ -2080,7 +2094,7 @@ export default function App() {
   const handleAddCategory = (newCat: Omit<Category, 'id'>) => {
     const created: Category = {
       ...newCat,
-      id: `cat-${Date.now()}`,
+      id: newEntityId('cat'),
     };
     setCategories((prev) => [...prev, created]);
     showNotice(`Categoria "${created.name}" criada.`);
@@ -2138,7 +2152,7 @@ export default function App() {
       const linkedAsset = investments.find((a) => a.id === targetGoal.linkedAssetId);
       if (!linkedAsset) { showNotice('O investimento vinculado à meta não foi encontrado.', undefined, true); return; }
       try {
-        const result = createGoalInvestmentContribution(targetGoal, linkedAsset, amount, contributionDate, debitAccountId, `tx-goal-${Date.now()}`);
+        const result = createGoalInvestmentContribution(targetGoal, linkedAsset, amount, contributionDate, debitAccountId, newEntityId('tx-goal'));
         setInvestments(prev => prev.map(asset => asset.id === linkedAsset.id ? result.asset : asset));
         setGoals(prev => prev.map(goal => goal.id === targetGoal.id ? result.goal : goal));
         if (result.transaction) { const movement = result.transaction; setTransactions(prev => [movement, ...prev]); }
@@ -2161,7 +2175,7 @@ export default function App() {
   const handleAddGoal = (newGoal: Omit<SavingsGoal, 'id'>) => {
     const created: SavingsGoal = {
       ...newGoal,
-      id: `goal-${Date.now()}`,
+      id: newEntityId('goal'),
     };
     setGoals((prev) => [...prev, created]);
     showNotice(`Meta "${created.name}" criada.`);
@@ -2220,7 +2234,7 @@ export default function App() {
     }
     const created: FamilyMember = {
       ...newMember,
-      id: `fam-${Date.now()}`,
+      id: newEntityId('fam'),
       inviteStatus: 'none',
     };
     setFamilyMembers((prev) => [...prev, created]);
@@ -2233,7 +2247,7 @@ export default function App() {
   ): Promise<boolean> => {
     const created: FamilyMember = {
       ...newMember,
-      id: `fam-${Date.now()}`,
+      id: newEntityId('fam'),
       inviteStatus: newMember.email ? 'invited' : 'none',
       direction: newMember.email ? 'outgoing' : undefined,
     };
@@ -2436,7 +2450,7 @@ export default function App() {
   const handleAddAccount = (newAcc: Omit<BankAccount, 'id'>): BankAccount => {
     const created: BankAccount = {
       ...newAcc,
-      id: `acc-${Date.now()}`,
+      id: newEntityId('acc'),
     };
     setAccounts((prev) => [...prev, created]);
     showNotice(`Conta ${created.name} cadastrada.`);
@@ -2490,7 +2504,7 @@ export default function App() {
   const handleAddInvestmentAsset = (newAsset: Omit<InvestmentAsset, 'id'>) => {
     const created: InvestmentAsset = {
       ...newAsset,
-      id: `inv-${Date.now()}`,
+      id: newEntityId('inv'),
     };
     setInvestments((prev) => [...prev, created]);
     showNotice(`Ativo ${created.ticker} cadastrado na carteira.`);
@@ -2536,7 +2550,7 @@ export default function App() {
     try {
       if (operationType !== 'update_quote' && settlementAccountId) {
         if (!accounts.some((account) => account.id === settlementAccountId && getAccountCurrency(account) === 'BRL')) throw new Error('Selecione uma conta em reais: compra e venda de ativo movimentam reais.');
-        ledgerTx = createInvestmentCashMovement(targetAsset, operationType, quantityDelta, unitPrice, settlementAccountId, operationDate, `tx-inv-${Date.now()}`);
+        ledgerTx = createInvestmentCashMovement(targetAsset, operationType, quantityDelta, unitPrice, settlementAccountId, operationDate, newEntityId('tx-inv'));
       }
       if (!Number.isFinite(unitPrice) || unitPrice <= 0 || (operationType !== 'update_quote' && (!Number.isFinite(quantityDelta) || quantityDelta <= 0)) || (operationType === 'sell' && quantityDelta > targetAsset.quantity)) throw new Error('Confira a quantidade e o preço da operação.');
     } catch (error) { showNotice(error instanceof Error ? error.message : 'Operação inválida.', undefined, true); return; }
@@ -2586,7 +2600,7 @@ export default function App() {
     const parsedDate = new Date(`${dividendDate}T00:00:00.000Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dividendDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dividendDate || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId && getAccountCurrency(account) === 'BRL')) return;
     const dividendTx: Transaction = {
-      id: `tx-div-${Date.now()}`,
+      id: newEntityId('tx-div'),
       description: `Proventos / Dividendos — ${asset.ticker} (${asset.name})`,
       amount: Math.round(dividendAmount * 100) / 100,
       date: dividendDate,

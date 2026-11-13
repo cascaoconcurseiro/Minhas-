@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calculateConvertedBrlAmount,
@@ -762,3 +762,14 @@ describe('travelRules — Multi-Currency, TravelSpend & Splitwise Engine', () =>
 
 
 
+
+import { isPlausibleLiveRate } from './travelRules';
+
+test('live exchange rate from the web is only accepted inside a plausible band around the reference rate', () => {
+  assert.equal(isPlausibleLiveRate('USD', 5.8), true);
+  assert.equal(isPlausibleLiveRate('USD', 0.5), false);
+  assert.equal(isPlausibleLiveRate('USD', 5000), false);
+  assert.equal(isPlausibleLiveRate('JPY', 0.04), true);
+  assert.equal(isPlausibleLiveRate('XXX', 5), false);
+  assert.equal(isPlausibleLiveRate('USD', Number.NaN), false);
+});

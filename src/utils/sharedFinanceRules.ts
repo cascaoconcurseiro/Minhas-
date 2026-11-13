@@ -1,5 +1,6 @@
 import type { BankAccount, Transaction } from '../types/finance';
 import { formatBRL, formatMonthYearPT, getSharedSettlementLinks } from './financeRules';
+import { getAccountCurrency } from './transferRules';
 import { parseSharedSettlementReceipts } from './sharedSettlementReceipts';
 import type { SharedSettlementReceipt } from './sharedSettlementReceipts';
 export { parseSharedSettlementReceipts } from './sharedSettlementReceipts';
@@ -81,7 +82,11 @@ export function settleSharedExpenses(transactions: Transaction[], accounts: Bank
   txId?: string; memberId?: string; month?: string; memberName: string; accountId: string; date: string; settlementId: string;
 }) {
   const parsed = new Date(`${input.date}T00:00:00.000Z`);
-  if (!accounts.some((account) => account.id === input.accountId) || !/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== input.date) {
+  const settlementAccount = accounts.find((account) => account.id === input.accountId);
+  if (settlementAccount && getAccountCurrency(settlementAccount) !== 'BRL') {
+    return { transactions, affectedCount: 0, netAmount: 0, error: 'O acerto é em reais: escolha uma conta em reais.' };
+  }
+  if (!settlementAccount || !/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== input.date) {
     return { transactions, affectedCount: 0, netAmount: 0, error: 'Selecione uma conta e uma data válidas para o acerto.' };
   }
   const target = getDomesticSharedTransactions(transactions).filter((tx) => tx.sharedStatus !== 'received' && (tx.sharedAmount || 0) > 0 &&

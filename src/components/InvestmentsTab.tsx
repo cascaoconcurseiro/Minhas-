@@ -177,6 +177,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       const {
         updatedAssets,
         updatedCount,
+        rejectedQuotes,
         quotes,
         sources,
       } = await syncAssetsWithGoogleFinance(
@@ -206,10 +207,16 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
       }
 
       setGoogleFinanceSources(sources);
+      const rejectedNote =
+        rejectedQuotes.length > 0
+          ? ` Ignorada(s) por variação suspeita (mais que o dobro ou menos que a metade do preço anterior): ${rejectedQuotes
+              .map((q) => `${q.ticker} (${formatBRL(q.previousPrice)} → ${formatBRL(q.quotedPrice)})`)
+              .join(', ')}. Confira e atualize à mão se estiver certo.`
+          : '';
       setGoogleFinanceMessage(
         `${updatedCount} ativo(s) com cotação atualizada via Google Finance (${quotes
           .map((q) => `${q.ticker}: ${formatBRL(q.priceBrl)}`)
-          .join(' · ')}).`
+          .join(' · ')}).${rejectedNote}`
       );
     } catch (err: unknown) {
       setGoogleFinanceError(
