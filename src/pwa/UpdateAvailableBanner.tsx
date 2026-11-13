@@ -11,7 +11,7 @@ interface UpdateAvailableBannerProps {
  * Aviso discreto quando há versão nova pronta e ela ainda não entrou sozinha (por exemplo, porque a
  * pessoa está usando o app sem parar). Atualizar recarrega o app, então só acontece por toque.
  */
-export const UpdateAvailableBanner: React.FC<UpdateAvailableBannerProps> = ({ delayMs = 30_000 }) => {
+export const UpdateAvailableBanner: React.FC<UpdateAvailableBannerProps> = ({ delayMs = 10_000 }) => {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
 

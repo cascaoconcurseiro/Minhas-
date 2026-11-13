@@ -5,8 +5,8 @@ import {hasUpdateBlockers} from './updateBlockers';
 import {markUpdatePending, registerPwaControl} from './pwaControl';
 import {UpdateAvailableBanner} from './UpdateAvailableBanner';
 
-const UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
-const USER_IDLE_BEFORE_UPDATE_MS = 5 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
+const USER_IDLE_BEFORE_UPDATE_MS = 2 * 1000;
 const RECHECK_WHEN_PENDING_MS = 2 * 1000;
 
 /**
@@ -23,7 +23,7 @@ export function PwaUpdateNotice() {
       applyUpdate: () => updateSW(),
       isBusy: hasUpdateBlockers,
       idleMs: USER_IDLE_BEFORE_UPDATE_MS,
-      blockWhileDialogOpen: true,
+      blockWhileDialogOpen: false,
       recheckMs: RECHECK_WHEN_PENDING_MS,
     });
 

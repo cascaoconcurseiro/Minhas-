@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Atualização forçada mais agressiva + ícone do banco dentro do seletor — 13/11/2026
+
+Pedido: "force a atualização sempre" e o ícone do banco (ex.: Nubank) dentro do seletor de conta, não abaixo. PWA: busca versão nova a cada 60 s (antes 10 min), aplica após 2 s sem tocar (antes 5 s) e já não espera janela aberta (campos alterados e salvamento em andamento ainda bloqueiam, para não perder o que se digita); a barra "Nova versão" aparece após 10 s. Formulário: novo `AccountSelectShell` coloca o `InstitutionMark` dentro do campo de conta (origem, internacional e transferência) e removeu o "Conta selecionada: …" abaixo. Limite: quem está numa versão antiga do cliente ainda precisa recarregar uma vez. Validação: tsc, testes, build; não verificado no navegador do usuário.
+
 ## Editar compartilhado: cartão e banco no rodapé — 13/11/2026
 
 Print do usuário: o Zafari era "Rateio Familiar" (compartilhado), e o seletor de forma de pagamento não aparecia porque eu tinha excluído compartilhados; o rodapé ainda mostrava "Conta corrente". Agora o seletor aparece também para compartilhados (criados pelo próprio usuário; os de outra pessoa continuam bloqueados) e o rodapé "Impacto mensal" usa `getAccountLabel` (banco).

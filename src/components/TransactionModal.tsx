@@ -90,6 +90,19 @@ type DomesticSharedSplitMode = 'half' | 'percentage' | 'custom';
 
 import { getAccountLabel } from '../utils/accountLabels';
 
+function AccountSelectShell({ account, children }: { account: BankAccount | null; children: React.ReactNode }) {
+  return (
+    <div className="relative">
+      {account && (
+        <span className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2" aria-hidden="true">
+          <InstitutionMark institution={account.institution} accountName={account.name} color={account.color} size="xs" />
+        </span>
+      )}
+      {children}
+    </div>
+  );
+}
+
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -2527,11 +2540,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <label htmlFor="tx-transfer-origin-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Sai da Conta Bancária (Origem)
                     </label>
-                    <select
+                    <AccountSelectShell account={selectedPaymentAccount}>
+<select
                       id="tx-transfer-origin-select"
                       value={accountId}
                       onChange={(e) => setAccountId(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-white"
                     >
                       {accounts.map((acc) => (
                         <option key={acc.id} value={acc.id}>
@@ -2539,17 +2553,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         </option>
                       ))}
                     </select>
-                    {selectedPaymentAccount && (
-                      <div className="mt-2 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                        <InstitutionMark
-                          institution={selectedPaymentAccount.institution}
-                          accountName={selectedPaymentAccount.name}
-                          color={selectedPaymentAccount.color}
-                          size="xs"
-                        />
-                        <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
-                      </div>
-                    )}
+</AccountSelectShell>
                   </div>
 
                   {transferSubMode === 'card_bill_payment' ? (
@@ -2843,11 +2847,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         }
                         return (
                           <div className="space-y-2">
-                            <select
+                            <AccountSelectShell account={selectedPaymentAccount}>
+<select
                               id="tx-payment-source-select"
                               value={accountId}
                               onChange={(e) => setAccountId(e.target.value)}
-                              className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-sky-50/60 dark:bg-slate-900 px-2.5 py-2 text-xs font-bold text-sky-950 dark:text-white"
+                              className="w-full rounded-lg border border-sky-300 dark:border-sky-700 bg-sky-50/60 dark:bg-slate-900 pl-10 pr-2.5 py-2 text-xs font-bold text-sky-950 dark:text-white"
                             >
                               <option value="">
                                 {matchingIntl.length > 0
@@ -2860,23 +2865,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                 </option>
                               ))}
                             </select>
-                            {selectedPaymentAccount && (
-                              <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                <InstitutionMark
-                                  institution={selectedPaymentAccount.institution}
-                                  accountName={selectedPaymentAccount.name}
-                                  color={selectedPaymentAccount.color}
-                                  size="xs"
-                                />
-                                <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
-                              </div>
-                            )}
+</AccountSelectShell>
                           </div>
                         );
                       })()
                     ) : (
                       <>
-                        <select
+                        <AccountSelectShell account={selectedPaymentAccount}>
+<select
                           id="tx-payment-source-select"
                           value={accountId}
                           onChange={(e) => {
@@ -2904,7 +2900,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               setOriginalCurrency('BRL');
                             }
                           }}
-                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
+                          className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
                         >
                           {accounts.map((acc) => (
                             <option key={acc.id} value={acc.id}>
@@ -2914,17 +2910,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             </option>
                           ))}
                         </select>
-                        {selectedPaymentAccount && (
-                          <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                            <InstitutionMark
-                              institution={selectedPaymentAccount.institution}
-                              accountName={selectedPaymentAccount.name}
-                              color={selectedPaymentAccount.color}
-                              size="xs"
-                            />
-                            <span>Conta selecionada: {getAccountLabel(selectedPaymentAccount, accounts)}</span>
-                          </div>
-                        )}
+</AccountSelectShell>
                       </>
                     )}
                   </div>
