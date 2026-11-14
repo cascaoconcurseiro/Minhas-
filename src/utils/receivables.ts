@@ -191,3 +191,21 @@ export function deleteReceivable(
     transactions: transactions.filter((tx) => tx.receivableId !== receivableId),
   };
 }
+
+/** Meses de fatura permitidos: do mês atual até o último mês com lançamento naquele cartão (mínimo: o mês atual). */
+export function getInvoiceMonthOptions(transactions: Transaction[], cardId: string, today: string): string[] {
+  const current = today.slice(0, 7);
+  let last = current;
+  for (const tx of transactions) {
+    if (tx.creditCardId !== cardId || tx.type !== 'expense' || !tx.competenceMonth) continue;
+    if (tx.competenceMonth > last) last = tx.competenceMonth;
+  }
+  const months: string[] = [];
+  let [year, month] = current.split('-').map(Number);
+  while (`${year}-${String(month).padStart(2, '0')}` <= last && months.length < 60) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`);
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return months;
+}

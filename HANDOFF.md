@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## A Receber: mês da fatura só do mês atual em diante, até o último mês com compra no cartão
+- "Mês da fatura" virou lista (não aceita mais mês passado nem digitar qualquer data). Vai do mês atual até o último mês com lançamento no cartão escolhido (`getInvoiceMonthOptions` em `receivables.ts`, com teste). Sem compras futuras, só o mês atual aparece.
+- Verificado no navegador: Nubank termina em set/2027 e Inter em mai/2027, iguais ao último lançamento de cada cartão nos dados de teste.
+
 ## A Receber: pessoa da família já vem preenchida na fatura de cartão
 - Ao cobrar fatura de cartão adicional, o campo "Quem vai pagar" já vem com o cônjuge cadastrado em Compartilhamento (ou a única pessoa cadastrada). Abaixo do campo há botões com os nomes da família para trocar com um toque. Dívida/empréstimo continua vazio (pode ser qualquer pessoa).
 - Verificado no navegador a 390px com o cônjuge de teste ("Fran"). Sem mudança no banco.

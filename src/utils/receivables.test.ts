@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { BankAccount, CreditCard, Receivable, Transaction } from '../types/finance';
 import {
-  createReceivable, deleteReceivable, getReceivableBalance, getReceivableStatus,
+  createReceivable, deleteReceivable, getInvoiceMonthOptions, getReceivableBalance, getReceivableStatus,
   registerReceivablePayment, removeReceivablePayment, summarizeReceivables,
 } from './receivables';
 import { calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
@@ -99,4 +99,11 @@ test('o servidor aceita o campo receivablesJson no mesmo formato do workspace', 
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].payments[0].amount, 500);
   assert.match(receivable.description, /novembro de 2026/i);
+});
+
+test('meses da fatura: do mês atual até o último mês com compra no cartão', () => {
+  const buy = (id: string, month: string, cardId = 'c'): Transaction => ({ ...own, id, creditCardId: cardId, competenceMonth: month, date: `${month}-10` });
+  const txs = [buy('a', '2026-09'), buy('b', '2027-01'), buy('c2', '2028-01', 'outro')];
+  assert.deepEqual(getInvoiceMonthOptions(txs, 'c', '2026-11-14'), ['2026-11', '2026-12', '2027-01']);
+  assert.deepEqual(getInvoiceMonthOptions([], 'c', '2026-11-14'), ['2026-11']);
 });

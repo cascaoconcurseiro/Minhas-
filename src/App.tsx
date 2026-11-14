@@ -4284,6 +4284,7 @@ export default function App() {
                   cards={cards}
                   accounts={accounts}
                   familyMembers={familyMembers}
+                  transactions={transactions}
                   onCreate={handleCreateReceivable}
                   onRegisterPayment={handleRegisterReceivablePayment}
                   onRemovePayment={handleRemoveReceivablePayment}

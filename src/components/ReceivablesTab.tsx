@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { CheckCircle2, CreditCard as CreditCardIcon, HandCoins, Plus, Trash2, Undo2 } from 'lucide-react';
 import type { BankAccount, CreditCard, FamilyMember, Receivable, Transaction } from '../types/finance';
 import { formatBRL, formatMonthYearPT, formatShortDateBR, getLocalDateISO, parseBRLInput } from '../utils/financeRules';
-import { getReceivableBalance, getReceivablePaid, getReceivableStatus, summarizeReceivables } from '../utils/receivables';
+import { getInvoiceMonthOptions, getReceivableBalance, getReceivablePaid, getReceivableStatus, summarizeReceivables } from '../utils/receivables';
 import { getAccountLabelWithBank } from '../utils/accountLabels';
 import { CurrencyInput } from './CurrencyInput';
 
@@ -25,6 +25,7 @@ interface ReceivablesTabProps {
   cards: CreditCard[];
   accounts: BankAccount[];
   familyMembers: FamilyMember[];
+  transactions: Transaction[];
   onCreate: (input: ReceivableCreateInput) => string | null;
   onRegisterPayment: (receivableId: string, input: { date: string; amount: number; accountId: string; note?: string }) => string | null;
   onRemovePayment: (receivableId: string, paymentId: string) => void;
@@ -38,7 +39,7 @@ const inputClass = 'w-full rounded-lg border border-slate-300 dark:border-slate-
 const labelClass = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1';
 
 export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
-  receivables, cards, accounts, familyMembers, onCreate, onRegisterPayment, onRemovePayment, onDelete, intent, onIntentHandled,
+  receivables, cards, accounts, familyMembers, transactions, onCreate, onRegisterPayment, onRemovePayment, onDelete, intent, onIntentHandled,
 }) => {
   const [formKind, setFormKind] = useState<'card_invoice' | 'loan' | null>(null);
   const [person, setPerson] = useState('');
@@ -63,6 +64,8 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     () => [...new Set([...familyMembers.map((member) => member.name), ...receivables.map((item) => item.personName)])].filter(Boolean),
     [familyMembers, receivables]
   );
+  const monthOptions = useMemo(() => getInvoiceMonthOptions(transactions, cardId, getLocalDateISO()), [transactions, cardId]);
+  const effectiveInvoiceMonth = monthOptions.includes(invoiceMonth) ? invoiceMonth : monthOptions[0];
   const cardName = (id?: string) => cards.find((card) => card.id === id)?.name ?? 'Cartão';
   const open = receivables.filter((item) => getReceivableBalance(item) > 0);
   const paid = receivables.filter((item) => getReceivableBalance(item) <= 0);
@@ -106,7 +109,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
       amount: parseBRLInput(amountStr),
       date,
       cardId: formKind === 'card_invoice' ? cardId : undefined,
-      invoiceMonth: formKind === 'card_invoice' ? invoiceMonth : undefined,
+      invoiceMonth: formKind === 'card_invoice' ? effectiveInvoiceMonth : undefined,
       fromAccountId: formKind === 'loan' && fromAccountId ? fromAccountId : undefined,
       note,
     });
@@ -282,7 +285,10 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 </div>
                 <div>
                   <label className={labelClass} htmlFor="receivable-month">Mês da fatura</label>
-                  <input id="receivable-month" data-testid="receivable-month" type="month" value={invoiceMonth} onChange={(e) => setInvoiceMonth(e.target.value)} className={inputClass} />
+                  <select id="receivable-month" data-testid="receivable-month" value={effectiveInvoiceMonth} onChange={(e) => setInvoiceMonth(e.target.value)} className={inputClass}>
+                    {monthOptions.map((month) => <option key={month} value={month}>{formatMonthYearPT(month)}</option>)}
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500">Do mês atual até o último mês com compras neste cartão.</p>
                 </div>
               </>
             ) : (
