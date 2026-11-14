@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## A Receber: pessoa da família já vem preenchida na fatura de cartão
+- Ao cobrar fatura de cartão adicional, o campo "Quem vai pagar" já vem com o cônjuge cadastrado em Compartilhamento (ou a única pessoa cadastrada). Abaixo do campo há botões com os nomes da família para trocar com um toque. Dívida/empréstimo continua vazio (pode ser qualquer pessoa).
+- Verificado no navegador a 390px com o cônjuge de teste ("Fran"). Sem mudança no banco.
+
 ## Botões visíveis de "A receber" na Visão Geral (celular e PC)
 - A Visão Geral agora sempre mostra o bloco "A receber de outras pessoas": total, botões "Cobrar fatura do cartão adicional" e "Dívida a receber", e, para cada item em aberto, um botão verde "Receber" que abre A Receber já com o formulário de recebimento aberto (`ReceivablesIntent` em `ReceivablesTab`, repassado por `App.tsx`).
 - Verificado no navegador a 390px (bloco vazio e cheio, criar fatura pelo botão, abrir recebimento, sem estouro lateral). Não verificado em iPhone/Safari real.

@@ -70,7 +70,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const openForm = (kind: 'card_invoice' | 'loan') => {
     setFormKind(kind);
     setFormError('');
-    setPerson('');
+    // Fatura de cartão adicional: já vem com a pessoa da família (cônjuge, ou a única cadastrada).
+    const people = familyMembers.filter((member) => member.name);
+    const spouses = people.filter((member) => member.relationship === 'cônjuge');
+    const suggested = kind === 'card_invoice' ? (spouses.length === 1 ? spouses[0] : people.length === 1 ? people[0] : null) : null;
+    setPerson(suggested?.name ?? '');
     setDescription('');
     setAmountStr('');
     setDate(getLocalDateISO());
@@ -252,6 +256,15 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             <div>
               <label className={labelClass} htmlFor="receivable-person">Quem vai pagar</label>
               <input id="receivable-person" data-testid="receivable-person" list="receivable-people" value={person} onChange={(e) => setPerson(e.target.value)} placeholder="Ex.: Esposa, Irmã" className={inputClass} />
+              {familyMembers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Pessoas da família">
+                  {familyMembers.filter((member) => member.name).map((member) => (
+                    <button key={member.id} type="button" data-testid={`receivable-person-${member.id}`} aria-pressed={person === member.name} onClick={() => setPerson(member.name)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${person === member.name ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900' : 'border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200'}`}>
+                      {member.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               <datalist id="receivable-people">{knownPeople.map((name) => <option key={name} value={name} />)}</datalist>
             </div>
             <div>
