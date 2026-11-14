@@ -1857,12 +1857,16 @@ export interface FixedIncomeSimulationResult {
   advantageOverPoupanca: number;
 }
 
-export function getBrazilianIrRate(months: number): number {
-  const approxDays = months * 30;
-  if (approxDays <= 180) return 22.5;
-  if (approxDays <= 360) return 20.0;
-  if (approxDays <= 720) return 17.5;
+/** Alíquota regressiva do IR sobre renda fixa pelo tempo que o dinheiro ficou aplicado, em dias (1 ano = 365 dias). */
+export function getBrazilianIrRateForDays(days: number): number {
+  if (days <= 180) return 22.5;
+  if (days <= 360) return 20.0;
+  if (days <= 720) return 17.5;
   return 15.0;
+}
+
+export function getBrazilianIrRate(months: number): number {
+  return getBrazilianIrRateForDays(Math.round((months * 365) / 12));
 }
 
 export function simulateFixedIncomeBR(params: {
@@ -1897,8 +1901,23 @@ export function simulateFixedIncomeBR(params: {
 
   const totalInvested = Math.round((initialAmount + monthlyContribution * safeMonths) * 100) / 100;
   const grossYield = Math.max(0, grossCdi - totalInvested);
-  const irRatePercent = isTaxExempt ? 0 : getBrazilianIrRate(safeMonths);
-  const irTaxAmount = Math.round(grossYield * (irRatePercent / 100) * 100) / 100;
+  // O IR é cobrado por aplicação: o valor inicial e cada aporte mensal têm o seu próprio tempo (e alíquota).
+  let irTaxRaw = 0;
+  if (!isTaxExempt) {
+    const lotTax = (principal: number, monthsInvested: number) => {
+      const lotYield = principal * (Math.pow(1 + monthlyRateCdi, monthsInvested) - 1);
+      return Math.max(0, lotYield) * (getBrazilianIrRateForDays(Math.round((monthsInvested * 365) / 12)) / 100);
+    };
+    irTaxRaw += lotTax(initialAmount, safeMonths);
+    for (let m = 0; m < safeMonths; m++) irTaxRaw += lotTax(monthlyContribution, safeMonths - 1 - m);
+  }
+  const irTaxAmount = Math.round(irTaxRaw * 100) / 100;
+  // Alíquota média efetiva (para mostrar); sem rendimento, usa a da faixa do prazo total
+  const irRatePercent = isTaxExempt
+    ? 0
+    : grossYield > 0
+    ? Math.round((irTaxRaw / grossYield) * 1000) / 10
+    : getBrazilianIrRate(safeMonths);
   const netBalanceCdi = Math.round((grossCdi - irTaxAmount) * 100) / 100;
   const netYieldCdi = Math.round((netBalanceCdi - totalInvested) * 100) / 100;
   const poupancaBalance = Math.round(poupanca * 100) / 100;

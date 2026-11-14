@@ -43,6 +43,7 @@ import {
   reverseCreditCardInvoicePayment,
   searchTransactionsGlobal,
   simulateFixedIncomeBR,
+  getBrazilianIrRate,
   summarizeGlobalSearchResults,
   getConsumptionMonth,
   getPendingCardInvoices,
@@ -798,7 +799,11 @@ test('simulateFixedIncomeBR applies Brazilian regressive IR rate and outperforms
   });
 
   assert.equal(sim.totalInvested, 16000);
-  assert.equal(sim.irRatePercent, 20.0);
+  // O IR é por aplicação: o inicial (12 meses = 365 dias → 17,5%) e cada aporte (de 0 a 11 meses) têm faixas diferentes
+  assert.ok(sim.irRatePercent > 17.5 && sim.irRatePercent < 22.5, `alíquota média ${sim.irRatePercent}`);
+  assert.equal(getBrazilianIrRate(12), 17.5);
+  assert.equal(getBrazilianIrRate(6), 20.0);
+  assert.equal(getBrazilianIrRate(24), 15.0);
   assert.ok(sim.netBalanceCdi > sim.poupancaBalance);
   assert.ok(sim.advantageOverPoupanca > 0);
 });
