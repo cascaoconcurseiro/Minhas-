@@ -177,6 +177,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         categoryBreakdown,
         investments,
         currentPosition,
+        receivablesTotal: receivablesSummary?.totalOpen ?? 0,
       }),
     [
       selectedMonth,
@@ -188,6 +189,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       categoryBreakdown,
       investments,
       currentPosition,
+      receivablesSummary?.totalOpen,
     ]
   );
 

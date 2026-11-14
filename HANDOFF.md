@@ -1,8 +1,11 @@
 # Handoff — Minhas Economias
 
+## Patrimônio e score incluem o "a receber de pessoas"
+- Decisão do dono: "na sua decisão". `calculateNetWorth(..., receivablesTotal)` soma o saldo em aberto de A Receber como ativo (a fatura do cartão adicional já entra como dívida do cartão; sem isso o patrimônio caía indevidamente). Vale para o patrimônio da Visão Geral, o DRE/Patrimônio Consolidado (nova linha "A Receber de Pessoas") e o score de saúde. Despesas, receitas e relatórios continuam sem o a receber.
+- Teste novo em `receivables.test.ts`; no navegador, dívida de R$ 1.000 sem saída da conta subiu o patrimônio de 33.106 para 34.106.
+
 ## A Receber: valor do recebimento começa vazio
 - Ao registrar um recebimento, o campo "Valor recebido" vem vazio (antes vinha com o saldo todo). Há o atalho "Receber tudo (R$ X)" para preencher o saldo com um toque. Verificado no navegador.
-- Pendente (aguardando decisão do dono): somar o "a receber em aberto" ao patrimônio e ao score de saúde (hoje a fatura entra como dívida no cartão, mas o a receber não entra como ativo).
 
 ## A Receber: mês da fatura só do mês atual em diante, até o último mês com compra no cartão
 - "Mês da fatura" virou lista (não aceita mais mês passado nem digitar qualquer data). Vai do mês atual até o último mês com lançamento no cartão escolhido (`getInvoiceMonthOptions` em `receivables.ts`, com teste). Sem compras futuras, só o mês atual aparece.

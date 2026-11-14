@@ -3206,8 +3206,8 @@ export default function App() {
     [accounts, cards, transactions, todayDateStr]
   );
   const netWorthSnapshot = useMemo(
-    () => calculateNetWorth(currentPosition.accountBalances, investments, currentPosition.cardSummaries),
-    [currentPosition, investments]
+    () => calculateNetWorth(currentPosition.accountBalances, investments, currentPosition.cardSummaries, receivablesSummary.totalOpen),
+    [currentPosition, investments, receivablesSummary.totalOpen]
   );
   const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
   const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
@@ -4374,6 +4374,7 @@ export default function App() {
                 <ReportsAndDataTab
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
+                  receivablesTotal={receivablesSummary.totalOpen}
                   accounts={accounts}
                   onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   accountBalances={accountBalances}

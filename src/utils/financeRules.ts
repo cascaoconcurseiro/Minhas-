@@ -2990,13 +2990,16 @@ export function calculateCurrentPosition(
 export function calculateNetWorth(
   accountBalances: AccountBalanceSummary[],
   investments: InvestmentAsset[],
-  cardSummaries: CreditCardSummary[]
+  cardSummaries: CreditCardSummary[],
+  /** Valores a receber de outras pessoas (fatura de cartão adicional, empréstimos). Contam como ativo. */
+  receivablesTotal = 0
 ) {
+  const receivables = Math.round(Math.max(0, receivablesTotal) * 100) / 100;
   const liquidAccountsBalance = Math.round(accountBalances.reduce((sum, item) => sum + item.currentBalance, 0) * 100) / 100;
   const investedAssetsValue = investments.reduce((sum, asset) => sum + Math.round(Math.max(0, asset.quantity) * Math.max(0, asset.currentPrice) * 100), 0) / 100;
   const creditCardDebt = Math.round(cardSummaries.reduce((sum, card) => sum + Math.max(0, card.usedLimit), 0) * 100) / 100;
-  return { liquidAccountsBalance, investedAssetsValue, creditCardDebt,
-    totalNetWorth: Math.round((liquidAccountsBalance + investedAssetsValue - creditCardDebt) * 100) / 100 };
+  return { liquidAccountsBalance, investedAssetsValue, creditCardDebt, receivablesTotal: receivables,
+    totalNetWorth: Math.round((liquidAccountsBalance + investedAssetsValue + receivables - creditCardDebt) * 100) / 100 };
 }
 
 export function calculateFinancialHealthScore360(params: {
@@ -3011,6 +3014,7 @@ export function calculateFinancialHealthScore360(params: {
   referenceDateIso?: string;
   /** Posição de hoje para patrimônio e dívida de cartão; sem isso usa o mês selecionado. */
   currentPosition?: CurrentPosition;
+  receivablesTotal?: number;
 }): FinancialHealthScore360 {
   const {
     selectedMonth,
@@ -3023,12 +3027,14 @@ export function calculateFinancialHealthScore360(params: {
     investments = [],
     referenceDateIso,
     currentPosition,
+    receivablesTotal = 0,
   } = params;
 
   const wealth = calculateNetWorth(
     currentPosition?.accountBalances ?? accountBalances,
     investments,
-    currentPosition?.cardSummaries ?? cardSummaries
+    currentPosition?.cardSummaries ?? cardSummaries,
+    receivablesTotal
   );
   const liquidBalance = wealth.liquidAccountsBalance;
   const investmentsTotal = wealth.investedAssetsValue;
@@ -3371,7 +3377,8 @@ export function calculatePersonalDre(
   accountBalances: AccountBalanceSummary[],
   investments: InvestmentAsset[],
   cardSummaries: CreditCardSummary[],
-  currentPosition?: CurrentPosition
+  currentPosition?: CurrentPosition,
+  receivablesTotal = 0
 ) {
   const monthTxs = transactions.filter(
     (tx) =>
@@ -3410,10 +3417,11 @@ export function calculatePersonalDre(
   const netSurplusAfterInvestments =
     freeCashFlowBeforeInvestments - investmentContributions;
 
-  const { liquidAccountsBalance, investedAssetsValue, creditCardDebt, totalNetWorth } = calculateNetWorth(
+  const { liquidAccountsBalance, investedAssetsValue, creditCardDebt, receivablesTotal: receivablesAsset, totalNetWorth } = calculateNetWorth(
     currentPosition?.accountBalances ?? accountBalances,
     investments,
-    currentPosition?.cardSummaries ?? cardSummaries
+    currentPosition?.cardSummaries ?? cardSummaries,
+    receivablesTotal
   );
 
   return {
@@ -3427,6 +3435,7 @@ export function calculatePersonalDre(
     liquidAccountsBalance,
     investedAssetsValue,
     creditCardDebt,
+    receivablesTotal: receivablesAsset,
     totalNetWorth,
   };
 }

@@ -5,7 +5,7 @@ import {
   createReceivable, deleteReceivable, getInvoiceMonthOptions, getReceivableBalance, getReceivableStatus,
   registerReceivablePayment, removeReceivablePayment, summarizeReceivables,
 } from './receivables';
-import { calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
+import { calculateNetWorth, calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
 
 const account: BankAccount = { id: 'a', name: 'Conta', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true };
 const card: CreditCard = { id: 'c', name: 'Itaú azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: 'a', color: '#00f' };
@@ -106,4 +106,16 @@ test('meses da fatura: do mês atual até o último mês com compra no cartão',
   const txs = [buy('a', '2026-09'), buy('b', '2027-01'), buy('c2', '2028-01', 'outro')];
   assert.deepEqual(getInvoiceMonthOptions(txs, 'c', '2026-11-14'), ['2026-11', '2026-12', '2027-01']);
   assert.deepEqual(getInvoiceMonthOptions([], 'c', '2026-11-14'), ['2026-11']);
+});
+
+test('patrimônio: o a receber em aberto entra como ativo e compensa a fatura do cartão adicional', () => {
+  const { receivable, transactions } = invoiceReceivable();
+  const all = [own, ...transactions];
+  const balances = calculateAccountBalances([account], all, '2026-11');
+  const summaries = [calculateCreditCardSummary(card, all, '2026-11')];
+  const without = calculateNetWorth(balances, [], summaries);
+  const withReceivable = calculateNetWorth(balances, [], summaries, summarizeReceivables([receivable]).totalOpen);
+  assert.equal(without.totalNetWorth, 800 - 1800, 'sem o a receber, a fatura dela parece perda');
+  assert.equal(withReceivable.totalNetWorth, 800, 'com o a receber, o patrimônio não cai');
+  assert.equal(withReceivable.receivablesTotal, 1800);
 });

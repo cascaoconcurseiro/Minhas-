@@ -49,6 +49,8 @@ interface ReportsAndDataTabProps {
   selectedMonth: string;
   /** Posição de hoje (saldos e dívida de cartão), independente do mês navegado. */
   currentPosition?: CurrentPosition;
+  /** Total a receber de outras pessoas, somado ao patrimônio. */
+  receivablesTotal?: number;
   accounts: BankAccount[];
   /** Leva ao cadastro de conta quando falta uma conta em reais. */
   onRequestCreateAccount?: () => void;
@@ -144,6 +146,7 @@ const SvgPieDonutChart: React.FC<{
 export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   selectedMonth,
   currentPosition,
+  receivablesTotal = 0,
   accounts,
   onRequestCreateAccount,
   accountBalances,
@@ -196,8 +199,8 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
 
   const personalDre = useMemo(
     () => calculatePersonalDre(transactions, selectedMonth, accountBalances, investments,
-      cards.map((card) => calculateCreditCardSummary(card, transactions, selectedMonth)), currentPosition),
-    [transactions, selectedMonth, accountBalances, investments, cards, currentPosition]
+      cards.map((card) => calculateCreditCardSummary(card, transactions, selectedMonth)), currentPosition, receivablesTotal),
+    [transactions, selectedMonth, accountBalances, investments, cards, currentPosition, receivablesTotal]
   );
 
   const { activeStartMonth, activeEndMonth } = useMemo(() => {
@@ -1108,6 +1111,10 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   <span className="font-semibold text-emerald-300">
                     {formatBRL(personalDre.investedAssetsValue)}
                   </span>
+                </div>
+                <div>
+                  <span className="block font-sans text-slate-400">A Receber de Pessoas</span>
+                  <span className="font-semibold text-emerald-300">{formatBRL(personalDre.receivablesTotal)}</span>
                 </div>
                 <div>
                   <span className="block font-sans text-slate-400">Dívida dos Cartões</span>
