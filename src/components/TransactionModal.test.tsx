@@ -115,6 +115,13 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new window.Event('input', { bubbles: true }));
 }
 
+function chooseSelect(page: HTMLElement, selector: string, value: string) {
+  const select = page.querySelector<HTMLSelectElement>(selector);
+  assert.ok(select, selector);
+  Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(select, value);
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+}
+
 function chooseCategory(page: HTMLElement, id: string) {
   const select = page.querySelector<HTMLSelectElement>('#tx-category-select');
   assert.ok(select, 'seletor de categoria');
@@ -806,10 +813,14 @@ test('bank transfer never offers the source account as destination, then submits
   await act(async () => {
     page.querySelector<HTMLButtonElement>('[data-testid="mode-transfer-btn"]')?.click();
   });
+  assert.equal(page.querySelector<HTMLSelectElement>('#tx-transfer-origin-select')?.value, '', 'origem começa sem escolha');
+  await act(async () => { chooseSelect(page, '#tx-transfer-origin-select', 'account-test'); });
   const destination = page.querySelector<HTMLSelectElement>('#tx-transfer-destination-select');
   assert.ok(destination);
+  assert.equal(destination.value, '', 'destino começa sem escolha');
   const offered = [...destination.querySelectorAll('optgroup')[0].querySelectorAll('option')].map((option) => option.value);
   assert.deepEqual(offered, [secondAccount.id], 'a conta de origem não aparece como destino');
+  await act(async () => { chooseSelect(page, '#tx-transfer-destination-select', secondAccount.id); });
 
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Transferência sintética');
@@ -880,6 +891,7 @@ test('transfer from a USD account asks for the exchange and saves the foreign le
     origin.dispatchEvent(new window.Event('change', { bubbles: true }));
   });
   assert.ok(page.querySelector('[data-testid="transfer-fx-block"]'), 'mostra o bloco de câmbio quando há conta em dólar');
+  await act(async () => { chooseSelect(page, '#tx-transfer-destination-select', 'nubank-test'); });
   await act(async () => {
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Envio Nomad');
     setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '540,00');
@@ -990,4 +1002,33 @@ test('regra de divisão da categoria: ao escolher a categoria o lançamento já 
   assert.equal(saved[0].sharedMemberId, 'm-regra');
   assert.equal(saved[0].sharedAmount, 50);
   assert.equal(saved[0].sharedPaidBy, 'me');
+});
+
+test('com mais de uma conta ou cartão, nada vem escolhido e é obrigatório escolher', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const secondCard: CreditCard = { ...testCard, id: 'card-second', name: 'Outro cartão' };
+  const first: BankAccount = { id: 'account-test', name: 'Conta sintética', institution: 'Banco A', type: 'checking', initialBalance: 0, color: '#000', includeInTotal: true };
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, {
+    accounts: [first, secondAccount], cards: [testCard, secondCard], keepPaymentUnchosen: true,
+  });
+  await act(async () => {
+    chooseCategory(page, 'category-test');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Sem conta escolhida');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '10,00');
+    page.querySelector<HTMLButtonElement>('[data-testid="payment-method-account"]')?.click();
+  });
+  assert.equal(page.querySelector<HTMLSelectElement>('#tx-payment-source-select')?.value, '', 'conta começa sem escolha');
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Escolha a conta/);
+  assert.equal(saved.length, 0);
+  await act(async () => { chooseSelect(page, '#tx-payment-source-select', 'account-destination-test'); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].accountId, 'account-destination-test');
+
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  assert.equal(page.querySelector<HTMLSelectElement>('#tx-payment-source-select')?.value, '', 'cartão começa sem escolha');
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Escolha o cartão/);
+  assert.equal(saved.length, 1);
 });

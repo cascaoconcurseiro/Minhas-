@@ -307,8 +307,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     if (entryMode !== 'transfer' || transferSubMode !== 'bank_to_bank') return;
     if (destinationAccountId.startsWith('inv:')) return;
-    if (accountId && (!destinationAccountId || destinationAccountId === accountId)) {
-      setDestinationAccountId(pickDefaultTransferDestination(accounts, accountId));
+    // Destino igual à origem não existe: limpa e a pessoa escolhe (nada é escolhido por ela)
+    if (accountId && destinationAccountId === accountId) {
+      setDestinationAccountId('');
     }
   }, [entryMode, transferSubMode, accountId, destinationAccountId, accounts]);
 
@@ -649,8 +650,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     if (defaultMode === 'credit_card') {
       setStatus('pending');
       setPaymentMethod('credit_card');
+      // Só escolhe sozinho se houver um único cartão; com vários, a pessoa precisa escolher
       const firstCard = cards[0];
-      setCreditCardId(firstCard?.id || '');
+      setCreditCardId(cards.length === 1 ? cards[0].id : '');
       const initialPurchaseDate = initialDate || getLocalDateISO();
       setInvoiceCompetenceMonth(
         resolveCreditCardInvoiceMonth(initialPurchaseDate, firstCard)
@@ -662,13 +664,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } else if (defaultMode === 'income') {
       setStatus('paid');
       setPaymentMethod('pix');
-      setAccountId(accounts[0]?.id || '');
+      setAccountId(accounts.length === 1 ? accounts[0].id : '');
       setCategoryId('');
     } else if (defaultMode === 'transfer') {
       setStatus('paid');
       setPaymentMethod('transfer');
-      setAccountId(accounts[0]?.id || '');
-      setDestinationAccountId(pickDefaultTransferDestination(accounts, accounts[0]?.id || ''));
+      setAccountId(accounts.length === 1 ? accounts[0].id : '');
+      setDestinationAccountId('');
     } else {
       setStatus('paid');
       setPaymentMethod(initialTripId ? 'debit_card' : 'pix');
@@ -687,7 +689,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       } else {
         const domesticAcc =
           accounts.find((a) => a.type !== 'international') || accounts[0];
-        setAccountId(domesticAcc?.id || '');
+        // Com mais de uma conta, a pessoa escolhe (para o lançamento não sair da conta errada)
+        setAccountId(accounts.length === 1 ? domesticAcc?.id || '' : '');
       }
       if (!initialTripId) {
         setCategoryId('');
@@ -907,7 +910,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setEntryMode('credit_card');
       setPaymentMethod('credit_card');
       setStatus('pending');
-      if (!creditCardId && cards[0]?.id) {
+      if (!creditCardId && cards.length === 1) {
         setCreditCardId(cards[0].id);
       }
     } else if (nextRegime === 'global_account' || nextRegime === 'cash_fx') {
@@ -1038,7 +1041,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
       setPaymentMethod('credit_card');
       setStatus('pending');
-      if (!creditCardId && cards[0]?.id) {
+      if (!creditCardId && cards.length === 1) {
         setCreditCardId(cards[0].id);
       }
     } else if (mode === 'transfer') {
@@ -1057,7 +1060,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           ? editingTransaction.paymentMethod
           : 'pix';
       setPaymentMethod(originalBankMethod);
-      if (!accountId && accounts[0]?.id) setAccountId(accounts[0].id);
+      if (!accountId && accounts.length === 1) setAccountId(accounts[0].id);
       setStatus('paid');
       if (recurrence === 'installment') {
         setRecurrence('single');
@@ -1360,16 +1363,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     if (autoHabitKeyRef.current === key) return;
 
     const applied: string[] = [];
-    // Só troca o que ainda está no padrão do formulário; escolha feita pela pessoa nunca é sobrescrita.
+    // Só preenche o que a pessoa ainda não escolheu; escolha feita por ela nunca é sobrescrita.
     if (entryMode === 'credit_card') {
       const card = paymentHabit.creditCardId?.value;
-      if (card && card !== creditCardId && cards.some((item) => item.id === card) && creditCardId === (cards[0]?.id ?? '')) {
+      if (card && card !== creditCardId && cards.some((item) => item.id === card) && creditCardId === '') {
         setCreditCardId(card);
         applied.push(cards.find((item) => item.id === card)?.name ?? 'cartão');
       }
     } else {
       const account = paymentHabit.accountId?.value;
-      if (account && account !== accountId && accounts.some((item) => item.id === account) && accountId === (accounts[0]?.id ?? '')) {
+      if (account && account !== accountId && accounts.some((item) => item.id === account) && accountId === '') {
         setAccountId(account);
         applied.push(accounts.find((item) => item.id === account)?.name ?? 'conta');
       }
@@ -2812,9 +2815,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       onChange={(e) => setAccountId(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-3 py-2 text-sm text-slate-900 dark:text-white"
                     >
+                      {!accountId && <option value="">Escolha a conta de origem…</option>}
                       {accounts.map((acc) => (
                         <option key={acc.id} value={acc.id}>
-                          {acc.name}
+                          {getAccountLabel(acc, accounts)}
                         </option>
                       ))}
                     </select>
@@ -2925,6 +2929,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         }}
                         className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white"
                       >
+                        {!destinationAccountId && <option value="">Escolha a conta de destino…</option>}
                         <optgroup label="Contas Bancárias & Carteiras">
                           {destinationAccountOptions.map((acc) => (
                             <option key={acc.id} value={acc.id}>
@@ -3076,6 +3081,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           onChange={(e) => setCreditCardId(e.target.value)}
                           className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
                         >
+                          {!creditCardId && <option value="">Escolha o cartão…</option>}
                           {cards.map((card) => (
                             <option key={card.id} value={card.id}>
                               {card.name} (Fecha dia {card.closingDay} · Vence dia {card.dueDay})
@@ -3218,6 +3224,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                           }}
                           className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white"
                         >
+                          {!accountId && <option value="">Escolha a conta…</option>}
                           {accounts.map((acc) => (
                             <option key={acc.id} value={acc.id}>
                               {acc.type === 'international' && acc.currency
