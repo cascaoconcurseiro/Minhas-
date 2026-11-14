@@ -192,6 +192,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [date, setDate] = useState(getLocalDateISO());
   const [status, setStatus] = useState<TransactionStatus>('paid');
   const [categoryId, setCategoryId] = useState('');
+  // Forma de pagamento (conta/débito ou cartão) escolhida de propósito: em lançamento novo começa sem escolha
+  const [paymentChosen, setPaymentChosen] = useState(true);
   const [accountId, setAccountId] = useState('');
   const [destinationAccountId, setDestinationAccountId] = useState('');
   const [creditCardId, setCreditCardId] = useState('');
@@ -698,6 +700,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     trips,
   ]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setPaymentChosen(Boolean(editingTransaction) || defaultMode !== 'expense' || Boolean(initialTripId));
+  }, [isOpen, editingTransaction, defaultMode, initialTripId]);
+
   // Automatically recalculate the invoice due month when the purchase date or card changes.
   useEffect(() => {
     if (!isOpen || entryMode !== 'credit_card') return;
@@ -998,9 +1005,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // CRITICAL BUSINESS RULE: Installment (2x-24x) ONLY allowed on Credit Card!
   const handleModeSwitch = (
-    mode: 'expense' | 'income' | 'credit_card' | 'transfer'
+    mode: 'expense' | 'income' | 'credit_card' | 'transfer',
+    fromPaymentToggle = false
   ) => {
     setEntryMode(mode);
+    if (!editingTransaction) {
+      // Despesa nova volta a exigir a escolha da forma de pagamento; trocar pelo seletor conta/cartão já é a escolha
+      setPaymentChosen(fromPaymentToggle || mode === 'credit_card' || mode === 'income' || mode === 'transfer');
+    }
     setError('');
     if (mode === 'income') {
       if (!editingTransaction && categories.find((c) => c.id === categoryId)?.type !== 'income') {
@@ -1668,6 +1680,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setError('Informe um valor válido maior que zero.');
       return;
     }
+    if ((entryMode === 'expense' || entryMode === 'credit_card') && !paymentChosen) {
+      setError('Escolha a forma de pagamento: conta/débito ou cartão de crédito.');
+      return;
+    }
     if (entryMode !== 'transfer' && !categoryId) {
       setError('Escolha a categoria do lançamento. O sistema aprende e passa a sugerir sozinho nas próximas vezes.');
       return;
@@ -2013,9 +2029,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 <button
                   type="button"
                   data-testid="payment-method-account"
-                  aria-pressed={entryMode === 'expense'}
-                  onClick={() => handleModeSwitch('expense')}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${entryMode === 'expense' ? 'border-rose-300 bg-white text-rose-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
+                  aria-pressed={paymentChosen && entryMode === 'expense'}
+                  onClick={() => handleModeSwitch('expense', true)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${paymentChosen && entryMode === 'expense' ? 'border-rose-300 bg-white text-rose-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
                 >
                   Conta / débito
                 </button>
@@ -2029,6 +2045,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <CreditCardIcon className="h-3.5 w-3.5" />
                   Cartão de crédito
                 </button>
+                {!paymentChosen && entryMode === 'expense' && (
+                  <p data-testid="payment-method-required" className="basis-full text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    Escolha como foi pago: conta/débito ou cartão de crédito.
+                  </p>
+                )}
               </div>
             )}
 
@@ -3015,7 +3036,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     )}
                   </div>
 
-                  <div>
+                  <div className={entryMode === 'expense' && !paymentChosen ? 'hidden' : undefined}>
                     <label htmlFor="tx-payment-source-select" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       {entryMode === 'credit_card'
                         ? 'Cartão Utilizado'

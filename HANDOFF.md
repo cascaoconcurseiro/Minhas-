@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Forma de pagamento obrigatória no lançamento novo — 14/11/2026
+
+Pedido: "Conta / débito" vinha pré-selecionado e a pessoa salvava como débito o que era crédito. `TransactionModal`: despesa nova abre com nenhuma das opções (conta/débito, cartão de crédito) marcada, com o aviso "Escolha como foi pago…", o campo de conta/cartão fica oculto até escolher, e salvar sem escolher é bloqueado ("Escolha a forma de pagamento…"). Não muda: edição (já tem forma), receita, transferência, viagem e abrir pelo contexto de cartão (`defaultMode: 'credit_card'`). Estado `paymentChosen`; `handleModeSwitch(mode, fromPaymentToggle)`. Testes: helper dos testes escolhe "conta" por padrão (`keepPaymentUnchosen` para o caso novo) e há teste do bloqueio. Conferido no navegador (build de produção, servidor simulado): abre sem marcar, bloqueia, e salvar depois de escolher cartão grava `credit_card`.
+
 ## Novo lançamento começa sem categoria — 13/11/2026
 
 Pedido: o lançamento novo não deve vir com a primeira categoria (Moradia) pré-escolhida; o sistema aprende. `TransactionModal`: despesa, cartão e receita novos começam com categoria vazia ("Escolha a categoria…"), trocar entre despesa/cartão/receita limpa a categoria se ela não for do tipo, e salvar sem categoria é bloqueado com mensagem (depois da checagem do valor). A edição mantém a categoria salva; viagem e transferência seguem como antes. O aprendizado já existia (sugestão por descrição do histórico, aplicada sozinha com confiança ≥ 65%): conferido no navegador que, depois de salvar "Zafari" numa categoria, digitar "Zafari" de novo já preenche essa categoria. Testes de `TransactionModal` atualizados (escolhem categoria) e novo caso de bloqueio sem categoria. Limite: a primeira vez de cada estabelecimento exige escolher; o ícone da categoria só aparece depois de escolhida.

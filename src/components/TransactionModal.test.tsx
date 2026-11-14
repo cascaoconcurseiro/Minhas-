@@ -25,6 +25,8 @@ function renderTransactionModal(
     editingTransaction?: Transaction;
     transactions?: Transaction[];
     onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
+    /** Não escolhe a forma de pagamento sozinho: a tela abre como abre para a pessoa. */
+    keepPaymentUnchosen?: boolean;
   } = {}
 ) {
   container = document.createElement('div');
@@ -69,6 +71,9 @@ function renderTransactionModal(
       })
     );
   });
+  if (!options.editingTransaction && !options.keepPaymentUnchosen) {
+    act(() => { container?.querySelector<HTMLButtonElement>('[data-testid="payment-method-account"]')?.click(); });
+  }
   return container;
 }
 
@@ -938,4 +943,27 @@ test('credit card purchase with no card registered offers to register one', asyn
     page.querySelector<HTMLButtonElement>('[data-testid="missing-setup-action"]')?.click();
   });
   assert.deepEqual(requests, ['card']);
+});
+
+test('despesa nova abre sem forma de pagamento escolhida e exige escolher', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard], keepPaymentUnchosen: true });
+  const account = page.querySelector<HTMLButtonElement>('[data-testid="payment-method-account"]');
+  const card = page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]');
+  assert.equal(account?.getAttribute('aria-pressed'), 'false');
+  assert.equal(card?.getAttribute('aria-pressed'), 'false');
+  assert.ok(page.querySelector('[data-testid="payment-method-required"]'));
+  await act(async () => {
+    chooseCategory(page, 'category-test');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Sem forma de pagamento');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '10,00');
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Escolha a forma de pagamento/);
+  assert.equal(saved.length, 0);
+  await act(async () => { card?.click(); });
+  assert.equal(page.querySelector('[data-testid="payment-method-required"]'), null);
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].paymentMethod, 'credit_card');
 });
