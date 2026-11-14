@@ -1,6 +1,6 @@
 import type { PaymentMethod, Transaction } from '../types/finance';
 import { formatBRL } from './financeRules';
-import { normalizeDescription, sameEstablishment } from './learningRules';
+import { normalizeDescription, sameEstablishment, similarFromIndex, type EstablishmentIndex } from './learningRules';
 
 /**
  * Camada de decisão do sistema (local, sem enviar dados para fora).
@@ -75,20 +75,23 @@ function recentSimilar(
   description: string,
   transactions: Transaction[],
   predicate: (tx: Transaction) => boolean,
-  limit = 6
+  limit = 6,
+  index?: EstablishmentIndex
 ): Transaction[] {
   const key = normalizeDescription(description);
   if (key.length < 2) return [];
-  return transactions
-    .filter(
-      (tx) =>
-        !tx.isInvoicePayment &&
-        !tx.isCompanionOnlyExpense &&
-        !tx.tripId &&
-        !tx.id.startsWith('tx-mirror-') &&
-        predicate(tx) &&
-        sameEstablishment(key, normalizeDescription(tx.description))
-    )
+  const pool = index
+    ? similarFromIndex(key, index)
+    : transactions.filter(
+        (tx) =>
+          !tx.isInvoicePayment &&
+          !tx.isCompanionOnlyExpense &&
+          !tx.tripId &&
+          !tx.id.startsWith('tx-mirror-') &&
+          sameEstablishment(key, normalizeDescription(tx.description))
+      );
+  return pool
+    .filter(predicate)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
 }
@@ -97,9 +100,10 @@ function recentSimilar(
 export function learnCategoryHabit(
   description: string,
   transactions: Transaction[],
-  type: 'income' | 'expense'
+  type: 'income' | 'expense',
+  index?: EstablishmentIndex
 ): Decision<string> | null {
-  const history = recentSimilar(description, transactions, (tx) => tx.type === type);
+  const history = recentSimilar(description, transactions, (tx) => tx.type === type, 6, index);
   return decideChoice(history.map((tx) => tx.categoryId));
 }
 

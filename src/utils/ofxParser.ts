@@ -1,7 +1,7 @@
 import { Category, CreditCard, CurrencyCode, FamilyMember, Transaction } from '../types/finance';
 import { calculateSharedAmount } from './financeRules';
 import { learnCategoryHabit } from './decisionEngine';
-import { learnSharingFromHistory, normalizeDescription, type LearnedSharing } from './learningRules';
+import { buildEstablishmentIndex, learnSharingFromHistory, normalizeDescription, type LearnedSharing } from './learningRules';
 
 export interface ParsedBankStatementItem {
   fitid?: string;
@@ -774,6 +774,21 @@ const CATEGORY_KEYWORDS: Array<{
   },
 ];
 
+let normalizedKeywordGroups: Array<{ group: (typeof CATEGORY_KEYWORDS)[number]; normalizedKeywords: string[] }> | null = null;
+
+/** As palavras-chave são normalizadas uma vez só (antes eram refeitas a cada linha do extrato). */
+function getNormalizedKeywordGroups() {
+  if (!normalizedKeywordGroups) {
+    normalizedKeywordGroups = CATEGORY_KEYWORDS.map((group) => ({
+      group,
+      normalizedKeywords: group.keywords.map((kw) =>
+        kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+      ),
+    }));
+  }
+  return normalizedKeywordGroups;
+}
+
 export interface DescriptionCategoryMatch {
   categoryId: string;
 }
@@ -790,13 +805,8 @@ export function matchCategoryByDescription(
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()} `;
 
-  for (const group of CATEGORY_KEYWORDS) {
-    for (const kw of group.keywords) {
-      const normKw = kw.toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
+  for (const { group, normalizedKeywords } of getNormalizedKeywordGroups()) {
+    for (const normKw of normalizedKeywords) {
       if (normDesc.includes(` ${normKw} `)) {
         // Find existing category matching either the hint ID or the name
         const match = categories.find(
@@ -852,6 +862,31 @@ function cleanDescriptionForComparison(desc: string): string {
     .trim();
 }
 
+export interface DuplicateLookup {
+  byFitid: Map<string, Transaction>;
+  byDate: Map<string, Transaction[]>;
+}
+
+/** Índices por identificador e por dia, para conferir centenas de linhas sem varrer o histórico inteiro a cada uma. */
+export function buildDuplicateLookup(transactions: Transaction[]): DuplicateLookup {
+  const byFitid = new Map<string, Transaction>();
+  const byDate = new Map<string, Transaction[]>();
+  for (const tx of transactions) {
+    if (tx.fitid && !byFitid.has(tx.fitid)) byFitid.set(tx.fitid, tx);
+    const list = byDate.get(tx.date);
+    if (list) list.push(tx);
+    else byDate.set(tx.date, [tx]);
+  }
+  return { byFitid, byDate };
+}
+
+function shiftIsoDate(date: string, days: number): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
 /**
  * Detects whether an imported bank item is already present in the existing transactions list.
  */
@@ -860,12 +895,21 @@ export function checkItemDuplicate(
   existingTransactions: Transaction[],
   targetAccountId?: string,
   statementCurrency = 'BRL',
-  exchangeRate?: number
+  exchangeRate?: number,
+  ignoreTransactionId?: string,
+  lookup?: DuplicateLookup
 ): { isDuplicate: boolean; reason?: string } {
+  // Com o índice, só olha os lançamentos do mesmo dia (e dias vizinhos), não a lista inteira
+  const sameDayTransactions = lookup ? lookup.byDate.get(item.date) ?? [] : existingTransactions;
+  const nearbyTransactions = lookup
+    ? [shiftIsoDate(item.date, -1), item.date, shiftIsoDate(item.date, 1)].flatMap((date) => lookup.byDate.get(date) ?? [])
+    : existingTransactions;
   // 1. Exact FITID match
   // Ids antigos 'csv-row-N' vinham da posição da linha e não identificam o lançamento: ignora-os
   if (item.fitid && !/^csv-row-\d+$/.test(item.fitid)) {
-    const fitidMatch = existingTransactions.find((tx) => tx.fitid && tx.fitid === item.fitid);
+    const fitidMatch = lookup
+      ? (() => { const hit = lookup.byFitid.get(item.fitid); return hit && hit.id !== ignoreTransactionId ? hit : undefined; })()
+      : existingTransactions.find((tx) => tx.id !== ignoreTransactionId && tx.fitid && tx.fitid === item.fitid);
     if (fitidMatch) {
       return {
         isDuplicate: true,
@@ -876,7 +920,8 @@ export function checkItemDuplicate(
 
   // 1b. Transferência entre contas já lançada à mão: a saída (ou entrada) do extrato é a mesma movimentação.
   // Sem isto o dinheiro sairia duas vezes da conta (a transferência e uma despesa nova).
-  const transferMatch = existingTransactions.find((tx) => {
+  const transferMatch = nearbyTransactions.find((tx) => {
+    if (tx.id === ignoreTransactionId) return false;
     if (tx.type !== 'transfer' || !tx.accountId || !tx.destinationAccountId) return false;
     if (tx.status !== 'paid') return false;
     const isOutgoing = item.rawType === 'expense';
@@ -905,7 +950,8 @@ export function checkItemDuplicate(
     !Number.isSafeInteger(amountInBrlCents)
     ? item.amount
     : amountInBrlCents / 100;
-  const potentialMatches = existingTransactions.filter((tx) => {
+  const potentialMatches = sameDayTransactions.filter((tx) => {
+    if (tx.id === ignoreTransactionId) return false;
     if (targetAccountId && tx.accountId && tx.accountId !== targetAccountId) {
       return false;
     }
@@ -1034,6 +1080,8 @@ export function prepareReconciliationCandidates(
       (!targetAccountId || !tx.accountId || tx.accountId === targetAccountId)
   );
   const claimedPending = new Set<string>();
+  const establishmentIndex = buildEstablishmentIndex(existingTransactions);
+  const duplicateLookup = buildDuplicateLookup(existingTransactions);
 
   const seenFitIds = new Set<string>();
   return items.map((item, idx) => {
@@ -1045,16 +1093,18 @@ export function prepareReconciliationCandidates(
     // A conta pendente que casou não conta como "duplicata" desta linha
     const dupCheck = checkItemDuplicate(
       item,
-      pendingMatch ? existingTransactions.filter((tx) => tx.id !== pendingMatch.id) : existingTransactions,
+      existingTransactions,
       targetAccountId,
       statementCurrency,
-      exchangeRate
+      exchangeRate,
+      pendingMatch?.id,
+      duplicateLookup
     );
     const normalizedFitId = item.fitid?.trim();
     const repeatedInStatement = Boolean(normalizedFitId && seenFitIds.has(normalizedFitId));
     if (normalizedFitId) seenFitIds.add(normalizedFitId);
     const ruleMatch = matchCategoryByDescription(item.description, categories, item.rawType);
-    const habit = learnCategoryHabit(item.description, existingTransactions, item.rawType);
+    const habit = learnCategoryHabit(item.description, existingTransactions, item.rawType, establishmentIndex);
     const habitCategory = habit && categories.some((category) => category.id === habit.value && category.type === item.rawType)
       ? habit.value
       : undefined;
@@ -1111,7 +1161,7 @@ export function prepareReconciliationCandidates(
       matchedPendingDescription: pendingMatch?.description,
       learnedSharing:
         item.rawType === 'expense' && !invoiceMatch && !pendingMatch && statementCurrency === 'BRL'
-          ? learnSharingFromHistory(item.description, existingTransactions, familyMembers) ?? undefined
+          ? learnSharingFromHistory(item.description, existingTransactions, familyMembers, establishmentIndex) ?? undefined
           : undefined,
       isDuplicate: dupCheck.isDuplicate || repeatedInStatement,
       duplicateReason: repeatedInStatement

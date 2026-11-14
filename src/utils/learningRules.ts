@@ -57,6 +57,30 @@ export function sameEstablishment(query: string, candidate: string): boolean {
   return shorter.length >= 4 && longer.startsWith(`${shorter} `);
 }
 
+/** Histórico agrupado pelo nome normalizado do estabelecimento (só lançamentos que servem para aprender). */
+export type EstablishmentIndex = Map<string, Transaction[]>;
+
+export function buildEstablishmentIndex(transactions: Transaction[]): EstablishmentIndex {
+  const index: EstablishmentIndex = new Map();
+  for (const tx of transactions) {
+    if (tx.isInvoicePayment || tx.isCompanionOnlyExpense || tx.tripId || tx.id.startsWith('tx-mirror-')) continue;
+    const key = normalizeDescription(tx.description);
+    const list = index.get(key);
+    if (list) list.push(tx);
+    else index.set(key, [tx]);
+  }
+  return index;
+}
+
+/** Lançamentos do mesmo estabelecimento, buscando só entre os nomes distintos (não em todos os lançamentos). */
+export function similarFromIndex(key: string, index: EstablishmentIndex): Transaction[] {
+  const result: Transaction[] = [];
+  for (const [candidateKey, list] of index) {
+    if (sameEstablishment(key, candidateKey)) result.push(...list);
+  }
+  return result;
+}
+
 /**
  * Descobre se esse tipo de gasto costuma ser dividido com um familiar.
  * Exige pelo menos 2 ocorrências recentes, 80% delas divididas com a mesma pessoa, pelo mesmo
@@ -65,21 +89,24 @@ export function sameEstablishment(query: string, candidate: string): boolean {
 export function learnSharingFromHistory(
   description: string,
   transactions: Transaction[],
-  familyMembers: FamilyMember[]
+  familyMembers: FamilyMember[],
+  index?: EstablishmentIndex
 ): LearnedSharing | null {
   const key = normalizeDescription(description);
   if (key.length < 2) return null;
 
-  const recent = transactions
-    .filter(
-      (tx) =>
-        tx.type === 'expense' &&
-        !tx.isInvoicePayment &&
-        !tx.isCompanionOnlyExpense &&
-        !tx.tripId &&
-        !tx.id.startsWith('tx-mirror-') &&
-        sameEstablishment(key, normalizeDescription(tx.description))
-    )
+  const pool = index
+    ? similarFromIndex(key, index)
+    : transactions.filter(
+        (tx) =>
+          !tx.isInvoicePayment &&
+          !tx.isCompanionOnlyExpense &&
+          !tx.tripId &&
+          !tx.id.startsWith('tx-mirror-') &&
+          sameEstablishment(key, normalizeDescription(tx.description))
+      );
+  const recent = pool
+    .filter((tx) => tx.type === 'expense')
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, HISTORY_WINDOW);
 
