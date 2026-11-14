@@ -114,11 +114,12 @@ function getRequestWorkspacePayload(
     'investmentTargetsJson',
     'tripsJson',
     'settingsJson',
+    'receivablesJson',
   ]) {
     if (payload[field] === undefined) continue;
     try {
       const parsed = JSON.parse(String(payload[field]));
-      if (field === 'familyMembersJson' || field === 'tripsJson') {
+      if (field === 'familyMembersJson' || field === 'tripsJson' || field === 'receivablesJson') {
         parseWorkspaceArray(parsed, [], field);
       } else if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return null;

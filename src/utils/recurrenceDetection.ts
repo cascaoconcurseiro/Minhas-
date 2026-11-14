@@ -1,5 +1,5 @@
 import type { PaymentMethod, Transaction } from '../types/finance';
-import { addMonthsToYearMonth, getClampedMonthDate } from './financeRules';
+import { addMonthsToYearMonth, getClampedMonthDate, isOutsidePersonalResult } from './financeRules';
 import { normalizeDescription } from './learningRules';
 
 /**
@@ -55,7 +55,7 @@ function isEligible(tx: Transaction): boolean {
   return (
     tx.type === 'expense' &&
     !tx.isInvoicePayment &&
-    !tx.isCompanionOnlyExpense &&
+    !isOutsidePersonalResult(tx) &&
     !tx.tripId &&
     !tx.id.startsWith('tx-mirror-') &&
     tx.recurrence === 'single' &&

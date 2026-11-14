@@ -116,7 +116,8 @@ export function generateMonthlyFinancialReportPdf({
         getConsumptionMonth(tx) === selectedMonth &&
         tx.type === 'expense' &&
         !tx.isInvoicePayment &&
-        !tx.isCompanionOnlyExpense
+        !tx.isCompanionOnlyExpense &&
+        !tx.receivableId
     )
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 8);

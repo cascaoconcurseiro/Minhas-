@@ -16,6 +16,7 @@ import {
   Smartphone,
   Sliders,
   TrendingUp,
+  HandCoins,
   Users,
   X,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     'accounts',
     'investments',
     'shared',
+    'receivables',
     'budgets',
     'goals',
     'trips',
@@ -317,6 +319,28 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight block mt-0.5">
                         Rateio familiar
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabClick('receivables')}
+                    className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-all ${
+                      activeTab === 'receivables'
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-950/70 dark:text-teal-300">
+                      <HandCoins className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold block text-slate-900 dark:text-white">
+                        A Receber
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight block mt-0.5">
+                        Cartão adicional e dívidas
                       </span>
                     </div>
                   </button>

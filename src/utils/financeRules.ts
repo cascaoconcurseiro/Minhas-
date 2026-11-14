@@ -96,6 +96,14 @@ export function parseBRLInput(raw: string): number {
   }
 }
 
+/**
+ * Lançamentos que não fazem parte do seu resultado pessoal (nem gasto, nem receita): gastos só de acompanhantes de
+ * viagem e movimentos de valores a receber (fatura de cartão adicional cobrada de alguém, empréstimos e seus pagamentos).
+ */
+export function isOutsidePersonalResult(tx: Transaction): boolean {
+  return Boolean(tx.isCompanionOnlyExpense || tx.receivableId);
+}
+
 function isCreditCardInvoicePurchase(tx: Transaction): boolean {
   return !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member';
 }
@@ -1101,7 +1109,7 @@ export function getEffectiveExpenseAmountForUser(
   if (
     tx.type !== 'expense' ||
     tx.isInvoicePayment ||
-    tx.isCompanionOnlyExpense
+    isOutsidePersonalResult(tx)
   ) {
     return null;
   }
@@ -1154,7 +1162,7 @@ export function calculateMonthlySummary(
   let unsettledMemberSharedThisMonth = 0;
 
   for (const tx of monthTxs) {
-    if (tx.type === 'transfer' || tx.isInvoicePayment || tx.isCompanionOnlyExpense) {
+    if (tx.type === 'transfer' || tx.isInvoicePayment || isOutsidePersonalResult(tx)) {
       continue;
     }
 
@@ -1318,7 +1326,7 @@ export function calculate503020Rule(
     (tx) =>
       getConsumptionMonth(tx) === selectedMonth &&
       !tx.isInvoicePayment &&
-      !tx.isCompanionOnlyExpense
+      !isOutsidePersonalResult(tx)
   );
 
   let incomeBase = 0;
@@ -1380,7 +1388,7 @@ export function calculatePeriodReport(
       monthSet.has(getConsumptionMonth(tx)) &&
       !tx.isInvoicePayment &&
       tx.type !== 'transfer' &&
-      !tx.isCompanionOnlyExpense
+      !isOutsidePersonalResult(tx)
   );
 
   const expenseTxs: Transaction[] = [];
@@ -1755,7 +1763,7 @@ export function getInstallmentAndRecurringItemsForMonth(transactions: Transactio
       (tx.recurrence === 'installment' || tx.recurrence === 'fixed') &&
       tx.date.slice(0, 7) === month &&
       !tx.isInvoicePayment &&
-      !tx.isCompanionOnlyExpense &&
+      !isOutsidePersonalResult(tx) &&
       tx.type !== 'transfer'
     )
     .sort((a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description));
@@ -1781,7 +1789,7 @@ export function calculateCalendarCellTotals(dayTransactions: Transaction[]): {
   let expense = 0;
   let income = 0;
   for (const tx of dayTransactions) {
-    if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) continue;
+    if (tx.isInvoicePayment || tx.type === 'transfer' || isOutsidePersonalResult(tx)) continue;
     if (tx.type === 'income') {
       if (tx.sharedPaidBy !== 'member') income += tx.amount;
       continue;
@@ -1816,7 +1824,7 @@ export function calculateCalendarDaySummary(
   let income = 0;
 
   for (const tx of dayTransactions) {
-    if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) {
+    if (tx.isInvoicePayment || tx.type === 'transfer' || isOutsidePersonalResult(tx)) {
       continue;
     }
     if (tx.type === 'income') {
@@ -3344,7 +3352,7 @@ export function previewCategoryBudget(
 
 export function isInvestmentIncome(tx: Transaction): boolean {
   return tx.type === 'income' && tx.categoryId === 'cat-rendimentos' &&
-    !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member' &&
+    !tx.isInvoicePayment && !isOutsidePersonalResult(tx) && tx.sharedPaidBy !== 'member' &&
     !tx.id.startsWith('tx-reimb-') &&
     !tx.description.toLowerCase().includes('reembolso compartilhado') &&
     !tx.description.toLowerCase().includes('acerto compensado');
@@ -3369,7 +3377,7 @@ export function calculatePersonalDre(
     (tx) =>
       getConsumptionMonth(tx) === selectedMonth &&
       !tx.isInvoicePayment &&
-      !tx.isCompanionOnlyExpense
+      !isOutsidePersonalResult(tx)
   );
   let operationalIncome = 0;
   let dividendIncome = 0;

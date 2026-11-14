@@ -5,6 +5,7 @@ import type {
   CreditCard,
   FamilyMember,
   InvestmentAsset,
+  Receivable,
   SavingsGoal,
   Transaction,
   Trip,
@@ -21,6 +22,7 @@ export interface CachedWorkspaceState {
   categories: Category[];
   transactions: Transaction[];
   goals: SavingsGoal[];
+  receivables: Receivable[];
   familyMembers: FamilyMember[];
   investments: InvestmentAsset[];
   investmentTargets: Record<string, number> | null;
@@ -29,7 +31,7 @@ export interface CachedWorkspaceState {
 }
 
 const REQUIRED_ARRAYS = ['accounts', 'cards', 'categories', 'transactions'] as const;
-const OPTIONAL_ARRAYS = ['goals', 'familyMembers', 'investments', 'trips'] as const;
+const OPTIONAL_ARRAYS = ['goals', 'receivables', 'familyMembers', 'investments', 'trips'] as const;
 
 /** Lê e valida a cópia local; devolve null se estiver ausente, corrompida ou incompleta. */
 export function parseCachedWorkspace(raw: string | null | undefined): CachedWorkspaceState | null {
@@ -53,6 +55,7 @@ export function parseCachedWorkspace(raw: string | null | undefined): CachedWork
       categories: snapshot.categories as Category[],
       transactions: snapshot.transactions as Transaction[],
       goals: (snapshot.goals as SavingsGoal[] | undefined) ?? [],
+      receivables: (snapshot.receivables as Receivable[] | undefined) ?? [],
       familyMembers: (snapshot.familyMembers as FamilyMember[] | undefined) ?? [],
       investments: (snapshot.investments as InvestmentAsset[] | undefined) ?? [],
       investmentTargets:

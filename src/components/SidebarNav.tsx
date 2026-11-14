@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CreditCard as CreditCardIcon,
   FileSpreadsheet,
+  HandCoins,
   Landmark,
   LayoutDashboard,
   ListOrdered,
@@ -31,6 +32,7 @@ export type NavTabId =
   | 'cards'
   | 'budgets'
   | 'shared'
+  | 'receivables'
   | 'trips'
   | 'investments'
   | 'goals'
@@ -51,6 +53,7 @@ interface SidebarNavProps {
   pendingTransactionsCount?: number;
   budgetAlertsCount?: number;
   pendingSharedCount?: number;
+  receivablesOpenCount?: number;
   activeTripsCount?: number;
   accountsTotalBalance?: number;
   investmentsTotalValue?: number;
@@ -148,6 +151,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   pendingTransactionsCount = 0,
   budgetAlertsCount = 0,
   pendingSharedCount = 0,
+  receivablesOpenCount = 0,
   activeTripsCount = 0,
   cloudUserEmail = null,
   cloudSyncStatus = 'synced',
@@ -215,6 +219,14 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           shortDesc: 'Rateio familiar e reembolsos',
           icon: Users,
           badgeCount: pendingSharedCount > 0 ? pendingSharedCount : undefined,
+          badgeTone: 'emerald',
+        },
+        {
+          id: 'receivables',
+          label: 'A Receber',
+          shortDesc: 'Cartão adicional e dívidas',
+          icon: HandCoins,
+          badgeCount: receivablesOpenCount > 0 ? receivablesOpenCount : undefined,
           badgeTone: 'emerald',
         },
       ],

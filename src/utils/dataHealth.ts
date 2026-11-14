@@ -46,6 +46,7 @@ export function assessDataHealth(input: {
       tx.type !== 'transfer' &&
       !tx.isInvoicePayment &&
       !tx.isCompanionOnlyExpense &&
+      !tx.receivableId &&
       (!tx.categoryId || !categoryIds.has(tx.categoryId))
   ).length;
   if (uncategorized > 0) {

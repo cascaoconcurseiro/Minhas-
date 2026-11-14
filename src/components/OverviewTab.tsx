@@ -67,6 +67,9 @@ interface OverviewTabProps {
   recurringSuggestions?: RecurringCandidate[];
   /** Previsão do saldo dos próximos dias (null sem conta incluída no total). */
   cashForecast?: CashForecast | null;
+  /** Total que outras pessoas devem (faturas de cartão adicional e empréstimos). */
+  receivablesSummary?: { totalOpen: number; byPerson: Array<{ personName: string; balance: number }> } | null;
+  onOpenReceivables?: () => void;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
@@ -108,6 +111,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   onChangeClarityMode,
   recurringSuggestions = [],
   cashForecast = null,
+  receivablesSummary = null,
+  onOpenReceivables,
   onScheduleRecurring,
   onDismissRecurring,
   onToggleStatus,
@@ -462,6 +467,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       </section>
 
       <CashForecastCard forecast={cashForecast} />
+      {receivablesSummary && receivablesSummary.totalOpen > 0 && (
+        <div data-testid="overview-receivables" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">A receber de outras pessoas</p>
+            <p className="text-xl font-mono font-extrabold text-slate-900 dark:text-white">{formatBRL(receivablesSummary.totalOpen)}</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 break-words">
+              {receivablesSummary.byPerson.map((entry) => `${entry.personName}: ${formatBRL(entry.balance)}`).join(' · ')}
+            </p>
+          </div>
+          {onOpenReceivables && (
+            <button type="button" onClick={onOpenReceivables} className="rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+              Ver e registrar recebimentos
+            </button>
+          )}
+        </div>
+      )}
 
       {onScheduleRecurring && onDismissRecurring && (
         <RecurringSuggestionsCard

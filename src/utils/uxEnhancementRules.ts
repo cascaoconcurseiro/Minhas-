@@ -4,7 +4,7 @@ import {
   PaymentMethod,
   Transaction,
 } from '../types/finance';
-import { getCashMovementMonth, getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth } from './financeRules';
+import { getCashMovementMonth, getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth, isOutsidePersonalResult } from './financeRules';
 import { matchCategoryByDescription } from './ofxParser';
 
 export interface DailyTransactionGroup {
@@ -147,7 +147,7 @@ export function groupTransactionsByDate(
 
     for (const tx of dayTxs) {
       if (tx.isInvoicePayment || tx.type === 'transfer') continue;
-      if (tx.isCompanionOnlyExpense) continue;
+      if (isOutsidePersonalResult(tx)) continue;
       if (tx.type === 'income') {
         if (tx.sharedPaidBy === 'member') continue;
         dayIncome = Math.round((dayIncome + tx.amount) * 100) / 100;
@@ -311,7 +311,7 @@ export function getCategorySuggestionsForDescription(
   const candidateMap = new Map<string, CandidateAccumulator>();
 
   for (const tx of transactions) {
-    if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) {
+    if (tx.isInvoicePayment || tx.type === 'transfer' || isOutsidePersonalResult(tx)) {
       continue;
     }
     if (targetType === 'income' && tx.type !== 'income') continue;
@@ -797,7 +797,7 @@ export function calculateWeeklyCashPulse(
     let txCount = 0;
 
     for (const tx of monthTxs) {
-      if (tx.isCompanionOnlyExpense) continue;
+      if (isOutsidePersonalResult(tx)) continue;
       const dayNum = Number(tx.date.slice(8, 10));
       if (dayNum >= r.startDay && dayNum <= r.endDay) {
         if (tx.type === 'income') {

@@ -6,6 +6,7 @@ import type {
   FamilyMember,
   InvestmentAsset,
   InvestmentTargetMap,
+  Receivable,
   SavingsGoal,
   Transaction,
   Trip,
@@ -31,6 +32,7 @@ export interface FullFinanceBackup {
   investments: InvestmentAsset[];
   trips: Trip[];
   familyMembers?: FamilyMember[];
+  receivables?: Receivable[];
   investmentTargets?: InvestmentTargetMap;
   settings?: AppSettings;
   sharedSettlementReceiptsJson?: string;
@@ -228,9 +230,10 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
 export function resolveFullBackupOptionalState(
   backup: FullFinanceBackup,
   defaults: FullBackupDefaults
-): Required<Pick<FullFinanceBackup, 'familyMembers' | 'investmentTargets' | 'settings'>> {
+): Required<Pick<FullFinanceBackup, 'familyMembers' | 'investmentTargets' | 'settings' | 'receivables'>> {
   return {
     familyMembers: backup.familyMembers ?? [],
+    receivables: Array.isArray(backup.receivables) ? backup.receivables : [],
     investmentTargets: {
       ...defaults.investmentTargets,
       ...(backup.investmentTargets ?? {}),

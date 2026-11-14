@@ -3,6 +3,7 @@ import { newEntityId } from './utils/ids';
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { createReceivable, deleteReceivable, getReceivableBalance, registerReceivablePayment, removeReceivablePayment, summarizeReceivables } from './utils/receivables';
 import { useModalAccessibility } from './hooks/useModalAccessibility';
 import { hasUpdateBlockers, setUpdateBlocker } from './pwa/updateBlockers';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
@@ -53,6 +54,7 @@ import {
   FamilyMember,
   InvestmentAsset,
   InvestmentTargetMap,
+  Receivable,
   SavingsGoal,
   Transaction,
   Trip,
@@ -129,6 +131,7 @@ const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({
 const InvestmentsTab = lazy(() => import('./components/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
 const TransactionsTab = lazy(() => import('./components/TransactionsTab').then((m) => ({ default: m.TransactionsTab })));
 const CreditCardsTab = lazy(() => import('./components/CreditCardsTab').then((m) => ({ default: m.CreditCardsTab })));
+const ReceivablesTab = lazy(() => import('./components/ReceivablesTab').then((m) => ({ default: m.ReceivablesTab })));
 const SharedExpensesTab = lazy(() => import('./components/SharedExpensesTab').then((m) => ({ default: m.SharedExpensesTab })));
 const TripsTab = lazy(() => import('./components/TripsTab').then((m) => ({ default: m.TripsTab })));
 const BudgetsTab = lazy(() => import('./components/BudgetsTab').then((m) => ({ default: m.BudgetsTab })));
@@ -210,6 +213,7 @@ export type ActiveTab =
   | 'transactions'
   | 'cards'
   | 'shared'
+  | 'receivables'
   | 'trips'
   | 'budgets'
   | 'goals'
@@ -224,6 +228,7 @@ interface UndoHistoryEntry {
   categories: Category[];
   transactions: Transaction[];
   goals: SavingsGoal[];
+  receivables?: Receivable[];
   familyMembers: FamilyMember[];
   investments: InvestmentAsset[];
   investmentTargets: InvestmentTargetMap;
@@ -297,6 +302,7 @@ const MOBILE_TAB_TITLES: Record<string, string> = {
   transactions: 'Extrato',
   cards: 'Cartões',
   shared: 'Compartilhado',
+  receivables: 'A receber',
   trips: 'Viagens',
   budgets: 'Orçamentos',
   goals: 'Metas',
@@ -465,6 +471,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [goals, setGoals] = useState<SavingsGoal[]>(INITIAL_SAVINGS_GOALS);
+  const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
   const [investmentTargets, setInvestmentTargets] = useState<InvestmentTargetMap>(
@@ -497,6 +504,7 @@ export default function App() {
     setCategories(INITIAL_CATEGORIES);
     setTransactions(INITIAL_TRANSACTIONS);
     setGoals(INITIAL_SAVINGS_GOALS);
+    setReceivables([]);
     setFamilyMembers(INITIAL_FAMILY_MEMBERS);
     setInvestments(INITIAL_INVESTMENTS);
     setInvestmentTargets(DEFAULT_INVESTMENT_TARGETS);
@@ -600,6 +608,7 @@ export default function App() {
         categories: [...categories],
         transactions: withUndoSnapshot ? [...withUndoSnapshot] : [...transactions],
         goals: [...goals],
+        receivables: [...receivables],
         familyMembers: [...familyMembers],
         investments: [...investments],
         investmentTargets: { ...investmentTargets },
@@ -620,6 +629,7 @@ export default function App() {
     setCategories(latest.categories);
     setTransactions(latest.transactions);
     setGoals(latest.goals);
+    if (latest.receivables) setReceivables(latest.receivables);
     setFamilyMembers(latest.familyMembers);
     setInvestments(latest.investments);
     setInvestmentTargets(latest.investmentTargets);
@@ -691,6 +701,7 @@ export default function App() {
     ),
     sharedSettlementReceiptsJson: JSON.stringify(collectSharedSettlementReceipts(transactions)),
     goalsJson: JSON.stringify(goals),
+    receivablesJson: JSON.stringify(receivables),
     familyMembersJson: JSON.stringify(familyMembers),
     investmentsJson: JSON.stringify(investments),
     investmentTargetsJson: JSON.stringify(investmentTargets),
@@ -1036,6 +1047,7 @@ export default function App() {
         setCategories(stripLegacySubcategories(cached.categories));
         setTransactions(stripLegacyTransactionSubcategory(cached.transactions));
         setGoals(cached.goals);
+        setReceivables(cached.receivables);
         setFamilyMembers(cached.familyMembers);
         setInvestments(cached.investments);
         setTrips(cached.trips);
@@ -1196,6 +1208,7 @@ export default function App() {
         setTransactions(stripLegacyTransactionSubcategory([...applyRemoteSettlementReports(localTransactions, sharedSnapshot.outgoingSettlements),
           ...restoreSharedSettlementReceipts([...sharedById.values()], data.sharedSettlementReceiptsJson, localTransactions)]));
         setGoals(stripLegacyMockItems(parseWorkspaceArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS, 'goalsJson')));
+        setReceivables(parseWorkspaceArray<Receivable>(data.receivablesJson, [], 'receivablesJson'));
         setFamilyMembers(familyMembers);
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
         setTrips(stripLegacyMockItems(parseWorkspaceArray<Trip>(data.tripsJson, INITIAL_TRIPS, 'tripsJson')));
@@ -1470,6 +1483,7 @@ export default function App() {
             categories,
             transactions,
             goals,
+            receivables,
             familyMembers,
             investments,
             investmentTargets,
@@ -1505,6 +1519,7 @@ export default function App() {
     categories,
     transactions,
     goals,
+    receivables,
     familyMembers,
     investments,
     investmentTargets,
@@ -1560,6 +1575,61 @@ export default function App() {
       displayName: cleanName,
     });
     showNotice(`Conta criada para ${cleanEmail}.`, undefined, true);
+  };
+
+  // Valores a receber: fatura de cartão adicional cobrada por inteiro e empréstimos com pagamentos parciais
+  const newReceivableId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const receivablesSummary = useMemo(() => summarizeReceivables(receivables), [receivables]);
+  const handleCreateReceivable = (input: import('./components/ReceivablesTab').ReceivableCreateInput): string | null => {
+    const result = createReceivable({
+      ...input,
+      id: newReceivableId('rcv'),
+      cardName: cards.find((card) => card.id === input.cardId)?.name,
+    });
+    if (result.error !== undefined) return result.error;
+    setReceivables((previous) => [result.receivable, ...previous]);
+    if (result.transactions.length > 0) setTransactions((previous) => [...result.transactions, ...previous]);
+    showNotice(
+      result.receivable.kind === 'card_invoice'
+        ? `Fatura de ${result.receivable.personName} registrada: entra na fatura do cartão e fica a receber.`
+        : `Empréstimo para ${result.receivable.personName} registrado como a receber.`
+    );
+    return null;
+  };
+  const handleRegisterReceivablePayment = (
+    receivableId: string,
+    input: { date: string; amount: number; accountId: string; note?: string }
+  ): string | null => {
+    const target = receivables.find((item) => item.id === receivableId);
+    if (!target) return 'Valor a receber não encontrado.';
+    const result = registerReceivablePayment(target, { ...input, id: newReceivableId('pay') });
+    if (result.error !== undefined) return result.error;
+    setReceivables((previous) => previous.map((item) => (item.id === receivableId ? result.receivable : item)));
+    setTransactions((previous) => [result.transaction, ...previous]);
+    showNotice(
+      getReceivableBalance(result.receivable) > 0
+        ? `Recebimento registrado. Ainda faltam ${formatBRL(getReceivableBalance(result.receivable))} de ${target.personName}.`
+        : `${target.personName} quitou este valor.`
+    );
+    return null;
+  };
+  const handleRemoveReceivablePayment = (receivableId: string, paymentId: string) => {
+    const target = receivables.find((item) => item.id === receivableId);
+    if (!target) return;
+    const result = removeReceivablePayment(target, transactions, paymentId);
+    setReceivables((previous) => previous.map((item) => (item.id === receivableId ? result.receivable : item)));
+    setTransactions(result.transactions);
+  };
+  const handleDeleteReceivable = (receivableId: string): string | null => {
+    const target = receivables.find((item) => item.id === receivableId);
+    const linked = target?.linkedTransactionId ? transactions.find((tx) => tx.id === target.linkedTransactionId) : undefined;
+    if (target?.kind === 'card_invoice' && linked?.status === 'paid') {
+      return 'Essa fatura do cartão já foi paga. Estorne o pagamento da fatura (em Cartões) antes de apagar.';
+    }
+    const result = deleteReceivable(receivables, transactions, receivableId);
+    setReceivables(result.receivables);
+    setTransactions(result.transactions);
+    return null;
   };
 
   const handleSignOut = async () => {
@@ -2912,6 +2982,7 @@ export default function App() {
       transactions: getPortableBackupTransactions(transactions),
       sharedSettlementReceiptsJson: JSON.stringify(collectSharedSettlementReceipts(transactions)),
       goals,
+      receivables,
       familyMembers: getPortableBackupFamilyMembers(familyMembers),
       investments,
       investmentTargets,
@@ -2957,6 +3028,7 @@ export default function App() {
       setCards(repaired.cards);
       setCategories(parsed.categories as Category[]);
       setGoals(repaired.goals);
+      setReceivables(optionalState.receivables);
       const restoredFamilyMembers = stripLegacyMockItems(
         mergeRestoredFamilyMembersWithCurrentIncoming(
           familyMembers,
@@ -2997,6 +3069,7 @@ export default function App() {
     setCategories(INITIAL_CATEGORIES);
     setTransactions(INITIAL_TRANSACTIONS);
     setGoals(INITIAL_SAVINGS_GOALS);
+    setReceivables([]);
     setFamilyMembers(INITIAL_FAMILY_MEMBERS);
     setInvestments(INITIAL_INVESTMENTS);
     setInvestmentTargets(DEFAULT_INVESTMENT_TARGETS);
@@ -3042,6 +3115,8 @@ export default function App() {
         return { title: 'Cartões de Crédito', subtitle: 'Faturas abertas, limites e parcelamentos' };
       case 'shared':
         return { title: 'Despesas Compartilhadas', subtitle: 'Acerto de contas e rateio familiar' };
+      case 'receivables':
+        return { title: 'A Receber', subtitle: 'Faturas de cartão adicional e dívidas de outras pessoas' };
       case 'trips':
         return {
           title: 'Viagens & Câmbio (TravelSpend)',
@@ -3600,6 +3675,7 @@ export default function App() {
         pendingTransactionsCount={pendingTransactionsCount}
         budgetAlertsCount={budgetAlertsCount}
         pendingSharedCount={pendingSharedCount}
+        receivablesOpenCount={receivablesSummary.openCount}
         activeTripsCount={activeTripsCount}
         accountsTotalBalance={accountsTotalBalance}
         investmentsTotalValue={investmentsTotalValue}
@@ -4058,6 +4134,8 @@ export default function App() {
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
                   cashForecast={cashForecast}
+                  receivablesSummary={receivablesSummary}
+                  onOpenReceivables={() => handleSelectTab('receivables')}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={
@@ -4192,6 +4270,19 @@ export default function App() {
                     setSettingsInitialTab('rules');
                     setIsSettingsOpen(true);
                   }}
+                />
+              )}
+
+              {activeTab === 'receivables' && (
+                <ReceivablesTab
+                  receivables={receivables}
+                  cards={cards}
+                  accounts={accounts}
+                  familyMembers={familyMembers}
+                  onCreate={handleCreateReceivable}
+                  onRegisterPayment={handleRegisterReceivablePayment}
+                  onRemovePayment={handleRemoveReceivablePayment}
+                  onDelete={handleDeleteReceivable}
                 />
               )}
 

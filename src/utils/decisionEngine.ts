@@ -86,6 +86,7 @@ function recentSimilar(
         (tx) =>
           !tx.isInvoicePayment &&
           !tx.isCompanionOnlyExpense &&
+          !tx.receivableId &&
           !tx.tripId &&
           !tx.id.startsWith('tx-mirror-') &&
           sameEstablishment(key, normalizeDescription(tx.description))

@@ -167,12 +167,40 @@ export interface Transaction {
   myPersonalShareBrl?: number;
   myPersonalShareForeign?: number;
   isCompanionOnlyExpense?: boolean; // True when paid by another trip participant (does not debit user's own bank account)
+  /** Movimento ligado a um valor a receber (fatura de cartão adicional ou empréstimo): mexe no caixa/fatura, mas não é gasto nem receita sua. */
+  receivableId?: string;
   // Bank reconciliation / OFX import metadata
   fitid?: string; // Financial Institution Transaction ID from OFX
   importBatchId?: string; // Batch identifier from bank statement import
   reconciled?: boolean; // Indicates transaction has been reconciled against a bank statement
   /** Transitório da importação de extrato: quita esta conta pendente em vez de criar um lançamento novo. */
   settlesPendingTransactionId?: string;
+}
+
+/** Pagamento recebido de um valor a receber (pode ser parcial, em qualquer data). */
+export interface ReceivablePayment {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number;
+  accountId: string;
+  note?: string;
+}
+
+/** Valor a receber de alguém: fatura de cartão adicional cobrada por inteiro ou empréstimo sem prazo. */
+export interface Receivable {
+  id: string;
+  kind: 'card_invoice' | 'loan';
+  personName: string;
+  description: string;
+  amount: number;
+  createdDate: string; // YYYY-MM-DD
+  dueDate?: string;
+  cardId?: string;
+  invoiceMonth?: string; // YYYY-MM
+  /** Lançamento que representa a saída do dinheiro (linha na fatura do cartão ou saque da conta). */
+  linkedTransactionId?: string;
+  payments: ReceivablePayment[];
+  note?: string;
 }
 
 export interface SavingsGoal {

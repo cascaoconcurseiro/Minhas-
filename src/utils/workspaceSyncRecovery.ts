@@ -18,7 +18,7 @@ export function updateWorkspaceConflictLocalPayload(
 }
 
 const CONTENT_KEYS = [
-  'accountsJson', 'cardsJson', 'categoriesJson', 'transactionsJson', 'sharedSettlementReceiptsJson', 'goalsJson',
+  'accountsJson', 'cardsJson', 'categoriesJson', 'transactionsJson', 'sharedSettlementReceiptsJson', 'goalsJson', 'receivablesJson',
   'familyMembersJson', 'investmentsJson', 'investmentTargetsJson', 'tripsJson', 'settingsJson',
 ] as const;
 

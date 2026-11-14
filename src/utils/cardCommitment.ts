@@ -1,5 +1,5 @@
 import type { Transaction } from '../types/finance';
-import { addMonthsToYearMonth, formatMonthYearPT, getConsumptionMonth } from './financeRules';
+import { addMonthsToYearMonth, formatMonthYearPT, getConsumptionMonth, isOutsidePersonalResult } from './financeRules';
 
 /**
  * Quanto da renda de cada mês está comprometido com o cartão de crédito.
@@ -51,13 +51,13 @@ function isCardPurchase(tx: Transaction): boolean {
     Boolean(tx.creditCardId) &&
     tx.type === 'expense' &&
     !tx.isInvoicePayment &&
-    !tx.isCompanionOnlyExpense &&
+    !isOutsidePersonalResult(tx) &&
     tx.sharedPaidBy !== 'member'
   );
 }
 
 function isIncomeEntry(tx: Transaction): boolean {
-  return tx.type === 'income' && !tx.isInvoicePayment && !tx.isCompanionOnlyExpense && tx.sharedPaidBy !== 'member';
+  return tx.type === 'income' && !tx.isInvoicePayment && !isOutsidePersonalResult(tx) && tx.sharedPaidBy !== 'member';
 }
 
 export function normalizeCommitmentLimit(value: unknown): number | null {

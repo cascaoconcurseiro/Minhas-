@@ -63,7 +63,7 @@ export type EstablishmentIndex = Map<string, Transaction[]>;
 export function buildEstablishmentIndex(transactions: Transaction[]): EstablishmentIndex {
   const index: EstablishmentIndex = new Map();
   for (const tx of transactions) {
-    if (tx.isInvoicePayment || tx.isCompanionOnlyExpense || tx.tripId || tx.id.startsWith('tx-mirror-')) continue;
+    if (tx.isInvoicePayment || tx.isCompanionOnlyExpense || tx.receivableId || tx.tripId || tx.id.startsWith('tx-mirror-')) continue;
     const key = normalizeDescription(tx.description);
     const list = index.get(key);
     if (list) list.push(tx);
@@ -101,6 +101,7 @@ export function learnSharingFromHistory(
         (tx) =>
           !tx.isInvoicePayment &&
           !tx.isCompanionOnlyExpense &&
+          !tx.receivableId &&
           !tx.tripId &&
           !tx.id.startsWith('tx-mirror-') &&
           sameEstablishment(key, normalizeDescription(tx.description))
