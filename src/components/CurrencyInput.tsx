@@ -21,7 +21,7 @@ export interface CurrencyInputProps
 
 /** Controlled currency field. The symbol is rendered separately from its editable value. */
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  function CurrencyInput({ value, currency, onValueChange, showCurrencySymbol = false, digitEntryAsMinorUnits = true, onFocus, onBlur, ...inputProps }, forwardedRef) {
+  function CurrencyInput({ value, currency, onValueChange, showCurrencySymbol = false, digitEntryAsMinorUnits = false, onFocus, onBlur, ...inputProps }, forwardedRef) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const pendingSelection = useRef<{ start: number; end: number } | null>(null);
     const decimalEntryRef = useRef(false);
@@ -63,43 +63,93 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
             const input = event.currentTarget;
             const inputEvent = event.nativeEvent as InputEvent;
             const inputType = inputEvent.inputType || '';
+            let text = input.value;
+            let start = input.selectionStart ?? text.length;
+            let end = input.selectionEnd ?? start;
+
+            // Apagar um ponto de milhar não pode mudar o valor: apaga o dígito vizinho e mantém o ponto
+            if (
+              (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') &&
+              displayValue.length === text.length + 1 &&
+              start === end
+            ) {
+              const removed = displayValue[start];
+              if (removed === '.') {
+                if (inputType === 'deleteContentBackward' && start > 0) {
+                  text = displayValue.slice(0, start - 1) + displayValue.slice(start);
+                  start = end = start - 1;
+                } else if (inputType === 'deleteContentForward' && start + 1 < displayValue.length) {
+                  text = displayValue.slice(0, start + 1) + displayValue.slice(start + 2);
+                  start = end = start + 1;
+                }
+              }
+            }
+
+            // Digitação e edição comuns: o ponto na tela é só separador de milhar (volta a ser colocado ao formatar).
+            // Um "." digitado vira a vírgula decimal quando ainda não há vírgula.
+            if (inputType && !inputType.includes('Paste') && !inputType.includes('Drop')) {
+              if (inputType === 'insertText' && inputEvent.data === '.' && start > 0) {
+                text = displayValue.includes(',')
+                  ? text.slice(0, start - 1) + text.slice(start)
+                  : text.slice(0, start - 1) + ',' + text.slice(start);
+                if (displayValue.includes(',')) { start -= 1; end = start; }
+              }
+              if (text.includes('.')) {
+                const dotsBeforeStart = (text.slice(0, start).match(/\./g) ?? []).length;
+                const dotsBeforeEnd = (text.slice(0, end).match(/\./g) ?? []).length;
+                text = text.replace(/\./g, '');
+                start -= dotsBeforeStart;
+                end -= dotsBeforeEnd;
+              }
+            }
+
+            // Vírgula antes de qualquer dígito: começa em "0,"
+            if (inputType === 'insertText' && text.trim() === ',') {
+              text = '0,';
+              start = end = 2;
+            }
+
             if (inputType === 'insertText' && /^[.,]$/.test(inputEvent.data || '')) {
               decimalEntryRef.current = true;
-            } else if (inputType.includes('Paste') || (!inputType && /[.,]/.test(input.value))) {
-              decimalEntryRef.current = /[.,]/.test(input.value);
+            } else if (inputType.includes('Paste') || (!inputType && /[.,]/.test(text))) {
+              decimalEntryRef.current = /[.,]/.test(text);
             }
-            if (!input.value.trim()) decimalEntryRef.current = false;
+            if (!text.trim()) decimalEntryRef.current = false;
 
-            const hasUnexpectedCharacters = /[^\d.,\sR$€£¥()+-]/i.test(input.value);
+            const hasUnexpectedCharacters = /[^\d.,\sR$€£¥()+-]/i.test(text);
             if (hasUnexpectedCharacters) {
-              pendingSelection.current = {
-                start: input.selectionStart ?? input.value.length,
-                end: input.selectionEnd ?? input.value.length,
-              };
-              onValueChange(input.value);
+              pendingSelection.current = { start, end };
+              onValueChange(text);
               return;
             }
-            const rawForFormatting = digitEntryAsMinorUnits && !decimalEntryRef.current && !hasUnexpectedCharacters
-              ? `${input.value.trim().startsWith('-') ? '-' : ''}${input.value.replace(/\D/g, '')}`
-              : input.value;
+            const rawForFormatting = digitEntryAsMinorUnits && !decimalEntryRef.current
+              ? `${text.trim().startsWith('-') ? '-' : ''}${text.replace(/\D/g, '')}`
+              : text;
             const next = formatCurrencyInput(rawForFormatting, currency, {
               focused: true,
               previousValue: displayValue,
               digitEntryAsMinorUnits,
             });
-            const start = input.selectionStart ?? input.value.length;
-            const end = input.selectionEnd ?? start;
             const appendedDigit =
               inputType === 'insertText' &&
               /^\d$/.test(inputEvent.data || '') &&
-              start === input.value.length &&
+              start === text.length &&
               digitEntryAsMinorUnits &&
               !decimalEntryRef.current;
             pendingSelection.current = {
-              start: appendedDigit ? next.length : mapCurrencyInputCaret(input.value, next, start),
-              end: appendedDigit ? next.length : mapCurrencyInputCaret(input.value, next, end),
+              start: appendedDigit ? next.length : mapCurrencyInputCaret(text, next, start),
+              end: appendedDigit ? next.length : mapCurrencyInputCaret(text, next, end),
             };
-            onValueChange(next || (input.value.trim() ? input.value : ''));
+            // Sempre reaplica o cursor, mesmo quando o texto formatado é igual ao anterior
+            requestAnimationFrame(() => {
+              const el = inputRef.current;
+              const sel = pendingSelection.current;
+              if (el && sel && document.activeElement === el) {
+                el.setSelectionRange(sel.start, sel.end);
+                pendingSelection.current = null;
+              }
+            });
+            onValueChange(next || (text.trim() ? text : ''));
           }}
           onBlur={(event) => {
             setFocused(false);

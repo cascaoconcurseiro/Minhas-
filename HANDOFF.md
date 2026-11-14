@@ -1,5 +1,15 @@
 # Handoff — Minhas Economias
 
+## Desempenho, atualização silenciosa e campo de valor — 14/11/2026
+
+Relatos: abrir o sistema demora e a tela parece não reconhecer mouse/toque; às vezes pisca; o campo de valor "pula" ao errar e fica com o número errado.
+1. Visão Geral: "Contas a pagar e a receber" renderizava TODAS as contas (com 4.000 lançamentos de teste: 12.900 elementos na tela, clique até abrir o formulário 2,5 s com CPU 6× mais lenta). Agora mostra 20 e abre o resto com "Mostrar mais" (1.300 elementos; 0,65 s). Extrato (`TransactionsTab`): mostra 80 e "Mostrar mais" (37 mil → 9 mil elementos).
+2. Depois que o app abre, baixa em segundo plano (uma tela por vez, quando ocioso) o formulário, extrato, configurações, cartões etc., para o primeiro clique não esperar o download.
+3. Atualização em segundo plano dos dados (outro aparelho gravou) é silenciosa: `silentWorkspaceRefreshRef`/`requestSilentWorkspaceRefresh` pulam a tela de carregamento e a cópia local, e ficam sem piscar (medido: 0 spinner e 0 vazios no outro aparelho).
+4. Atualização do app (PWA) não aparece mais: sem barra "Nova versão"; só entra nos primeiros 8 s sem toque ou com o app em segundo plano/aba oculta. Botão manual em Conta, Login & Nuvem continua. Limite: quem deixa a aba sempre visível só recebe a versão nova ao trocar de aba/fechar.
+5. Campo de valor (`CurrencyInput`): deixou de ser "centavos" (digitar 6027 virava 60,27 e apagar dava 6,02); agora é o que se digita, com milhar automático e vírgula decimal ("60,27", "1.234,56"). Corrigidos: vírgula digitada jogava o cursor para antes dela (valor virava 6.027,); apagar um ponto de milhar mudava o valor; "." vira vírgula; "," sozinha vira "0,". Testes atualizados (`CurrencyInput`, Metas, Configurações).
+Não verificado: em aparelho real/lento; o tempo de abrir depende também da rede (primeira abertura sem cópia local espera a API/Neon).
+
 ## Divisão automática por categoria (Configurações) — 14/11/2026
 
 Pedido: configurar que despesas de certas categorias (ex.: carro, mercado) já venham divididas com uma pessoa. Novo em Configurações > Regras > "4. Divisão automática por categoria" (`SettingsModal`, `data-testid="category-sharing-settings"`): para cada categoria de despesa escolhe-se a pessoa, quem paga (eu / a pessoa) e a divisão (metade ou 10–90%). Guardado em `settings.categorySharingRules` (`CategorySharingRule` em `types/finance.ts`; vai junto no `settingsJson` do Neon). No `TransactionModal`, ao escolher a categoria de um lançamento NOVO de despesa/cartão, a regra preenche a divisão (mostra o aviso com "Desfazer"), antes do aprendizado pelo histórico (`sharingFromCategoryRule` em `learningRules.ts`); se a pessoa mexer na divisão à mão, a regra não sobrescreve; edição, receita, transferência e viagem não são afetadas; regra cuja pessoa foi removida é ignorada. Testes: caso do modal e conferido no navegador (configurar → novo lançamento já vem dividido → salvo com `isShared`, 50%). Limites: só lançamentos novos; a regra vale por categoria (não por descrição); a lista mostra todas as categorias de despesa.

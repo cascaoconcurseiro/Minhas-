@@ -65,6 +65,19 @@ interface TransactionsTabProps {
   onOpenReconciliation?: () => void;
 }
 
+/** Corta os grupos por dia depois de `limit` lançamentos no total (o último grupo pode ficar parcial). */
+function limitDailyGroups<T extends { transactions: unknown[] }>(groups: T[], limit: number): T[] {
+  const result: T[] = [];
+  let used = 0;
+  for (const group of groups) {
+    if (used >= limit) break;
+    const room = limit - used;
+    result.push(group.transactions.length > room ? { ...group, transactions: group.transactions.slice(0, room) } : group);
+    used += group.transactions.length;
+  }
+  return result;
+}
+
 export const TransactionsTab: React.FC<TransactionsTabProps> = ({
   selectedMonth,
   transactions,
@@ -89,6 +102,8 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     typeof window !== 'undefined' && window.innerWidth < 640 ? 'table' : 'calendar'
   );
   const [localSearchQuery, setLocalSearchQuery] = useState('');
+  // Mostra os primeiros lançamentos e abre o resto sob demanda: o mês inteiro de uma vez deixava a tela pesada
+  const [rowLimit, setRowLimit] = useState(80);
   const [typeFilter, setTypeFilter] = useState<'all' | 'expense' | 'income' | 'credit_card' | 'transfer'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -791,7 +806,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
               </div>
 
               <div className="divide-y divide-slate-200">
-                {dailyGroups.map((group) => (
+                {limitDailyGroups(dailyGroups, rowLimit).map((group) => (
                   <div key={group.date} data-testid={`daily-group-${group.date}`}>
                     {/* Daily Group Header with Subtotal */}
                     <div className="flex items-center justify-between gap-2 bg-slate-100/80 px-4 py-2 border-b border-slate-200/80">
@@ -872,6 +887,16 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                     </div>
                   </div>
                 ))}
+                {monthTransactions.length > rowLimit && (
+                  <button
+                    type="button"
+                    data-testid="ledger-show-more"
+                    onClick={() => setRowLimit((limit) => limit + 120)}
+                    className="w-full px-4 py-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                  >
+                    Mostrar mais ({monthTransactions.length - rowLimit})
+                  </button>
+                )}
               </div>
             </div>
 
@@ -907,7 +932,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {monthTransactions.map((tx) => {
+                  {monthTransactions.slice(0, rowLimit).map((tx) => {
                     const cat = catMap.get(tx.categoryId);
                     const catName =
                       tx.type === 'transfer'
@@ -1163,6 +1188,20 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                       </tr>
                     );
                   })}
+                  {monthTransactions.length > rowLimit && (
+                    <tr>
+                      <td colSpan={7} className="p-0">
+                        <button
+                          type="button"
+                          data-testid="ledger-show-more-table"
+                          onClick={() => setRowLimit((limit) => limit + 120)}
+                          className="w-full px-4 py-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                        >
+                          Mostrar mais ({monthTransactions.length - rowLimit})
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

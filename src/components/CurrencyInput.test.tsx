@@ -53,15 +53,15 @@ afterEach(() => {
   latestValue = '';
 });
 
-test('shows the symbol outside the input and treats digit entry as minor units', () => {
+test('shows the symbol outside the input and digits are typed as written (not as cents)', () => {
   const input = renderInput('', true);
   assert.equal(input.getAttribute('aria-label'), 'Valor');
   assert.equal(input.className, 'money-field');
   assert.equal(input.previousElementSibling?.textContent, 'R$');
   act(() => input.focus());
   typeDigits(input, '1255');
-  assert.equal(input.value, '12,55');
-  assert.equal(latestValue, '12,55');
+  assert.equal(input.value, '1.255');
+  assert.equal(latestValue, '1.255');
 });
 
 test('accepts pasted explicit currency formats and preserves the caret mapping', () => {
@@ -84,8 +84,8 @@ test('pads decimals on blur after digit entry', () => {
   const input = renderInput('');
   act(() => input.focus());
   changeValue(input, '1255', 4);
-  assert.equal(input.value, '12,55');
+  assert.equal(input.value, '1.255');
   act(() => input.blur());
-  assert.equal(input.value, '12,55');
-  assert.equal(latestValue, '12,55');
+  assert.equal(input.value, '1.255,00');
+  assert.equal(latestValue, '1.255,00');
 });

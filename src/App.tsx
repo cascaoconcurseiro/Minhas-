@@ -344,6 +344,12 @@ export default function App() {
   >('syncing');
   const [workspaceLoadState, setWorkspaceLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [workspaceLoadAttempt, setWorkspaceLoadAttempt] = useState(0);
+  // Atualização em segundo plano (outro aparelho gravou): troca os dados sem tela de carregamento nem piscar
+  const silentWorkspaceRefreshRef = useRef(false);
+  const requestSilentWorkspaceRefresh = () => {
+    silentWorkspaceRefreshRef.current = true;
+    setWorkspaceLoadAttempt((attempt) => attempt + 1);
+  };
   // Última versão salva neste aparelho, exibida na hora enquanto o Neon responde (somente leitura).
   const [isShowingCachedWorkspace, setIsShowingCachedWorkspace] = useState(false);
   const [workspaceConflict, setWorkspaceConflict] = useState<WorkspaceConflictState | null>(null);
@@ -735,8 +741,7 @@ export default function App() {
             }
             // O que chegou primeiro ao Neon prevalece: adota a versão da nuvem sem perguntar.
             neonWorkspaceRevisionRef.current = existing.revision;
-            try { localStorage.removeItem(scopedStorageKey); } catch { /* sem armazenamento local */ }
-            setWorkspaceLoadAttempt((attempt) => attempt + 1);
+            requestSilentWorkspaceRefresh();
             throw new NeonWorkspaceError(
               'O workspace Neon foi criado em outra aba durante a inicialização.',
               409
@@ -778,7 +783,7 @@ export default function App() {
               // Sem armazenamento local: segue só com a versão da nuvem.
             }
             neonWorkspaceRevisionRef.current = remoteSnapshot.revision;
-            setWorkspaceLoadAttempt((attempt) => attempt + 1);
+            requestSilentWorkspaceRefresh();
             return;
           } catch (refreshError) {
             if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
@@ -1001,14 +1006,18 @@ export default function App() {
     const loadUid = currentUser?.uid;
     if (!loadUid) return;
 
-    hasLoadedRemoteOnceRef.current = false;
-    loadedWorkspaceUidRef.current = null;
-    isApplyingRemoteSnapshotRef.current = true;
-    setWorkspaceLoadState('loading');
+    const silent = silentWorkspaceRefreshRef.current && hasLoadedRemoteOnceRef.current;
+    silentWorkspaceRefreshRef.current = false;
+    if (!silent) {
+      hasLoadedRemoteOnceRef.current = false;
+      loadedWorkspaceUidRef.current = null;
+      isApplyingRemoteSnapshotRef.current = true;
+      setWorkspaceLoadState('loading');
+    }
 
     // Abre na hora com a última versão salva neste aparelho; o Neon a substitui em silêncio.
     try {
-      const cached = parseCachedWorkspace(localStorage.getItem(scopedStorageKey));
+      const cached = silent ? null : parseCachedWorkspace(localStorage.getItem(scopedStorageKey));
       if (cached) {
         setAccounts(cached.accounts);
         setCards(cached.cards);
@@ -1028,7 +1037,7 @@ export default function App() {
       // Cópia local inválida ou indisponível: segue só com o Neon.
     }
 
-    setCloudSyncStatus('syncing');
+    if (!silent) setCloudSyncStatus('syncing');
 
     let active = true;
     // Convites e compartilhados não dependem do workspace: busca tudo ao mesmo tempo.
@@ -1073,6 +1082,7 @@ export default function App() {
         const data = cleaned.payload;
         const [familyInvitations, sharedSnapshot] = await extraLoads;
         if (!active || authenticatedUidRef.current !== loadUid) return;
+        if (silent) isApplyingRemoteSnapshotRef.current = true;
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
         rememberRemoteSignature(snapshot.payload);
@@ -1194,6 +1204,7 @@ export default function App() {
       .catch((error) => {
         if (!active || authenticatedUidRef.current !== loadUid) return;
         isApplyingRemoteSnapshotRef.current = false;
+        if (silent) return; // falha na atualização em segundo plano: continua com o que está na tela
         setWorkspaceLoadState('error');
         setCloudSyncStatus('error');
         console.error(
@@ -1234,6 +1245,42 @@ export default function App() {
     return () => window.removeEventListener('online', retryAfterReconnect);
   }, [isAuthReady, isUserAuthenticated]);
 
+  // Depois que o app abriu, baixa em segundo plano as telas e janelas mais usadas (uma por vez, quando o
+  // navegador está ocioso), para que o primeiro clique não espere o download nem trave a tela.
+  useEffect(() => {
+    if (workspaceLoadState !== 'ready') return;
+    const loaders: Array<() => Promise<unknown>> = [
+      () => import('./components/TransactionModal'),
+      () => import('./components/TransactionsTab'),
+      () => import('./components/ReminderCenterModal'),
+      () => import('./components/SettingsModal'),
+      () => import('./components/CreditCardsTab'),
+      () => import('./components/AccountsTab'),
+      () => import('./components/BudgetsTab'),
+      () => import('./components/SharedExpensesTab'),
+      () => import('./components/TripsTab'),
+      () => import('./components/GoalsAndSimulatorTab'),
+      () => import('./components/InvestmentsTab'),
+    ];
+    let cancelled = false;
+    let index = 0;
+    const idle = (callback: () => void) => {
+      const w = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+      if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(callback, { timeout: 4000 });
+      else window.setTimeout(callback, 800);
+    };
+    const next = () => {
+      if (cancelled || index >= loaders.length) return;
+      const load = loaders[index++];
+      void load().catch(() => undefined).finally(() => idle(next));
+    };
+    const start = window.setTimeout(() => idle(next), 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+    };
+  }, [workspaceLoadState]);
+
   // Tempo real: a cada poucos segundos (e ao voltar ao app) confere a revisão no Neon e, se outro aparelho
   // gravou, recarrega os dados no lugar, sem recarregar a página. Também reenvia o que ficou sem salvar.
   const cloudSyncStatusRef = useRef(cloudSyncStatus);
@@ -1259,7 +1306,7 @@ export default function App() {
         const known = neonWorkspaceRevisionRef.current;
         if (remoteRevision === null || known === null || remoteRevision <= known) return;
         if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
-        setWorkspaceLoadAttempt((attempt) => attempt + 1);
+        requestSilentWorkspaceRefresh();
       } catch {
         // Sem rede ou sessão expirada: tenta de novo no próximo ciclo.
       } finally {

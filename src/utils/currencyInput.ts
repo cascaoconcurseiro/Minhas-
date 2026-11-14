@@ -262,6 +262,8 @@ export function mapCurrencyInputCaret(
   const hadSignBeforeCaret = prefix.includes('-');
 
   if (digitsBeforeCaret === 0) {
+    // "," digitada sem nada antes vira "0,": o cursor vai para depois da vírgula
+    if (/[.,]$/.test(prefix) && nextValue.includes(',')) return nextValue.indexOf(',') + 1;
     if (hadSignBeforeCaret) {
       const firstDigit = nextValue.search(/\d/);
       return firstDigit < 0 ? nextValue.length : firstDigit;
@@ -273,7 +275,12 @@ export function mapCurrencyInputCaret(
   for (let index = 0; index < nextValue.length; index += 1) {
     if (/\d/.test(nextValue[index])) {
       seenDigits += 1;
-      if (seenDigits === digitsBeforeCaret) return index + 1;
+      if (seenDigits === digitsBeforeCaret) {
+        let position = index + 1;
+        // Acabou de digitar a vírgula (ou o ponto): o cursor fica depois dela, não antes
+        if (/[.,]$/.test(prefix) && /[.,]/.test(nextValue[position] ?? '')) position += 1;
+        return position;
+      }
     }
   }
   return nextValue.length;

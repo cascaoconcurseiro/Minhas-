@@ -121,6 +121,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [isAlertsExpanded, setIsAlertsExpanded] = useState<boolean>(alertsExpandedByDefault);
   const [isHealthDetailsOpen, setIsHealthDetailsOpen] = useState<boolean>(false);
   const [billsFilterMode, setBillsFilterMode] = useState<'pending' | 'paid'>('pending');
+  // Mostra as primeiras contas e abre o resto sob demanda: listas enormes deixavam a tela inicial pesada
+  const [billsLimit, setBillsLimit] = useState(20);
 
   const greetingPrefix = (() => {
     const hour = new Date().getHours();
@@ -836,7 +838,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-[11px] font-semibold">
                   <button
                     type="button"
-                    onClick={() => setBillsFilterMode('pending')}
+                    onClick={() => { setBillsFilterMode('pending'); setBillsLimit(20); }}
                     className={`rounded-md px-2.5 py-1 transition-all ${
                       billsFilterMode === 'pending'
                         ? 'bg-white text-slate-900 shadow-2xs font-bold'
@@ -847,7 +849,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBillsFilterMode('paid')}
+                    onClick={() => { setBillsFilterMode('paid'); setBillsLimit(20); }}
                     className={`rounded-md px-2.5 py-1 transition-all ${
                       billsFilterMode === 'paid'
                         ? 'bg-white text-slate-900 shadow-2xs font-bold'
@@ -926,7 +928,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       </div>
                     </div>
                   ))}
-                  {pendingBills.map((tx) => {
+                  {pendingBills.slice(0, billsLimit).map((tx) => {
                     const cat = catMap.get(tx.categoryId);
                     const catName = cat?.name || 'Geral';
                     const accName = accMap.get(tx.accountId || '') || 'Conta';
@@ -985,6 +987,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       </div>
                     );
                   })}
+                  {pendingBills.length > billsLimit && (
+                    <button
+                      type="button"
+                      data-testid="bills-show-more"
+                      onClick={() => setBillsLimit((limit) => limit + 40)}
+                      className="w-full px-4 py-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                    >
+                      Mostrar mais ({pendingBills.length - billsLimit})
+                    </button>
+                  )}
                 </div>
               )
             ) : paidBankBills.length === 0 ? (
@@ -995,7 +1007,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
             ) : (
               <div className="divide-y divide-slate-100 max-h-[380px] overflow-y-auto custom-scrollbar">
-                {paidBankBills.map((tx) => {
+                {paidBankBills.slice(0, billsLimit).map((tx) => {
                   const cat = catMap.get(tx.categoryId);
                   const catName = cat?.name || 'Geral';
                   const accName = accMap.get(tx.accountId || '') || 'Conta';
@@ -1054,6 +1066,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </div>
                   );
                 })}
+                {paidBankBills.length > billsLimit && (
+                  <button
+                    type="button"
+                    data-testid="bills-show-more"
+                    onClick={() => setBillsLimit((limit) => limit + 40)}
+                    className="w-full px-4 py-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                  >
+                    Mostrar mais ({paidBankBills.length - billsLimit})
+                  </button>
+                )}
               </div>
             )}
           </div>
