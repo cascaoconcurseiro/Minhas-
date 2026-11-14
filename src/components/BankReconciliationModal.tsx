@@ -61,6 +61,8 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
   );
   const [parsedItems, setParsedItems] = useState<ReturnType<typeof parseBankStatement>['items']>([]);
   const [candidates, setCandidates] = useState<ReconciliationCandidate[]>([]);
+  // A lista mostra os primeiros itens e abre o resto sob demanda (extratos grandes travavam a tela); a seleção vale para todos
+  const [rowLimit, setRowLimit] = useState(100);
   const [exchangeRateInput, setExchangeRateInput] = useState('');
   const [statementMeta, setStatementMeta] = useState<{
     fileFormat?: 'ofx' | 'csv' | 'unknown';
@@ -700,7 +702,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
 
               {/* Candidate rows list */}
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 max-h-80 overflow-y-auto">
-                {filteredCandidates.map((c) => (
+                {filteredCandidates.slice(0, rowLimit).map((c) => (
                   <div
                     key={c.id}
                     className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 text-xs transition-colors ${
@@ -799,6 +801,16 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                                 {c.settledCardId && getOpenInvoiceMonths(c.settledCardId).map((month) => (
                                   <option key={month} value={month}>{formatMonthYearPT(month)}</option>
                                 ))}
+                {filteredCandidates.length > rowLimit && (
+                  <button
+                    type="button"
+                    data-testid="reconciliation-show-more"
+                    onClick={() => setRowLimit((limit) => limit + 200)}
+                    className="w-full px-4 py-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                  >
+                    Mostrar mais ({filteredCandidates.length - rowLimit})
+                  </button>
+                )}
                               </select>
                             </>
                           )}

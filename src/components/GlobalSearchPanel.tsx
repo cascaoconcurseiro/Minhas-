@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -82,41 +82,46 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
     [familyMembers]
   );
 
+  // A busca pesada acompanha a digitação logo depois, sem segurar as teclas
+  const searchQuery = useDeferredValue(query);
+  const [resultLimit, setResultLimit] = useState(50);
+  useEffect(() => { setResultLimit(50); }, [searchQuery, scope, fieldFilter, typeFilter]);
+
   // Base counts for scope switcher
   const allMonthsBaseMatches = useMemo(
     () =>
       searchTransactionsGlobal(transactions, categories, {
-        query,
+        query: searchQuery,
         scope: 'all_months',
         fieldFilter: 'all',
         typeFilter: 'all',
       }),
-    [transactions, categories, query]
+    [transactions, categories, searchQuery]
   );
 
   const selectedMonthBaseMatches = useMemo(
     () =>
       searchTransactionsGlobal(transactions, categories, {
-        query,
+        query: searchQuery,
         scope: 'selected_month',
         selectedMonth,
         fieldFilter: 'all',
         typeFilter: 'all',
       }),
-    [transactions, categories, query, selectedMonth]
+    [transactions, categories, searchQuery, selectedMonth]
   );
 
   // Base counts for field filter within active scope & type
   const activeScopeBaseMatches = useMemo(
     () =>
       searchTransactionsGlobal(transactions, categories, {
-        query,
+        query: searchQuery,
         scope,
         selectedMonth,
         typeFilter,
         fieldFilter: 'all',
       }),
-    [transactions, categories, query, scope, selectedMonth, typeFilter]
+    [transactions, categories, searchQuery, scope, selectedMonth, typeFilter]
   );
 
   const fieldCounts = useMemo(
@@ -128,13 +133,13 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
   const filteredMatches = useMemo(
     () =>
       searchTransactionsGlobal(transactions, categories, {
-        query,
+        query: searchQuery,
         scope,
         selectedMonth,
         typeFilter,
         fieldFilter,
       }),
-    [transactions, categories, query, scope, selectedMonth, typeFilter, fieldFilter]
+    [transactions, categories, searchQuery, scope, selectedMonth, typeFilter, fieldFilter]
   );
 
   const summary = useMemo(
@@ -414,7 +419,7 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {filteredMatches.map((item) => {
+                {filteredMatches.slice(0, resultLimit).map((item) => {
                   const tx = item.transaction;
                   const cat = catMap.get(tx.categoryId);
                   const originName = tx.creditCardId
@@ -600,6 +605,20 @@ export const GlobalSearchPanel: React.FC<GlobalSearchPanelProps> = ({
                     </tr>
                   );
                 })}
+                {filteredMatches.length > resultLimit && (
+                  <tr>
+                    <td colSpan={7} className="p-0">
+                      <button
+                        type="button"
+                        data-testid="search-show-more"
+                        onClick={() => setResultLimit((limit) => limit + 100)}
+                        className="w-full px-4 py-3 text-xs font-bold text-blue-700 hover:bg-slate-50"
+                      >
+                        Mostrar mais ({filteredMatches.length - resultLimit})
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

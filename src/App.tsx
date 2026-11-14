@@ -1251,6 +1251,7 @@ export default function App() {
     if (workspaceLoadState !== 'ready') return;
     const loaders: Array<() => Promise<unknown>> = [
       () => import('./components/TransactionModal'),
+      () => import('./components/GlobalSearchPanel'),
       () => import('./components/TransactionsTab'),
       () => import('./components/ReminderCenterModal'),
       () => import('./components/SettingsModal'),
