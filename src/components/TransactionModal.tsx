@@ -21,6 +21,7 @@ import {
 import {
   BankAccount,
   Category,
+  CategorySharingRule,
   CreditCard,
   CurrencyCode,
   CurrencyPaymentRegime,
@@ -75,6 +76,7 @@ import {
   describeLearnedSharing,
   getDescriptionLearningKey,
   learnSharingFromHistory,
+  sharingFromCategoryRule,
   type LearnedSharing,
 } from '../utils/learningRules';
 import {
@@ -136,6 +138,8 @@ interface TransactionModalProps {
   onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
   /** Percentual do teto da categoria em que o aviso de orçamento começa (Configurações). */
   budgetWarningPercent?: number;
+  /** Divisão automática por categoria (Configurações). */
+  categorySharingRules?: Record<string, CategorySharingRule>;
 }
 
 const CURRENCY_OPTIONS: CurrencyCode[] = [
@@ -178,6 +182,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   initialTripId,
   onRequestCreate,
   budgetWarningPercent = 80,
+  categorySharingRules,
 }) => {
   const [entryMode, setEntryMode] = useState<
     'expense' | 'income' | 'credit_card' | 'transfer'
@@ -1272,11 +1277,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   ]);
 
   const learnedSharing = useMemo(() => {
-    if (editingTransaction || entryMode === 'transfer' || entryMode === 'income' || !description.trim()) {
+    if (editingTransaction || entryMode === 'transfer' || entryMode === 'income') {
       return null;
     }
+    // A regra de Configurações para a categoria vale antes do histórico
+    const fromRule = categoryId
+      ? sharingFromCategoryRule(
+          categorySharingRules?.[categoryId],
+          categories.find((item) => item.id === categoryId)?.name ?? 'escolhida',
+          familyMembers
+        )
+      : null;
+    if (fromRule) return fromRule;
+    if (!description.trim()) return null;
     return learnSharingFromHistory(description, transactions, familyMembers);
-  }, [description, transactions, familyMembers, entryMode, editingTransaction]);
+  }, [description, transactions, familyMembers, entryMode, editingTransaction, categoryId, categories, categorySharingRules]);
 
   // Aplica sozinho a divisão que a pessoa sempre usa para este gasto e só avisa (com "Desfazer").
   useEffect(() => {
@@ -1290,7 +1305,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
       return;
     }
-    const key = getDescriptionLearningKey(description);
+    const key = learnedSharing.fromCategoryRule ? `categoria:${categoryId}` : getDescriptionLearningKey(description);
     if (
       autoSharingKeyRef.current === key ||
       sharingTouchedRef.current ||
@@ -1315,6 +1330,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     learnedSharing,
     autoSharingApplied,
     description,
+    categoryId,
     isShared,
     isTripLinked,
     isMultiCurrencyOpen,

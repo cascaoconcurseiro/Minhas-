@@ -27,6 +27,7 @@ function renderTransactionModal(
     onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
     /** Não escolhe a forma de pagamento sozinho: a tela abre como abre para a pessoa. */
     keepPaymentUnchosen?: boolean;
+    categorySharingRules?: Record<string, { memberId: string; paidBy: 'me' | 'member'; splitMode: 'half' | 'percentage'; percentage?: number }>;
   } = {}
 ) {
   container = document.createElement('div');
@@ -68,6 +69,7 @@ function renderTransactionModal(
         selectedMonth: '2026-11',
         editingTransaction: options.editingTransaction ?? null,
         defaultMode: 'expense',
+        categorySharingRules: options.categorySharingRules,
       })
     );
   });
@@ -966,4 +968,26 @@ test('despesa nova abre sem forma de pagamento escolhida e exige escolher', asyn
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
   assert.equal(saved.length, 1);
   assert.equal(saved[0].paymentMethod, 'credit_card');
+});
+
+test('regra de divisão da categoria: ao escolher a categoria o lançamento já vem dividido, com desfazer', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const member = { id: 'm-regra', name: 'Fran', color: '#000', direction: 'outgoing', inviteStatus: 'accepted' } as unknown as FamilyMember;
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, {
+    familyMembers: [member],
+    categorySharingRules: { 'category-test': { memberId: 'm-regra', paidBy: 'me', splitMode: 'half' } },
+  });
+  assert.equal(page.querySelector('[data-testid="auto-sharing-notice"]'), null, 'sem categoria, nada aplicado');
+  await act(async () => { chooseCategory(page, 'category-test'); });
+  assert.match(page.querySelector('[data-testid="auto-sharing-notice"]')?.textContent ?? '', /Fran.*categoria Alimentação está configurada/);
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Mercado');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '100,00');
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].isShared, true);
+  assert.equal(saved[0].sharedMemberId, 'm-regra');
+  assert.equal(saved[0].sharedAmount, 50);
+  assert.equal(saved[0].sharedPaidBy, 'me');
 });

@@ -15,6 +15,8 @@ export interface LearnedSharing {
   sharedCount: number;
   /** Quantas ocorrências recentes foram consideradas. */
   totalCount: number;
+  /** Quando vem de uma regra de Configurações (por categoria), e não do histórico. */
+  fromCategoryRule?: { categoryName: string };
 }
 
 const MIN_OCCURRENCES = 2;
@@ -115,7 +117,36 @@ export function learnSharingFromHistory(
 
 /** Texto curto do aviso mostrado quando a divisão é aplicada automaticamente. */
 export function describeLearnedSharing(learned: LearnedSharing): string {
+  if (learned.fromCategoryRule) {
+    const ruleSplit = learned.splitMode === 'half' ? 'metade' : `${learned.percentage}%`;
+    const ruleWho = learned.paidBy === 'member' ? `${learned.memberName} pagou` : 'você pagou';
+    return `Dividido com ${learned.memberName} (${ruleSplit}, ${ruleWho}) porque a categoria ${learned.fromCategoryRule.categoryName} está configurada assim.`;
+  }
   const split = learned.splitMode === 'half' ? 'metade' : `${learned.percentage}%`;
   const payer = learned.paidBy === 'member' ? `${learned.memberName} pagou` : 'você pagou';
   return `Dividido com ${learned.memberName} (${split}, ${payer}) porque você costuma fazer assim (${learned.sharedCount} de ${learned.totalCount} vezes).`;
+}
+
+/** Divisão definida em Configurações para a categoria (ignora regra cuja pessoa foi removida). */
+export function sharingFromCategoryRule(
+  rule: { memberId: string; paidBy: 'me' | 'member'; splitMode: 'half' | 'percentage'; percentage?: number } | undefined,
+  categoryName: string,
+  familyMembers: FamilyMember[]
+): LearnedSharing | null {
+  if (!rule) return null;
+  const member = familyMembers.find((item) => item.id === rule.memberId);
+  if (!member) return null;
+  const percentage = rule.splitMode === 'percentage'
+    ? Math.min(99, Math.max(1, Math.round(rule.percentage ?? 50)))
+    : 50;
+  return {
+    memberId: member.id,
+    memberName: member.name,
+    paidBy: rule.paidBy === 'member' ? 'member' : 'me',
+    splitMode: percentage === 50 ? 'half' : 'percentage',
+    percentage,
+    sharedCount: 0,
+    totalCount: 0,
+    fromCategoryRule: { categoryName },
+  };
 }

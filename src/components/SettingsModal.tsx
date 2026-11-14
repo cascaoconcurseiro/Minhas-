@@ -22,7 +22,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
-import { AppSettings, BudgetBucket, Category, ReminderSettings } from '../types/finance';
+import { AppSettings, BudgetBucket, Category, CategorySharingRule, FamilyMember, ReminderSettings } from '../types/finance';
 import { formatBRL, parseBRLInput } from '../utils/financeRules';
 import { parseCurrencyInput } from '../utils/currencyInput';
 import { parseFullFinanceBackup } from '../utils/fullBackup';
@@ -40,6 +40,7 @@ interface SettingsModalProps {
   settings: AppSettings;
   initialTab?: 'appearance' | 'categories' | 'rules' | 'reminders' | 'profile';
   categories?: Category[];
+  familyMembers?: FamilyMember[];
   userEmail?: string | null;
   isUserLoggedIn?: boolean;
   onUpdateSettings: (partial: Partial<AppSettings>) => void;
@@ -59,6 +60,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   initialTab = 'appearance',
   categories = [],
+  familyMembers = [],
   userEmail,
   isUserLoggedIn = false,
   onUpdateSettings,
@@ -891,6 +893,97 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       ))}
                     </div>
                   </div>
+                </div>
+              </section>
+
+              <section className="space-y-3 pt-4 border-t border-slate-200" data-testid="category-sharing-settings">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                  4. Divisão automática por categoria
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                  <p className="text-[11px] text-slate-600">
+                    Escolha a pessoa, quem paga e a divisão para cada categoria. Ao lançar uma despesa nessa categoria, o
+                    formulário já vem dividido (você pode desfazer na hora). Vale só para lançamentos novos.
+                  </p>
+                  {familyMembers.length === 0 ? (
+                    <p className="text-[11px] font-semibold text-amber-700">
+                      Cadastre uma pessoa em Compartilhado para configurar a divisão automática.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {categories
+                        .filter((category) => category.type === 'expense')
+                        .map((category) => {
+                          const rule = settings.categorySharingRules?.[category.id];
+                          const update = (next: CategorySharingRule | null) => {
+                            const rules = { ...(settings.categorySharingRules ?? {}) };
+                            if (next) rules[category.id] = next;
+                            else delete rules[category.id];
+                            onUpdateSettings({ categorySharingRules: Object.keys(rules).length > 0 ? rules : undefined });
+                          };
+                          return (
+                            <li
+                              key={category.id}
+                              data-testid={`category-sharing-row-${category.id}`}
+                              className="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2"
+                            >
+                              <p className="text-xs font-bold text-slate-800">{category.name}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <select
+                                  aria-label={`Dividir ${category.name} com`}
+                                  data-testid={`category-sharing-member-${category.id}`}
+                                  value={rule?.memberId ?? ''}
+                                  onChange={(e) =>
+                                    e.target.value
+                                      ? update({
+                                          memberId: e.target.value,
+                                          paidBy: rule?.paidBy ?? 'me',
+                                          splitMode: rule?.splitMode ?? 'half',
+                                          percentage: rule?.percentage,
+                                        })
+                                      : update(null)
+                                  }
+                                  className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs"
+                                >
+                                  <option value="">Não dividir</option>
+                                  {familyMembers.map((member) => (
+                                    <option key={member.id} value={member.id}>{member.name}</option>
+                                  ))}
+                                </select>
+                                {rule && (
+                                  <>
+                                    <select
+                                      aria-label={`Quem paga ${category.name}`}
+                                      value={rule.paidBy}
+                                      onChange={(e) => update({ ...rule, paidBy: e.target.value === 'member' ? 'member' : 'me' })}
+                                      className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs"
+                                    >
+                                      <option value="me">Eu pago</option>
+                                      <option value="member">A pessoa paga</option>
+                                    </select>
+                                    <select
+                                      aria-label={`Divisão de ${category.name}`}
+                                      value={rule.splitMode === 'half' ? 'half' : String(rule.percentage ?? 50)}
+                                      onChange={(e) =>
+                                        e.target.value === 'half'
+                                          ? update({ ...rule, splitMode: 'half', percentage: undefined })
+                                          : update({ ...rule, splitMode: 'percentage', percentage: Number(e.target.value) })
+                                      }
+                                      className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs"
+                                    >
+                                      <option value="half">Metade (50%)</option>
+                                      {[10, 20, 25, 30, 40, 60, 70, 75, 80, 90].map((pct) => (
+                                        <option key={pct} value={pct}>{pct}% da pessoa</option>
+                                      ))}
+                                    </select>
+                                  </>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                    </ul>
+                  )}
                 </div>
               </section>
             </div>

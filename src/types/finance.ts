@@ -361,6 +361,14 @@ export interface ReminderSettings {
   smtpConfig?: SmtpConfigSettings;
 }
 
+export interface CategorySharingRule {
+  memberId: string;
+  paidBy: 'me' | 'member';
+  splitMode: 'half' | 'percentage';
+  /** Percentual do familiar quando `splitMode` é 'percentage' (1 a 99). */
+  percentage?: number;
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark';
   density: 'comfortable' | 'compact';
@@ -372,6 +380,8 @@ export interface AppSettings {
   cardCommitmentLimitPercent?: number;
   /** Avisar ao chegar em X% desse limite (padrão 80). */
   cardCommitmentWarnPercent?: number;
+  /** Divisão automática por categoria: ao escolher a categoria, o lançamento já vem dividido com a pessoa. */
+  categorySharingRules?: Record<string, CategorySharingRule>;
   userName: string;
   userPixKey: string;
   financialMonthStartDay?: number; // 1 to 28

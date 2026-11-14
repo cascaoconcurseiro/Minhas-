@@ -4249,6 +4249,7 @@ export default function App() {
         initialTripId={modalInitialTripId}
         onRequestCreate={handleRequestCreateFromTransaction}
         budgetWarningPercent={settings.budgetWarningPercent}
+        categorySharingRules={settings.categorySharingRules}
         />}
 
         {/* Settings & Preferences Modal */}
@@ -4258,6 +4259,7 @@ export default function App() {
         initialTab={settingsInitialTab}
         settings={settings}
         categories={categories}
+        familyMembers={familyMembers}
         userEmail={effectiveUserEmail}
         isUserLoggedIn={isUserAuthenticated}
         onUpdateSettings={handleUpdateSettings}
