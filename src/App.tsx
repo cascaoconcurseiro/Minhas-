@@ -3001,7 +3001,7 @@ export default function App() {
     setInvestments(INITIAL_INVESTMENTS);
     setInvestmentTargets(DEFAULT_INVESTMENT_TARGETS);
     setTrips(INITIAL_TRIPS);
-    setSelectedMonth(DEFAULT_MONTH);
+    setSelectedMonth(currentMonth);
     localStorage.removeItem(STORAGE_KEY);
     triggerDataLoadingTransition(240);
   };
@@ -3097,12 +3097,31 @@ export default function App() {
     [trips]
   );
 
-  const todayDateStr = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+  // "Hoje" acompanha o relógio: um app deixado aberto (ou retomado do segundo plano) depois da meia-noite
+  // passa para o dia novo e, se estava no mês atual, acompanha a virada do mês.
+  const [todayDateStr, setTodayDateStr] = useState(() => getLocalDateISO());
+  const currentMonth = todayDateStr.slice(0, 7);
+  useEffect(() => {
+    const syncToday = () => {
+      const now = getLocalDateISO();
+      setTodayDateStr((previous) => {
+        if (previous === now) return previous;
+        if (previous.slice(0, 7) !== now.slice(0, 7)) {
+          setSelectedMonth((viewing) => (viewing === previous.slice(0, 7) ? now.slice(0, 7) : viewing));
+        }
+        return now;
+      });
+    };
+    const timer = window.setInterval(syncToday, 30_000);
+    document.addEventListener('visibilitychange', syncToday);
+    window.addEventListener('focus', syncToday);
+    window.addEventListener('pageshow', syncToday);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', syncToday);
+      window.removeEventListener('focus', syncToday);
+      window.removeEventListener('pageshow', syncToday);
+    };
   }, []);
 
   // Posição de hoje (independe do mês navegado): fonte única do saldo total, dos investimentos e do patrimônio.
@@ -3648,11 +3667,11 @@ export default function App() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
 
-                {selectedMonth !== DEFAULT_MONTH && (
+                {selectedMonth !== currentMonth && (
                   <button
                     type="button"
-                    onClick={() => handleSelectMonth(DEFAULT_MONTH)}
-                    title={`Voltar para o mês atual (${formatMonthYearPT(DEFAULT_MONTH)})`}
+                    onClick={() => handleSelectMonth(currentMonth)}
+                    title={`Voltar para o mês atual (${formatMonthYearPT(currentMonth)})`}
                     className="ml-1 inline-flex items-center rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-2 py-1 text-[11px] font-semibold text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shrink-0"
                   >
                     Mês atual
@@ -3815,10 +3834,10 @@ export default function App() {
                 <span className="text-xs font-bold text-slate-900 dark:text-white font-display">
                   {formatMonthYearPT(selectedMonth)}
                 </span>
-                {selectedMonth !== DEFAULT_MONTH && (
+                {selectedMonth !== currentMonth && (
                   <button
                     type="button"
-                    onClick={() => handleSelectMonth(DEFAULT_MONTH)}
+                    onClick={() => handleSelectMonth(currentMonth)}
                     className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
                   >
                     Hoje
@@ -4357,7 +4376,13 @@ export default function App() {
       <Suspense
         fallback={
           // Resposta imediata ao clique enquanto o formulário carrega (nunca fica "parado")
-          <div role="status" aria-label="Abrindo formulário" className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40">
+          <div
+            role="status"
+            aria-label="Abrindo formulário"
+            // Tocar fora cancela a abertura (nunca fica preso esperando)
+            onClick={() => { setIsModalOpen(false); setIsSettingsOpen(false); setIsReminderModalOpen(false); setIsReconciliationModalOpen(false); }}
+            className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40"
+          >
             <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-white border-r-transparent" />
           </div>
         }
