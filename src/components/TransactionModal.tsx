@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Calendar,
@@ -140,6 +140,8 @@ interface TransactionModalProps {
   budgetWarningPercent?: number;
   /** Divisão automática por categoria (Configurações). */
   categorySharingRules?: Record<string, CategorySharingRule>;
+  /** Falso enquanto os dados ainda estão chegando da nuvem: o formulário abre, mas só salva quando estiver pronto. */
+  workspaceReady?: boolean;
 }
 
 const CURRENCY_OPTIONS: CurrencyCode[] = [
@@ -183,6 +185,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   onRequestCreate,
   budgetWarningPercent = 80,
   categorySharingRules,
+  workspaceReady = true,
 }) => {
   const [entryMode, setEntryMode] = useState<
     'expense' | 'income' | 'credit_card' | 'transfer'
@@ -1107,6 +1110,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     filteredCategories.find((c) => c.id === categoryId);
 
   const numericPreview = parseBRLInput(amountStr);
+  // Digitar não espera as buscas pesadas no histórico: elas acompanham logo depois, sem travar a tecla
+  const deferredDescription = useDeferredValue(description);
+  const deferredNumericPreview = useDeferredValue(numericPreview);
 
   const tripSplitValidationError = useMemo(() => {
     if (!selectedTrip || selectedTrip.participants.length <= 1) return null;
@@ -1216,25 +1222,25 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const smartSuggestions = useMemo(() => {
     if (editingTransaction || entryMode === 'transfer') return [];
     return getSmartTransactionSuggestions(
-      description,
+      deferredDescription,
       transactions,
       entryMode,
       5
     );
-  }, [description, transactions, entryMode, editingTransaction]);
+  }, [deferredDescription, transactions, entryMode, editingTransaction]);
 
   // Intelligent Category Suggestion based on Description and Past User Transactions
   const smartCategorySuggestion = useMemo(() => {
-    if (editingTransaction || entryMode === 'transfer' || !description.trim()) {
+    if (editingTransaction || entryMode === 'transfer' || !deferredDescription.trim()) {
       return null;
     }
     return predictCategoryFromDescription(
-      description,
+      deferredDescription,
       transactions,
       categories,
       entryMode
     );
-  }, [description, transactions, categories, entryMode, editingTransaction]);
+  }, [deferredDescription, transactions, categories, entryMode, editingTransaction]);
 
   const smartCategoryTarget = useMemo(() => {
     if (!smartCategorySuggestion) return null;
@@ -1289,9 +1295,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         )
       : null;
     if (fromRule) return fromRule;
-    if (!description.trim()) return null;
-    return learnSharingFromHistory(description, transactions, familyMembers);
-  }, [description, transactions, familyMembers, entryMode, editingTransaction, categoryId, categories, categorySharingRules]);
+    if (!deferredDescription.trim()) return null;
+    return learnSharingFromHistory(deferredDescription, transactions, familyMembers);
+  }, [deferredDescription, transactions, familyMembers, entryMode, editingTransaction, categoryId, categories, categorySharingRules]);
 
   // Aplica sozinho a divisão que a pessoa sempre usa para este gasto e só avisa (com "Desfazer").
   useEffect(() => {
@@ -1340,13 +1346,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const paymentHabit = useMemo(() => {
     if (
       editingTransaction ||
-      !description.trim() ||
+      !deferredDescription.trim() ||
       (entryMode !== 'expense' && entryMode !== 'credit_card')
     ) {
       return null;
     }
-    return learnPaymentHabit(description, transactions, entryMode);
-  }, [description, transactions, entryMode, editingTransaction]);
+    return learnPaymentHabit(deferredDescription, transactions, entryMode);
+  }, [deferredDescription, transactions, entryMode, editingTransaction]);
 
   useEffect(() => {
     if (!isOpen || editingTransaction || !paymentHabit || isTripLinked || isMultiCurrencyOpen) return;
@@ -1394,15 +1400,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const amountWarning = useMemo(() => {
     if (editingTransaction || entryMode === 'income' || entryMode === 'transfer') return null;
-    return assessAmount(description, numericPreview, transactions);
-  }, [description, numericPreview, transactions, entryMode, editingTransaction]);
+    return assessAmount(deferredDescription, deferredNumericPreview, transactions);
+  }, [deferredDescription, deferredNumericPreview, transactions, entryMode, editingTransaction]);
 
   const duplicateWarning = useMemo(() => {
     if (transferSubMode === 'card_bill_payment' && entryMode === 'transfer') return null;
     return findProbableDuplicate(
       {
-        description,
-        amount: numericPreview,
+        description: deferredDescription,
+        amount: deferredNumericPreview,
         date,
         type: entryMode === 'income' ? 'income' : entryMode === 'transfer' ? 'transfer' : 'expense',
         accountId: entryMode === 'transfer' ? accountId : undefined,
@@ -1411,7 +1417,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       transactions,
       editingTransaction?.id
     );
-  }, [description, numericPreview, date, transactions, entryMode, transferSubMode, accountId, destinationAccountId, editingTransaction]);
+  }, [deferredDescription, deferredNumericPreview, date, transactions, entryMode, transferSubMode, accountId, destinationAccountId, editingTransaction]);
 
   // Avisos (não bloqueiam): saldo da conta que ficaria negativo e compra acima do limite do cartão.
   const spendingWarning = useMemo(() => {
@@ -1536,7 +1542,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
     const domesticSharing = isShared && !((isTripLinked || isMultiCurrencyOpen) && (originalCurrency !== 'BRL' || Boolean(tripId)));
     return previewCategoryBudget(categories, transactions, {
-      description, amount: numericPreview, date,
+      description: deferredDescription, amount: deferredNumericPreview, date,
       competenceMonth: entryMode === 'credit_card' ? invoiceCompetenceMonth : date.slice(0, 7),
       categoryId, type: 'expense', status,
       creditCardId: entryMode === 'credit_card' ? creditCardId : undefined,
@@ -1556,7 +1562,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     categoryId,
     categories,
     transactions, date, invoiceCompetenceMonth, creditCardId, status, paymentMethod,
-    description, cascadeScope, legacyInstallmentTotalUnknown, selectedTrip, isPaidByCompanion,
+    deferredDescription, deferredNumericPreview, cascadeScope, legacyInstallmentTotalUnknown, selectedTrip, isPaidByCompanion,
     isShared, sharedMemberId, sharedPaidBy, sharedSplitMode, sharedCustomPercentStr, sharedCustomAmountStr,
     isTripLinked, isMultiCurrencyOpen, originalCurrency, tripId,
     numericPreview,
@@ -4589,9 +4595,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               <button
                 type="submit"
                 data-testid="tx-submit-btn"
-                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs whitespace-nowrap"
+                disabled={!workspaceReady}
+                className="rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs whitespace-nowrap disabled:opacity-60 disabled:cursor-wait"
               >
-                {editingTransaction
+                {!workspaceReady
+                  ? 'Sincronizando…'
+                  : editingTransaction
                   ? 'Salvar Alterações'
                   : entryMode === 'credit_card' && recurrence === 'installment'
                   ? `Lançar ${installmentTotal}x no Cartão`

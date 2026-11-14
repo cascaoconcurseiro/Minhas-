@@ -1274,12 +1274,31 @@ export default function App() {
       const load = loaders[index++];
       void load().catch(() => undefined).finally(() => idle(next));
     };
-    const start = window.setTimeout(() => idle(next), 1200);
+    // O formulário de lançamento é o mais usado: começa a baixar já; o resto espera o navegador ficar ocioso
+    const start = window.setTimeout(() => next(), 0);
     return () => {
       cancelled = true;
       window.clearTimeout(start);
     };
   }, [workspaceLoadState]);
+
+  // Ao encostar/tocar no botão de novo lançamento, garante o formulário já carregado antes do clique terminar
+  useEffect(() => {
+    const preload = (event: Event) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.('[data-testid="new-transaction-btn"], [aria-label="Novo lançamento"]')) {
+        void import('./components/TransactionModal').catch(() => undefined);
+      }
+    };
+    document.addEventListener('pointerover', preload, true);
+    document.addEventListener('touchstart', preload, { capture: true, passive: true });
+    document.addEventListener('pointerdown', preload, true);
+    return () => {
+      document.removeEventListener('pointerover', preload, true);
+      document.removeEventListener('touchstart', preload, true);
+      document.removeEventListener('pointerdown', preload, true);
+    };
+  }, []);
 
   // Tempo real: a cada poucos segundos (e ao voltar ao app) confere a revisão no Neon e, se outro aparelho
   // gravou, recarrega os dados no lugar, sem recarregar a página. Também reenvia o que ficou sem salvar.
@@ -3463,8 +3482,10 @@ export default function App() {
       )}
       <div
         className="contents"
+        // Com a cópia salva já na tela o app responde ao toque/clique na hora (antes ficava "congelado" até o Neon
+        // responder); só trava quando não há nada para mostrar.
         inert={Boolean(
-          isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser
+          isAuthReady && isUserAuthenticated && effectiveUserEmail && !isWorkspaceReadyForCurrentUser && !isShowingCachedWorkspace
         )}
       >
       {financialIntegrity && !financialIntegrity.isAllHealthy && (
@@ -4270,7 +4291,14 @@ export default function App() {
         onSignOut={handleSignOut}
       />
 
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          // Resposta imediata ao clique enquanto o formulário carrega (nunca fica "parado")
+          <div role="status" aria-label="Abrindo formulário" className="fixed inset-0 z-50 grid place-items-center bg-slate-900/40">
+            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-white border-r-transparent" />
+          </div>
+        }
+      >
         {/* New / Edit Transaction Modal */}
         {isModalOpen && <TransactionModal
         isOpen={isModalOpen}
@@ -4297,6 +4325,7 @@ export default function App() {
         onRequestCreate={handleRequestCreateFromTransaction}
         budgetWarningPercent={settings.budgetWarningPercent}
         categorySharingRules={settings.categorySharingRules}
+        workspaceReady={isWorkspaceReadyForCurrentUser}
         />}
 
         {/* Settings & Preferences Modal */}
