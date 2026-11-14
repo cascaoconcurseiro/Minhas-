@@ -472,6 +472,7 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [goals, setGoals] = useState<SavingsGoal[]>(INITIAL_SAVINGS_GOALS);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
+  const [receivablesIntent, setReceivablesIntent] = useState<import('./components/ReceivablesTab').ReceivablesIntent | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
   const [investmentTargets, setInvestmentTargets] = useState<InvestmentTargetMap>(
@@ -4136,6 +4137,10 @@ export default function App() {
                   cashForecast={cashForecast}
                   receivablesSummary={receivablesSummary}
                   onOpenReceivables={() => handleSelectTab('receivables')}
+                  receivablesOpenList={receivables
+                    .filter((item) => getReceivableBalance(item) > 0)
+                    .map((item) => ({ id: item.id, personName: item.personName, description: item.description, balance: getReceivableBalance(item) }))}
+                  onReceivablesAction={(intent) => { setReceivablesIntent(intent); handleSelectTab('receivables'); }}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={
@@ -4283,6 +4288,8 @@ export default function App() {
                   onRegisterPayment={handleRegisterReceivablePayment}
                   onRemovePayment={handleRemoveReceivablePayment}
                   onDelete={handleDeleteReceivable}
+                  intent={receivablesIntent}
+                  onIntentHandled={() => setReceivablesIntent(null)}
                 />
               )}
 

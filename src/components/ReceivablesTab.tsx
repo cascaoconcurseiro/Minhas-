@@ -6,6 +6,8 @@ import { getReceivableBalance, getReceivablePaid, getReceivableStatus, summarize
 import { getAccountLabelWithBank } from '../utils/accountLabels';
 import { CurrencyInput } from './CurrencyInput';
 
+export type ReceivablesIntent = { type: 'pay'; id: string } | { type: 'new'; kind: 'card_invoice' | 'loan' };
+
 export interface ReceivableCreateInput {
   kind: 'card_invoice' | 'loan';
   personName: string;
@@ -27,13 +29,16 @@ interface ReceivablesTabProps {
   onRegisterPayment: (receivableId: string, input: { date: string; amount: number; accountId: string; note?: string }) => string | null;
   onRemovePayment: (receivableId: string, paymentId: string) => void;
   onDelete: (receivableId: string) => string | null;
+  /** Atalho vindo da Visão Geral: já abre o formulário certo. */
+  intent?: ReceivablesIntent | null;
+  onIntentHandled?: () => void;
 }
 
 const inputClass = 'w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-slate-900 dark:text-white';
 const labelClass = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1';
 
 export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
-  receivables, cards, accounts, familyMembers, onCreate, onRegisterPayment, onRemovePayment, onDelete,
+  receivables, cards, accounts, familyMembers, onCreate, onRegisterPayment, onRemovePayment, onDelete, intent, onIntentHandled,
 }) => {
   const [formKind, setFormKind] = useState<'card_invoice' | 'loan' | null>(null);
   const [person, setPerson] = useState('');
@@ -74,6 +79,18 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     setFromAccountId('');
     setNote('');
   };
+
+  React.useEffect(() => {
+    if (!intent) return;
+    if (intent.type === 'new') {
+      openForm(intent.kind);
+    } else {
+      const target = receivables.find((item) => item.id === intent.id);
+      if (target) startPayment(target);
+    }
+    onIntentHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent]);
 
   const submitForm = (event: React.FormEvent) => {
     event.preventDefault();
