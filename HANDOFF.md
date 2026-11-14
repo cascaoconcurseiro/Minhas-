@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## A Receber: valor do recebimento começa vazio
+- Ao registrar um recebimento, o campo "Valor recebido" vem vazio (antes vinha com o saldo todo). Há o atalho "Receber tudo (R$ X)" para preencher o saldo com um toque. Verificado no navegador.
+- Pendente (aguardando decisão do dono): somar o "a receber em aberto" ao patrimônio e ao score de saúde (hoje a fatura entra como dívida no cartão, mas o a receber não entra como ativo).
+
 ## A Receber: mês da fatura só do mês atual em diante, até o último mês com compra no cartão
 - "Mês da fatura" virou lista (não aceita mais mês passado nem digitar qualquer data). Vai do mês atual até o último mês com lançamento no cartão escolhido (`getInvoiceMonthOptions` em `receivables.ts`, com teste). Sem compras futuras, só o mês atual aparece.
 - Verificado no navegador: Nubank termina em set/2027 e Inter em mai/2027, iguais ao último lançamento de cada cartão nos dados de teste.

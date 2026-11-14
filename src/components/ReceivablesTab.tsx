@@ -120,7 +120,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   const startPayment = (item: Receivable) => {
     setPayingId(item.id);
     setPayError('');
-    setPayAmountStr(getReceivableBalance(item).toFixed(2).replace('.', ','));
+    setPayAmountStr('');
     setPayDate(getLocalDateISO());
     setPayAccountId(accounts.length === 1 ? accounts[0].id : '');
   };
@@ -180,7 +180,10 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <label className={labelClass} htmlFor={`pay-amount-${item.id}`}>Valor recebido</label>
-                <CurrencyInput id={`pay-amount-${item.id}`} data-testid="receivable-payment-amount" currency="BRL" value={payAmountStr} onValueChange={setPayAmountStr} className={inputClass} />
+                <CurrencyInput id={`pay-amount-${item.id}`} data-testid="receivable-payment-amount" currency="BRL" value={payAmountStr} onValueChange={setPayAmountStr} placeholder="0,00" className={inputClass} />
+                <button type="button" data-testid="receivable-pay-all" onClick={() => setPayAmountStr(getReceivableBalance(item).toFixed(2).replace('.', ','))} className="mt-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 underline">
+                  Receber tudo ({formatBRL(getReceivableBalance(item))})
+                </button>
               </div>
               <div>
                 <label className={labelClass} htmlFor={`pay-date-${item.id}`}>Data</label>
