@@ -378,10 +378,10 @@ test('SettingsModal category creation, budget edit and delete call domain callba
   const budgetButton = [...page.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('(Editar)'));
   assert.ok(budgetButton);
   await act(async () => { budgetButton.click(); });
-  const budgetInput = [...page.querySelectorAll<HTMLInputElement>('input')].find((input) => input.value === '100' || input.value === '100,00');
+  const budgetInput = [...page.querySelectorAll<HTMLInputElement>('input')].find((input) => input.value === '100,00');
   assert.ok(budgetInput);
   await act(async () => {
-    set(budgetInput, '250,00');
+    set(budgetInput, '25000');
     const save = [...page.querySelectorAll('button')].find((candidate) => candidate.textContent?.trim() === 'Salvar');
     assert.ok(save); save.click();
   });

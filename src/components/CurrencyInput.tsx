@@ -21,7 +21,7 @@ export interface CurrencyInputProps
 
 /** Controlled currency field. The symbol is rendered separately from its editable value. */
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  function CurrencyInput({ value, currency, onValueChange, showCurrencySymbol = false, digitEntryAsMinorUnits = false, onFocus, onBlur, ...inputProps }, forwardedRef) {
+  function CurrencyInput({ value, currency, onValueChange, showCurrencySymbol = false, digitEntryAsMinorUnits = true, onFocus, onBlur, ...inputProps }, forwardedRef) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const pendingSelection = useRef<{ start: number; end: number } | null>(null);
     const decimalEntryRef = useRef(false);
@@ -33,9 +33,16 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       else if (forwardedRef) forwardedRef.current = node;
     }, [forwardedRef]);
 
-    const displayValue = formatCurrencyInput(value, currency, {
+    // Valor que chega de fora só com dígitos ("100") é em reais inteiros, não em centavos: o que a pessoa digita
+    // volta sempre formatado (com vírgula), então só os valores iniciais caem aqui.
+    const seededValue =
+      digitEntryAsMinorUnits && CURRENCY_CATALOG[currency].decimals > 0 && /^\d+$/.test(value.trim())
+        ? `${value.trim()},${'0'.repeat(CURRENCY_CATALOG[currency].decimals)}`
+        : value;
+
+    const displayValue = formatCurrencyInput(seededValue, currency, {
       focused,
-      previousValue: focused ? value : undefined,
+      previousValue: focused ? seededValue : undefined,
       digitEntryAsMinorUnits,
     });
 
@@ -66,6 +73,27 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
             let text = input.value;
             let start = input.selectionStart ?? text.length;
             let end = input.selectionEnd ?? start;
+
+            // Máscara de centavos (como nos apps de banco): só contam os dígitos, "," e "." digitados são ignorados,
+            // o valor sempre cresce pela direita, apagar tira o último dígito e o cursor fica no fim.
+            if (
+              digitEntryAsMinorUnits &&
+              CURRENCY_CATALOG[currency].decimals > 0 &&
+              (inputType === 'insertText' || inputType.startsWith('delete') || inputType === 'historyUndo' || inputType === 'historyRedo') &&
+              !/[^\d.,\sR$€£¥()+-]/i.test(text)
+            ) {
+              const negative = text.trim().startsWith('-');
+              const digits = text.replace(/\D/g, '');
+              const masked = digits ? formatCurrencyInput(`${negative ? '-' : ''}${digits}`, currency, { focused: true, previousValue: displayValue, digitEntryAsMinorUnits: true }) : '';
+              decimalEntryRef.current = false;
+              pendingSelection.current = { start: masked.length, end: masked.length };
+              requestAnimationFrame(() => {
+                const el = inputRef.current;
+                if (el && document.activeElement === el) el.setSelectionRange(el.value.length, el.value.length);
+              });
+              onValueChange(masked);
+              return;
+            }
 
             // Apagar um ponto de milhar não pode mudar o valor: apaga o dígito vizinho e mantém o ponto
             if (

@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Campo de valor volta à máscara de centavos, sem os pulos — 14/11/2026
+
+Correção do item 5 da entrada anterior (o usuário quer o formato de app financeiro: digitar 6027 já mostra 60,27, sem precisar de ",00"). `CurrencyInput` volta a `digitEntryAsMinorUnits = true` e, ao digitar/apagar, só os dígitos contam: "," e "." digitados são ignorados (digitar "60,27" também dá 60,27), o valor cresce pela direita, apagar tira o último dígito e o cursor fica sempre no fim (acabaram os pulos do cursor). Colar mantém a leitura de formatos como "1.234,56". Valores que chegam de fora só com dígitos ("100") agora são lidos como reais ("100,00"), não centavos (corrige a edição de orçamento que mostrava 100 como "1,00"). Eventos sem tipo de entrada (autofill/testes) e texto com letras seguem a lógica anterior, para a validação do formulário continuar recusando "12abc". Testes originais restaurados; um ajuste no de Configurações ('100,00'). Conferido digitando no navegador.
+
 ## Desempenho, atualização silenciosa e campo de valor — 14/11/2026
 
 Relatos: abrir o sistema demora e a tela parece não reconhecer mouse/toque; às vezes pisca; o campo de valor "pula" ao errar e fica com o número errado.
