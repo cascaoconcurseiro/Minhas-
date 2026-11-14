@@ -2,6 +2,8 @@ import { getAccountCurrency, resolveBankTransfer } from './utils/transferRules';
 import { newEntityId } from './utils/ids';
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { useModalAccessibility } from './hooks/useModalAccessibility';
 import { hasUpdateBlockers, setUpdateBlocker } from './pwa/updateBlockers';
 import { parseQuickCsvLines } from './utils/quickCsvImport';
 import {
@@ -338,6 +340,7 @@ export default function App() {
   // Own Neon login supplies identity; Neon PostgreSQL stores the workspace.
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const scheduledEmailAttemptRef = useRef<{ date: string; at: number } | null>(null);
+  useModalAccessibility();
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<
     'local' | 'syncing' | 'synced' | 'error'
@@ -1334,10 +1337,24 @@ export default function App() {
       }
     };
     const onVisible = () => void check();
+    // Com o app parado (sem toque há mais de 1 min) consulta menos vezes: poupa o servidor e a bateria
+    let lastActivityAt = Date.now();
+    let idleTicks = 0;
+    const markActivity = () => { lastActivityAt = Date.now(); };
+    ['pointerdown', 'keydown', 'touchstart'].forEach((name) => document.addEventListener(name, markActivity, { capture: true, passive: true }));
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
-    const poll = window.setInterval(onVisible, 4_000);
+    const poll = window.setInterval(() => {
+      if (Date.now() - lastActivityAt > 60_000) {
+        idleTicks += 1;
+        if (idleTicks % 5 !== 0) return;
+      } else {
+        idleTicks = 0;
+      }
+      void check();
+    }, 4_000);
     return () => {
+      ['pointerdown', 'keydown', 'touchstart'].forEach((name) => document.removeEventListener(name, markActivity, true));
       window.clearInterval(poll);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
@@ -3967,6 +3984,7 @@ export default function App() {
               <DashboardSkeleton />
             )
           ) : (
+            <ErrorBoundary scope="tela" resetKey={activeTab}>
             <Suspense
               fallback={
                 activeTab === 'transactions' ? (
@@ -4250,6 +4268,7 @@ export default function App() {
               )}
               </>
             </Suspense>
+            </ErrorBoundary>
           )}
         </main>
 
@@ -4292,6 +4311,17 @@ export default function App() {
         onSignOut={handleSignOut}
       />
 
+      <ErrorBoundary
+        scope="janela"
+        resetKey={`${isModalOpen}-${isSettingsOpen}-${isReminderModalOpen}-${isReconciliationModalOpen}`}
+        onError={() => {
+          // Uma janela que não consegue abrir é fechada, para o resto do app continuar normal
+          setIsModalOpen(false);
+          setIsSettingsOpen(false);
+          setIsReminderModalOpen(false);
+          setIsReconciliationModalOpen(false);
+        }}
+      >
       <Suspense
         fallback={
           // Resposta imediata ao clique enquanto o formulário carrega (nunca fica "parado")
@@ -4399,6 +4429,7 @@ export default function App() {
         />
         )}
       </Suspense>
+      </ErrorBoundary>
       </div>
     </div>
   );

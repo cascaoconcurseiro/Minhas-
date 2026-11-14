@@ -848,3 +848,23 @@ html.dark body,
     border: none !important;
   }
 }
+
+/* Celular/tablet: área de toque dos botões pequenos aumentada sem mudar o desenho (mínimo ~40px) */
+@media (pointer: coarse) {
+  button:not([data-no-hit-area]),
+  [role='button']:not([data-no-hit-area]),
+  [role='switch']:not([data-no-hit-area]) {
+    position: relative;
+  }
+  button:not([data-no-hit-area])::after,
+  [role='button']:not([data-no-hit-area])::after,
+  [role='switch']:not([data-no-hit-area])::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    bottom: -6px;
+    left: -6px;
+  }
+}
+[role='dialog']:focus { outline: none; }

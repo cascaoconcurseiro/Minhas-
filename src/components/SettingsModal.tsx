@@ -433,6 +433,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     role="switch"
                     aria-checked={settings.privacyMode}
+                    aria-label="Modo discreto (ocultar valores)"
                     onClick={() =>
                       onUpdateSettings({ privacyMode: !settings.privacyMode })
                     }
@@ -767,6 +768,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       role="switch"
                       aria-checked={settings.showOverviewAlerts}
+                    aria-label="Exibir avisos no topo da Visão Geral"
                       onClick={() =>
                         onUpdateSettings({
                           showOverviewAlerts: !settings.showOverviewAlerts,
@@ -1025,6 +1027,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       role="switch"
                       aria-checked={settings.reminders?.enabled ?? DEFAULT_REMINDER_SETTINGS.enabled}
+                    aria-label="Lembretes ativados"
                       onClick={() =>
                         onUpdateSettings({
                           reminders: {
@@ -1261,6 +1264,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       role="switch"
                       aria-checked={settings.reminders?.emailNotificationsEnabled ?? false}
+                    aria-label="Lembretes por e-mail"
                       onClick={() =>
                         onUpdateSettings({
                           reminders: {

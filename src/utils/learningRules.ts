@@ -23,8 +23,13 @@ const MIN_OCCURRENCES = 2;
 const HISTORY_WINDOW = 6;
 const MIN_SHARED_RATIO = 0.8;
 
+const normalizedDescriptionCache = new Map<string, string>();
+
 export function normalizeDescription(value: string): string {
-  return value
+  // Pura e chamada milhares de vezes (uma por lançamento do histórico, por item importado): guarda o resultado
+  const cached = normalizedDescriptionCache.get(value);
+  if (cached !== undefined) return cached;
+  const result = value
     .replace(/\s*\(\d+\/\d+\)\s*$/g, '')
     .replace(/\s*\(Cópia\)\s*$/gi, '')
     .replace(/\s*\(Antecipada\)\s*$/gi, '')
@@ -33,6 +38,9 @@ export function normalizeDescription(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+  if (normalizedDescriptionCache.size > 50_000) normalizedDescriptionCache.clear();
+  normalizedDescriptionCache.set(value, result);
+  return result;
 }
 
 /** Chave estável do estabelecimento, usada para saber se o aviso já foi dado para ele. */

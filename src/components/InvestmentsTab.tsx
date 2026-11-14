@@ -1009,6 +1009,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Buscar ativo por ticker, corretora ou indexador"
                 placeholder="Buscar ticker, corretora ou indexador..."
                 className="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
               />
