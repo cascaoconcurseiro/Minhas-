@@ -213,10 +213,13 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
               .map((q) => `${q.ticker} (${formatBRL(q.previousPrice)} → ${formatBRL(q.quotedPrice)})`)
               .join(', ')}. Confira e atualize à mão se estiver certo.`
           : '';
+      const quotesNote = quotes.length > 0
+        ? ` (${quotes.map((q) => `${q.ticker}: ${formatBRL(q.priceBrl)}`).join(' · ')})`
+        : '';
       setGoogleFinanceMessage(
-        `${updatedCount} ativo(s) com cotação atualizada via Google Finance (${quotes
-          .map((q) => `${q.ticker}: ${formatBRL(q.priceBrl)}`)
-          .join(' · ')}).${rejectedNote}`
+        updatedCount > 0
+          ? `${updatedCount} ativo(s) com cotação atualizada via Google Finance${quotesNote}.${rejectedNote}`
+          : `Nenhuma cotação foi atualizada pelo Google Finance.${rejectedNote}`
       );
     } catch (err: unknown) {
       setGoogleFinanceError(
@@ -1479,7 +1482,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 [&>button]:whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => openOperationModal(asset, 'buy')}

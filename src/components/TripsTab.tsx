@@ -1003,7 +1003,7 @@ export const TripsTab: React.FC<TripsTabProps> = ({
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-xs"
             >
               <Plus className="h-4 w-4" />
-              <span>+ Criar Nova Viagem</span>
+              <span>Criar Nova Viagem</span>
             </button>
           </div>
         </div>

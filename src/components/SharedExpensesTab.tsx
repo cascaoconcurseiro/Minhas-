@@ -544,7 +544,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
             className="w-full min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold leading-tight text-center text-white hover:bg-emerald-700 transition-colors whitespace-normal"
           >
             <Plus className="h-4 w-4" />
-            + Nova Despesa Compartilhada
+            Nova Despesa Compartilhada
           </button>
           <button
             type="button"
@@ -560,11 +560,11 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
 
       {/* Module Navigation: Encontro de Contas vs. Gerenciar Pessoas & Convites */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div className="flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+        <div className="grid grid-cols-2 sm:flex items-stretch sm:items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
           <button
             type="button"
             onClick={() => setActiveSubTab('invoices')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
+            className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-center leading-tight rounded-md transition-colors sm:whitespace-nowrap ${
               activeSubTab === 'invoices'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -576,7 +576,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
           <button
             type="button"
             onClick={() => setActiveSubTab('members')}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
+            className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-center leading-tight rounded-md transition-colors sm:whitespace-nowrap ${
               activeSubTab === 'members'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'

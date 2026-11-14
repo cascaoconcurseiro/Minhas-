@@ -2029,7 +2029,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 }`}
               >
                 <Repeat className="hidden min-[400px]:block h-3.5 w-3.5 shrink-0" />
-                <span className="truncate" aria-label="Movimentações"><span className="min-[400px]:hidden" aria-hidden="true">Transf.</span><span className="hidden min-[400px]:inline">Movimentações</span></span>
+                <span className="truncate" aria-label="Movimentações"><span className="min-[480px]:hidden" aria-hidden="true">Transf.</span><span className="hidden min-[480px]:inline">Movimentações</span></span>
               </button>
             </div>
           )}
@@ -2049,14 +2049,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar native-scroll modal-form-scroll bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-4"
           >
             {(entryMode === 'expense' || entryMode === 'credit_card') && canSwitchPaymentMethod && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3">
-                <span className="mr-1 text-xs font-bold text-slate-700 dark:text-slate-300">Forma de pagamento</span>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                <span className="col-span-2 sm:col-span-1 sm:mr-1 text-xs font-bold text-slate-700 dark:text-slate-300">Forma de pagamento</span>
                 <button
                   type="button"
                   data-testid="payment-method-account"
                   aria-pressed={paymentChosen && entryMode === 'expense'}
                   onClick={() => handleModeSwitch('expense', true)}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${paymentChosen && entryMode === 'expense' ? 'border-rose-300 bg-white text-rose-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
+                  className={`inline-flex w-full sm:w-auto items-center justify-center rounded-lg border px-3 py-2 sm:py-1.5 text-xs font-semibold ${paymentChosen && entryMode === 'expense' ? 'border-rose-300 bg-white text-rose-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
                 >
                   Conta / débito
                 </button>
@@ -2065,13 +2065,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   data-testid="payment-method-card"
                   aria-pressed={entryMode === 'credit_card'}
                   onClick={() => handleModeSwitch('credit_card')}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ${entryMode === 'credit_card' ? 'border-violet-300 bg-white text-violet-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
+                  className={`inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border px-3 py-2 sm:py-1.5 text-xs font-semibold ${entryMode === 'credit_card' ? 'border-violet-300 bg-white text-violet-700 shadow-xs' : 'border-slate-300 bg-white/60 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}
                 >
                   <CreditCardIcon className="h-3.5 w-3.5" />
                   Cartão de crédito
                 </button>
                 {!paymentChosen && entryMode === 'expense' && (
-                  <p data-testid="payment-method-required" className="basis-full text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  <p data-testid="payment-method-required" className="col-span-2 sm:col-span-1 sm:basis-full text-[11px] font-medium text-amber-700 dark:text-amber-400">
                     Escolha como foi pago: conta/débito ou cartão de crédito.
                   </p>
                 )}

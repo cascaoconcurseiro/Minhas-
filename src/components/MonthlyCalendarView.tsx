@@ -761,7 +761,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               onClick={() => onOpenNewTransaction('expense', selectedDate)}
               className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors whitespace-nowrap shrink-0"
             >
-              <Plus className="h-3.5 w-3.5" />
               + Despesa neste Dia
             </button>
             <button
@@ -769,7 +768,6 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
               onClick={() => onOpenNewTransaction('income', selectedDate)}
               className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition-colors whitespace-nowrap shrink-0"
             >
-              <Plus className="h-3.5 w-3.5" />
               + Receita
             </button>
           </div>

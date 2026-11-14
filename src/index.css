@@ -868,3 +868,17 @@ html.dark body,
   }
 }
 [role='dialog']:focus { outline: none; }
+
+/* Campos de data/hora: no iPhone o campo nativo tem largura própria e vaza da coluna; força caber no espaço */
+input[type='date'],
+input[type='month'],
+input[type='time'],
+input[type='datetime-local'] {
+  min-width: 0;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.modal-form-scroll .grid > * {
+  min-width: 0;
+}
