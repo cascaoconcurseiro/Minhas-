@@ -638,6 +638,11 @@ export default function App() {
       if (shouldResetWorkspaceForAuthChange(previousUid, nextUid)) {
         if (previousUid) {
           clearWorkspaceCacheForVault(localStorage, STORAGE_KEY, getVaultIdForUid(previousUid));
+          try {
+            // Cópia descartada por conflito e avisos dispensados também saem do aparelho ao encerrar a sessão
+            localStorage.removeItem(`minhas-economias:descartado:${previousUid}`);
+            localStorage.removeItem('minhas-economias:dismissed-notices');
+          } catch { /* sem armazenamento local */ }
         }
         resetFinancialStateToCleanZero();
         setSettings(DEFAULT_SETTINGS);
@@ -861,6 +866,10 @@ export default function App() {
     } catch (error) {
       if (authenticatedUidRef.current !== authenticatedUid) return;
       setCloudSyncStatus('error');
+      if (error instanceof NeonWorkspaceError && error.status === 401) {
+        void expireSessionRef.current();
+        return;
+      }
       console.error(
         'Falha ao salvar workspace no Neon; alterações locais foram mantidas.',
         error instanceof Error ? error.message : String(error)
@@ -1330,8 +1339,9 @@ export default function App() {
         if (remoteRevision === null || known === null || remoteRevision <= known) return;
         if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
         requestSilentWorkspaceRefresh();
-      } catch {
-        // Sem rede ou sessão expirada: tenta de novo no próximo ciclo.
+      } catch (error) {
+        // Sessão recusada: volta ao login; sem rede ou erro passageiro: tenta de novo no próximo ciclo.
+        if (error instanceof NeonWorkspaceError && error.status === 401) void expireSessionRef.current();
       } finally {
         checking = false;
       }
@@ -1573,6 +1583,28 @@ export default function App() {
       true
     );
   };
+
+  // O servidor recusou a sessão (expirou ou foi encerrada em outro aparelho): volta ao login em vez de ficar
+  // trabalhando sem conseguir salvar.
+  const sessionExpiredRef = useRef(false);
+  const expireSession = async () => {
+    if (sessionExpiredRef.current) return;
+    sessionExpiredRef.current = true;
+    try {
+      await signOutUser();
+    } catch {
+      // Ignore
+    }
+    hasLoadedRemoteOnceRef.current = false;
+    loadedWorkspaceUidRef.current = null;
+    resetFinancialStateToCleanZero();
+    setSettings(DEFAULT_SETTINGS);
+    setAuthSession({ isLoggedIn: false, email: '', displayName: '' });
+    showNotice('Sua sessão expirou. Entre novamente para continuar.', undefined, true);
+    window.setTimeout(() => { sessionExpiredRef.current = false; }, 5000);
+  };
+  const expireSessionRef = useRef(expireSession);
+  expireSessionRef.current = expireSession;
 
   const handleUpdateSettings = (partial: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));

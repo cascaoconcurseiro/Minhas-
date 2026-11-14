@@ -217,7 +217,7 @@ async function fetchDirectGoogleFinanceQuote(
 async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '4mb' }));
 
   const verifyAuthUser: RequestHandler = async (req, res, next) => {
     const authorization = req.header('authorization') || '';

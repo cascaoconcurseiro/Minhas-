@@ -1916,59 +1916,6 @@ export function simulateFixedIncomeBR(params: {
   };
 }
 
-export function exportTransactionsToCSV(
-  transactions: Transaction[],
-  categories: Category[],
-  accounts: BankAccount[],
-  cards: CreditCard[]
-): string {
-  const catMap = new Map(categories.map((c) => [c.id, c]));
-  const accMap = new Map(accounts.map((a) => [a.id, a.name]));
-  const cardMap = new Map(cards.map((c) => [c.id, c.name]));
-
-  const headers = [
-    'Data',
-    'Competencia',
-    'Descricao',
-    'Tipo',
-    'Status',
-    'Categoria',
-    'Conta_ou_Cartao',
-    'Parcela',
-    'Valor_BRL',
-  ];
-
-  const rows = transactions.map((tx) => {
-    const tipoLabel =
-      tx.type === 'income' ? 'Receita' : tx.type === 'expense' ? 'Despesa' : 'Transferencia';
-    const statusLabel = tx.status === 'paid' ? 'Efetivado' : 'Pendente';
-    const cat = catMap.get(tx.categoryId);
-    const catName = cat?.name || 'Outros';
-    const originName = tx.creditCardId
-      ? `Cartao: ${cardMap.get(tx.creditCardId) || tx.creditCardId}`
-      : accMap.get(tx.accountId || '') || 'Carteira';
-    const parcela =
-      tx.installmentTotal && tx.installmentTotal > 1
-        ? `${tx.installmentNumber}/${tx.installmentTotal}`
-        : 'Unico';
-    const valorSigned = tx.type === 'expense' ? -tx.amount : tx.amount;
-
-    return [
-      tx.date,
-      tx.competenceMonth,
-      `"${tx.description.replace(/"/g, '""')}"`,
-      tipoLabel,
-      statusLabel,
-      `"${catName}"`,
-      `"${originName}"`,
-      parcela,
-      valorSigned.toFixed(2).replace('.', ','),
-    ].join(';');
-  });
-
-  return [headers.join(';'), ...rows].join('\n');
-}
-
 export function normalizeSearchText(text: string): string {
   if (!text) return '';
   return text
