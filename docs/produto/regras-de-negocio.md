@@ -111,6 +111,9 @@ Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e val
 - O limite (% da renda) e o aviso (padrão 80% do limite) são definidos em Configurações (`cardCommitmentLimitPercent`, `cardCommitmentWarnPercent`).
 - Alerta para o mês atual e os 2 próximos quando perto/acima do limite.
 
+
+**Chave "Geral / Só a minha parte"** (decisão do dono, 2026-11-15): o *Geral* mostra tudo o que está na fatura (como antes, sem A Receber). *Só a minha parte* soma, por mês: suas compras e parcelas no cartão (nos compartilhados que você pagou, desconta a parte da outra pessoa: `valor − sharedAmount`), mais o que você deve em despesas compartilhadas pagas por outra pessoa (fora do cartão, só pendentes). O que é de terceiros (A Receber, cartão adicional) não entra em nenhuma das duas. A porcentagem da renda e o limite valem para a visão escolhida (`getMyCardPurchaseAmount`, `CardCommitmentMonth.mine`).
+
 ### 3.6 Melhor dia de compra — `bestPurchaseDayFor`
 É o dia em que começa o ciclo novo: dia seguinte ao fechamento (ou o próprio dia de fechamento quando a opção do cartão está marcada); fechamento a partir do dia 28 → dia 1.
 

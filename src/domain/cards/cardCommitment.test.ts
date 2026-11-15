@@ -137,3 +137,25 @@ test('depois de lançar compra no cartão avisa só se o mês ficou perto ou aci
   assert.equal(describeCommitmentAfterPurchase({ transactions: all, created }), null, 'sem limite não avisa');
   assert.equal(describeCommitmentAfterPurchase({ transactions: all, created: [income('2026-12', 10)], limitPercent: 30 }), null, 'só compra no cartão');
 });
+
+test('"minha parte": parcelas minhas inteiras, compartilhado só a metade, A Receber fora, e o que devo em compartilhado pago por outra pessoa', () => {
+  const txs = [
+    income('2026-12', 10000),
+    card('2026-12', 300, { recurrence: 'installment', installmentNumber: 2, installmentTotal: 10 }),
+    card('2026-12', 200, { isShared: true, sharedMemberId: 'm1', sharedAmount: 100, sharedPaidBy: 'me', sharedStatus: 'pending' }),
+    card('2026-12', 905.68, { receivableId: 'rcv-1' }),
+    tx({ amount: 80, sharedPaidBy: 'member', isShared: true, sharedMemberId: 'm1', sharedAmount: 40, sharedStatus: 'pending', paymentMethod: 'pix' }),
+  ];
+  const dec = row(calculateCardCommitmentByMonth({ transactions: txs, referenceMonth: '2026-12' }), '2026-12');
+  assert.equal(dec.cardTotal, 500, 'geral: parcela 300 + compartilhado inteiro 200 (A Receber continua fora)');
+  assert.equal(dec.mine.cardTotal, 400, 'minha parte: 300 + metade de 200');
+  assert.equal(dec.mine.installmentTotal, 300);
+  assert.equal(dec.mine.otherTotal, 100);
+  assert.equal(dec.mine.sharedByOthersTotal, 40, 'devo 40 de uma despesa que a outra pessoa pagou');
+  assert.equal(dec.mine.total, 440);
+  assert.equal(dec.mine.percent, 4.4);
+  const items = listCardCommitmentItems(txs, '2026-12', 'mine');
+  assert.deepEqual(items.map((i) => i.amount), [300, 100, 40]);
+  assert.equal(items.find((i) => i.amount === 40)?.isSharedOwed, true);
+  assert.deepEqual(listCardCommitmentItems(txs, '2026-12').map((i) => i.amount), [300, 200]);
+});

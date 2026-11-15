@@ -16,6 +16,7 @@ const health: DataHealthIssue[] = [
 ];
 const commitment = (month: string, status: 'warning' | 'over'): CardCommitmentMonth => ({
   month, income: 5000, cardTotal: 2000, installmentTotal: 800, otherTotal: 1200, cardPercent: 40, installmentPercent: 16, status,
+  mine: { cardTotal: 2000, installmentTotal: 800, otherTotal: 1200, sharedByOthersTotal: 0, total: 2000, percent: 40, status },
 });
 
 test('sem nada a avisar a lista é vazia', () => {
