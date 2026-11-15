@@ -15,18 +15,16 @@
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
-1. Dono marcar, no cartão **Itaú azul**, a opção "compra no próprio dia do fechamento vai para a próxima fatura" (move as compras de 30/10 para a fatura de dezembro e some o aviso de atraso).
-2. Decidir como ler fatura de cartão em **PDF/foto** (IA externa mais precisa × leitura só no aparelho). Sem decisão ainda.
-3. Importação de **fatura de cartão** (OFX/CSV) — exige um arquivo real de fatura do banco do dono para acertar o formato.
-4. Dividir arquivos grandes sem mudar comportamento (`TransactionModal`, `App.tsx`, `financeRules.ts`, `backend/app.ts`) — ver `CHECKLIST.md`.
-5. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data).
+1. Decidir como ler fatura de cartão em **PDF/foto** (IA externa mais precisa × leitura só no aparelho). Sem decisão ainda.
+2. Importação de **fatura de cartão** (OFX/CSV) — exige um arquivo real de fatura do banco do dono para acertar o formato.
+3. Dividir arquivos grandes sem mudar comportamento (`TransactionModal`, `App.tsx`, `financeRules.ts`, `backend/app.ts`) — ver `CHECKLIST.md`.
+4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data).
 
 ## 4. Pendências do dono (dependem do Wesley)
-- Marcar a opção do fechamento no **Itaú azul** (item 1 acima) e conferir se as compras de 30/10 foram para dezembro.
 - Atualizar o app instalado: Conta, Login & Nuvem → **Buscar atualização agora**.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
-- Decidir: leitura de fatura por IA externa ou só no aparelho (item 2).
+- Decidir: leitura de fatura por IA externa ou só no aparelho (item 1).
 
 ## 5. Nunca verificado / riscos conhecidos
 - iPhone/Safari reais (campo de data, instalação do PWA), Face ID real, envio real de e-mail (SMTP).
@@ -43,6 +41,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Dado corrigido no Neon: compras de 30/10 do Itaú azul foram para a fatura de dezembro
+- **O que mudou:** no workspace de produção (revisão 241 → 242) o cartão **Itaú azul** recebeu `closingDayStartsNextInvoice: true` e duas compras pendentes de 30/10 mudaram de competência `2026-11` para `2026-12`: **Nona R$ 57,00** (`tx-1794740662190-1-4onn`) e **Amazon R$ 41,29** (`tx-1794740623488-1-qwnn`), total R$ 98,29. Nenhuma outra linha foi tocada (119 lançamentos no total, antes e depois).
+- **Por quê:** o dono viu os R$ 98,29 ainda em novembro (Cartões e notificações de fatura atrasada) e pediu a correção; no banco dele a compra no dia do fechamento vai para a fatura seguinte (05/12).
+- **Arquivos/áreas:** apenas dados no Neon (`finance_workspaces.payload`: `cardsJson` e `transactionsJson`); nenhuma mudança de código.
+- **Como foi verificado:** consulta de leitura depois da alteração: flag `true`, as duas compras com competência `2026-12`, 0 compras pendentes do Itaú azul em `2026-11`. Telas e notificações calculam pela competência, então acompanham o dado; não reabri as telas após a alteração.
+- **Não verificado:** a tela renderizada com o dado novo (o app instalado precisa atualizar/recarregar para buscar a revisão 242). Snapshot do Neon não foi criado: o plano atingiu o limite de snapshots; o Neon mantém só 6 h de histórico.
+- **Impacto em dados/Neon:** escrita pontual feita direto no banco, só se a revisão ainda fosse 241. **Para reverter:** tirar a opção do Itaú azul em Cartões → Editar Cartão (as compras de 30/10 pendentes voltam para novembro pela reclassificação do app) ou restaurar `competenceMonth` `2026-11` nas duas compras.
+- **Documentação atualizada:** não necessário: nenhuma regra mudou; seções 3 e 4 do HANDOFF ajustadas.
+- **Próximo passo:** o dono abrir o app (ou "Buscar atualização agora") e conferir Cartões (novembro sem os R$ 98,29, dezembro com eles) e o sino sem "Atrasado há Nd" desse cartão.
 
 ### 2026-11-15 — Handoff obrigatório para qualquer IA (instruções e ganchos)
 - **O que mudou:** criados `AGENTS.md` (instruções universais) e `CLAUDE.md` (importa o AGENTS); gancho de parada do Claude Code em `.claude/settings.json`; gancho Git `.githooks/pre-push` ativado por `bun install` (script `prepare`); `check-handoff` ganhou `--uncommitted`.

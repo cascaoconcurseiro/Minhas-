@@ -7,7 +7,7 @@
 Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento · **[Decidir]** precisa de decisão do dono.
 
 ## A. Próximas entregas
-- [ ] **[Dono]** Marcar no cartão **Itaú azul** a opção "compra no próprio dia do fechamento vai para a próxima fatura" e conferir que as compras de 30/10 (R$ 98,29) foram para dezembro.
+- [ ] **[Dono]** Conferir no app que as compras de 30/10 do Itaú azul (R$ 98,29) aparecem em dezembro e que o aviso de atraso sumiu (dado já corrigido no Neon).
 - [ ] **[Decidir]** Leitura de fatura de cartão em PDF/foto: IA externa (mais precisa, com custo e envio do arquivo) ou só no aparelho (privada, menos precisa).
 - [ ] **[Dev]** Importar **fatura de cartão** (OFX/CSV) criando as compras no cartão certo com mês da fatura — precisa de um arquivo real de fatura (pode ter nomes apagados).
 - [ ] **[Dev]** Ler **valor e data** de foto de comprovante e abrir o lançamento preenchido (categoria/pagamento/conta continuam obrigatórios).
