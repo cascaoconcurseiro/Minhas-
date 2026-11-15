@@ -193,11 +193,20 @@ export interface OutgoingSharedSettlement {
   date?: string | null;
 }
 
-export async function loadNeonSharedSnapshot(): Promise<{ transactions: Record<string, unknown>[]; outgoingSettlements: OutgoingSharedSettlement[] }> {
-  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[] }>(
+export async function loadNeonSharedSnapshot(): Promise<{
+  transactions: Record<string, unknown>[];
+  outgoingSettlements: OutgoingSharedSettlement[];
+  /** Ids dos compartilhados que esta conta já enviou. Ausente em servidor antigo: não reenviar nada. */
+  outgoingSharedIds?: string[];
+}> {
+  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[]; outgoingSharedIds?: string[] }>(
     '/api/family/shared'
   );
-  return { transactions: (result.transactions || []).map((row) => row.payload), outgoingSettlements: result.outgoingSettlements || [] };
+  return {
+    transactions: (result.transactions || []).map((row) => row.payload),
+    outgoingSettlements: result.outgoingSettlements || [],
+    ...(Array.isArray(result.outgoingSharedIds) ? { outgoingSharedIds: result.outgoingSharedIds.map(String) } : {}),
+  };
 }
 
 export function syncNeonSharedTransactions(input: {

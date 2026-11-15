@@ -1,4 +1,4 @@
-import type { BankAccount, Transaction } from '../../types/finance';
+import type { BankAccount, FamilyMember, Transaction } from '../../types/finance';
 import { formatBRL, formatMonthYearPT, getSharedSettlementLinks } from '../finance/financeRules';
 import { getAccountCurrency } from '../finance/transferRules';
 import { parseSharedSettlementReceipts } from './sharedSettlementReceipts';
@@ -9,6 +9,40 @@ export type { SharedSettlementReceipt } from './sharedSettlementReceipts';
 export function getDomesticSharedTransactions(transactions: Transaction[]) {
   return transactions.filter((tx) => tx.type === 'expense' && tx.isShared && tx.sharedMemberId && !tx.tripId &&
     (!tx.isCompanionOnlyExpense || tx.id.startsWith('tx-mirror-')));
+}
+
+/** Id do espelho no servidor (o mesmo que `PUT /api/family/shared` grava). */
+export function getSharedSyncId(tx: Transaction): string {
+  return String(tx.sharedSyncId || tx.id).replace(/^tx-mirror-/, '');
+}
+
+export interface UnsentSharedTransactions {
+  partnerEmail: string;
+  memberId: string;
+  transactions: Transaction[];
+}
+
+/**
+ * Compartilhados que eu lancei para uma pessoa com convite aceito e que ainda não estão no servidor.
+ * O envio só acontecia ao salvar um lançamento; o que foi lançado antes do aceite nunca chegava à outra conta.
+ */
+export function findUnsentSharedTransactions(
+  transactions: Transaction[],
+  members: FamilyMember[],
+  sentSharedIds: ReadonlySet<string>,
+  userEmail: string
+): UnsentSharedTransactions[] {
+  const me = userEmail.trim().toLowerCase();
+  const result: UnsentSharedTransactions[] = [];
+  for (const member of members) {
+    const partnerEmail = String(member.email || member.invitedByEmail || '').trim().toLowerCase();
+    if (!partnerEmail || partnerEmail === me || member.inviteStatus !== 'accepted') continue;
+    const missing = transactions.filter((tx) =>
+      tx.isShared && !tx.tripId && !tx.id.startsWith('tx-mirror-') &&
+      String(tx.sharedMemberId || '') === member.id && !sentSharedIds.has(getSharedSyncId(tx)));
+    if (missing.length > 0) result.push({ partnerEmail, memberId: member.id, transactions: missing });
+  }
+  return result;
 }
 
 export function replaceIncomingSharedTransactions(previous: Transaction[], incoming: Transaction[]): Transaction[] {

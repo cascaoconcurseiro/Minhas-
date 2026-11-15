@@ -135,6 +135,63 @@ test('creates a credit card from the empty state after validating required field
   assert.equal(page.querySelector('form'), null, 'successful creation closes the form');
 });
 
+test('card closing and due days are chosen from a 1-31 selector (no typing, no leading zero)', async () => {
+  let createdCard: Omit<CreditCard, 'id'> | null = null;
+  const page = renderEmptyCardsTab((card) => { createdCard = card; });
+  const openFormButton = Array.from(page.querySelectorAll('button')).find((button) =>
+    button.textContent?.includes('Cadastrar Primeiro Cartão'));
+  await act(async () => { openFormButton!.click(); });
+  const closing = page.querySelector<HTMLSelectElement>('#card-closing-input');
+  const due = page.querySelector<HTMLSelectElement>('#card-due-input');
+  for (const field of [closing, due]) {
+    assert.ok(field instanceof window.HTMLSelectElement, 'dia do cartão deve ser um seletor');
+    assert.deepEqual(Array.from(field.options).map((option) => option.value),
+      Array.from({ length: 31 }, (_, index) => String(index + 1)));
+  }
+  assert.equal(closing!.value, '20');
+  assert.equal(due!.value, '28');
+  await act(async () => {
+    closing!.value = '5';
+    closing!.dispatchEvent(new window.Event('change', { bubbles: true }));
+    due!.value = '12';
+    due!.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  assert.equal(closing!.value, '5');
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('#card-name-input')!, 'Nubank');
+    setInputValue(page.querySelector<HTMLInputElement>('#card-limit-input')!, '1.000,00');
+    page.querySelector('form')!.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(createdCard!.closingDay, 5);
+  assert.equal(createdCard!.dueDay, 12);
+});
+
+test('editing a card changes its days through the selector', async () => {
+  const card: CreditCard = { id: 'card-days', name: 'Cartão sintético', brand: 'Visa', limit: 1000, closingDay: 10, dueDay: 20, defaultAccountId: 'account-1', color: '#000000' };
+  const updates: CreditCard[] = [];
+  const page = renderEmptyCardsTab(() => {}, { card, onUpdateCard: (next) => updates.push(next) });
+  await act(async () => { page.querySelector<HTMLElement>('[data-testid="credit-card-item-card-days"]')!.click(); });
+  const editButton = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Editar Cartão'));
+  await act(async () => { editButton!.click(); });
+  const closing = page.querySelector<HTMLSelectElement>('#card-edit-closing-input');
+  const due = page.querySelector<HTMLSelectElement>('#card-edit-due-input');
+  assert.ok(closing instanceof window.HTMLSelectElement);
+  assert.ok(due instanceof window.HTMLSelectElement);
+  assert.equal(closing.value, '10');
+  assert.equal(due.value, '20');
+  await act(async () => {
+    closing.value = '3';
+    closing.dispatchEvent(new window.Event('change', { bubbles: true }));
+    due.value = '31';
+    due.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  const saveButton = Array.from(page.querySelectorAll('button')).find((button) => /Salvar/.test(button.textContent ?? ''));
+  assert.ok(saveButton);
+  await act(async () => { saveButton.click(); });
+  assert.equal(updates.at(-1)?.closingDay, 3);
+  assert.equal(updates.at(-1)?.dueDay, 31);
+});
+
 test('card edit form labels are associated with their controls', async () => {
   const card: CreditCard = { id: 'card-test', name: 'Cartão sintético', brand: 'Visa', limit: 1000, closingDay: 10, dueDay: 20, defaultAccountId: 'account-1', color: '#000000' };
   const page = renderEmptyCardsTab(() => {}, { card, onUpdateCard: () => {} });

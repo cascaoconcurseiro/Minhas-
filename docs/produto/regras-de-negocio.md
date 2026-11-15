@@ -11,7 +11,7 @@ Convenções: valores em reais com 2 casas, calculados em **centavos inteiros** 
 | Entidade | O que é | Campos que importam |
 |---|---|---|
 | **Conta** (`BankAccount`) | Conta corrente, poupança, dinheiro, investimento ou internacional | saldo inicial, "incluir no total", moeda (BRL ou estrangeira) |
-| **Cartão** (`CreditCard`) | Cartão de crédito | limite, dia de fechamento, dia de vencimento, conta padrão de pagamento, opção "compra no dia do fechamento vai para a próxima fatura" |
+| **Cartão** (`CreditCard`) | Cartão de crédito | limite, dia de fechamento, dia de vencimento (escolhidos numa lista de 1 a 31, sem digitar), conta padrão de pagamento, opção "compra no dia do fechamento vai para a próxima fatura" |
 | **Categoria** (`Category`) | Classificação de despesa/receita | tipo, grupo (`essential` Essenciais, `lifestyle` Estilo de vida, `financial` Futuro), orçamento mensal |
 | **Lançamento** (`Transaction`) | Qualquer movimento | tipo (`income`, `expense`, `transfer`), status (`paid`, `pending`), forma (`pix`, `credit_card`, `debit_card`, `boleto`, `cash`, `transfer`), recorrência (`single`, `installment`, `fixed`) |
 | **Valor a receber** (`Receivable`) | Dinheiro que outra pessoa deve | tipo (`card_invoice`, `loan`), pessoa, valor, pagamentos parciais |
@@ -213,6 +213,8 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 - **Divisão automática por categoria** (Configurações): ao escolher uma categoria (ex.: Mercado, Carro), o lançamento já vem dividido com a pessoa definida e quem paga (`categorySharingRules`, `sharingFromCategoryRule`). O app também **aprende** a divisão pelo histórico do estabelecimento.
 - **Acerto (encontro de contas)** (`settleSharedExpenses`): compensa créditos e débitos recíprocos e liquida o líquido em **um lançamento bancário**, com rastreabilidade (`sharedSettlementId`). Pode ser **reaberto** (`reopenSharedSettlement`).
 - **Entre contas diferentes**: convites (`fam-inv-*`) e espelhos de despesas (`tx-mirror-*`) são sincronizados pelo servidor entre contas vinculadas; recibos bancários locais ficam em `sharedSettlementReceiptsJson` e não vazam para o outro usuário.
+- **Compartilhados lançados antes do aceite do convite** (correção de 2026-11-15): o servidor informa quais compartilhados desta conta já tem (`outgoingSharedIds`); ao abrir o app e a cada leitura periódica, o app envia, em silêncio e em lotes de 40, os que faltam para cada pessoa com convite aceito (`findUnsentSharedTransactions`). Cada lançamento é tentado uma vez por sessão; falha de rede libera nova tentativa. Antes, o envio só acontecia ao salvar um lançamento, e o que existia antes do aceite nunca chegava à outra conta.
+- **A Receber não é compartilhado**: um item de A Receber (ex.: fatura do cartão adicional de outra pessoa) fica só na conta de quem o lançou; ele não aparece na conta da pessoa, mesmo com convite aceito.
 - Compras do tipo "familiar pagou" não entram como seu gasto no cartão (`sharedPaidBy === 'member'`).
 
 ---

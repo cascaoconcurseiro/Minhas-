@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 748 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 755 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -21,6 +21,7 @@
 4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data).
 
 ## 4. Pendências do dono (dependem do Wesley)
+- Depois de publicado: **abrir o app na sua conta** (Wesley) para os 110 compartilhados com a FRAN serem enviados; depois a Fran abre ou atualiza o app dela.
 - Atualizar o app instalado: Conta, Login & Nuvem → **Buscar atualização agora**.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
@@ -41,6 +42,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Compartilhados lançados antes do aceite chegam à outra conta; dia do cartão por seletor
+- **O que mudou:** (1) **Família:** o app passa a enviar sozinho, para a pessoa com convite aceito, os lançamentos compartilhados que ainda não estão no servidor. O servidor agora devolve em `GET /api/family/shared` a lista do que esta conta já enviou (`outgoingSharedIds`); ao abrir o app e na leitura de cada minuto, o app compara com os compartilhados locais (`findUnsentSharedTransactions`) e envia os que faltam em lotes de 40, uma vez por sessão (falha de rede tenta de novo na leitura seguinte). (2) **Cartões:** "Dia Fecha" e "Dia Vence" (cadastro nas duas telas e edição) viraram um seletor de 1 a 31 (`DayOfMonthSelect`), no lugar do campo numérico.
+- **Por quê:** o dono convidou a Fran (francy.von@gmail.com); ela criou a conta, aceitou o convite e não viu nada. Leitura **somente** no Neon de produção: convite `accepted` às 21:24 de 2026-11-15; a conta do dono tem **110 compartilhados com a FRAN** (109 no cartão pagos por ele, 1 pago por ela); a tabela `finance_shared_transactions` tinha **0 linhas**. Causa: o envio só acontecia ao **salvar** um compartilhado; quando o convite é aceito, o app de quem convidou apenas marcava "aceito" e não enviava os que já existiam. No cartão: o campo numérico vazio virava 0 e, ao digitar, ficava "05".
+- **Arquivos/áreas:** `backend/app.ts` (GET `/api/family/shared`), `src/lib/neonWorkspace.ts`, `src/domain/family/sharedFinanceRules.ts`, `src/App.tsx`, `src/components/cards/DayOfMonthSelect.tsx` (novo), `src/components/cards/CreditCardsTab.tsx`; testes `src/domain/family/sharedPendingSync.test.ts` (novo), `src/test-utils/appOrchestrationHarness.tsx` + `src/App.test.tsx`, `backend/familyApi.test.ts`, `src/components/cards/CreditCardsTab.test.ts`.
+- **Como foi verificado:** teste do app inteiro com convite aceito e compartilhados antigos: **falha sem a correção** (0 envios) e passa com ela (envia só os que faltam, uma vez); servidor antigo sem a lista não dispara reenvio; testes do seletor (31 opções, criar com dia 5/12, editar para 3/31) falhavam antes e passam; `bun run check` (755 testes, build ok).
+- **Não verificado:** o envio real em produção para a conta da Fran (depende de publicar e de o dono abrir o app); tempo do servidor para gravar 110 espelhos (o servidor grava um por um; por isso o envio vai em lotes de 40); seletor no iPhone/Safari real.
+- **Impacto em dados/Neon:** nenhum esquema. Nenhuma escrita feita por mim (só leitura). Depois de publicado, o app do dono grava os espelhos em `finance_shared_transactions` pelo caminho normal da API. Não envia itens de **A Receber** (o R$ 905,68 da fatura do cartão adicional da FRAN continua só na conta do dono, como já era a regra).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (glossário do cartão e seção 8), `docs/tecnico/api.md` (2.2.2), `docs/produto/fluxos.md` (8), `CHECKLIST.md`.
+- **Próximo passo:** publicar; o dono abre o app (conta dele) e a Fran atualiza o dela; conferir no Neon que `finance_shared_transactions` passou a ter 110 linhas para a Fran.
 
 ### 2026-11-15 — Editar lançamento permite mudar parcelas e repetição
 - **O que mudou:** a edição de lançamento esconde a escolha de frequência e o número de parcelas, e o salvamento ignorava essa mudança. Agora a edição mostra os mesmos campos do lançamento original e, se mudar o tipo (à vista/fixo/parcelado) ou o número de parcelas, a série é refeita (`rebuildTransactionSeries`) com o total dividido de novo, na mesma posição. Recusa sem alterar nada se houver parcela paga, antecipada, dividida por pagamento parcial, vinda de extrato ou acerto compartilhado recebido.
