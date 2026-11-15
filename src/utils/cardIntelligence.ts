@@ -59,8 +59,9 @@ function daysBetween(from: string, to: string): number {
 }
 
 /** Dia do mês em que começa o ciclo novo (o dia seguinte ao fechamento). */
-export function bestPurchaseDayFor(card: Pick<CreditCard, 'closingDay'>): number {
+export function bestPurchaseDayFor(card: Pick<CreditCard, 'closingDay' | 'closingDayStartsNextInvoice'>): number {
   const closing = Math.min(Math.max(1, Math.round(card.closingDay || 1)), 31);
+  if (card.closingDayStartsNextInvoice) return closing >= 28 ? 1 : closing;
   return closing >= 28 ? 1 : closing + 1;
 }
 

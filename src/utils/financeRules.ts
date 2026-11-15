@@ -1054,7 +1054,7 @@ export function applyReconciledBankTransactions(
  */
 export function resolveCreditCardInvoiceMonth(
   purchaseDate: string,
-  card?: Pick<CreditCard, 'closingDay'> & Partial<Pick<CreditCard, 'dueDay'>> | null
+  card?: Pick<CreditCard, 'closingDay'> & Partial<Pick<CreditCard, 'dueDay' | 'closingDayStartsNextInvoice'>> | null
 ): string {
   const yearMonth =
     typeof purchaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate)
@@ -1064,7 +1064,9 @@ export function resolveCreditCardInvoiceMonth(
     return yearMonth;
   }
   const dayPart = Number(typeof purchaseDate === 'string' ? purchaseDate.slice(8, 10) : NaN);
-  const purchaseAfterClosing = Number.isFinite(dayPart) && dayPart > card.closingDay;
+  const purchaseAfterClosing =
+    Number.isFinite(dayPart) &&
+    (dayPart > card.closingDay || (Boolean(card.closingDayStartsNextInvoice) && dayPart === card.closingDay));
   const dueDay = card.dueDay ?? card.closingDay + 1;
   const invoiceDueAfterClosingMonth = dueDay <= card.closingDay;
   const monthOffset = Number(purchaseAfterClosing) + Number(invoiceDueAfterClosingMonth);

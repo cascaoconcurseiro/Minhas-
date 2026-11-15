@@ -133,6 +133,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const [newCardBrand, setNewCardBrand] = useState<'Mastercard' | 'Visa' | 'Elo'>('Mastercard');
   const [newCardLimit, setNewCardLimit] = useState('');
   const [newCardClosing, setNewCardClosing] = useState(20);
+  const [newClosingNext, setNewClosingNext] = useState(false);
   const [newCardDue, setNewCardDue] = useState(28);
   const [newCardColor, setNewCardColor] = useState('#0f172a');
   const [newCardAccount, setNewCardAccount] = useState(brlAccounts[0]?.id || '');
@@ -144,6 +145,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   const [editCardBrand, setEditCardBrand] = useState<'Mastercard' | 'Visa' | 'Elo'>('Mastercard');
   const [editCardLimit, setEditCardLimit] = useState('');
   const [editCardClosing, setEditCardClosing] = useState(20);
+  const [editClosingNext, setEditClosingNext] = useState(false);
   const [editCardDue, setEditCardDue] = useState(28);
   const [editCardColor, setEditCardColor] = useState('#0f172a');
   const [editCardAccount, setEditCardAccount] = useState('');
@@ -263,6 +265,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
       brand: newCardBrand,
       limit: limitVal,
       closingDay: newCardClosing,
+      ...(newClosingNext ? { closingDayStartsNextInvoice: true } : {}),
       dueDay: newCardDue,
       defaultAccountId: newCardAccount || brlAccounts[0]?.id || '',
       color: newCardColor,
@@ -384,6 +387,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   />
                 </div>
               </div>
+
+              <label className="flex items-start gap-2 text-xs text-slate-700">
+                <input type="checkbox" id="card-new-closing-next-1" checked={newClosingNext} onChange={(e) => setNewClosingNext(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                <span>Compra no próprio dia do fechamento vai para a <strong>próxima</strong> fatura</span>
+              </label>
 
               <div>
                 <label htmlFor="card-color-input" className="block text-xs font-semibold text-slate-700 mb-1">
@@ -632,6 +640,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       />
                     </div>
                   </div>
+
+              <label className="flex items-start gap-2 text-xs text-slate-700">
+                <input type="checkbox" id="card-new-closing-next-2" checked={newClosingNext} onChange={(e) => setNewClosingNext(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                <span>Compra no próprio dia do fechamento vai para a <strong>próxima</strong> fatura</span>
+              </label>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -858,6 +871,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                       setEditCardColor(activeCard.color || '#0f172a');
                       setEditCardLimit(activeCard.limit.toFixed(2).replace('.', ','));
                       setEditCardClosing(activeCard.closingDay);
+                      setEditClosingNext(Boolean(activeCard.closingDayStartsNextInvoice));
                       setEditCardDue(activeCard.dueDay);
                       setEditCardAccount(
                         activeCard.defaultAccountId || brlAccounts[0]?.id || ''
@@ -930,7 +944,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 e.preventDefault();
                 const limitVal = parseBRLInput(editCardLimit);
                 if (!editCardName.trim() || limitVal <= 0) return;
-                onUpdateCard({
+                const nextCard: CreditCard = {
                   ...activeCard,
                   name: editCardName.trim(),
                   brand: editCardBrand,
@@ -939,7 +953,10 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   closingDay: Math.max(1, Math.min(31, editCardClosing || 20)),
                   dueDay: Math.max(1, Math.min(31, editCardDue || 28)),
                   defaultAccountId: editCardAccount || activeCard.defaultAccountId,
-                });
+                };
+                if (editClosingNext) nextCard.closingDayStartsNextInvoice = true;
+                else delete nextCard.closingDayStartsNextInvoice;
+                onUpdateCard(nextCard);
                 setIsEditingActiveCard(false);
               }}
               className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5 space-y-4"
@@ -1024,6 +1041,11 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                     />
                   </div>
                 </div>
+
+                <label className="flex items-start gap-2 text-xs text-slate-700 ">
+                  <input type="checkbox" id="card-edit-closing-next" checked={editClosingNext} onChange={(e) => setEditClosingNext(e.target.checked)} className="mt-0.5 h-4 w-4" />
+                  <span>Compra no próprio dia do fechamento vai para a <strong>próxima</strong> fatura</span>
+                </label>
                 <div>
                   <label htmlFor="card-edit-default-account-select" className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Conta Padrão

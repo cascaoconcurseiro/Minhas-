@@ -5,7 +5,7 @@ import {
   createReceivable, deleteReceivable, getInvoiceMonthOptions, getReceivableBalance, getReceivableStatus,
   registerReceivablePayment, removeReceivablePayment, summarizeReceivables,
 } from './receivables';
-import { calculateNetWorth, calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
+import { resolveCreditCardInvoiceMonth, calculateNetWorth, calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
 
 const account: BankAccount = { id: 'a', name: 'Conta', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true };
 const card: CreditCard = { id: 'c', name: 'Itaú azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: 'a', color: '#00f' };
@@ -118,4 +118,11 @@ test('patrimônio: o a receber em aberto entra como ativo e compensa a fatura do
   assert.equal(without.totalNetWorth, 800 - 1800, 'sem o a receber, a fatura dela parece perda');
   assert.equal(withReceivable.totalNetWorth, 800, 'com o a receber, o patrimônio não cai');
   assert.equal(withReceivable.receivablesTotal, 1800);
+});
+
+test('fechamento: compra no dia do fechamento vai para a próxima fatura só se o cartão assim configurar', () => {
+  const normal = { closingDay: 30, dueDay: 10 };
+  assert.equal(resolveCreditCardInvoiceMonth('2026-11-30', normal), '2026-12', 'fecha 30, vence 10: compra até o dia 30 vence em dezembro');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-11-30', { ...normal, closingDayStartsNextInvoice: true }), '2027-01');
+  assert.equal(resolveCreditCardInvoiceMonth('2026-11-29', { ...normal, closingDayStartsNextInvoice: true }), '2026-12');
 });

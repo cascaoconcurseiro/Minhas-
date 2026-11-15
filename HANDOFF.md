@@ -1,5 +1,10 @@
 # Handoff — Minhas Economias
 
+## Cartão: opção "compra no dia do fechamento vai para a próxima fatura"
+- Regra anterior (mantida como padrão): compra até o dia do fechamento (inclusive) fica na fatura atual; só depois do fechamento vai para a próxima. Bancos diferem, então cada cartão ganhou a opção `closingDayStartsNextInvoice` (caixa em Novo cartão / Editar Cartão). Quando marcada, compra no próprio dia de fechamento entra na fatura seguinte. Afeta `resolveCreditCardInvoiceMonth` (todas as compras novas) e "melhor dia de compra".
+- Compras já lançadas NÃO são reclassificadas sozinhas; só valem para lançamentos feitos depois de marcar (ou ao editar a compra). Teste novo em `receivables.test.ts`; verificado no navegador (editar cartão, fecha dia 30, marcar, salvar).
+- Pendente de decisão: leitura de fatura em PDF/foto (IA externa x só no celular) — dono ainda não escolheu.
+
 ## Patrimônio e score incluem o "a receber de pessoas"
 - Decisão do dono: "na sua decisão". `calculateNetWorth(..., receivablesTotal)` soma o saldo em aberto de A Receber como ativo (a fatura do cartão adicional já entra como dívida do cartão; sem isso o patrimônio caía indevidamente). Vale para o patrimônio da Visão Geral, o DRE/Patrimônio Consolidado (nova linha "A Receber de Pessoas") e o score de saúde. Despesas, receitas e relatórios continuam sem o a receber.
 - Teste novo em `receivables.test.ts`; no navegador, dívida de R$ 1.000 sem saída da conta subiu o patrimônio de 33.106 para 34.106.

@@ -71,6 +71,8 @@ export interface CreditCard {
   brand: 'Mastercard' | 'Visa' | 'Elo';
   limit: number;
   closingDay: number;
+  /** Quando verdadeiro, compra feita NO dia do fechamento já entra na próxima fatura (depende do banco). */
+  closingDayStartsNextInvoice?: boolean;
   dueDay: number;
   defaultAccountId: string;
   color: string;
