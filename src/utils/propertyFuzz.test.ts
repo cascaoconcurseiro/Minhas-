@@ -1,8 +1,8 @@
 import test from 'node:test';
-import { calculateTripExpenseSplit, simplifyTripDebts, calculateConvertedBrlAmount } from './utils/travelRules';
-import { settleSharedExpenses, reopenSharedSettlement, calculateSharedMonthTotals } from './utils/sharedFinanceRules';
-import { calculateAccountBalances } from './utils/financeRules';
-import { applyAssetOperation } from './utils/investmentRules';
+import { calculateTripExpenseSplit, simplifyTripDebts, calculateConvertedBrlAmount } from './travelRules';
+import { settleSharedExpenses, reopenSharedSettlement, calculateSharedMonthTotals } from './sharedFinanceRules';
+import { calculateAccountBalances } from './financeRules';
+import { applyAssetOperation } from './investmentRules';
 let seed = 11; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
 const r2 = (n:number)=>Math.round(n*100)/100;
 test('trip split', () => {
