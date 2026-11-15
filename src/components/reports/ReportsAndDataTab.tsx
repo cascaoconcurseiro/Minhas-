@@ -222,7 +222,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
     if (periodPreset === 'annual') {
       const yr = selectedMonth.slice(0, 4);
       return {
-        activeStartMonth: `${yr}-06`,
+        activeStartMonth: `${yr}-01`,
         activeEndMonth: `${yr}-12`,
       };
     }
@@ -475,7 +475,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Anual (2026)
+              Anual ({selectedMonth.slice(0, 4)})
             </button>
             <button
               type="button"

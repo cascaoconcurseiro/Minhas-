@@ -44,7 +44,7 @@ Tudo isso vive em um único documento por usuário (workspace). Tipos em `src/ty
 | **Transferência** | Move dinheiro entre contas (mesma moeda ou com conversão); não é gasto nem receita. Origem e destino não podem ser a mesma conta |
 
 ### 2.4 Parcelado e fixo
-- **Parcelado**: de 2 a 48 parcelas. O valor total é dividido em centavos; a diferença de centavos fica na **primeira** parcela (`createTransactionBatch`). Cada parcela vai para a fatura do seu mês.
+- **Parcelado**: de 2 a 48 parcelas. O valor total é dividido em centavos; a diferença de centavos fica na **primeira** parcela (`createTransactionBatch`). Cada parcela vai para a fatura do seu mês. Em compra de **viagem** em moeda estrangeira, o valor original (`originalAmount`), a cota pessoal e as cotas por participante são **divididos entre as parcelas** (a soma das parcelas fecha exatamente o total); nunca se repete o valor inteiro em cada parcela.
 - **Fixo (assinatura/recorrente)**: gera lançamentos para os próximos meses. O sistema sugere "gastos que se repetem" detectando o padrão no histórico (`recurrenceDetection.ts`): mesmo estabelecimento em meses seguidos; o usuário pode dispensar a sugestão.
 
 ### 2.5 Edição e exclusão em cascata
@@ -56,6 +56,7 @@ Ao editar ou apagar um lançamento de série, o modo de cascata decide o alcance
 - Compra de cartão já quitada por pagamento de fatura: primeiro estornar o pagamento da fatura.
 - Pagamento de fatura: estornar antes de corrigir.
 - Acerto de compartilhado já recebido: reabrir o acerto em Compartilhado primeiro.
+- Aporte/resgate de investimento e compra de câmbio também **não** mudam de situação (pago/pendente) pelo botão de status nem em lote: a posição do ativo ou o lote já foram alterados por outra operação.
 - Compra de cartão **não** pode ser marcada como paga diretamente: só pagando a fatura (senão a dívida sumiria sem sair dinheiro de conta) (`canSettleTransactionDirectly`).
 
 ### 2.7 Avisos antes de salvar (nunca bloqueiam)
@@ -88,11 +89,11 @@ Ao **mudar o dia de fechamento ou a opção** de um cartão, as compras **penden
 ### 3.3 Pagar fatura — `payCreditCardInvoice`
 - Gera um lançamento de saída na conta escolhida (marcado como pagamento de fatura) e marca as compras do mês como pagas, em cascata.
 - **Pagamento parcial**: paga as compras na ordem até onde o valor alcança; a compra que ficar no meio é dividida (`partialSplitOriginalId`) e o resíduo continua pendente.
-- **Estorno** (`reverseCreditCardInvoicePayment`): remove o débito da conta e reabre as compras como `pending`.
+- **Estorno** (`reverseCreditCardInvoicePayment`): remove o débito da conta e reabre as compras como `pending`. Ao estornar um pagamento **parcial**, a fração paga por ele volta a ser dívida, mas **só é juntada à linha original se essa linha ainda estiver em aberto**; se outro pagamento já quitou a linha original, a fração é reaberta como linha própria (a dívida volta exatamente ao valor daquele pagamento, não ao da compra inteira). Valores de viagem em moeda estrangeira acompanham a fração e são recompostos na junção.
 - O pagamento de fatura **não é despesa** (a despesa já foi contada na compra); é movimento de caixa.
 
 ### 3.4 Antecipação de parcelas (`uxEnhancementRules.ts`)
-Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e valor originais (`originalCompetenceMonth`, `originalAmountBeforeDiscount`) para **reverter com 1 clique**. O gasto continua contado no mês original da compra.
+Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e valor originais (`originalCompetenceMonth`, `originalAmountBeforeDiscount`) para **reverter com 1 clique**. O gasto continua contado no mês original da compra. O **desconto é repartido em centavos inteiros** (o total descontado é exatamente o informado; nenhuma parcela fica abaixo de R$ 0,01) e a data da parcela usa o último dia do mês quando o dia original não existe (31 → 28/02). **Antecipação já paga não pode ser desfeita** (primeiro estornar o pagamento da fatura): devolver valor e mês alteraria uma obrigação já liquidada.
 
 ### 3.5 Comprometimento do cartão (`cardCommitment.ts`)
 - Para cada mês: `compra no cartão do mês ÷ renda lançada ou prevista no mês`. A renda é só o que está lançado/previsto (nunca média).
@@ -126,6 +127,7 @@ Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e val
 Não contam como despesa, receita, categoria, 50/30/20, DRE, comprometimento de cartão, recorrência nem aprendizado de hábito:
 - gastos **só de acompanhantes de viagem** (pagos por outro participante);
 - movimentos de **valores a receber** (linha da fatura do cartão adicional, saída de empréstimo e os recebimentos).
+- Exceção: o **espelho de despesa compartilhada recebida por convite** (`tx-mirror-*`) não debita a conta antes do acerto, mas a **minha cota** conta como gasto e como obrigação do mês, igual à mesma despesa lançada à mão com "pago por outra pessoa".
 Esses movimentos **continuam** afetando saldo de conta, fatura e limite do cartão.
 
 ### 5.3 Orçamento e 50/30/20
@@ -137,7 +139,7 @@ Esses movimentos **continuam** afetando saldo de conta, fatura e limite do cart�
 Receita operacional + dividendos − despesas de consumo = resultado; aportes em investimento são mostrados à parte (não são despesa). Mostra também o patrimônio consolidado (seção 6).
 
 ### 5.5 Previsão de caixa (`cashForecast.ts`)
-Parte do saldo de hoje e soma o que está agendado: contas a pagar e a receber, lançamentos fixos, parcelas e **faturas de cartão no dia do vencimento**. Mostra o ponto mais baixo e o primeiro dia negativo, considerando só contas incluídas no total.
+Parte do saldo de hoje e soma o que está agendado: contas a pagar e a receber, lançamentos fixos, parcelas e **faturas de cartão no dia do vencimento**. Mostra o ponto mais baixo e o primeiro dia negativo, considerando só contas incluídas no total. O **fluxo diário** (`calculateDailyCashFlow`) abre com o saldo **projetado** do mês anterior, ou seja, já inclui o que ficou pendente (a pagar/receber) de meses anteriores; assim o último dia da curva fecha com o saldo projetado do mês.
 
 ---
 
@@ -211,7 +213,7 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 
 ## 10. Viagens e câmbio (`travelRules.ts`)
 - **Lotes de câmbio**: cada compra de moeda registra valor e custo; o **VET médio ponderado** (Valor Efetivo Total) mistura os lotes. IOF padrão: 1,1% conta global, 3,38% cartão internacional, 0% espécie.
-- **Divisão de gastos** (estilo Splitwise): `equal`, `exact`, `percentage`, `shares` (pesos), `individual`; **simplificação de dívidas** entre participantes e quitação.
+- **Divisão de gastos** (estilo Splitwise): `equal`, `exact`, `percentage`, `shares` (pesos), `individual`; o resto do rateio respeita a menor unidade da moeda (JPY e CLP dividem em unidades inteiras, não em centavos); **simplificação de dívidas** entre participantes e quitação.
 - **Economia cambial**: compara o VET médio dos lotes com a cotação comercial do dia.
 - Gastos pagos só por acompanhantes não debitam suas contas e ficam fora do resultado pessoal.
 
@@ -220,9 +222,12 @@ Simula juros compostos para 100% CDI, 110% CDI, Tesouro Selic, LCI/LCA (92% CDI,
 
 ---
 
+- **Relatório por período**: Anual = janeiro a dezembro do ano do mês selecionado (rótulo mostra o ano); Trimestral e Semestral terminam no mês selecionado.
+- **Acerto de viagem** com movimento bancário: o acerto guarda o vínculo com o lançamento (`linkedTransactionId`); apagar o lançamento reabre o acerto. O reembolso recebido usa a categoria "Reembolsos" (não conta como rendimento de investimento).
+
 ## 12. Importação de extrato (OFX/CSV) (`ofxParser.ts`, `BankReconciliationModal`)
 - Aceita `.ofx`, `.csv`, `.txt` de **conta corrente**.
-- Detecta duplicidade por `FITID`, data e valor; pareia com lançamentos pendentes existentes (quita em vez de criar).
+- Detecta duplicidade por `FITID`, data e valor; o `FITID` só vale **dentro da mesma conta** do extrato (a mesma chave em outra conta não é repetição); pareia com lançamentos pendentes existentes (quita em vez de criar).
 - Linhas de pagamento de fatura passam pela mesma cascata de quitação de cartão.
 - Aprende a categoria usual do estabelecimento.
 - **Não** lê fatura de cartão linha a linha (limitação conhecida).

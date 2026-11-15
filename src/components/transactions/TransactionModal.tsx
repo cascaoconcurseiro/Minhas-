@@ -1200,7 +1200,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       selectedTrip.participants,
       activeIds,
       tripSplitMethod,
-      customList
+      customList,
+      originalCurrency
     );
   }, [
     selectedTrip,

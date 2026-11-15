@@ -709,8 +709,11 @@ export function calculateTripExpenseSplit(
   participants: TripParticipant[],
   selectedParticipantIds: string[],
   method: TripSplitMethod,
-  customInputs: CustomParticipantSplitInput[] = []
+  customInputs: CustomParticipantSplitInput[] = [],
+  /** Moeda do valor estrangeiro: define a menor unidade (JPY e CLP não têm centavos). Padrão: 2 casas. */
+  foreignCurrency?: CurrencyCode
 ): TripExpenseShare[] {
+  const foreignScale = 10 ** (foreignCurrency ? (CURRENCY_CATALOG[foreignCurrency]?.decimals ?? 2) : 2);
   const validParticipants = participants.filter((p) =>
     selectedParticipantIds.includes(p.id)
   );
@@ -778,17 +781,17 @@ export function calculateTripExpenseSplit(
     const rawForeign =
       method === 'exact' && !isSingleParticipant
         ? Math.round(
-            parseBRLInput(String(customMap.get(p.id)?.exactForeign ?? 0)) * 100
-          ) / 100
+            parseBRLInput(String(customMap.get(p.id)?.exactForeign ?? 0)) * foreignScale
+          ) / foreignScale
         : isLast
-        ? Math.round((totalForeignAmount - allocatedForeign) * 100) / 100
-        : Math.floor(totalForeignAmount * ratio * 100) / 100;
+        ? Math.round((totalForeignAmount - allocatedForeign) * foreignScale) / foreignScale
+        : Math.floor(totalForeignAmount * ratio * foreignScale) / foreignScale;
 
     const rawBrl = isLast
       ? Math.round((totalBrlAmount - allocatedBrl) * 100) / 100
       : Math.floor(totalBrlAmount * ratio * 100) / 100;
 
-    allocatedForeign = Math.round((allocatedForeign + rawForeign) * 100) / 100;
+    allocatedForeign = Math.round((allocatedForeign + rawForeign) * foreignScale) / foreignScale;
     allocatedBrl = Math.round((allocatedBrl + rawBrl) * 100) / 100;
 
     shares.push({

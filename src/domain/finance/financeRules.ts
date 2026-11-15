@@ -53,7 +53,11 @@ export {
  * viagem e movimentos de valores a receber (fatura de cartão adicional cobrada de alguém, empréstimos e seus pagamentos).
  */
 export function isOutsidePersonalResult(tx: Transaction): boolean {
-  return Boolean(tx.isCompanionOnlyExpense || tx.receivableId);
+  // O espelho de uma despesa compartilhada recebida por convite (`tx-mirror-`) também vem marcado como
+  // "só do acompanhante" para não debitar a conta antes do acerto, mas a minha cota é gasto meu (igual à mesma
+  // despesa lançada à mão com "pago por outra pessoa"). Por isso ele não fica fora do resultado pessoal.
+  const isIncomingSharedMirror = tx.id.startsWith('tx-mirror-');
+  return Boolean((tx.isCompanionOnlyExpense && !isIncomingSharedMirror) || tx.receivableId);
 }
 
 function isCreditCardInvoicePurchase(tx: Transaction): boolean {
@@ -233,6 +237,48 @@ export function extractAvailableTransactionTags(
   ]);
 }
 
+/**
+ * Aplica `fn` (centavos -> centavos) a todos os valores de viagem de um lançamento: moeda estrangeira original,
+ * cota pessoal e cotas por participante. Usado para dividir uma compra (parcelas, pagamento parcial) sem repetir
+ * o valor inteiro em cada linha.
+ */
+function mapTripAmounts(tx: Transaction, fn: (valueCents: number) => number): Partial<Transaction> {
+  const out: Partial<Transaction> = {};
+  const apply = (value: number) => fn(Math.round(value * 100)) / 100;
+  if (tx.originalAmount !== undefined) out.originalAmount = apply(tx.originalAmount);
+  if (tx.myPersonalShareBrl !== undefined) out.myPersonalShareBrl = apply(tx.myPersonalShareBrl);
+  if (tx.myPersonalShareForeign !== undefined) out.myPersonalShareForeign = apply(tx.myPersonalShareForeign);
+  if (Array.isArray(tx.tripShares) && tx.tripShares.length > 0) {
+    out.tripShares = tx.tripShares.map((share) => ({
+      ...share,
+      foreignShare: apply(share.foreignShare),
+      brlShare: apply(share.brlShare),
+    }));
+  }
+  return out;
+}
+
+/** Soma os valores de viagem de duas frações da mesma compra (usado ao estornar um pagamento parcial). */
+function mergeTripAmounts(base: Transaction, extra: Transaction): Partial<Transaction> {
+  const out: Partial<Transaction> = {};
+  const add = (a?: number, b?: number) =>
+    a === undefined && b === undefined ? undefined : Math.round(((a || 0) + (b || 0)) * 100) / 100;
+  if (base.originalAmount !== undefined || extra.originalAmount !== undefined) out.originalAmount = add(base.originalAmount, extra.originalAmount);
+  if (base.myPersonalShareBrl !== undefined || extra.myPersonalShareBrl !== undefined) out.myPersonalShareBrl = add(base.myPersonalShareBrl, extra.myPersonalShareBrl);
+  if (base.myPersonalShareForeign !== undefined || extra.myPersonalShareForeign !== undefined) out.myPersonalShareForeign = add(base.myPersonalShareForeign, extra.myPersonalShareForeign);
+  if (Array.isArray(base.tripShares) && base.tripShares.length > 0) {
+    out.tripShares = base.tripShares.map((share) => {
+      const other = extra.tripShares?.find((candidate) => candidate.participantId === share.participantId);
+      return {
+        ...share,
+        foreignShare: add(share.foreignShare, other?.foreignShare) ?? share.foreignShare,
+        brlShare: add(share.brlShare, other?.brlShare) ?? share.brlShare,
+      };
+    });
+  }
+  return out;
+}
+
 export function createTransactionBatch(
   input: CreateTransactionBatchInput,
   idPrefix = 'tx'
@@ -300,6 +346,16 @@ export function createTransactionBatch(
       const instDate = addMonthsToDateString(input.date, i);
       const instMonth = addMonthsToYearMonth(baseMonth, i);
       const instStatus: TransactionStatus = i === 0 ? input.status : 'pending';
+      // Moeda estrangeira e cotas da viagem são da compra inteira: cada parcela leva só a sua fatia (a soma das
+      // fatias fecha exatamente o total). No modo "valor por parcela" não há total confiável para ratear.
+      const tripSlice = mode === 'total_divided' && amountCents > 0
+        ? (() => {
+            const cumulativeNow = Math.floor(amountCents / totalCount) * (i + 1) + Math.min(i + 1, remainderCents);
+            const cumulativePrev = Math.floor(amountCents / totalCount) * i + Math.min(i, remainderCents);
+            return mapTripAmounts(tripExtras as Transaction, (value) =>
+              Math.round((value * cumulativeNow) / amountCents) - Math.round((value * cumulativePrev) / amountCents));
+          })()
+        : {};
 
       results.push({
         id: `${idPrefix}-${Date.now()}-${i + 1}-${Math.random().toString(36).slice(2, 6)}`,
@@ -329,6 +385,7 @@ export function createTransactionBatch(
         sharedStatus: input.isShared ? 'pending' : undefined,
         targetInvestmentAssetId: input.targetInvestmentAssetId,
         ...tripExtras,
+        ...tripSlice,
       });
     }
     return results;
@@ -753,8 +810,14 @@ export function payCreditCardInvoice(
             ? undefined
             : Math.round((tx.sharedAmount - (sharedPaidPart || 0)) * 100) / 100;
         remainingToSettle = 0;
+        // Valores de viagem em moeda estrangeira acompanham a fração paga; o resto fica na fração em aberto.
+        const wholeCents = Math.round(tx.amount * 100);
+        const paidCents = Math.round(paidPart * 100);
+        const paidTripPart = mapTripAmounts(tx, (value) => Math.round((value * paidCents) / wholeCents));
+        const unpaidTripPart = mapTripAmounts(tx, (value) => value - Math.round((value * paidCents) / wholeCents));
         updatedTransactions.push({
           ...tx,
+          ...paidTripPart,
           id: `${tx.id}-paid-${paymentTimestamp}`,
           description: `${tx.description} (Abatimento Parcial)`,
           amount: paidPart,
@@ -765,6 +828,7 @@ export function payCreditCardInvoice(
         } as Transaction);
         updatedTransactions.push({
           ...tx,
+          ...unpaidTripPart,
           amount: unpaidRemainder,
           sharedAmount: sharedUnpaidRemainder,
           status: 'pending' as TransactionStatus,
@@ -1431,7 +1495,11 @@ export function calculateDailyCashFlow(
   let runningRealized = openingBalances
     .filter((b) => includedIds.has(b.accountId))
     .reduce((sum, b) => sum + b.currentBalance, 0);
-  let runningProjected = runningRealized;
+  // A projeção abre com tudo o que ficou pendente (a pagar/receber) em meses anteriores, igual ao saldo projetado
+  // mensal: item vencido e ainda não pago entra no começo do mês em vez de sumir da curva.
+  let runningProjected = openingBalances
+    .filter((b) => includedIds.has(b.accountId))
+    .reduce((sum, b) => sum + b.projectedBalance, 0);
 
   const monthBankTxs = transactions.filter(
     (tx) =>
@@ -2080,6 +2148,7 @@ export function reverseCreditCardInvoicePayment(
   // Detect partial split rows settled by this payment (legacy rows have no payment link).
   const partialSplitSums = new Map<string, number>();
   const partialSplitSharedSums = new Map<string, number>();
+  const partialSplitRows = new Map<string, Transaction[]>();
   const partialSplitIdsToRemove = new Set<string>();
 
   for (const tx of transactions) {
@@ -2089,7 +2158,16 @@ export function reverseCreditCardInvoicePayment(
     ) {
       const origId =
         tx.partialSplitOriginalId || tx.id.split('-paid-')[0];
+      // Só junta a fração de volta à linha original quando essa linha ainda está em aberto (ou é quitada por este
+      // mesmo pagamento). Se outro pagamento já quitou a linha original, juntar reabriria o valor desse outro
+      // pagamento: então a fração é apenas reaberta, como linha própria.
+      const origin = transactions.find((candidate) => candidate.id === origId);
+      const canMerge = Boolean(
+        origin && (origin.status === 'pending' || isTargetPurchase(origin))
+      );
+      if (!canMerge) continue;
       partialSplitSums.set(origId, (partialSplitSums.get(origId) || 0) + tx.amount);
+      partialSplitRows.set(origId, [...(partialSplitRows.get(origId) || []), tx]);
       if (tx.sharedAmount !== undefined) {
         partialSplitSharedSums.set(
           origId,
@@ -2113,8 +2191,15 @@ export function reverseCreditCardInvoicePayment(
         const extraSharedFromPartial = partialSplitSharedSums.get(t.id);
         if (t.status === 'paid' || extraFromPartial > 0) {
           restoredCardCount += 1;
+          let tripMerged: Partial<Transaction> = {};
+          let tripBase: Transaction = t;
+          for (const extraRow of partialSplitRows.get(t.id) || []) {
+            tripMerged = mergeTripAmounts(tripBase, extraRow);
+            tripBase = { ...tripBase, ...tripMerged };
+          }
           return {
             ...t,
+            ...tripMerged,
             amount: Math.round((t.amount + extraFromPartial) * 100) / 100,
             sharedAmount:
               t.sharedAmount === undefined && extraSharedFromPartial === undefined
@@ -2151,6 +2236,9 @@ export function reverseCreditCardInvoicePayment(
 export function canSettleTransactionDirectly(tx: Transaction): boolean {
   if (tx.isInvoicePayment) return true; // o estorno em cascata tem tratamento próprio
   if (tx.creditCardId) return false;
+  // Aporte/resgate de ativo e compra de câmbio mexem em outra posição (carteira, lote): só a operação própria muda isso.
+  if (tx.type === 'transfer' && tx.targetInvestmentAssetId) return false;
+  if (tx.id.startsWith('tx-fxlot-')) return false;
   return true;
 }
 
@@ -2176,6 +2264,24 @@ export function toggleTransactionStatusWithCascade(
       updatedTransactions: rev.updatedTransactions,
       actionDescription: rev.actionDescription,
     };
+  }
+
+  if (!canSettleTransactionDirectly(target)) {
+    if (target.type === 'transfer' && target.targetInvestmentAssetId) {
+      return {
+        updatedTransactions: transactions,
+        blocked: true,
+        actionDescription:
+          'Aporte ou resgate de investimento não muda de situação aqui: a carteira de ativos já foi atualizada. Para corrigir, registre a operação inversa na aba Investimentos.',
+      };
+    }
+    if (target.id.startsWith('tx-fxlot-')) {
+      return {
+        updatedTransactions: transactions,
+        blocked: true,
+        actionDescription: 'Este lançamento vem de uma compra de câmbio da viagem. Corrija pelo lote na aba Viagens.',
+      };
+    }
   }
 
   // Compra de cartão: só a fatura quita. Compra já paga por uma fatura volta a pendente estornando o pagamento da fatura.
