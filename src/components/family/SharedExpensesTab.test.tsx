@@ -30,6 +30,7 @@ function renderSharedExpensesTab(
     onSettleAllMemberInvoices?: (memberId: string, month: string, accountId: string, date: string) => void;
     onOpenNewSharedTransaction?: (memberId?: string) => void;
     userPixKey?: string;
+    inviteeHasAccount?: Record<string, boolean>;
   } = {}
 ) {
   container = document.createElement('div');
@@ -55,6 +56,7 @@ function renderSharedExpensesTab(
         onDeclineFamilyInvite: options.onDeclineFamilyInvite,
         onResendFamilyInvite: options.onResendFamilyInvite,
         userPixKey: options.userPixKey,
+        inviteeHasAccount: options.inviteeHasAccount,
       })
     );
   });
@@ -595,6 +597,75 @@ test('shared invite resend uses callback only and does not initiate external ema
   assert.match(page.textContent ?? '', /Convite registrado no app para test@example\.test/i);
   assert.match(page.textContent ?? '', /Nenhum e-mail foi enviado/i);
   assert.match(page.textContent ?? '', /entre no Minhas Economias com esse mesmo e-mail/i);
+});
+
+async function openInviteTabWith(member: FamilyMember, inviteeHasAccount?: Record<string, boolean>) {
+  const page = renderSharedExpensesTab(() => {}, { familyMembers: [member], inviteeHasAccount });
+  const tab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  assert.ok(tab);
+  await act(async () => { tab.click(); });
+  return page;
+}
+const pendingMember: FamilyMember = {
+  id: 'invite-panel', name: 'Fran', relationship: 'cônjuge', color: '#059669',
+  email: 'fran@example.test', inviteStatus: 'invited', direction: 'outgoing',
+};
+
+test('convite pendente para e-mail sem conta avisa que a pessoa precisa criar a conta e oferece copiar e WhatsApp', async () => {
+  const page = await openInviteTabWith(pendingMember, { 'fran@example.test': false });
+  assert.match(page.textContent ?? '', /Essa pessoa ainda não tem conta/);
+  assert.match(page.textContent ?? '', /criar a conta com o e-mail fran@example\.test/);
+  assert.ok([...page.querySelectorAll('button')].some((button) => button.textContent?.includes('Copiar convite')));
+  const whatsapp = [...page.querySelectorAll('a')].find((link) => link.textContent?.includes('WhatsApp'));
+  assert.ok(whatsapp, 'link do WhatsApp');
+  assert.ok(whatsapp.getAttribute('href')?.startsWith('https://wa.me/?text='));
+  assert.match(decodeURIComponent(whatsapp.getAttribute('href') ?? ''), /fran@example\.test/);
+  assert.equal(whatsapp.getAttribute('rel'), 'noopener noreferrer');
+});
+
+test('convite pendente para quem já tem conta diz que só falta aceitar', async () => {
+  const page = await openInviteTabWith(pendingMember, { 'fran@example.test': true });
+  assert.match(page.textContent ?? '', /Ela já tem conta/);
+  assert.doesNotMatch(page.textContent ?? '', /ainda não tem conta/);
+});
+
+test('sem informação do servidor o convite não afirma se a pessoa tem conta', async () => {
+  const page = await openInviteTabWith(pendingMember);
+  assert.doesNotMatch(page.textContent ?? '', /ainda não tem conta|Ela já tem conta/);
+  assert.match(page.textContent ?? '', /O app não envia e-mail/);
+});
+
+test('painel do convite não aparece para vínculo aceito nem para convite recebido', async () => {
+  const accepted = await openInviteTabWith({ ...pendingMember, inviteStatus: 'accepted' }, { 'fran@example.test': false });
+  assert.ok(![...accepted.querySelectorAll('button')].some((button) => button.textContent?.includes('Copiar convite')));
+  assert.doesNotMatch(accepted.textContent ?? '', /ainda não tem conta/);
+  act(() => root?.unmount()); container?.remove();
+  const incoming = await openInviteTabWith({ ...pendingMember, direction: 'incoming' }, { 'fran@example.test': false });
+  assert.ok(![...incoming.querySelectorAll('button')].some((button) => button.textContent?.includes('Copiar convite')));
+});
+
+test('copiar convite coloca a mensagem pronta na área de transferência e confirma', async () => {
+  let copied = '';
+  originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { copied = text; } } });
+  const page = await openInviteTabWith(pendingMember, { 'fran@example.test': false });
+  const copy = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Copiar convite'));
+  assert.ok(copy);
+  await act(async () => { copy.click(); await Promise.resolve(); });
+  assert.match(copied, /fran@example\.test/);
+  assert.match(copied, /crie uma com esse mesmo e-mail/);
+  assert.match(page.textContent ?? '', /Convite copiado/);
+});
+
+test('se a área de transferência falhar, a tela orienta a usar o WhatsApp e não diz que copiou', async () => {
+  originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('blocked'); } } });
+  const page = await openInviteTabWith(pendingMember, { 'fran@example.test': false });
+  const copy = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Copiar convite'));
+  assert.ok(copy);
+  await act(async () => { copy.click(); await Promise.resolve(); });
+  assert.match(page.textContent ?? '', /Não foi possível copiar/);
+  assert.doesNotMatch(page.textContent ?? '', /Convite copiado/);
 });
 
 test('failed async invite update never shows the registered success message', async () => {

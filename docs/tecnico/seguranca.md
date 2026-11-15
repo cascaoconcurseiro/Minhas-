@@ -13,6 +13,8 @@
 ## Provedores externos
 
 - Firebase foi removido por completo (código, dependência e configuração). Não há verificação de e-mail: a família é formada só por convite dentro do sistema.
+- **Risco conhecido do convite sem verificação de e-mail**: quem criar uma conta com o e-mail convidado consegue aceitar o convite e passa a receber os compartilhados enviados depois do aceite. Por isso conferir o e-mail digitado ao convidar é importante; o convite pode ser revogado a qualquer momento (apaga os espelhos nos dois sentidos).
+- **Aviso "a pessoa já tem conta"** (`invited_has_account`): só é calculado para convites pendentes que o próprio usuário enviou. Isso permite descobrir se um e-mail tem conta, informação que o cadastro (`409 Este e-mail já possui cadastro`) também revela; o cadastro tem limite de 10 tentativas/hora por IP.
 - Limite de tentativas por instância: login 8 falhas/15 min por IP+e-mail; cadastro 10/hora por IP. Tentativa com e-mail inexistente gasta o mesmo tempo de uma senha errada (hash fictício).
 
 ## API e dados financeiros

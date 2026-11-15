@@ -1,5 +1,6 @@
 import { getAccountCurrency, resolveBankTransfer } from './domain/finance/transferRules';
 import { newEntityId } from './utils/ids';
+import { getFamilyInviteCreatedNotice } from './domain/family/familyInvite';
 import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts, findUnsentSharedTransactions, getSharedSyncId } from './domain/family/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
@@ -478,6 +479,8 @@ export default function App() {
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [receivablesIntent, setReceivablesIntent] = useState<import('./components/receivables/ReceivablesTab').ReceivablesIntent | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
+  // E-mail (minúsculo) → a pessoa convidada já tem conta? Só convites pendentes que eu enviei; vem do servidor.
+  const [inviteeHasAccount, setInviteeHasAccount] = useState<Record<string, boolean>>({});
   // Ids dos compartilhados que o servidor já tem desta conta (null = ainda não lido ou servidor antigo).
   const [serverSentSharedIds, setServerSentSharedIds] = useState<ReadonlySet<string> | null>(null);
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
@@ -1113,6 +1116,7 @@ export default function App() {
         const data = cleaned.payload;
         const [familyInvitations, sharedSnapshot] = await extraLoads;
         if (!active || authenticatedUidRef.current !== loadUid) return;
+        rememberInviteeAccounts(familyInvitations);
         if (silent) isApplyingRemoteSnapshotRef.current = true;
 
         neonWorkspaceRevisionRef.current = snapshot.revision;
@@ -1404,6 +1408,7 @@ export default function App() {
           loadNeonSharedSnapshot(),
         ]);
         if (!active) return;
+        rememberInviteeAccounts(invitations);
         setFamilyMembers((previous) => {
           const next = [...previous];
           for (const invitation of invitations) {
@@ -1774,6 +1779,15 @@ export default function App() {
   };
 
   const sharedSyncVersionRef = useRef<Record<string, number>>({});
+  const rememberInviteeAccounts = (invitations: Array<{ invited_email: string; status: string; invited_has_account?: boolean }>) => {
+    const next: Record<string, boolean> = {};
+    for (const invitation of invitations) {
+      if (invitation.status === 'invited' && typeof invitation.invited_has_account === 'boolean') {
+        next[invitation.invited_email.trim().toLowerCase()] = invitation.invited_has_account;
+      }
+    }
+    setInviteeHasAccount((previous) => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+  };
   const triggerCrossAccountSharedTxSync = (
     nextTransactions: Transaction[],
     nextMembers: FamilyMember[] = familyMembers,
@@ -2644,7 +2658,15 @@ export default function App() {
         ? familyMembers.map((item) => item.id === member.id ? savedMember : item)
         : [...familyMembers, savedMember];
       setFamilyMembers(nextMembers);
-      showNotice(`Convite registrado no app para ${member.email}. Nenhum e-mail foi enviado; peça à pessoa que entre no Minhas Economias com esse mesmo e-mail para ver e aceitar o convite.`);
+      const inviteeEmail = member.email.trim().toLowerCase();
+      if (invitation.status === 'invited' && typeof invitation.invited_has_account === 'boolean') {
+        const hasAccount = invitation.invited_has_account;
+        setInviteeHasAccount((previous) => ({ ...previous, [inviteeEmail]: hasAccount }));
+      }
+      showNotice(getFamilyInviteCreatedNotice(
+        member.email,
+        invitation.status === 'invited' ? invitation.invited_has_account : undefined
+      ));
       triggerCrossAccountSharedTxSync(transactions, nextMembers);
       return true;
     } catch (error) {
@@ -4449,6 +4471,7 @@ export default function App() {
                   onAcceptFamilyInvite={handleAcceptFamilyInvite}
                   onDeclineFamilyInvite={handleDeclineFamilyInvite}
                   onResendFamilyInvite={triggerCrossAccountInviteSync}
+                  inviteeHasAccount={inviteeHasAccount}
                   onSettleSharedTransaction={handleSettleSharedTransaction}
                   onSettleAllMemberInvoices={handleSettleAllMemberInvoices}
                   onReopenSharedTransaction={handleReopenSharedTransaction}

@@ -35,6 +35,7 @@ import {
   getLocalDateISO,
 } from '../../domain/finance/financeRules';
 import { CategoryIconBadge } from '../ui/CategoryIconBadge';
+import { FamilyInvitePanel } from './FamilyInvitePanel';
 import { InstitutionMark } from '../accounts/InstitutionMark';
 
 interface SharedExpensesTabProps {
@@ -65,6 +66,8 @@ interface SharedExpensesTabProps {
   onAcceptFamilyInvite?: (member: FamilyMember) => void;
   onDeclineFamilyInvite?: (member: FamilyMember) => void;
   onResendFamilyInvite?: (member: FamilyMember) => void | boolean | Promise<void | boolean>;
+  /** E-mail (minúsculo) → a pessoa convidada já tem conta? Só para convites pendentes que eu enviei. */
+  inviteeHasAccount?: Record<string, boolean>;
   userPixKey?: string;
 }
 
@@ -97,6 +100,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   onAcceptFamilyInvite,
   onDeclineFamilyInvite,
   onResendFamilyInvite,
+  inviteeHasAccount,
   userPixKey,
 }) => {
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
@@ -735,6 +739,19 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {member.email &&
+                    member.direction !== 'incoming' &&
+                    member.inviteStatus === 'invited' && (
+                      <FamilyInvitePanel
+                        email={member.email}
+                        hasAccount={inviteeHasAccount?.[member.email.trim().toLowerCase()]}
+                        onFeedback={(message) => {
+                          setCopyFeedback(message);
+                          setTimeout(() => setCopyFeedback(null), 4000);
+                        }}
+                      />
+                    )}
 
                   {member.pixKey && (
                     <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2.5 text-xs text-slate-600 dark:text-slate-300">

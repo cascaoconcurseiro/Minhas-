@@ -18,6 +18,8 @@ export interface NeonFamilyInvitation {
   relationship: string;
   color: string;
   status: 'invited' | 'accepted' | 'declined' | 'revoked';
+  /** Só nos convites pendentes enviados por mim: a pessoa já tem conta? Ausente se o servidor não soube responder. */
+  invited_has_account?: boolean;
 }
 
 export interface NeonSharedTransaction {

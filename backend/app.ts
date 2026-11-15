@@ -183,6 +183,41 @@ async function withWorkspaceRls<T>(
   }
 }
 
+/**
+ * Quais e-mails já têm conta. Só serve para avisar quem convidou que a pessoa ainda precisa criar a conta
+ * (o app não envia e-mail). Devolve null se a consulta falhar: o aviso some, o convite continua funcionando.
+ */
+async function findRegisteredEmails(emails: string[]): Promise<Set<string> | null> {
+  const unique = [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))].slice(0, 100);
+  if (unique.length === 0) return new Set();
+  try {
+    const result = await getNeonPool().query(
+      'SELECT lower(email) AS email FROM public.app_users WHERE lower(email) = ANY($1::text[])',
+      [unique]
+    );
+    return new Set(result.rows.map((row: { email: unknown }) => String(row.email)));
+  } catch (error) {
+    console.warn('Não foi possível conferir se o convidado já tem conta:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+/** Acrescenta `invited_has_account` só nos convites pendentes enviados por este usuário. */
+async function withInviteeAccountStatus<T extends { owner_user_id: string; invited_email: string; status: string }>(
+  invitations: T[],
+  userUid: string
+): Promise<Array<T & { invited_has_account?: boolean }>> {
+  const pending = invitations.filter((row) => row.owner_user_id === userUid && row.status === 'invited');
+  if (pending.length === 0) return invitations;
+  const registered = await findRegisteredEmails(pending.map((row) => row.invited_email));
+  if (!registered) return invitations;
+  return invitations.map((row) =>
+    row.owner_user_id === userUid && row.status === 'invited'
+      ? { ...row, invited_has_account: registered.has(String(row.invited_email).trim().toLowerCase()) }
+      : row
+  );
+}
+
 const CURRENCY_NAMES_PT: Record<string, string> = {
   USD: 'Dólar Americano (USD)',
   EUR: 'Euro (EUR)',
@@ -639,7 +674,7 @@ async function startServer() {
         );
         return result.rows;
       });
-      res.json({ invitations });
+      res.json({ invitations: await withInviteeAccountStatus(invitations, user.uid) });
     } catch (error) {
       console.error('Erro ao carregar convites familiares:', error);
       res.status(503).json({ error: 'Não foi possível carregar os convites familiares.' });
@@ -711,7 +746,7 @@ async function startServer() {
         );
         return result.rows[0];
       });
-      res.status(201).json({ invitation });
+      res.status(201).json({ invitation: (await withInviteeAccountStatus([invitation], user.uid))[0] });
     } catch (error) {
       console.error('Erro ao criar convite familiar:', error);
       res.status(503).json({ error: 'Não foi possível salvar o convite familiar.' });

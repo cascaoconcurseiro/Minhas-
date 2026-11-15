@@ -67,6 +67,7 @@ const makeSnapshot = (accountName = 'Conta Neon sintética'): SyntheticSnapshot 
 let loadWorkspace: () => Promise<SyntheticSnapshot> = async () => makeSnapshot();
 type SyntheticSharedSnapshot = { transactions: Record<string, unknown>[]; outgoingSettlements: unknown[]; outgoingSharedIds?: string[] };
 let loadSharedSnapshot: () => Promise<SyntheticSharedSnapshot> = async () => ({ transactions: [], outgoingSettlements: [] });
+let loadInvitations: () => Promise<unknown[]> = async () => [];
 const sharedSyncCalls: Array<{ partnerEmail: string; transactions: Array<Record<string, unknown>> }> = [];
 let loadCalls = 0;
 let createCalls = 0;
@@ -133,7 +134,7 @@ mock.module('../lib/neonWorkspace', () => ({
     return { revision: 1, updatedAt: '2026-11-07T12:00:00.000Z' };
   },
   createNeonFamilyInvitation: async () => ({ invitationId: 'qa-invite' }),
-  loadNeonFamilyInvitations: async () => [],
+  loadNeonFamilyInvitations: () => loadInvitations(),
   loadNeonSharedTransactions: async () => [],
   loadNeonSharedSnapshot: () => loadSharedSnapshot(),
   loadNeonWorkspace: async () => {
@@ -238,6 +239,7 @@ afterEach(() => {
   loadWorkspace = async () => makeSnapshot();
   loadCalls = 0;
   loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [] });
+  loadInvitations = async () => [];
   sharedSyncCalls.length = 0;
   createCalls = 0;
   saveCalls = 0;
@@ -340,6 +342,52 @@ test('after the invitation is accepted, shared expenses created earlier are sent
   await flushReact();
   await flushReact();
   assert.equal(sharedSyncCalls.length, 1, 'não reenvia o mesmo lançamento na mesma sessão');
+});
+
+test('while the app is open, the partner creating the account later and accepting triggers the backlog delivery by itself', async () => {
+  const realSetInterval = window.setInterval;
+  window.setInterval = ((handler: TimerHandler, ms?: number, ...args: unknown[]) =>
+    realSetInterval(handler, ms === 60_000 ? 20 : ms, ...args)) as typeof window.setInterval;
+  try {
+    const sharedTx = (id: string) => ({
+      id, description: id, amount: 100, date: '2026-12-01', competenceMonth: '2026-12', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', paymentMethod: 'pix', recurrence: 'single',
+      accountId: 'qa-account-001', isShared: true, sharedMemberId: 'fam-partner', sharedAmount: 50,
+      sharedPaidBy: 'me', sharedStatus: 'pending', sharedSplitMode: 'half',
+    });
+    loadWorkspace = async () => {
+      const snapshot = makeSnapshot();
+      snapshot.payload.transactionsJson = JSON.stringify([sharedTx('tx-pre-1'), sharedTx('tx-pre-2')]);
+      snapshot.payload.familyMembersJson = JSON.stringify([{
+        id: 'fam-partner', name: 'Parceira', relationship: 'cônjuge', color: '#000',
+        email: 'parceira@example.test', inviteStatus: 'invited', direction: 'outgoing',
+      }]);
+      return snapshot;
+    };
+    let status: 'invited' | 'accepted' = 'invited';
+    loadInvitations = async () => [{
+      invitation_id: 'inv-1', owner_user_id: 'qa-app-user-001', owner_email: 'app.orchestration@example.test',
+      invited_email: 'parceira@example.test', invited_user_id: status === 'accepted' ? 'partner-uid' : null,
+      owner_member_id: 'fam-partner', owner_name: 'Conta Sintética', relationship: 'cônjuge', color: '#000', status,
+    }];
+    loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [], outgoingSharedIds: [] });
+
+    const page = renderApp();
+    await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+    await flushReact();
+    await flushReact();
+    assert.equal(sharedSyncCalls.length, 0, 'convite ainda pendente: nada é enviado');
+
+    status = 'accepted';
+    await waitFor(() => assert.equal(sharedSyncCalls.length, 1), 3_000);
+    assert.equal(sharedSyncCalls[0].partnerEmail, 'parceira@example.test');
+    assert.deepEqual(sharedSyncCalls[0].transactions.map((tx) => tx.id).sort(), ['tx-pre-1', 'tx-pre-2']);
+    await flushReact();
+    await flushReact();
+    assert.equal(sharedSyncCalls.length, 1, 'não reenvia a cada leitura');
+  } finally {
+    window.setInterval = realSetInterval;
+  }
 });
 
 test('an old server without the sent-ids list never triggers a resend', async () => {

@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 755 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 767 testes passando · build PWA ok · `scripts/qa-postgres.ts` passou em PostgreSQL 16 local descartável.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -42,6 +42,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Convite familiar: aviso "pessoa sem conta", copiar/WhatsApp e auditoria de todas as situações
+- **O que mudou:** (1) `GET/POST /api/family/invitations` passam a devolver `invited_has_account` nos convites **pendentes que o próprio usuário enviou** (consulta a `app_users`; ausente se falhar). (2) Na tela Compartilhado → Pessoas, o convite pendente mostra um painel: "Essa pessoa ainda não tem conta" (aviso amarelo), "Ela já tem conta" (só falta aceitar) ou texto neutro, com **Copiar convite** e **Enviar pelo WhatsApp** (mensagem pronta com o endereço do app e o e-mail a usar). O aviso ao registrar o convite também muda conforme o caso. O app lê isso na abertura e a cada minuto. (3) O envio automático do backlog (entrega anterior, #46) agora tem teste cobrindo o caso "a pessoa cria a conta e aceita com o app aberto".
+- **Por quê:** pedido do dono: se a pessoa não tem conta, o sistema devia avisar e dar um jeito de reenviar/avisar; e verificar todas as situações do compartilhamento (dos dois lados, conta criada depois, etc.).
+- **Arquivos/áreas:** `backend/app.ts`, `src/lib/neonWorkspace.ts`, `src/domain/family/familyInvite.ts` (novo), `src/components/family/FamilyInvitePanel.tsx` (novo), `src/components/family/SharedExpensesTab.tsx`, `src/App.tsx`; testes: `familyInvite.test.ts`, `SharedExpensesTab.test.tsx`, `backend/familyApi.test.ts`, `appOrchestrationHarness.tsx`/`App.test.tsx`, e `scripts/qa-postgres.ts` (14 novas verificações em PostgreSQL real).
+- **Como foi verificado:** `bun run check`; `scripts/qa-postgres.ts` rodado em PostgreSQL 16 descartável local com o papel restrito do app (convite para e-mail sem conta; conta criada depois com maiúsculas diferentes vê o convite; estranho não vê nem aceita; nada flui antes do aceite; backlog chega depois do aceite; Fran→dono e dono→Fran; editar/apagar nos dois lados; recusa e reconvite; revogação pelo convidado e reconvite; convite para si mesmo/e-mail inválido/sem login).
+- **Não verificado:** a tela no navegador/celular real (só testes de componente); o aviso com a Fran na produção; envio pelo WhatsApp de verdade (só o link é montado, quem convida toca e envia). **Risco conhecido:** sem verificação de e-mail, quem criar conta com o e-mail convidado consegue aceitar o convite (registrado em `docs/tecnico/seguranca.md`). Se alguém recriar a conta com o mesmo e-mail depois de já ter aceitado (novo identificador), o convite antigo continua preso ao identificador velho: é preciso revogar e convidar de novo (o app não tem exclusão de conta, então só ocorre por intervenção direta no banco).
+- **Impacto em dados/Neon:** nenhum esquema nem dado alterado. A consulta nova só lê `app_users`.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (8, tabela de situações), `docs/produto/fluxos.md` (8), `docs/tecnico/api.md` (2.2.2), `docs/tecnico/seguranca.md`, `CHECKLIST.md`.
+- **Próximo passo:** o dono testar convidar um e-mail novo e ver o aviso; decidir se o servidor deve enviar os compartilhados sozinho no momento do aceite (hoje depende do app de quem convidou abrir, em até 1 minuto) e se vale integrar envio real de e-mail (SMTP) para o convite.
 
 ### 2026-11-15 — Dado lançado no Neon: 110 compartilhados enviados para a conta da Fran
 - **O que mudou:** gravados direto em `finance_shared_transactions` os **110 espelhos** dos compartilhados do dono com a FRAN (remetente = conta do dono, destinatária = conta da Fran, convite aceito). Cada espelho foi montado no mesmo formato que `PUT /api/family/shared` grava (`tx-mirror-*`, quem pagou invertido, `sharedMemberId` = `fam-inv-wesley_diaslima_gmail_com`, cota arredondada em centavos).
