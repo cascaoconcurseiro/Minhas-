@@ -2411,6 +2411,73 @@ export function getSeriesRebuildBlocker(transactions: Transaction[], targetId: s
   return null;
 }
 
+/**
+ * Muda só a quantidade de meses de um lançamento FIXO sem mexer no que já existe: aumentar acrescenta meses
+ * "previstos" depois do último; diminuir tira meses do fim, e só se ainda estiverem pendentes.
+ */
+export function adjustFixedSeriesLength(
+  transactions: Transaction[],
+  targetId: string,
+  newCount: number
+): { updatedTransactions: Transaction[]; addedCount: number; removedCount: number; removedSharedSyncIds: string[]; error?: string } {
+  const fail = (error: string) => ({ updatedTransactions: transactions, addedCount: 0, removedCount: 0, removedSharedSyncIds: [], error });
+  const target = transactions.find((tx) => tx.id === targetId);
+  if (!target || !target.installmentGroupId || target.recurrence !== 'fixed') return fail('Este lançamento não é uma série fixa.');
+  if (!Number.isInteger(newCount) || newCount < 1 || newCount > 36) return fail('Escolha de 1 a 36 meses.');
+  const rows = transactions
+    .filter((tx) => tx.installmentGroupId === target.installmentGroupId)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (newCount === rows.length) return { updatedTransactions: transactions, addedCount: 0, removedCount: 0, removedSharedSyncIds: [] };
+  if (newCount > rows.length) {
+    const last = rows[rows.length - 1];
+    const added: Transaction[] = [];
+    for (let i = 1; i <= newCount - rows.length; i += 1) {
+      const clone: Transaction = {
+        ...last,
+        id: `tx-${Date.now()}-fix-ext-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        date: addMonthsToDateString(last.date, i),
+        competenceMonth: addMonthsToYearMonth(last.competenceMonth, i),
+        status: 'pending',
+        sharedSyncId: undefined,
+        sharedSettlementId: undefined,
+        sharedSettledDate: undefined,
+        sharedSettledAccountId: undefined,
+        invoicePaymentId: undefined,
+        fitid: undefined,
+        reconciled: undefined,
+        importBatchId: undefined,
+        sharedStatus: last.isShared ? 'pending' : undefined,
+      };
+      added.push(clone);
+    }
+    return { updatedTransactions: [...transactions, ...added], addedCount: added.length, removedCount: 0, removedSharedSyncIds: [] };
+  }
+  const toRemove = rows.slice(newCount);
+  if (toRemove.some((tx) => tx.status === 'paid' || tx.invoicePaymentId || (tx.isShared && tx.sharedStatus === 'received'))) {
+    return fail('Os últimos meses da série já foram pagos ou acertados; só dá para reduzir meses que ainda estão pendentes.');
+  }
+  const removeIds = new Set(toRemove.map((tx) => tx.id));
+  return {
+    updatedTransactions: transactions.filter((tx) => !removeIds.has(tx.id)),
+    addedCount: 0,
+    removedCount: toRemove.length,
+    removedSharedSyncIds: toRemove.filter((tx) => tx.isShared).map((tx) => tx.sharedSyncId || tx.id),
+  };
+}
+
+/**
+ * Ao apagar uma viagem, o dinheiro que já saiu da conta para comprar moeda continua no extrato: o lançamento só
+ * deixa de ser "do lote" (passa de `tx-fxlot-` para `tx-fxkept-`), podendo ser editado ou apagado normalmente.
+ */
+export function releaseExchangeLotMovements(transactions: Transaction[], lotIds: string[]): Transaction[] {
+  const wanted = new Set(lotIds.map((id) => `tx-fxlot-${id}`));
+  return transactions.map((tx) =>
+    wanted.has(tx.id)
+      ? { ...tx, id: tx.id.replace('tx-fxlot-', 'tx-fxkept-'), notes: `${tx.notes || ''} (viagem removida; o dinheiro da compra de câmbio foi mantido)`.trim() }
+      : tx
+  );
+}
+
 /** Substitui o lançamento (ou a série dele) por uma série nova gerada a partir do formulário, na mesma posição da lista. */
 export function rebuildTransactionSeries(
   transactions: Transaction[],

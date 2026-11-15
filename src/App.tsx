@@ -87,6 +87,8 @@ import {
   payCreditCardInvoice,
   toggleTransactionStatusWithCascade,
   rebuildTransactionSeries,
+  adjustFixedSeriesLength,
+  releaseExchangeLotMovements,
   calculateNetWorth,
   calculateCurrentPosition,
   calculateSharedAmount,
@@ -1889,6 +1891,42 @@ export default function App() {
           (Boolean(input.creditCardId) !== Boolean(targetTx.creditCardId) ||
             input.recurrence !== (targetTx.recurrence ?? 'single') ||
             (input.recurrence === 'installment' && input.installmentTotal !== targetTx.installmentTotal));
+        // Mesmo lançamento fixo, só mudou a quantidade de meses: acrescenta ou tira meses do fim, sem refazer a série.
+        const fixedGroupCount = targetTx.installmentGroupId
+          ? transactions.filter((tx) => tx.installmentGroupId === targetTx.installmentGroupId).length
+          : 0;
+        if (
+          !recurrenceChanged &&
+          targetTx.recurrence === 'fixed' &&
+          input.recurrence === 'fixed' &&
+          input.fixedMonthsCount !== undefined &&
+          input.fixedMonthsCount !== fixedGroupCount
+        ) {
+          const adjusted = adjustFixedSeriesLength(transactions, editingId, input.fixedMonthsCount);
+          if (adjusted.error) {
+            showNotice(adjusted.error, undefined, true);
+            return;
+          }
+          // Os demais campos editados continuam valendo, no alcance escolhido (só este mês, este e próximos ou toda a série).
+          const edited = applyCascadeTransactionEdit(adjusted.updatedTransactions, updatedSingleTx, cascadeScope);
+          if (edited.error) {
+            showNotice(edited.error, undefined, true);
+            return;
+          }
+          setTransactions(edited.updatedTransactions);
+          if (adjusted.removedSharedSyncIds.length > 0 || updatedSingleTx.isShared || targetTx.isShared) {
+            triggerCrossAccountSharedTxSync(
+              edited.updatedTransactions,
+              familyMembers,
+              adjusted.removedSharedSyncIds.length > 0 ? adjusted.removedSharedSyncIds : undefined
+            );
+          }
+          showNotice(
+            `Série fixa ajustada para ${input.fixedMonthsCount} mês(es) (${adjusted.addedCount} acrescentado(s), ${adjusted.removedCount} removido(s)).`,
+            prevSnapshot
+          );
+          return;
+        }
         if (recurrenceChanged) {
           const rebuilt = rebuildTransactionSeries(transactions, editingId, input);
           if (rebuilt.error) {
@@ -2298,11 +2336,10 @@ export default function App() {
 
   const handleDeleteTrip = (tripId: string) => {
     const target = trips.find((t) => t.id === tripId);
-    const lotIds = new Set((target?.exchangeLots || []).map((l) => `tx-fxlot-${l.id}`));
+    const lotIdList = (target?.exchangeLots || []).map((l) => l.id);
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
     setTransactions((prev) =>
-      prev
-        .filter((tx) => !lotIds.has(tx.id))
+      releaseExchangeLotMovements(prev, lotIdList)
         .map((tx) =>
           tx.tripId === tripId
             ? {

@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 742 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 746 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -62,6 +62,16 @@
 - **Impacto em dados/Neon:** nenhum.
 - **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3 e decisões), `CHECKLIST.md` (A08 fechado).
 - **Próximo passo:** nenhum pendente desta rodada; restam os itens da seção D do CHECKLIST (A11, A14, A18–A19, A21–A24).
+
+### 2026-11-15 — Confiabilidade: servidor mais rígido, coerência dos espelhos, câmbio e fixos
+- **O que mudou:** (1) o servidor agora recusa gravar lançamento incompleto, apontando para conta/cartão inexistente ou com cota compartilhada maior que o valor (`validateWorkspaceConsistency`); (2) Lançamentos e Calendário passam a usar a mesma regra do resumo para espelhos compartilhados (o total da lista bate com o resumo); (3) apagar uma viagem não apaga mais o débito bancário das compras de câmbio (`releaseExchangeLotMovements`); (4) lançamento fixo: dá para mudar a quantidade de meses (acrescenta ou tira do fim, só pendentes) (`adjustFixedSeriesLength`); (5) rótulo das parcelas passou de "Nx sem juros no cartão" para "Nx no cartão" (o app não sabe se há juros).
+- **Por quê:** pedido do dono: corrigir os riscos apontados e ter um sistema financeiro pessoal confiável.
+- **Arquivos/áreas:** `src/services/workspace/workspacePayload.ts`, `backend/app.ts`, `src/domain/finance/financeRules.ts`, `src/App.tsx`, `src/components/transactions/TransactionsTab.tsx`, `src/components/transactions/TransactionModal.tsx`, `src/components/overview/MonthlyCalendarView.tsx`, testes (`auditoria2026-11-15.test.ts`, `workspacePayload.test.ts`, `familyApi.test.ts` com lançamento completo).
+- **Como foi verificado:** `bun run check`; antes de endurecer o servidor, consulta **somente de leitura** ao Neon de produção (só contagens, nenhum valor): 131 lançamentos, todos completos, 0 contas/cartões/categorias órfãos, 0 cotas maiores que o valor.
+- **Não verificado:** telas no navegador/celular; envio real de lançamento recusado pelo servidor em produção (coberto por teste de função e do app, não por requisição real); mudança de meses em fixo com compartilhamento entre duas contas reais. **IOF (A14) não foi alterado**: a fonte oficial (Decretos 12.466/12.499 de 2025) cita 3,5% no cartão, mas há trechos suspensos por decreto legislativo e notícia de restabelecimento pelo STF; falta confirmar a norma vigente.
+- **Impacto em dados/Neon:** nenhum dado alterado (só leitura). Regra nova do servidor passa a valer na próxima gravação.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (2.4b, 10, 14), `CHECKLIST.md` (seção D).
+- **Próximo passo:** o dono conferir as telas no celular; decidir A14 (IOF) após confirmar a cobrança real do banco; depois comando único de câmbio com duas pernas (resto do A19).
 
 ### 2026-11-15 — Seletor de parcelas mostra todos os números (2 a 48)
 - **O que mudou:** o seletor de parcelas do cartão no formulário tinha lista fixa (2–10, 12, 15, 18, 24) e pulava o 11; agora oferece todos de 2 a 48, o limite que o app já aceitava ao gerar as parcelas.

@@ -201,3 +201,28 @@ test('editar parcelado no cartão e trocar para conta/débito vira um lançament
   assert.equal(r.updatedTransactions[0].accountId, 'a1');
   assert.equal(r.updatedTransactions[0].amount, 300);
 });
+
+import { adjustFixedSeriesLength } from './financeRules';
+
+test('fixo: aumentar e diminuir a quantidade de meses sem refazer o que existe', () => {
+  const fixed = createTransactionBatch({ description: 'Aluguel', amount: 100, date: '2026-11-05', type: 'expense', status: 'paid', categoryId: 'cat', accountId: 'a1', paymentMethod: 'pix', recurrence: 'fixed', fixedMonthsCount: 6 } as any);
+  const more = adjustFixedSeriesLength(fixed, fixed[0].id, 9);
+  assert.equal(more.updatedTransactions.length, 9);
+  assert.equal(more.updatedTransactions[0].id, fixed[0].id, 'o que existia continua igual (inclusive o mês já pago)');
+  assert.equal(more.updatedTransactions[8].competenceMonth, '2027-07');
+  assert.equal(more.updatedTransactions[8].status, 'pending');
+  const less = adjustFixedSeriesLength(more.updatedTransactions, fixed[0].id, 3);
+  assert.equal(less.updatedTransactions.length, 3);
+  const paidTail = more.updatedTransactions.map((t, i) => (i === 8 ? { ...t, status: 'paid' as const } : t));
+  assert.ok(adjustFixedSeriesLength(paidTail, fixed[0].id, 3).error, 'não tira meses já pagos');
+});
+
+import { releaseExchangeLotMovements } from './financeRules';
+
+test('A19 apagar a viagem mantém o dinheiro da compra de câmbio no extrato (editável depois)', () => {
+  const fx: Transaction = { id: 'tx-fxlot-L1', description: 'Câmbio', amount: 600, date: '2026-11-03', competenceMonth: '2026-11', type: 'transfer', status: 'paid', categoryId: 'cat-viagens', accountId: 'a1', destinationAccountId: 'usd', paymentMethod: 'transfer', recurrence: 'single' };
+  const out = releaseExchangeLotMovements([fx], ['L1']);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].amount, 600);
+  assert.equal(out[0].id.startsWith('tx-fxlot-'), false);
+});

@@ -27,6 +27,7 @@ import {
   getClampedMonthDate,
   getLedgerTransactionsForMonth,
   getEffectiveExpenseAmountForUser,
+  isOutsidePersonalResult,
   getInstallmentAndRecurringItemsForMonth,
 } from '../../domain/finance/financeRules';
 import { calculateWeeklyCashPulse } from '../../domain/budgets/uxEnhancementRules';
@@ -173,7 +174,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
     let totalExpense = 0;
 
     for (const tx of monthTxs) {
-      if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) continue;
+      if (tx.isInvoicePayment || tx.type === 'transfer' || isOutsidePersonalResult(tx)) continue;
       if (tx.type === 'income') {
         if (tx.sharedPaidBy === 'member') continue;
         totalIncome += tx.amount;

@@ -446,7 +446,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setPaymentMethod(editingTransaction.paymentMethod);
       setRecurrence(editingTransaction.recurrence);
       setInstallmentTotal(editingTransaction.installmentTotal || 2);
-      setFixedMonthsCount(editingTransaction.installmentTotal || 12);
+      setFixedMonthsCount(
+        editingTransaction.recurrence === 'fixed' && editingTransaction.installmentGroupId
+          ? transactions.filter((tx) => tx.installmentGroupId === editingTransaction.installmentGroupId).length || 12
+          : editingTransaction.installmentTotal || 12
+      );
       setCascadeScope(
         isInstallmentPurchase && !hasReliableInstallmentTotal
           ? 'single'
@@ -3435,6 +3439,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                             }
                             className="w-full sm:w-auto rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white"
                           >
+                            {![3, 6, 12, 24].includes(fixedMonthsCount) && (
+                              <option value={fixedMonthsCount}>Repetir por {fixedMonthsCount} meses (atual)</option>
+                            )}
                             <option value={3}>Repetir por 3 meses</option>
                             <option value={6}>Repetir por 6 meses (Semestre)</option>
                             <option value={12}>Repetir por 12 meses (1 Ano)</option>
@@ -3461,7 +3468,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               {Array.from({ length: 47 }, (_, index) => index + 2).map(
                                 (n) => (
                                   <option key={n} value={n}>
-                                    {n}x sem juros no cartão
+                                    {n}x no cartão
                                   </option>
                                 )
                               )}

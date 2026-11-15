@@ -268,3 +268,51 @@ export function parseWorkspaceObject<T extends object>(
   }
   return { ...fallback, ...parsed };
 }
+
+/**
+ * Coerência entre coleções, usada pelo servidor antes de gravar um workspace. Recusa o que o próprio app nunca
+ * produz: lançamento sem os campos essenciais, apontando para conta ou cartão que não existe, ou com cota
+ * compartilhada maior que o valor. (Categoria não entra aqui: o app usa categorias padrão que podem faltar na lista.)
+ * Devolve a mensagem do primeiro problema, ou null se está coerente.
+ */
+export function validateWorkspaceConsistency(input: {
+  accounts: unknown[];
+  cards: unknown[];
+  transactions: unknown[];
+}): string | null {
+  const ids = (list: unknown[]) =>
+    new Set(list.filter(isRecord).map((item) => String(item.id)));
+  const accountIds = ids(input.accounts);
+  const cardIds = ids(input.cards);
+  for (const raw of input.transactions) {
+    if (!isRecord(raw)) return 'Há um lançamento inválido.';
+    const label = `Lançamento ${String(raw.id)}`;
+    if (
+      !['income', 'expense', 'transfer'].includes(String(raw.type)) ||
+      typeof raw.description !== 'string' ||
+      typeof raw.categoryId !== 'string' || !raw.categoryId ||
+      !isSafeMoneyValue(raw.amount, false) ||
+      !isValidISODate(raw.date) ||
+      !isValidYearMonth(raw.competenceMonth) ||
+      !['paid', 'pending'].includes(String(raw.status))
+    ) {
+      return `${label} está incompleto (tipo, descrição, categoria, valor, data, mês ou situação).`;
+    }
+    if (typeof raw.accountId === 'string' && raw.accountId && !accountIds.has(raw.accountId)) {
+      return `${label} aponta para uma conta que não existe.`;
+    }
+    if (
+      typeof raw.destinationAccountId === 'string' && raw.destinationAccountId &&
+      !raw.destinationAccountId.startsWith('inv:') && !accountIds.has(raw.destinationAccountId)
+    ) {
+      return `${label} aponta para uma conta de destino que não existe.`;
+    }
+    if (typeof raw.creditCardId === 'string' && raw.creditCardId && !cardIds.has(raw.creditCardId)) {
+      return `${label} aponta para um cartão que não existe.`;
+    }
+    if (typeof raw.sharedAmount === 'number' && raw.sharedAmount > (raw.amount as number) + 0.005) {
+      return `${label} tem cota compartilhada maior que o valor.`;
+    }
+  }
+  return null;
+}
