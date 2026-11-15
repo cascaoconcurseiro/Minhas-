@@ -3315,8 +3315,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 )}
 
                 {/* Frequency / Recurrence Selector
-                    CRITICAL RULE: "Parcelado (2x a 24x)" ONLY appears when entryMode === 'credit_card'! */}
-                {!editingTransaction && (
+                    CRITICAL RULE: "Parcelado (2x a 48x)" ONLY appears when entryMode === 'credit_card'! */}
+                {(
                   <div
                     data-testid="main-recurrence-selector"
                     className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3 space-y-2.5"

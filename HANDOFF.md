@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 736 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 740 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -41,6 +41,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Editar lançamento permite mudar parcelas e repetição
+- **O que mudou:** a edição de lançamento esconde a escolha de frequência e o número de parcelas, e o salvamento ignorava essa mudança. Agora a edição mostra os mesmos campos do lançamento original e, se mudar o tipo (à vista/fixo/parcelado) ou o número de parcelas, a série é refeita (`rebuildTransactionSeries`) com o total dividido de novo, na mesma posição. Recusa sem alterar nada se houver parcela paga, antecipada, dividida por pagamento parcial, vinda de extrato ou acerto compartilhado recebido.
+- **Por quê:** pedido do dono: ao editar tem que poder alterar tudo como no lançamento original.
+- **Arquivos/áreas:** `src/domain/finance/financeRules.ts`, `src/App.tsx`, `src/components/transactions/TransactionModal.tsx`, testes em `auditoria2026-11-15.test.ts` e `TransactionModal.test.tsx`.
+- **Como foi verificado:** testes novos (3x→5x conserva o total, parcelado↔à vista, recusa com parcela paga, formulário de edição mostra parcelas e envia 5x); `bun run check`.
+- **Não verificado:** tela no navegador/celular; efeito da série refeita com compartilhamento entre duas contas reais; mudar só o número de meses de lançamento **fixo** não refaz a série (ainda).
+- **Impacto em dados/Neon:** nenhum esquema; a série refeita recebe IDs novos (as parcelas antigas somem e as novas entram).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (2.4b).
+- **Próximo passo:** o dono testar editar uma compra parcelada no app; avaliar liberar também a mudança de meses em fixos.
 
 ### 2026-11-15 — Ordem cronológica em tudo e decisão do A08
 - **O que mudou:** extrato da conta sempre cronológico (o seletor "Mais recentes primeiro" foi removido); lista de Lançamentos passou a ser cronológica (antes: mais nova primeiro); fatura do cartão já era. Decisão do dono: **A08 fica como está** (acerto compartilhado em outro mês acompanha o mês do acerto).

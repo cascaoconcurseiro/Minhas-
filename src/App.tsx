@@ -86,6 +86,7 @@ import {
   formatMonthYearPT,
   payCreditCardInvoice,
   toggleTransactionStatusWithCascade,
+  rebuildTransactionSeries,
   calculateNetWorth,
   calculateCurrentPosition,
   calculateSharedAmount,
@@ -1880,6 +1881,33 @@ export default function App() {
           myPersonalShareForeign: input.myPersonalShareForeign,
           isCompanionOnlyExpense: input.isCompanionOnlyExpense,
         };
+
+        // Mudou o tipo de repetição ou o número de parcelas: a série inteira é refeita com o que está no formulário.
+        const recurrenceChanged =
+          input.type !== 'transfer' &&
+          !input.isInvoicePayment &&
+          (input.recurrence !== (targetTx.recurrence ?? 'single') ||
+            (input.recurrence === 'installment' && input.installmentTotal !== targetTx.installmentTotal));
+        if (recurrenceChanged) {
+          const rebuilt = rebuildTransactionSeries(transactions, editingId, input);
+          if (rebuilt.error) {
+            showNotice(rebuilt.error, undefined, true);
+            return;
+          }
+          setTransactions(rebuilt.updatedTransactions);
+          if (input.isShared || rebuilt.removedSharedSyncIds.length > 0) {
+            triggerCrossAccountSharedTxSync(
+              rebuilt.updatedTransactions,
+              familyMembers,
+              rebuilt.removedSharedSyncIds.length > 0 ? rebuilt.removedSharedSyncIds : undefined
+            );
+          }
+          showNotice(
+            `Lançamento refeito: ${rebuilt.removedCount} antigo(s) substituído(s) por ${rebuilt.createdCount} novo(s).`,
+            prevSnapshot
+          );
+          return;
+        }
 
         if (
           targetTx.installmentGroupId &&
