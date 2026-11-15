@@ -7,7 +7,8 @@
 Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento · **[Decidir]** precisa de decisão do dono.
 
 ## A. Próximas entregas
-- [ ] **[Dono]** Depois de publicada a correção de 2026-11-15: abrir o app na conta do Wesley e conferir com a Fran se os compartilhados apareceram para ela (o A Receber do cartão adicional não vai para a conta dela).
+- [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).
+- [ ] **[Decidir]** O servidor deve enviar os compartilhados sozinho no momento em que o convite é aceito (hoje depende do app de quem convidou abrir)?
 - [ ] **[Dono]** Conferir no app que as compras de 30/10 do Itaú azul (R$ 98,29) aparecem em dezembro e que o aviso de atraso sumiu (dado já corrigido no Neon).
 - [ ] **[Decidir]** Leitura de fatura de cartão em PDF/foto: IA externa (mais precisa, com custo e envio do arquivo) ou só no aparelho (privada, menos precisa).
 - [ ] **[Dev]** Importar **fatura de cartão** (OFX) pelo app. Já temos um arquivo real (Nubank, 05/12/2026), que mostra: o `FITID` se repete entre uma compra e o IOF dela; parcelas vêm no texto ("Parcela 5/12", "- 8/8"); há créditos ("Pagamento recebido", "IOF de volta") que não são compra; o saldo do arquivo é a fatura menos os estornos de IOF. Regra do dono: valor repetido = já lançado.
