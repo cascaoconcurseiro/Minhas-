@@ -1,10 +1,12 @@
 # Banco de dados e persistência — Minhas Economias
 
+> Atualizado em 2026-11-15. Migrações em `db/migrations/001…010`.
+
 ## Fonte de verdade
 
 Neon PostgreSQL é o banco operacional exclusivo e também guarda as contas de login (`app_users`: e-mail, hash scrypt, nome, `email_verified`, `token_version`). O frontend envia o token de sessão (HS256, 30 dias) à API Express na Vercel; a API confere assinatura, expiração e `token_version` no banco antes de consultar os dados. Firebase foi removido por completo.
 
-O app guarda no `localStorage` (chave `minhas_economias_br_state_v6_<vault>`) a última versão do workspace, usada só para abrir na hora (`src/utils/workspaceCache.ts`, somente leitura). O Neon continua sendo a única fonte: ao responder, substitui a cópia em silêncio; nada é gravado no Neon nem na cópia antes de o Neon ser lido, e a cópia é apagada ao sair da conta. A senha SMTP é removida da cópia.
+O app guarda no `localStorage` (chave `minhas_economias_br_state_v6_<vault>`) a última versão do workspace, usada só para abrir na hora (`src/services/workspace/workspaceCache.ts`, somente leitura). O Neon continua sendo a única fonte: ao responder, substitui a cópia em silêncio; nada é gravado no Neon nem na cópia antes de o Neon ser lido, e a cópia é apagada ao sair da conta. A senha SMTP é removida da cópia.
 
 Os campos persistidos do workspace são validados antes de aplicar o snapshot à interface. JSON inválido, coleção que não seja array, item sem `id` ou objeto corrompido deixa a sincronização em erro e informa que os dados remotos foram preservados; o app não substitui esses campos por listas vazias e não os grava de volta automaticamente.
 
@@ -19,12 +21,27 @@ As migrations em `db/migrations/` são a referência do schema:
 | Tabela | Conteúdo | Proteção |
 |---|---|---|
 | `app_users` | Conta de login: `id` (`usr_…`), e-mail único em minúsculas, hash scrypt, nome, `email_verified`, `token_version` | Acesso só pelo backend (role de runtime com SELECT/INSERT/UPDATE) |
+| `app_user_passkeys` | Face ID/Touch ID por aparelho (migração 010): só a chave **pública**, contador, transportes, domínio (`rp_id`) e rótulo do aparelho | Acesso só pelo backend; apagada junto com a conta |
 | `finance_workspaces` | Um snapshot JSONB por usuário, com contas, cartões, categorias, lançamentos, metas, investimentos, viagens e preferências | RLS por `owner_user_id`; cada gravação exige revisão esperada monotônica |
 | `finance_workspace_migrations` | Hash SHA-256, origem histórica, data e contagens da importação inicial | RLS pelo UID do proprietário; não armazena outro workspace |
 | `finance_family_invitations` | Convites, participantes e estado de aceite/recusa/revogação | RLS para proprietário e e-mail convidado autenticado |
 | `finance_shared_transactions` | Apenas despesas explicitamente compartilhadas entre participantes | RLS pelos IDs de remetente/destinatário |
 
 `finance_workspaces.payload` mantém o contrato atual da interface como JSONB para reduzir risco de migração. Os lançamentos ainda não são linhas individualizadas em uma tabela relacional.
+
+### Campos do payload do workspace
+Todos são strings JSON validadas pelo servidor como arrays/objetos antes de gravar (`parseWorkspaceArray`):
+
+| Campo | Conteúdo |
+|---|---|
+| `accountsJson`, `cardsJson`, `categoriesJson` | Contas, cartões (inclui `closingDayStartsNextInvoice`), categorias |
+| `transactionsJson` | Todos os lançamentos (inclusive faturas, parcelas, compartilhados e movimentos de A Receber com `receivableId`) |
+| `receivablesJson` | **Valores a receber** (fatura de cartão adicional e empréstimos, com pagamentos parciais) — opcional |
+| `goalsJson`, `investmentsJson`, `investmentTargetsJson` | Metas, ativos e alocação-alvo |
+| `tripsJson`, `familyMembersJson`, `settingsJson` | Viagens, contatos familiares e preferências |
+| `sharedSettlementReceiptsJson` | Recibos bancários locais de acertos compartilhados |
+
+**Regra**: acrescentar um campo opcional ao payload **não** exige migração SQL; o servidor só precisa aceitá-lo (`backend/app.ts`).
 
 ## Caminho de acesso
 

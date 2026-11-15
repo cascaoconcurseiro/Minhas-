@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Checkout do Repositório
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
@@ -58,3 +60,12 @@ jobs:
 
       - name: Gerar Build de Produção (Vite)
         run: bun run build
+
+      - name: Verificar HANDOFF atualizado (obrigatório)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          bun run check:handoff --base "$BASE"

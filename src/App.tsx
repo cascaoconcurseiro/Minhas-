@@ -156,7 +156,7 @@ import {
   ReportsSkeleton,
   TransactionsSkeleton,
 } from './components/layout/SkeletonScreens';
-import type { WorkspaceConflictState } from './components/settings/WorkspaceConflictModal';
+import type { WorkspaceConflictState } from './services/workspace/workspaceSyncRecovery';
 import { parseCachedWorkspace } from './services/workspace/workspaceCache';
 import { forecastCashBalance } from './domain/budgets/cashForecast';
 import { assessDataHealth } from './domain/budgets/dataHealth';

@@ -5,7 +5,7 @@ import {
   Transaction,
 } from '../../types/finance';
 import { getCashMovementMonth, getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth, isOutsidePersonalResult } from '../finance/financeRules';
-import { matchCategoryByDescription } from '../../services/import-export/ofxParser';
+import { matchCategoryByDescription } from '../finance/categoryMatching';
 
 export interface DailyTransactionGroup {
   date: string;

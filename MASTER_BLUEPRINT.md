@@ -17,15 +17,25 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 /
 ├── api/                    # Entrada das funções da Vercel
 ├── backend/                # Rotas Express e integração PostgreSQL
-├── db/migrations/          # Migrações SQL do Neon
-├── src/                    # Aplicação React
-├── docs/                   # Arquitetura e plano de migração
-└── .github/workflows/      # Atividade diária e backup cifrado; schedule precisa de prova de execução
+├── db/migrations/          # Migrações SQL do Neon (001–010)
+├── shared/                 # Código usado por front e servidor
+├── src/
+│   ├── components/         # Telas, uma pasta por área (layout, ui, overview, transactions, accounts, cards, budgets, receivables, family, trips, investments, reports, settings, auth)
+│   ├── domain/             # Regras de negócio puras (finance, cards, budgets, receivables, family, trips, investments, reminders)
+│   ├── services/           # Dados: workspace (cópia local, payload, backup) e import-export (OFX/CSV/PDF)
+│   ├── lib/ · hooks/ · pwa/ · utils/ · types/ · test-utils/
+├── docs/                   # Documentação oficial (índice em docs/README.md): produto, tecnico, operacao, processo, arquivo
+├── scripts/                # QA com PostgreSQL real e verificação obrigatória do HANDOFF
+└── .github/workflows/      # CI (inclui check:handoff), atividade diária e backup cifrado do Neon
 ```
+Mapa detalhado e regras de onde colocar código: `docs/tecnico/estrutura-do-codigo.md`.
 
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
+| 2026-11-15 | Código organizado por áreas (`components/` em pastas, `src/domain/` para regras puras, `src/services/` para dados); `domain` não importa telas nem clientes de API; documentação refeita em `docs/` (produto, técnico, operação, processo, arquivo) e HANDOFF/CHECKLIST com modelo fixo e verificação obrigatória em CI (`scripts/check-handoff.ts`) | Pedido do dono: organização de nível sênior, documentação completa e handoff sempre preenchido para saber onde estamos, o que mudou e o que falta |
+| 2026-11-14 | Dinheiro de terceiros (valores a receber e gastos só de acompanhantes) fica fora do resultado pessoal (`isOutsidePersonalResult`) mas conta em saldo, fatura e limite; o patrimônio inclui o a receber em aberto como ativo | A fatura do cartão adicional entra na dívida do cartão e não pode virar despesa nem perda de patrimônio |
+| 2026-11-14 | Forma de pagamento, categoria e conta não vêm pré-selecionadas quando há mais de uma opção; sincronização silenciosa (primeiro a gravar vence) | Evitar lançamentos salvos com opção errada e remover avisos de sincronização |
 | 2026-11-12 | Documentação (README, security_spec, docs/*, `.env.example`) reescrita para o login próprio no Neon; variáveis do servidor: `DATABASE_URL`, `AUTH_SESSION_SECRET` (opcional, derivada de `DATABASE_URL` se ausente), `CRON_SECRET`, `GEMINI_API_KEY` (opcional) | Os documentos ainda descreviam Firebase e ID tokens, removidos em 2026-11-08 |
 | 2026-11-12 | Saldo total, investimentos e patrimônio partem da posição de hoje (`calculateCurrentPosition`); avisos usam só a data de hoje. O app abre na hora com a última versão salva no aparelho (`workspaceCache.ts`, somente leitura) e o Neon, que segue sendo a única fonte, a substitui em silêncio; nada é gravado no Neon nem na cópia local antes de o Neon ser lido, e a cópia é apagada ao sair da conta | O mês navegado não pode alterar patrimônio nem sumir com atrasos; abrir instantaneamente sem tela de carregamento, como os grandes apps, sem criar uma segunda fonte de verdade |
 | 2026-11-11 | Separar dados de compra compartilhada de recibos bancários locais em `sharedSettlementReceiptsJson` no workspace do titular | Espelhos são atualizados pelo servidor; conta/grupo/status da baixa local precisam sobreviver ao reload sem vazar identidade bancária para outro usuário. Campo JSON opcional, sem migration SQL |
@@ -42,4 +52,5 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.
 - Não enviar credenciais PostgreSQL ao frontend; o token de sessão próprio (HS256) identifica o titular nas rotas do backend.
 - Firebase não existe mais no projeto: não reintroduzir Auth, Firestore ou Storage.
+- Toda entrega que muda código atualiza o `HANDOFF.md` (barrado pelo CI: `bun run check:handoff`) e, se a regra mudou, `docs/produto/regras-de-negocio.md`.
 - A existência de `schedule` no workflow ou Vercel config não prova execução diária; exige evento automático comprovado.

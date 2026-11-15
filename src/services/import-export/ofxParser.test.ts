@@ -6,7 +6,6 @@ import {
   convertCandidatesToTransactions,
   extractOfxTag,
   inferCategoryByDescription,
-  matchCategoryByDescription,
   normalizeCsvDate,
   normalizeOfxDate,
   parseBankAmount,
@@ -15,6 +14,7 @@ import {
   parseOFX,
   prepareReconciliationCandidates,
 } from './ofxParser';
+import { matchCategoryByDescription } from '../../domain/finance/categoryMatching';
 import { Category, CreditCard, Transaction } from '../../types/finance';
 import { INITIAL_CATEGORIES } from '../../domain/finance/seedData';
 import { applyReconciledBankTransactions } from '../../domain/finance/financeRules';

@@ -1,5 +1,7 @@
 # Especificação de Segurança — Minhas Economias
 
+> Atualizado em 2026-11-15. Complementa [banco-de-dados.md](./banco-de-dados.md) e [api.md](./api.md).
+
 ## Identidade e banco operacional
 
 - O backend autentica por e-mail e senha contra `app_users` (Neon). A senha nunca é guardada: só o hash scrypt (N=16384, sal aleatório). Senha de 8 a 200 caracteres; e-mail único e em minúsculas.
@@ -26,3 +28,19 @@
 - O endpoint SMTP só informa sucesso quando Nodemailer confirma o envio; falha do provedor retorna `502`.
 - O usuário fornece suas credenciais SMTP pela interface; elas são enviadas à API autenticada e podem integrar o snapshot de configurações salvo no Neon. Não são segredos de servidor. A aplicação não deve registrá-las em logs nem expô-las em respostas.
 - O SMTP aceita apenas hostname DNS público e portas `25`, `465`, `587` ou `2525`; rejeita respostas DNS privadas/mistas, fixa a conexão ao IP validado e exige TLS (TLS implícito na `465`, STARTTLS nas demais).
+
+## Face ID / Touch ID (passkeys)
+
+- Implementado com WebAuthn (`@simplewebauthn`): o aparelho guarda a chave privada e o rosto/digital **nunca saem do celular**. O servidor guarda só a chave pública, o contador de uso, os transportes, o domínio (`rp_id`) e um rótulo do aparelho em `app_user_passkeys` (migração 010).
+- Atestação `none`, verificação biométrica obrigatória, até 10 aparelhos por conta; o desafio viaja em token assinado com validade de 5 minutos.
+- Login por passkey tem limite de 20 falhas a cada 15 minutos por IP; remover o Face ID de um aparelho é possível a qualquer momento.
+- A oferta de cadastro do Face ID aparece só em celular e tablet.
+- **Nunca verificado**: Face ID em iPhone/Safari reais (cobertura apenas por testes automáticos).
+
+## Cabeçalhos e navegador
+
+`vercel.json` aplica Content-Security-Policy restritiva, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy` e `Permissions-Policy` (câmera, microfone e localização desativados). Respostas `/api/*` não são cacheadas e o `sw.js` nunca é cacheado.
+
+## Limites de payload e abuso
+
+O corpo JSON do servidor aceita até 4 MB; consultas de câmbio (20/h) e cotações (60/h) têm limite de uso por conta.

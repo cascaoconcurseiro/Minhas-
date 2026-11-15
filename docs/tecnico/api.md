@@ -1,6 +1,8 @@
-# Arquitetura Técnica, Motores de Regras e API REST — Minhas Economias BR
+# API REST — Minhas Economias
 
-## 1. Visão Arquitetural Full-Stack
+> Descreve as rotas do servidor (`backend/app.ts`). Para visão geral de arquitetura veja [arquitetura.md](./arquitetura.md); para as regras de cálculo, [../produto/regras-de-negocio.md](../produto/regras-de-negocio.md). Atualizado em 2026-11-15.
+
+## 1. Visão geral (diagrama)
 
 O projeto opera em arquitetura unificada **Node.js + Express 4 + React 19 (Vite)**:
 
@@ -9,8 +11,8 @@ flowchart TD
     subgraph Client ["Frontend SPA / PWA (React 19 + TypeScript)"]
         UI["Componentes Modulares (Overview, Transactions, Reports, Trips, Investments)"]
         Charts["Visualização (Recharts 6M BarChart + Custom SVG Charts)"]
-        Rules["Motores de Regras Puros (src/utils/*Rules.ts)"]
-        LocalVault["Cópia local somente leitura (workspaceCache.ts, por Vault ID) + token de sessão"]
+        Rules["Regras puras (src/domain/**)"]
+        LocalVault["Cópia local somente leitura (services/workspace/workspaceCache.ts) + token de sessão"]
     end
 
     subgraph Identity ["Login próprio (backend/authSession.ts)"]
@@ -204,53 +206,28 @@ Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos
 
 ---
 
-## 3. Motores de Regras de Negócio (`src/utils/`)
+## 3. Onde ficam as regras de negócio
 
-Toda a lógica matemática e contábil é desacoplada da árvore React e coberta pelos testes automatizados (`bun test`, arquivos `*.test.ts(x)`; 575 testes em 77 arquivos em 12/11/2026):
+As regras vivem em `src/domain/` (puras, sem React) e estão descritas em [../produto/regras-de-negocio.md](../produto/regras-de-negocio.md). Mapa rápido:
 
-1. **`src/utils/financeRules.ts` (`src/utils/financeRules.test.ts`)**:
-   - `createTransactionBatch`: Geração de lançamentos únicos, parcelados (com ajuste de centavos na 1ª parcela) e fixos recorrentes.
-   - `resolveCreditCardInvoiceMonth`: Determina a competência da fatura com base no dia da compra vs. `closingDay`.
-   - `payCreditCardInvoice` & `reverseCreditCardInvoicePayment`: Baixa total ou parcial de fatura com criação automática de saldo residual e reversão segura.
-   - `calculateMonthlySummary` & `calculateAccountBalances`: Saldo realizado, saldo projetado, receitas, despesas e taxa de poupança.
-   - `calculatePeriodReport` & `calculateSixMonthComparativeSeries`: Séries históricas multimensais, comparativo dos últimos 6 meses para o gráfico Recharts e indicadores de saúde financeira.
-   - `calculate503020Rule`: Alocação orçamentária 50% Essenciais / 30% Estilo de Vida / 20% Futuro.
-   - `simulateFixedIncomeBR`: Simulador de juros compostos líquidos de IR para CDI, Selic, LCI/LCA e Poupança.
-
-2. **`src/utils/uxEnhancementRules.ts` (`src/utils/uxEnhancementRules.test.ts`)**:
-   - `predictCategoryFromDescription` & `getCategorySuggestionsForDescription`: Motor de sugestão inteligente de categoria e subcategoria baseado em similaridade textual, frequência e recência.
-   - `calculateBudgetImpactPreview`: Prévia de impacto orçamentário antes de confirmar um lançamento.
-   - `calculateMonthBurnRateMarker`: Ritmo de consumo do orçamento vs. dias corridos do mês.
-   - `anticipateCardInstallments` & `reverseAnticipatedInstallments`: Antecipação de parcelas de cartão com desconto financeiro.
-   - `calculateWeeklyCashPulse`: Pulso de caixa em 5 semanas com detecção de pico de despesas.
-   - `calculateAccountStatementWithRunningBalance`: Extrato cronológico com saldo corrido após cada lançamento.
-
-3. **`src/utils/travelRules.ts` (`src/utils/travelRules.test.ts`)**:
-   - `calculateConvertedBrlAmount`: Conversão cambial com IOF parametrizado (`1.1%` Conta Global, `3.38%` Cartão Internacional, `0%` Espécie).
-   - `calculateTripWeightedAverageRate`: Cálculo do VET médio ponderado dos lotes de câmbio.
-   - `calculateTripExpenseShares` & `calculateTripAnalytics`: Motor Splitwise de divisão (`equal`, `exact`, `percentage`, `shares`, `individual`) e simplificação de dívidas entre viajantes.
-   - `calculateExchangeSavingsAnalysis`: Economia cambial gerada pelos lotes vs. câmbio comercial de referência.
-   - `runFinancialIntegrityAudit` & `sanitizeAndRepairFinancialState`: Auditoria e autorreparo da Fonte Única de Dados (SSOT).
-
-4. **`src/utils/reconciliationRules.ts` (`src/utils/reconciliationRules.test.ts`)**:
-   - `parseOfxContent` & `parseCsvBankStatement`: Importação de arquivos bancários `.ofx` e `.csv`.
-   - `matchImportedEntriesWithExisting`: Conciliação automática por `FITID`, valor exato e janela de tolerância de data.
-
-5. **`src/utils/reminderRules.ts` (`src/utils/reminderRules.test.ts`)**:
-   - `generateFinancialReminders`, `shouldTriggerDailyNotification`, `shouldTriggerEmailNotification` e `formatEmailReminderDigest`.
-
-6. **Módulos adicionados depois (resumo)**:
-   - `src/utils/financeRules.ts`: centraliza as regras monetárias. Saldo total, investimentos e patrimônio partem da posição de hoje (`calculateCurrentPosition`); gasto, orçamento, 50/30/20 e DRE usam o mês da compra/parcela, enquanto faturas e caixa usam o vencimento. Despesa fixa no cartão aparece no calendário/extrato só no primeiro lançamento do grupo (`getPurchaseTransactionsForMonth`); `getInstallmentAndRecurringItemsForMonth` alimenta o card "Parcelados & Recorrentes".
-   - `src/utils/sharedFinanceRules.ts` e `sharedSettlementReceipts.ts`: seleção, resumo, liquidação e reabertura de compartilhamentos; cada acerto recebe `sharedSettlementId`; recibos bancários locais ficam em `sharedSettlementReceiptsJson` no workspace do titular.
-   - `src/utils/investmentRules.ts`: aportes/resgates como transferência banco↔ativo, aporte de meta vinculado e bloqueio de exclusão de ativo com saldo, histórico ou meta (`getInvestmentDeletionRestriction`).
-   - `src/utils/workspaceCache.ts`, `workspaceSession.ts`, `workspaceSyncRecovery.ts`: abertura imediata com a cópia local e substituição silenciosa pelo Neon; recuperação de erro de carga/sincronização.
-   - `src/utils/fullBackup.ts`: exportação/importação JSON (versões 3 a 6; a v6 exige `ownerUserId` igual à conta autenticada).
-   - `src/pwa/updateGate.ts` e `PwaUpdateNotice.tsx`: atualização automática silenciosa do PWA (checa a cada 10 min, ao voltar à aba e ao reconectar; só aplica sem campo alterado, janela aberta ou gravação em andamento).
+| Assunto | Arquivos |
+|---|---|
+| Lançamentos, contas, faturas, resultado, patrimônio, DRE, busca global, simulador de renda fixa | `src/domain/finance/financeRules.ts` (+ `transferRules`, `spendingGuards`, `categoryCatalog`, `categoryMatching`, `accountLabels`, `transactionDeletion`) |
+| Cartões | `src/domain/cards/cardCommitment.ts`, `cardIntelligence.ts` |
+| Orçamentos, previsão de caixa, aprendizado, recorrência, saúde dos dados, antecipação de parcelas | `src/domain/budgets/*` |
+| A Receber | `src/domain/receivables/receivables.ts` |
+| Compartilhado | `src/domain/family/sharedFinanceRules.ts`, `sharedSettlementReceipts.ts` |
+| Viagens e câmbio | `src/domain/trips/travelRules.ts` |
+| Investimentos e cotações | `src/domain/investments/investmentRules.ts` |
+| Lembretes e avisos do sino | `src/domain/reminders/reminderRules.ts`, `appNotices.ts` |
+| Cópia local, payload, sessão, recuperação de sincronização, backup JSON (versões 3 a 6) | `src/services/workspace/*` |
+| OFX/CSV, relatórios PDF | `src/services/import-export/*` |
+| Atualização silenciosa do PWA | `src/pwa/updateGate.ts` |
 
 ---
 
 ## 4. Testes e CI
 
-- Local: `bun run lint` (`tsc --noEmit`), `bun test` e `bun run build` (Vite + PWA).
+- Local: `bun run check` (lint, testes, build e checagem do HANDOFF). Detalhes em [testes-e-qualidade.md](./testes-e-qualidade.md).
 - `.github/workflows/ci.yml`: job `postgres` (PostgreSQL 17 real com `scripts/qa-postgres.ts`: API, RLS, acertos, readback e revisão concorrente) e job `verify` (lint, suíte completa e build).
-- `.github/workflows/neon-daily-activity.yml` (12:23 UTC, `SELECT 1`) e `neon-backup.yml` (13:17 UTC, dump cifrado com `age`, retenção de 30 dias). Veja `docs/BACKUP_AND_RESTORE.md`.
+- `.github/workflows/neon-daily-activity.yml` (12:23 UTC, `SELECT 1`) e `neon-backup.yml` (13:17 UTC, dump cifrado com `age`, retenção de 30 dias). Veja [../operacao/backup-e-restauracao.md](../operacao/backup-e-restauracao.md).

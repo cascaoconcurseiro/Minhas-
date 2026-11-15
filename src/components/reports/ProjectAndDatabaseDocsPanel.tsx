@@ -46,7 +46,7 @@ export const ProjectAndDatabaseDocsPanel: React.FC<ProjectAndDatabaseDocsPanelPr
 - **Dados e identidade**: O login próprio emite UID e sessão assinada; o Neon PostgreSQL é a única persistência operacional do app.
 - **Projeto Neon**: minhas-economias-br / production / neondb
 - **Cofre Ativo do Usuário**: ${autoVaultId} (${userEmail || 'Sessão Local'})
-- **Testes**: node:test em src/utils/*.test.ts
+- **Testes**: node:test (bun test) ao lado de cada arquivo em src/domain, src/services, src/components e backend
 
 ## 2. Esquema do Workspace e Compartilhamento Familiar no Neon
 Tabelas PostgreSQL:
@@ -233,7 +233,7 @@ git push -u origin main`;
                   Arquivos de Especificação no Repo
                 </span>
                 <p className="mt-1 font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  • docs/DATABASE_DOCUMENTATION.md
+                  • docs/tecnico/banco-de-dados.md
                 </p>
                 <p className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                   • db/migrations/006_neon_auth_identity.sql (normaliza nomes; a identidade usa o id de app_users)
@@ -331,9 +331,12 @@ git push -u origin main`;
               </div>
               <ul className="space-y-1 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
                 <li>• /README.md (Manual Completo do Projeto)</li>
-                <li>• /docs/DATABASE_DOCUMENTATION.md (Banco & ER)</li>
-                <li>• /docs/ARCHITECTURE_AND_API.md (API & Regras)</li>
-                <li>• /security_spec.md (Invariantes Zero-Trust)</li>
+                <li>• /docs/README.md (Índice da documentação)</li>
+                <li>• /docs/produto/regras-de-negocio.md (Regras de negócio)</li>
+                <li>• /docs/tecnico/banco-de-dados.md (Banco & ER)</li>
+                <li>• /docs/tecnico/api.md (API)</li>
+                <li>• /docs/tecnico/seguranca.md (Segurança)</li>
+                <li>• /HANDOFF.md e /CHECKLIST.md (Onde estamos e o que falta)</li>
                 <li>• /.github/workflows/ci.yml (Pipeline CI GitHub)</li>
               </ul>
             </div>

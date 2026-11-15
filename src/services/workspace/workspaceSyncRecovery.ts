@@ -1,4 +1,10 @@
-import type { WorkspaceConflictState } from '../../components/settings/WorkspaceConflictModal';
+import type { NeonWorkspaceSnapshot } from '../../lib/neonWorkspace';
+
+/** Conflito de gravação: o que está nesta tela contra o que já está no Neon. */
+export interface WorkspaceConflictState {
+  localPayload: Record<string, unknown>;
+  remoteSnapshot: NeonWorkspaceSnapshot;
+}
 
 export function isRetryableWorkspaceSaveError(error: unknown): boolean {
   if (error instanceof TypeError) return true;

@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, RefreshCw, UploadCloud } from 'lucide-react';
-import type { NeonWorkspaceSnapshot } from '../../lib/neonWorkspace';
+import type { WorkspaceConflictState } from '../../services/workspace/workspaceSyncRecovery';
 
-export interface WorkspaceConflictState {
-  localPayload: Record<string, unknown>;
-  remoteSnapshot: NeonWorkspaceSnapshot;
-}
+export type { WorkspaceConflictState };
 
 interface WorkspaceConflictModalProps {
   conflict: WorkspaceConflictState;

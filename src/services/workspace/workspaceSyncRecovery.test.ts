@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { WorkspaceConflictState } from '../../components/settings/WorkspaceConflictModal';
+import type { WorkspaceConflictState } from './workspaceSyncRecovery';
 import {
   isRetryableWorkspaceSaveError,
   updateWorkspaceConflictLocalPayload,
