@@ -109,7 +109,7 @@ A Receber → **Empréstimo / dívida**: pessoa, valor, data; opcionalmente a co
 2. Em **Compartilhado**, conferir saldo por pessoa no mês.
 3. **Fazer acerto**: o sistema compensa créditos e débitos e gera um único lançamento bancário.
 4. **Reabrir acerto** estorna o lançamento se foi engano.
-5. Entre contas diferentes: enviar **convite** (Compartilhado → Pessoas & Convites). O app **não envia e-mail**: se a pessoa ainda não tem conta, a tela avisa e oferece **Copiar convite** e **Enviar pelo WhatsApp**; ela cria a conta com o mesmo e-mail e aceita na aba Compartilhado. Depois de aceito, despesas compartilhadas espelham na outra conta pelo servidor, nos dois sentidos. As que já existiam antes do aceite são enviadas quando quem as lançou abre o app (ou na leitura periódica seguinte, em até 1 minuto). Itens de A Receber não vão para a outra conta.
+5. Entre contas diferentes: enviar **convite** (Compartilhado → Pessoas & Convites). O app **não envia e-mail**: se a pessoa ainda não tem conta, a tela avisa e oferece **Copiar convite** e **Enviar pelo WhatsApp**; ela cria a conta com o mesmo e-mail e aceita na aba Compartilhado **digitando o código do convite** (que aparece no cartão da pessoa e já vai na mensagem copiada/WhatsApp). Depois de aceito, despesas compartilhadas espelham na outra conta pelo servidor, nos dois sentidos. As que já existiam antes do aceite são enviadas quando quem as lançou abre o app (ou na leitura periódica seguinte, em até 1 minuto). Itens de A Receber não vão para a outra conta.
 
 ## 9. Importar extrato OFX/CSV
 

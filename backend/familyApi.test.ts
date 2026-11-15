@@ -24,6 +24,7 @@ function mockAuthToken(uid: string, nonce = 'default') {
     'owner-uid': 'owner@example.com',
     'member-uid': 'member@example.com',
     'recreated-member-uid': 'member@example.com',
+    'brute-uid': 'member@example.com',
     'other-uid': 'other@example.com',
   };
   return signSessionToken({
@@ -118,6 +119,7 @@ before(async () => {
     invited: mockAuthToken('member-uid', 'invited'),
     invitedUppercase: mockAuthToken('member-uid', 'invited-uppercase'),
     invitedRecreated: mockAuthToken('recreated-member-uid', 'invited-recreated'),
+    brute: mockAuthToken('brute-uid', 'brute'),
     other: mockAuthToken('other-uid', 'other'),
     changedEmail: mockAuthToken('owner-uid', 'changed-email'),
   };
@@ -328,6 +330,8 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   assert.equal(createdBody.invitation.status, 'invited');
   assert.equal(invitationInsertParameters.at(-1)?.[3], 'member@example.com');
   assert.equal((createdBody.invitation as { invited_has_account?: boolean }).invited_has_account, false, 'e-mail sem conta é sinalizado a quem convidou');
+  const inviteCode = (createdBody.invitation as { invite_code?: string }).invite_code ?? '';
+  assert.match(inviteCode, /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/, 'quem convidou recebe o código do convite');
 
   const listPending = async (token: string) =>
     ((await (await originalFetch(`${baseUrl}/api/family/invitations`, { headers: { Authorization: `Bearer ${token}` } })).json()) as { invitations: Array<{ invited_has_account?: boolean }> }).invitations;
@@ -335,6 +339,8 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   registeredEmails = ['member@example.com'];
   assert.equal((await listPending(authTokens.owner))[0].invited_has_account, true, 'depois que a pessoa cria a conta, o aviso muda');
   assert.equal('invited_has_account' in (await listPending(authTokens.invited))[0], false, 'quem foi convidado não recebe essa informação');
+  assert.equal('invite_code' in (await listPending(authTokens.invited))[0], false, 'quem foi convidado nunca recebe o código');
+  assert.equal((await listPending(authTokens.owner) as Array<{ invite_code?: string }>)[0].invite_code, inviteCode, 'o código é o mesmo a cada leitura');
   failAccountLookup = true;
   const withoutLookup = await listPending(authTokens.owner);
   assert.equal(withoutLookup.length, 1, 'falha ao consultar contas não derruba a lista de convites');
@@ -361,12 +367,28 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   assert.equal(invalidResponse.status, 400);
   assert.equal(sqlLog.length, sqlBeforeInvalidResponse, 'ação de convite inválida deve ser recusada antes do SQL');
 
-  const accepted = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${authTokens.invitedUppercase}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'accepted' }),
-  });
-  assert.equal(accepted.status, 200);
+  const respondAs = (token: string, body: Record<string, unknown>) =>
+    originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const withoutCode = await respondAs(authTokens.invitedUppercase, { action: 'accepted' });
+  assert.equal(withoutCode.status, 403, 'aceitar sem código é recusado');
+  assert.match(((await withoutCode.json()) as { error: string }).error, /Código do convite incorreto/);
+  assert.equal((await respondAs(authTokens.invitedUppercase, { action: 'accepted', code: 'AAAA-AAAA' })).status, 403, 'código errado é recusado');
+  assert.equal(invitation.status, 'invited', 'tentativas erradas não alteram o convite');
+  assert.equal(invitation.invited_user_id, null);
+
+  // Quem tem o e-mail mas não o código não consegue adivinhar: 8 erros bloqueiam, até com o código certo.
+  for (let attempt = 1; attempt <= 8; attempt += 1) {
+    assert.equal((await respondAs(authTokens.brute, { action: 'accepted', code: `BAD${attempt}-XXXX` })).status, 403, `tentativa ${attempt}`);
+  }
+  assert.equal((await respondAs(authTokens.brute, { action: 'accepted', code: inviteCode })).status, 429, 'bloqueado mesmo com o código certo');
+  assert.equal(invitation.status, 'invited');
+
+  const accepted = await respondAs(authTokens.invitedUppercase, { action: 'accepted', code: inviteCode.replace('-', '').toLowerCase() });
+  assert.equal(accepted.status, 200, 'o código vale com ou sem hífen e em qualquer caixa');
   assert.equal(invitation.status, 'accepted');
   assert.equal(invitation.invited_user_id, 'member-uid');
 

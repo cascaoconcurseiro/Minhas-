@@ -22,7 +22,7 @@ function renderReminder(options: {
   onPayInvoice?: (cardId: string) => void;
   onMarkPaid?: (id: string) => void;
   invites?: FamilyMember[];
-  onAccept?: (member: FamilyMember) => void;
+  onAccept?: (member: FamilyMember, code: string) => void;
   onDecline?: (member: FamilyMember) => void;
   onOpenSettings?: (tab: string) => void;
 } = {}) {
@@ -106,13 +106,21 @@ test('family invites live in the notification center and can be accepted or decl
   const page = renderReminder({
     reminderItems: [],
     invites: [invite],
-    onAccept: (member) => accepted.push(member.id),
+    onAccept: (member, code) => accepted.push(`${member.id}:${code}`),
     onDecline: (member) => declined.push(member.id),
   });
   assert.match(page.textContent ?? '', /Convite de Ana/);
-  await act(async () => { clickButton(page, 'Aceitar'); });
+  const acceptButton = page.querySelector<HTMLButtonElement>('[data-testid="accept-family-invite-fam-1"]');
+  assert.equal(acceptButton?.disabled, true, 'sem o código não dá para aceitar');
+  const codeInput = page.querySelector<HTMLInputElement>('[data-testid="family-invite-code-fam-1"]');
+  assert.ok(codeInput);
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set?.call(codeInput, 'ab3def4h');
+    codeInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  await act(async () => { acceptButton?.click(); });
   await act(async () => { clickButton(page, 'Recusar'); });
-  assert.deepEqual(accepted, ['fam-1']);
+  assert.deepEqual(accepted, ['fam-1:AB3D-EF4H']);
   assert.deepEqual(declined, ['fam-1']);
 });
 

@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 782 testes passando · build PWA ok · `scripts/qa-postgres.ts` passou em PostgreSQL 16 local descartável.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 796 testes passando · build PWA ok · `scripts/qa-postgres.ts` passou em PostgreSQL 16 local descartável.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -42,6 +42,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Aceitar convite familiar exige o código do convite
+- **O que mudou:** (1) O servidor deriva um **código de 8 caracteres** por convite (`deriveFamilyInviteCode`, HMAC com o segredo da sessão; nada novo no banco) e o entrega **só a quem convidou** (`invite_code` em `GET/POST /api/family/invitations`, convites pendentes). (2) `POST .../respond` com `accepted` **exige `code`**: sem código/errado → 403 e o convite não muda; 8 erros por hora → 429; recusar não exige; repetir um aceite já feito não pede de novo. (3) Tela: quem convidou vê o código no cartão da pessoa e ele vai na mensagem **Copiar convite / WhatsApp**; quem recebe digita o código no aviso do topo e no sino (`AcceptFamilyInviteForm`, campo formata `ABCD-EFGH`); mensagens claras para código errado e excesso de tentativas.
+- **Por quê:** decisão do dono (2026-11-15): sem verificação de e-mail, qualquer pessoa que criasse conta com o e-mail convidado (ou digitado errado) poderia aceitar o convite e receber os compartilhados.
+- **Arquivos/áreas:** `backend/authSession.ts`, `backend/app.ts`, `src/lib/neonWorkspace.ts`, `src/domain/family/familyInvite.ts`, `src/components/family/AcceptFamilyInviteForm.tsx` (novo), `FamilyInvitePanel.tsx`, `SharedExpensesTab.tsx`, `src/components/overview/ReminderCenterModal.tsx`, `src/App.tsx`; testes: `backend/familyInviteCode.test.ts`, `backend/familyApi.test.ts`, `familyInvite.test.ts`, `AcceptFamilyInviteForm.test.tsx`, `SharedExpensesTab.test.tsx`, `ReminderCenterModal.test.tsx`, `neonWorkspace.test.ts`, `scripts/qa-postgres.ts`.
+- **Como foi verificado:** `bun run check`; `scripts/qa-postgres.ts` em PostgreSQL 16 local descartável (estranho com o e-mail convidado e sem o código: 403, convite intacto, nada recebido; 8 erros → 429 mesmo com o código certo; código certo em qualquer caixa, com ou sem hífen, aceita; repetir é inofensivo; reconvite mantém o código; convidado nunca recebe o código).
+- **Não verificado:** a tela de aceitar em navegador/celular reais (só testes de componente); o fluxo completo no `App` (aceitar pela interface) não tem teste de ponta a ponta. **Atenção:** convites **pendentes** feitos antes desta versão passam a exigir o código: quem convidou o vê no cartão da pessoa e reenvia. App antigo da pessoa convidada recebe 403 ao aceitar até atualizar.
+- **Impacto em dados/Neon:** nenhum esquema nem dado alterado. Nenhum convite pendente existe hoje em produção (o único é o da Fran, já aceito).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (8), `docs/produto/fluxos.md` (8), `docs/tecnico/api.md` (2.2.2), `docs/tecnico/seguranca.md`, `CHECKLIST.md`.
+- **Próximo passo:** o dono testar convidar um e-mail novo e aceitar com o código; avaliar envio de e-mail real (SMTP) para o convite.
 
 ### 2026-11-15 — Compartilhado só é cobrado no vencimento da fatura (lado de quem recebe) e limite de convites
 - **O que mudou:** (1) O espelho de um compartilhado recebido por convite não tem o cartão de quem lançou; por isso o app dele cobrava na **data da compra** e mostrava "atrasado". Agora o app de quem lança envia o **vencimento da fatura** (`sharedDueDate`, calculado pelo dia de vencimento do cartão no mês da fatura), o servidor valida como data real e grava no espelho, e os lembretes usam `getSharedChargeDate` (vencimento enviado; sem ele, último dia do mês da fatura; fora do cartão, a data do lançamento). (2) O lembrete diz **"Pagar a [pessoa]"** quando eu devo a minha parte e **"Reembolso de [pessoa]"** quando a pessoa me deve (antes dizia sempre "Reembolso de"). (3) Criar convite passou a ter **limite de 20 por hora por usuário** (o aviso "tem conta" permitiria testar e-mails em massa).

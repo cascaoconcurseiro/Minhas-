@@ -36,6 +36,7 @@ import {
 } from '../../domain/finance/financeRules';
 import { CategoryIconBadge } from '../ui/CategoryIconBadge';
 import { FamilyInvitePanel } from './FamilyInvitePanel';
+import { AcceptFamilyInviteForm } from './AcceptFamilyInviteForm';
 import { InstitutionMark } from '../accounts/InstitutionMark';
 
 interface SharedExpensesTabProps {
@@ -63,11 +64,13 @@ interface SharedExpensesTabProps {
   ) => void;
   onReopenSharedTransaction: (txId: string) => void;
   onOpenNewSharedTransaction: (memberId?: string) => void;
-  onAcceptFamilyInvite?: (member: FamilyMember) => void;
+  onAcceptFamilyInvite?: (member: FamilyMember, code: string) => void;
   onDeclineFamilyInvite?: (member: FamilyMember) => void;
   onResendFamilyInvite?: (member: FamilyMember) => void | boolean | Promise<void | boolean>;
   /** E-mail (minúsculo) → a pessoa convidada já tem conta? Só para convites pendentes que eu enviei. */
   inviteeHasAccount?: Record<string, boolean>;
+  /** E-mail (minúsculo) → código do convite que eu enviei, para a pessoa digitar ao aceitar. */
+  inviteCodes?: Record<string, string>;
   userPixKey?: string;
 }
 
@@ -101,6 +104,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
   onDeclineFamilyInvite,
   onResendFamilyInvite,
   inviteeHasAccount,
+  inviteCodes,
   userPixKey,
 }) => {
   const [selectedMemberId, setSelectedMemberId] = useState<string>(
@@ -430,16 +434,13 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                   Ao aceitar, suas despesas compartilhadas e o encontro de contas ficam sincronizados entre as contas.
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  data-testid={`accept-family-invite-${inv.id}`}
-                  onClick={() => onAcceptFamilyInvite && onAcceptFamilyInvite(inv)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Aceitar Convite
-                </button>
+              <div className="flex flex-col items-stretch gap-2 shrink-0 sm:items-end">
+                {onAcceptFamilyInvite && (
+                  <AcceptFamilyInviteForm
+                    inviteId={inv.id}
+                    onAccept={(code) => onAcceptFamilyInvite(inv, code)}
+                  />
+                )}
                 <button
                   type="button"
                   data-testid={`decline-family-invite-${inv.id}`}
@@ -697,13 +698,9 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                         {member.direction === 'incoming' &&
                         member.inviteStatus === 'invited' &&
                         onAcceptFamilyInvite ? (
-                          <button
-                            type="button"
-                            onClick={() => onAcceptFamilyInvite(member)}
-                            className="rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700"
-                          >
-                            Aceitar Convite
-                          </button>
+                          <span className="text-[10px] font-bold uppercase text-indigo-700 dark:text-indigo-300">
+                            Aceite no aviso do topo, com o código
+                          </span>
                         ) : (
                           <>
                             <span className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400">
@@ -746,6 +743,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
                       <FamilyInvitePanel
                         email={member.email}
                         hasAccount={inviteeHasAccount?.[member.email.trim().toLowerCase()]}
+                        inviteCode={inviteCodes?.[member.email.trim().toLowerCase()]}
                         onFeedback={(message) => {
                           setCopyFeedback(message);
                           setTimeout(() => setCopyFeedback(null), 4000);

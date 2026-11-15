@@ -37,7 +37,7 @@ const recipient = await request('/api/auth/register', '', 'POST', { email:'recip
 const outsider = await request('/api/auth/register', '', 'POST', { email:'outsider@qa.example',password:'qa-only-password',name:'QA Outsider' },201);
 console.log('PASS: three separate authenticated identities registered with real runtime role');
 const invite = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'recipient@qa.example',ownerMemberId:'qa-member',ownerName:'QA Owner'},201);
-await request(`/api/family/invitations/${invite.invitation.invitation_id}/respond`,recipient.token,'POST',{action:'accepted'});
+await request(`/api/family/invitations/${invite.invitation.invitation_id}/respond`,recipient.token,'POST',{action:'accepted',code:invite.invitation.invite_code});
 const purchase = { id:'qa-purchase',description:'QA purchase',amount:100,date:'2026-11-11',competenceMonth:'2026-11',type:'expense',status:'pending',categoryId:'food',paymentMethod:'pix',recurrence:'single',isShared:true,sharedAmount:50,sharedMemberId:'qa-member',sharedPaidBy:'me',sharedStatus:'pending' };
 await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'recipient@qa.example',transactions:[purchase]});
 const incoming = await request('/api/family/shared',recipient.token);
@@ -91,6 +91,8 @@ const lateAccount = await request('/api/auth/register','','POST',{email:'LATE@qa
 assert.equal((await request('/api/family/invitations',owner.token)).invitations.find((row: {invited_email:string})=>row.invited_email==='late@qa.example').invited_has_account,true,'after the account exists the owner is told');
 const lateInvites = (await request('/api/family/invitations',lateAccount.token)).invitations;
 assert.equal('invited_has_account' in lateInvites[0],false,'the invited side never receives the account flag');
+assert.equal('invite_code' in lateInvites[0],false,'the invited side never receives the invite code');
+assert.match(lateInvite.invitation.invite_code,/^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
 assert.equal(lateInvites.length,1);
 assert.equal(lateInvites[0].status,'invited');
 assert.equal(lateInvites[0].owner_email,'owner@qa.example');
@@ -98,7 +100,7 @@ assert.equal((await request('/api/family/invitations',outsider.token)).invitatio
 await request('/api/family/shared',lateAccount.token,'PUT',{partnerEmail:'owner@qa.example',transactions:[sharedItem('late-before-accept')]},403);
 await request(`/api/family/invitations/${lateInvite.invitation.invitation_id}/respond`,outsider.token,'POST',{action:'accepted'},404);
 console.log('PASS: account created later finds the pending invite by e-mail; strangers cannot see or accept it; nothing flows before acceptance');
-const accepted = await request(`/api/family/invitations/${lateInvite.invitation.invitation_id}/respond`,lateAccount.token,'POST',{action:'accepted'});
+const accepted = await request(`/api/family/invitations/${lateInvite.invitation.invitation_id}/respond`,lateAccount.token,'POST',{action:'accepted',code:lateInvite.invitation.invite_code});
 assert.equal(accepted.invitation.status,'accepted');
 assert.equal('invited_has_account' in (await request('/api/family/invitations',owner.token)).invitations.find((row: {invited_email:string})=>row.invited_email==='late@qa.example'),false,'accepted invites no longer carry the flag');
 assert.ok(accepted.invitation.invited_user_id);
@@ -141,7 +143,8 @@ await request(`/api/family/invitations/${declInvite.invitation.invitation_id}/re
 await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'decliner@qa.example',transactions:[sharedItem('decl-1',{sharedMemberId:'qa-decl-member'})]},403);
 const reInvite = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'decliner@qa.example',ownerMemberId:'qa-decl-member',ownerName:'QA Owner'},201);
 assert.equal(reInvite.invitation.status,'invited');
-await request(`/api/family/invitations/${declInvite.invitation.invitation_id}/respond`,declinerAccount.token,'POST',{action:'accepted'});
+await request(`/api/family/invitations/${declInvite.invitation.invitation_id}/respond`,declinerAccount.token,'POST',{action:'accepted',code:reInvite.invitation.invite_code});
+assert.equal(reInvite.invitation.invite_code,declInvite.invitation.invite_code,'re-inviting keeps the same code, so a message already sent stays valid');
 await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'decliner@qa.example',transactions:[sharedItem('decl-1',{sharedMemberId:'qa-decl-member'})]});
 assert.equal((await request('/api/family/shared',declinerAccount.token)).transactions.length,1);
 console.log('PASS: a declined invite blocks sharing; re-inviting reopens it and the second acceptance works');
@@ -151,9 +154,33 @@ await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'decliner@qa.
 const afterRevoke = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'decliner@qa.example',ownerMemberId:'qa-decl-member',ownerName:'QA Owner'},201);
 assert.equal(afterRevoke.invitation.status,'invited');
 assert.equal(afterRevoke.invitation.invited_user_id,null);
-await request(`/api/family/invitations/${declInvite.invitation.invitation_id}/respond`,declinerAccount.token,'POST',{action:'accepted'});
+await request(`/api/family/invitations/${declInvite.invitation.invitation_id}/respond`,declinerAccount.token,'POST',{action:'accepted',code:afterRevoke.invitation.invite_code});
 assert.deepEqual((await request('/api/family/shared',owner.token)).outgoingSharedIds.includes('decl-1'),false,'revocation wiped the old copies, so the owner must resend them');
 console.log('PASS: revoking by the invited side clears both directions; re-invite + acceptance starts clean and the owner can resend');
+
+// --- Código do convite: criar conta com o e-mail convidado não basta para aceitar ---
+const typoInvite = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'typo@qa.example',ownerMemberId:'qa-typo-member',ownerName:'QA Owner'},201);
+const strangerAccount = await request('/api/auth/register','','POST',{email:'typo@qa.example',password:'qa-only-password',name:'QA Stranger'},201);
+const strangerSees = (await request('/api/family/invitations',strangerAccount.token)).invitations[0];
+assert.equal(strangerSees.status,'invited');
+assert.equal('invite_code' in strangerSees,false,'the person with only the e-mail cannot read the code');
+const typoRespond = `/api/family/invitations/${typoInvite.invitation.invitation_id}/respond`;
+await request(typoRespond,strangerAccount.token,'POST',{action:'accepted'},403);
+await request(typoRespond,strangerAccount.token,'POST',{action:'accepted',code:'AAAA-AAAA'},403);
+assert.equal((await request('/api/family/invitations',owner.token)).invitations.find((row: {invited_email:string})=>row.invited_email==='typo@qa.example').status,'invited','wrong or missing codes leave the invite untouched');
+await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'typo@qa.example',transactions:[sharedItem('typo-1',{sharedMemberId:'qa-typo-member'})]},403);
+assert.equal((await request('/api/family/shared',strangerAccount.token)).transactions.length,0,'the stranger receives nothing');
+for (let attempt = 0; attempt < 6; attempt += 1) await request(typoRespond,strangerAccount.token,'POST',{action:'accepted',code:`ZZZ${attempt}-ZZZZ`},403);
+await request(typoRespond,strangerAccount.token,'POST',{action:'accepted',code:typoInvite.invitation.invite_code},429);
+console.log('PASS: a stranger who registers the invited e-mail cannot accept without the code; guessing is blocked after 8 mistakes');
+const legitAccount = await request('/api/auth/register','','POST',{email:'legit@qa.example',password:'qa-only-password',name:'QA Legit'},201);
+const legitInvite = await request('/api/family/invitations',owner.token,'POST',{invitedEmail:'legit@qa.example',ownerMemberId:'qa-legit-member',ownerName:'QA Owner'},201);
+const legitRespond = `/api/family/invitations/${legitInvite.invitation.invitation_id}/respond`;
+await request(legitRespond,legitAccount.token,'POST',{action:'accepted',code:legitInvite.invitation.invite_code.replace('-','').toLowerCase()});
+await request(legitRespond,legitAccount.token,'POST',{action:'accepted'});
+await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'legit@qa.example',transactions:[sharedItem('legit-1',{sharedMemberId:'qa-legit-member'})]});
+assert.equal((await request('/api/family/shared',legitAccount.token)).transactions.length,1);
+console.log('PASS: the invited person with the right code (any case, with or without the dash) accepts, repeating is harmless, and sharing starts');
 await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
 await admin.end();
 console.log('QA PostgreSQL completed successfully; disposable service only');

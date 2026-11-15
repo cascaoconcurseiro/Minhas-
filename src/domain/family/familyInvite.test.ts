@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFamilyInviteMessage, buildWhatsAppInviteUrl, getFamilyInviteCreatedNotice, getFamilyInviteStatus } from './familyInvite';
+import {
+  buildFamilyInviteMessage,
+  buildWhatsAppInviteUrl,
+  formatFamilyInviteCodeInput,
+  getFamilyInviteCreatedNotice,
+  getFamilyInviteStatus,
+  isFamilyInviteCodeComplete,
+} from './familyInvite';
 
 test('mensagem do convite diz onde entrar, com qual e-mail e como aceitar', () => {
   const message = buildFamilyInviteMessage({ appUrl: 'https://app.example', email: 'fran@example.com' });
@@ -43,4 +50,26 @@ test('aviso ao registrar o convite muda conforme a pessoa tenha conta ou não', 
   assert.match(getFamilyInviteCreatedNotice('fran@example.com', false), /Nenhum e-mail foi enviado/);
   assert.match(getFamilyInviteCreatedNotice('fran@example.com', true), /Ela já tem conta/);
   assert.match(getFamilyInviteCreatedNotice('fran@example.com', undefined), /Convite registrado no app para fran@example\.com\. Nenhum e-mail foi enviado/);
+});
+
+test('a mensagem do convite leva o código quando ele existe', () => {
+  const withCode = buildFamilyInviteMessage({ appUrl: 'https://app.example', email: 'fran@example.com', code: 'AB3D-EF4H' });
+  assert.match(withCode, /Código do convite: AB3D-EF4H/);
+  assert.match(withCode, /vai digitar para aceitar/);
+  assert.doesNotMatch(buildFamilyInviteMessage({ appUrl: 'https://app.example', email: 'fran@example.com' }), /Código do convite/);
+});
+
+test('o que a pessoa digita vira o código em maiúsculas com hífen no meio', () => {
+  assert.equal(formatFamilyInviteCodeInput('ab3d'), 'AB3D');
+  assert.equal(formatFamilyInviteCodeInput('ab3def4h'), 'AB3D-EF4H');
+  assert.equal(formatFamilyInviteCodeInput(' ab3d - ef4h '), 'AB3D-EF4H');
+  assert.equal(formatFamilyInviteCodeInput('ab3d-ef4h-9999'), 'AB3D-EF4H', 'corta o que passa de 8');
+  assert.equal(formatFamilyInviteCodeInput('!!'), '');
+});
+
+test('o código só está completo com 8 letras ou números', () => {
+  assert.equal(isFamilyInviteCodeComplete('AB3D-EF4H'), true);
+  assert.equal(isFamilyInviteCodeComplete('ab3def4h'), true);
+  assert.equal(isFamilyInviteCodeComplete('AB3D-EF4'), false);
+  assert.equal(isFamilyInviteCodeComplete(''), false);
 });

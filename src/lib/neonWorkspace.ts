@@ -20,6 +20,8 @@ export interface NeonFamilyInvitation {
   status: 'invited' | 'accepted' | 'declined' | 'revoked';
   /** Só nos convites pendentes enviados por mim: a pessoa já tem conta? Ausente se o servidor não soube responder. */
   invited_has_account?: boolean;
+  /** Só nos convites pendentes enviados por mim: o código que a pessoa convidada digita para aceitar. */
+  invite_code?: string;
 }
 
 export interface NeonSharedTransaction {
@@ -170,11 +172,13 @@ export function createNeonFamilyInvitation(input: {
 
 export function respondToNeonFamilyInvitation(
   invitationId: string,
-  action: 'accepted' | 'declined'
+  action: 'accepted' | 'declined',
+  /** Aceitar exige o código do convite que quem convidou enviou. */
+  code?: string
 ): Promise<{ invitation: NeonFamilyInvitation }> {
   return authorizedRequest(`/api/family/invitations/${encodeURIComponent(invitationId)}/respond`, {
     method: 'POST',
-    body: JSON.stringify({ action }),
+    body: JSON.stringify(code ? { action, code } : { action }),
   });
 }
 

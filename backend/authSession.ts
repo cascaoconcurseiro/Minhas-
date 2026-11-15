@@ -53,6 +53,39 @@ function sign(content: string, secret: string): string {
   return createHmac('sha256', secret).update(content).digest('base64url');
 }
 
+// Código do convite familiar: derivado do convite com o segredo do servidor (nada novo no banco).
+// Só quem convidou o recebe do servidor; quem aceita precisa digitá-lo, então criar uma conta com o
+// e-mail convidado não basta para aceitar. 8 caracteres sem letras/números que se confundem (0/O, 1/I).
+const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function inviteCodeDigits(invitationId: string, createdAt: unknown): string {
+  const created = createdAt instanceof Date || typeof createdAt === 'string' || typeof createdAt === 'number'
+    ? new Date(createdAt)
+    : null;
+  const stamp = created && Number.isFinite(created.getTime()) ? created.toISOString() : String(createdAt);
+  const digest = createHmac('sha256', getSecret())
+    .update(`minhas-economias:family-invite:v1:${invitationId}:${stamp}`)
+    .digest();
+  let digits = '';
+  for (let index = 0; index < 8; index += 1) digits += INVITE_CODE_ALPHABET[digest[index] & 31];
+  return digits;
+}
+
+export function deriveFamilyInviteCode(invitationId: string, createdAt: unknown): string {
+  const digits = inviteCodeDigits(invitationId, createdAt);
+  return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+}
+
+export function normalizeFamilyInviteCode(input: unknown): string {
+  return typeof input === 'string' ? input.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+}
+
+export function isFamilyInviteCodeValid(input: unknown, invitationId: string, createdAt: unknown): boolean {
+  const typed = Buffer.from(normalizeFamilyInviteCode(input));
+  const expected = Buffer.from(inviteCodeDigits(invitationId, createdAt));
+  return typed.length === expected.length && timingSafeEqual(typed, expected);
+}
+
 export function signSessionToken(identity: SessionIdentity, nowSeconds = Math.floor(Date.now() / 1000)): string {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const claims = Buffer.from(

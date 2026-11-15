@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { FamilyMember, ReminderItem } from '../../types/finance';
+import { AcceptFamilyInviteForm } from '../family/AcceptFamilyInviteForm';
 import { formatBRL } from '../../domain/finance/financeRules';
 import { countBellNotices, type AppNotice, type AppNoticeAction } from '../../domain/reminders/appNotices';
 
@@ -18,7 +19,7 @@ interface ReminderCenterModalProps {
   reminders: ReminderItem[];
   /** Convites de família recebidos e ainda sem resposta. */
   familyInvites?: FamilyMember[];
-  onAcceptFamilyInvite?: (member: FamilyMember) => void;
+  onAcceptFamilyInvite?: (member: FamilyMember, code: string) => void;
   onDeclineFamilyInvite?: (member: FamilyMember) => void;
   onPayCardInvoice?: (cardId: string) => void;
   onMarkTransactionPaid?: (transactionId: string) => void;
@@ -159,14 +160,10 @@ export const ReminderCenterModal: React.FC<ReminderCenterModalProps> = ({
                       </button>
                     )}
                     {onAcceptFamilyInvite && (
-                      <button
-                        type="button"
-                        data-testid={`accept-family-invite-${invite.id}`}
-                        onClick={() => onAcceptFamilyInvite(invite)}
-                        className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white transition-colors"
-                      >
-                        Aceitar
-                      </button>
+                      <AcceptFamilyInviteForm
+                        inviteId={invite.id}
+                        onAccept={(code) => onAcceptFamilyInvite(invite, code)}
+                      />
                     )}
                   </div>
                 </div>
