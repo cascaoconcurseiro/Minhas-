@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 735 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 736 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -41,6 +41,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Seletor de parcelas mostra todos os números (2 a 48)
+- **O que mudou:** o seletor de parcelas do cartão no formulário tinha lista fixa (2–10, 12, 15, 18, 24) e pulava o 11; agora oferece todos de 2 a 48, o limite que o app já aceitava ao gerar as parcelas.
+- **Por quê:** pedido do dono (faltava o 11 e outros números).
+- **Arquivos/áreas:** `src/components/transactions/TransactionModal.tsx`, teste em `TransactionModal.test.tsx`.
+- **Como foi verificado:** teste novo confere as 47 opções (2..48, inclui 11); `bun run check`.
+- **Não verificado:** tela no navegador/celular (lista maior no seletor nativo).
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (2.4).
+- **Próximo passo:** nenhum.
 
 ### 2026-11-15 — Categorias agrupadas por tipo e fatura do cartão em ordem cronológica
 - **O que mudou:** no formulário de lançamento, as categorias de despesa agora aparecem agrupadas por tipo (Essenciais, Estilo de vida e lazer, Objetivos e poupança), em ordem alfabética; a lista de compras da fatura do cartão passou a ser cronológica (mais antiga primeiro; antes era a mais nova primeiro).

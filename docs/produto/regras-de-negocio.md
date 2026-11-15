@@ -47,7 +47,7 @@ Tudo isso vive em um único documento por usuário (workspace). Tipos em `src/ty
 As categorias de despesa aparecem agrupadas por tipo (Essenciais, Estilo de vida e lazer, Objetivos e poupança), em ordem alfabética dentro de cada grupo; as de receita ficam em uma lista só, também em ordem alfabética.
 
 ### 2.4 Parcelado e fixo
-- **Parcelado**: de 2 a 48 parcelas. O valor total é dividido em centavos; a diferença de centavos fica na **primeira** parcela (`createTransactionBatch`). Cada parcela vai para a fatura do seu mês. Em compra de **viagem** em moeda estrangeira, o valor original (`originalAmount`), a cota pessoal e as cotas por participante são **divididos entre as parcelas** (a soma das parcelas fecha exatamente o total); nunca se repete o valor inteiro em cada parcela.
+- **Parcelado**: de 2 a 48 parcelas (o seletor do formulário mostra todos os números, sem pular nenhum). O valor total é dividido em centavos; a diferença de centavos fica na **primeira** parcela (`createTransactionBatch`). Cada parcela vai para a fatura do seu mês. Em compra de **viagem** em moeda estrangeira, o valor original (`originalAmount`), a cota pessoal e as cotas por participante são **divididos entre as parcelas** (a soma das parcelas fecha exatamente o total); nunca se repete o valor inteiro em cada parcela.
 - **Fixo (assinatura/recorrente)**: gera lançamentos para os próximos meses. O sistema sugere "gastos que se repetem" detectando o padrão no histórico (`recurrenceDetection.ts`): mesmo estabelecimento em meses seguidos; o usuário pode dispensar a sugestão.
 
 ### 2.5 Edição e exclusão em cascata

@@ -1076,3 +1076,14 @@ test('categorias de despesa aparecem agrupadas por tipo e em ordem alfabética',
     { label: 'Objetivos e poupança', options: ['Aportes'] },
   ]);
 });
+
+test('o seletor de parcelas do cartão oferece todos os números de 2 a 48 (inclui 11, 13, 14...)', async () => {
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard] });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="recurrence-installment-btn"]')?.click(); });
+  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x sem juros no cartão'));
+  assert.ok(select, 'seletor de parcelas visível');
+  const values = [...select.querySelectorAll('option')].map((option) => Number(option.value));
+  assert.deepEqual(values, Array.from({ length: 47 }, (_, i) => i + 2));
+  assert.ok(values.includes(11));
+});

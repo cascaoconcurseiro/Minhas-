@@ -3459,7 +3459,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               }
                               className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-mono font-bold tabular-nums text-slate-900 dark:text-white"
                             >
-                              {[2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 24].map(
+                              {Array.from({ length: 47 }, (_, index) => index + 2).map(
                                 (n) => (
                                   <option key={n} value={n}>
                                     {n}x sem juros no cartão
