@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Barra o push se o código mudou sem atualizar o HANDOFF.md (regra obrigatória do projeto).
+# Ativado automaticamente por `bun install` (script "prepare" do package.json).
+set -e
+if git rev-parse --verify origin/main >/dev/null 2>&1; then
+  BASE=origin/main
+else
+  BASE=HEAD~1
+fi
+if command -v bun >/dev/null 2>&1; then
+  bun scripts/check-handoff.ts --base "$BASE"
+else
+  echo "Aviso: bun não encontrado; verificação do HANDOFF pulada (o CI ainda vai conferir)."
+fi

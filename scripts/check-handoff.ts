@@ -13,6 +13,7 @@
  *   bun run check:handoff                      # compara a árvore de trabalho com o commit anterior (HEAD~1)
  *   bun run check:handoff -- --base <commit>   # compara com outro ponto (usado pelo CI)
  *   bun run check:handoff -- --structure-only  # só valida o formato do HANDOFF.md
+ *   bun run check:handoff -- --uncommitted     # só olha o que ainda não foi commitado (usado pelo gancho do Claude Code)
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -104,8 +105,8 @@ function git(args: string[]): string {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
 }
 
-function changedFiles(base: string): string[] {
-  const committed = git(['diff', '--name-only', `${base}`, 'HEAD']);
+function changedFiles(base: string, uncommittedOnly = false): string[] {
+  const committed = uncommittedOnly ? '' : git(['diff', '--name-only', `${base}`, 'HEAD']);
   const working = git(['diff', '--name-only', 'HEAD']);
   const untracked = git(['ls-files', '--others', '--exclude-standard']);
   return [...new Set([committed, working, untracked].join('\n').split('\n').filter(Boolean))];
@@ -114,6 +115,7 @@ function changedFiles(base: string): string[] {
 function main(): void {
   const args = process.argv.slice(2);
   const structureOnly = args.includes('--structure-only');
+  const uncommittedOnly = args.includes('--uncommitted');
   const baseIndex = args.indexOf('--base');
   const explicitBase = baseIndex >= 0 ? args[baseIndex + 1] : undefined;
 
@@ -131,7 +133,7 @@ function main(): void {
       console.warn(`Aviso: ponto de comparação "${base}" não existe (clone raso?). Verificando só o formato do HANDOFF.`);
       base = '';
     }
-    if (base) problems.push(...validateChangedFiles(changedFiles(base)));
+    if (base) problems.push(...validateChangedFiles(changedFiles(base, uncommittedOnly)));
   }
 
   for (const problem of problems) {

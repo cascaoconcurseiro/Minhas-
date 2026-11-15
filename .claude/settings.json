@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun scripts/check-handoff.ts --uncommitted 1>&2 || exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
