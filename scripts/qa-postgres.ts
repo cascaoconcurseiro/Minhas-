@@ -110,6 +110,7 @@ assert.deepEqual(lateIncoming.map((tx: Transaction)=>tx.id).sort(),['tx-mirror-l
 assert.ok(lateIncoming.every((tx: Transaction)=>tx.sharedPaidBy==='member' && tx.sharedMemberId==='fam-inv-owner_qa_example'));
 assert.equal(lateIncoming.find((tx: Transaction)=>tx.id==='tx-mirror-late-backlog-1').sharedDueDate,'2026-12-28','invoice due date travels with the mirror');
 assert.equal('sharedDueDate' in lateIncoming.find((tx: Transaction)=>tx.id==='tx-mirror-late-backlog-2'),false,'an impossible due date is dropped by the server');
+assert.deepEqual((await request('/api/family/shared',owner.token)).outgoingSharedStaleIds,['late-backlog-2'],'a card mirror without a valid due date is reported as stale so the new app completes it');
 assert.deepEqual((await request('/api/family/shared',owner.token)).outgoingSharedIds.sort(),['late-backlog-1','late-backlog-2']);
 console.log('PASS: after acceptance the backlog launched before the account existed reaches the new account (owner -> invited)');
 await request('/api/family/shared',lateAccount.token,'PUT',{partnerEmail:'owner@qa.example',transactions:[sharedItem('late-own-1',{sharedMemberId:'fam-inv-owner_qa_example'})]});

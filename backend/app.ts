@@ -868,19 +868,24 @@ async function startServer() {
       const outgoingRows = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `SELECT shared_sync_id, payload ->> 'recipientSharedStatus' AS status,
-                  payload ->> 'recipientSettledDate' AS date
+                  payload ->> 'recipientSettledDate' AS date,
+                  (payload ->> 'paymentMethod' = 'credit_card' AND NOT (payload ? 'sharedDueDate')) AS missing_due_date
              FROM public.finance_shared_transactions
             WHERE sender_user_id = $1`, [user.uid]);
         return result.rows;
       });
-      const outgoing = outgoingRows.filter((row) => row.status === 'received' || row.status === 'pending');
+      const outgoing = outgoingRows
+        .filter((row) => row.status === 'received' || row.status === 'pending')
+        .map((row) => ({ shared_sync_id: row.shared_sync_id, status: row.status, date: row.date }));
       res.json({ transactions: transactions.map((row) => ({ ...row, payload: {
         ...row.payload,
         ...(row.payload.recipientSharedStatus ? { sharedStatus: row.payload.recipientSharedStatus,
           sharedSettledDate: row.payload.recipientSettledDate || undefined } : {}),
       } })), outgoingSettlements: outgoing,
       // Ids já enviados por esta conta: o app reenvia os compartilhados que faltam (ex.: lançados antes do aceite).
-      outgoingSharedIds: outgoingRows.map((row) => String(row.shared_sync_id)) });
+      outgoingSharedIds: outgoingRows.map((row) => String(row.shared_sync_id)),
+      // Espelhos de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo): o app novo completa.
+      outgoingSharedStaleIds: outgoingRows.filter((row) => row.missing_due_date === true).map((row) => String(row.shared_sync_id)) });
     } catch (error) {
       console.error('Erro ao carregar lançamentos compartilhados:', error);
       res.status(503).json({ error: 'Não foi possível carregar os lançamentos compartilhados.' });

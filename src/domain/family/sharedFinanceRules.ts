@@ -63,8 +63,13 @@ export function findUnsentSharedTransactions(
   transactions: Transaction[],
   members: FamilyMember[],
   sentSharedIds: ReadonlySet<string>,
-  userEmail: string
+  userEmail: string,
+  /** Já no servidor, mas de cartão e sem o vencimento da fatura: são reenviados se der para calcular a data. */
+  staleSharedIds: ReadonlySet<string> = new Set(),
+  cards: CreditCard[] = []
 ): UnsentSharedTransactions[] {
+  const canCompleteDueDate = (tx: Transaction) =>
+    Boolean(tx.creditCardId && tx.competenceMonth && cards.some((card) => card.id === tx.creditCardId));
   const me = userEmail.trim().toLowerCase();
   const result: UnsentSharedTransactions[] = [];
   for (const member of members) {
@@ -72,7 +77,9 @@ export function findUnsentSharedTransactions(
     if (!partnerEmail || partnerEmail === me || member.inviteStatus !== 'accepted') continue;
     const missing = transactions.filter((tx) =>
       tx.isShared && !tx.tripId && !tx.id.startsWith('tx-mirror-') &&
-      String(tx.sharedMemberId || '') === member.id && !sentSharedIds.has(getSharedSyncId(tx)));
+      String(tx.sharedMemberId || '') === member.id &&
+      (!sentSharedIds.has(getSharedSyncId(tx)) ||
+        (staleSharedIds.has(getSharedSyncId(tx)) && canCompleteDueDate(tx))));
     if (missing.length > 0) result.push({ partnerEmail, memberId: member.id, transactions: missing });
   }
   return result;

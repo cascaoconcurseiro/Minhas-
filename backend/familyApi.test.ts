@@ -228,7 +228,7 @@ before(async () => {
           return { rows, rowCount: rows.length };
         }
         if (normalized.startsWith("SELECT shared_sync_id, payload ->> 'recipientSharedStatus'")) {
-          const rows = String(params[0]) === 'owner-uid' ? [...shared.entries()].map(([id,payload]) => ({shared_sync_id:id,status:(payload as Record<string,unknown>).recipientSharedStatus,date:(payload as Record<string,unknown>).recipientSettledDate})) : [];
+          const rows = String(params[0]) === 'owner-uid' ? [...shared.entries()].map(([id,payload]) => ({shared_sync_id:id,status:(payload as Record<string,unknown>).recipientSharedStatus,date:(payload as Record<string,unknown>).recipientSettledDate,missing_due_date:(payload as Record<string,unknown>).paymentMethod==='credit_card' && !(payload as Record<string,unknown>).sharedDueDate})) : [];
           return {rows,rowCount:rows.length};
         }
         if (normalized.startsWith('UPDATE public.finance_family_invitations') && normalized.includes('SET status = $1')) {
@@ -422,6 +422,10 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   assert.equal(shared.size, 1);
   assert.equal((shared.get('tx-local-1') as { installmentPurchaseTotal?: number })?.installmentPurchaseTotal, 36);
   assert.equal((shared.get('tx-local-1') as { sharedDueDate?: string })?.sharedDueDate, '2026-12-28', 'vencimento da fatura vai no espelho');
+  shared.set('tx-card-old', { id: 'tx-mirror-tx-card-old', paymentMethod: 'credit_card' });
+  const staleReport = await (await originalFetch(`${baseUrl}/api/family/shared`, { headers })).json() as { outgoingSharedStaleIds: string[] };
+  assert.deepEqual(staleReport.outgoingSharedStaleIds, ['tx-card-old'], 'só o espelho de cartão sem vencimento é apontado');
+  shared.delete('tx-card-old');
   const settle = await originalFetch(`${baseUrl}/api/family/shared`, { method:'PUT',
     headers:{Authorization:`Bearer ${authTokens.invited}`,'Content-Type':'application/json'},
     body:JSON.stringify({partnerEmail:'owner@example.com',transactions:[{id:'tx-mirror-tx-local-1',sharedSyncId:'tx-local-1',sharedStatus:'received',sharedSettledDate:'2026-11-04'}]}) });

@@ -483,6 +483,8 @@ export default function App() {
   const [inviteeHasAccount, setInviteeHasAccount] = useState<Record<string, boolean>>({});
   // Ids dos compartilhados que o servidor já tem desta conta (null = ainda não lido ou servidor antigo).
   const [serverSentSharedIds, setServerSentSharedIds] = useState<ReadonlySet<string> | null>(null);
+  // Dos já enviados, os de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo).
+  const [serverStaleSharedIds, setServerStaleSharedIds] = useState<ReadonlySet<string>>(new Set());
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
   const [investmentTargets, setInvestmentTargets] = useState<InvestmentTargetMap>(
     DEFAULT_INVESTMENT_TARGETS
@@ -1222,6 +1224,7 @@ export default function App() {
         setReceivables(parseWorkspaceArray<Receivable>(data.receivablesJson, [], 'receivablesJson'));
         setFamilyMembers(familyMembers);
         setServerSentSharedIds(sharedSnapshot.outgoingSharedIds ? new Set(sharedSnapshot.outgoingSharedIds) : null);
+        setServerStaleSharedIds(new Set(sharedSnapshot.outgoingSharedStaleIds ?? []));
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
         setTrips(stripLegacyMockItems(parseWorkspaceArray<Trip>(data.tripsJson, INITIAL_TRIPS, 'tripsJson')));
         setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
@@ -1467,6 +1470,9 @@ export default function App() {
           const next = replaceIncomingSharedTransactions(applyRemoteSettlementReports(previous, sharedSnapshot.outgoingSettlements), sharedSnapshot.transactions as unknown as Transaction[]);
           return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
         });
+        const staleIds = sharedSnapshot.outgoingSharedStaleIds ?? [];
+        setServerStaleSharedIds((previous) =>
+          previous.size === staleIds.length && staleIds.every((id) => previous.has(id)) ? previous : new Set(staleIds));
         const sentIds = sharedSnapshot.outgoingSharedIds;
         if (sentIds) {
           setServerSentSharedIds((previous) =>
@@ -1850,7 +1856,7 @@ export default function App() {
   useEffect(() => {
     if (!serverSentSharedIds || !hasLoadedRemoteOnceRef.current || !effectiveUserEmail) return;
     const attempted = sharedResendAttemptedRef.current;
-    for (const pending of findUnsentSharedTransactions(transactions, familyMembers, serverSentSharedIds, effectiveUserEmail)) {
+    for (const pending of findUnsentSharedTransactions(transactions, familyMembers, serverSentSharedIds, effectiveUserEmail, serverStaleSharedIds, cards)) {
       const keyOf = (tx: Transaction) => `${effectiveUserEmail}|${pending.partnerEmail}|${getSharedSyncId(tx)}`;
       const fresh = pending.transactions.filter((tx) => !attempted.has(keyOf(tx)));
       if (fresh.length === 0) continue;
@@ -1875,7 +1881,7 @@ export default function App() {
       })();
     }
     // Só reage a uma nova leitura do servidor ou a mudança de vínculo; edições já sincronizam ao salvar.
-  }, [serverSentSharedIds, familyMembers]);
+  }, [serverSentSharedIds, serverStaleSharedIds, familyMembers]);
 
   const handleSaveTransactionBatch = (
     input: CreateTransactionBatchInput,

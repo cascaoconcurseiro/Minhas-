@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { FamilyMember, Transaction } from '../../types/finance';
+import type { CreditCard, FamilyMember, Transaction } from '../../types/finance';
 import { findUnsentSharedTransactions, getSharedSyncId } from './sharedFinanceRules';
 
 const fran: FamilyMember = {
@@ -59,4 +59,22 @@ test('convite recebido (direção de entrada) usa o e-mail de quem convidou', ()
   };
   const pending = findUnsentSharedTransactions([shared('tx-1', { sharedMemberId: 'fam-inv-w' })], [owner], new Set(), 'eu@example.com');
   assert.equal(pending[0].partnerEmail, 'w@example.com');
+});
+
+const azul: CreditCard = { id: 'card-1', name: 'Azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 5, defaultAccountId: '', color: '#000' };
+
+test('compartilhado de cartão já enviado, mas sem vencimento no servidor, é reenviado para completar a data', () => {
+  const transactions = [
+    shared('tx-card', { creditCardId: 'card-1', competenceMonth: '2026-12' }),
+    shared('tx-ok', { creditCardId: 'card-1', competenceMonth: '2026-12' }),
+  ];
+  const sent = new Set(['tx-card', 'tx-ok']);
+  const pending = findUnsentSharedTransactions(transactions, [fran], sent, 'eu@example.com', new Set(['tx-card']), [azul]);
+  assert.deepEqual(pending[0].transactions.map((tx) => tx.id), ['tx-card']);
+});
+
+test('sem como calcular o vencimento (cartão removido) não reenvia o que já está no servidor', () => {
+  const transactions = [shared('tx-card', { creditCardId: 'card-gone', competenceMonth: '2026-12' })];
+  const pending = findUnsentSharedTransactions(transactions, [fran], new Set(['tx-card']), 'eu@example.com', new Set(['tx-card']), [azul]);
+  assert.deepEqual(pending, []);
 });
