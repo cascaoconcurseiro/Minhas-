@@ -390,6 +390,29 @@ test('while the app is open, the partner creating the account later and acceptin
   }
 });
 
+test('shared expenses on a card are sent with the invoice due date, never with the purchase date alone', async () => {
+  loadWorkspace = async () => {
+    const snapshot = makeSnapshot();
+    snapshot.payload.cardsJson = JSON.stringify([{ id: 'card-1', name: 'Azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: '', color: '#000' }]);
+    snapshot.payload.transactionsJson = JSON.stringify([{
+      id: 'tx-card-1', description: 'Amazon', amount: 100, date: '2026-10-30', competenceMonth: '2026-12', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-1', paymentMethod: 'credit_card', recurrence: 'single',
+      isShared: true, sharedMemberId: 'fam-partner', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending', sharedSplitMode: 'half',
+    }]);
+    snapshot.payload.familyMembersJson = JSON.stringify([{
+      id: 'fam-partner', name: 'Parceira', relationship: 'cônjuge', color: '#000',
+      email: 'parceira@example.test', inviteStatus: 'accepted', direction: 'outgoing',
+    }]);
+    return snapshot;
+  };
+  loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [], outgoingSharedIds: [] });
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  await waitFor(() => assert.equal(sharedSyncCalls.length, 1));
+  assert.equal(sharedSyncCalls[0].transactions[0].sharedDueDate, '2026-12-28');
+  assert.equal(sharedSyncCalls[0].transactions[0].date, '2026-10-30');
+});
+
 test('an old server without the sent-ids list never triggers a resend', async () => {
   loadWorkspace = async () => {
     const snapshot = makeSnapshot();

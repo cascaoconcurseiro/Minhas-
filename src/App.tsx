@@ -1,7 +1,7 @@
 import { getAccountCurrency, resolveBankTransfer } from './domain/finance/transferRules';
 import { newEntityId } from './utils/ids';
 import { getFamilyInviteCreatedNotice } from './domain/family/familyInvite';
-import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts, findUnsentSharedTransactions, getSharedSyncId } from './domain/family/sharedFinanceRules';
+import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts, findUnsentSharedTransactions, getSharedSyncId, withSharedDueDates } from './domain/family/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { createReceivable, deleteReceivable, getReceivableBalance, registerReceivablePayment, removeReceivablePayment, summarizeReceivables } from './domain/receivables/receivables';
@@ -1825,7 +1825,7 @@ export default function App() {
       const sendToPartner = (attempt: number) => {
         void syncNeonSharedTransactions({
           partnerEmail,
-          transactions: memberTransactions as unknown as Array<Record<string, unknown>>,
+          transactions: withSharedDueDates(memberTransactions, cards) as unknown as Array<Record<string, unknown>>,
           deletedSharedIds: deletedForThisMember,
         }).catch((error) => {
           console.error(
@@ -1861,7 +1861,7 @@ export default function App() {
           try {
             await syncNeonSharedTransactions({
               partnerEmail: pending.partnerEmail,
-              transactions: chunk as unknown as Array<Record<string, unknown>>,
+              transactions: withSharedDueDates(chunk, cards) as unknown as Array<Record<string, unknown>>,
             });
           } catch (error) {
             fresh.slice(start).forEach((tx) => attempted.delete(keyOf(tx)));

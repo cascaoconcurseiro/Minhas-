@@ -226,6 +226,7 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 | **Revogação** (por qualquer lado) | Apaga os espelhos nos dois sentidos. Convidar de novo recomeça do zero e quem convidou reenvia os compartilhados sozinho. |
 | Convite para si mesmo, e-mail inválido, sem login | Recusado (400/401). Outra pessoa não vê nem aceita um convite que não é dela (404). |
 
+- **Quando a parte do compartilhado é cobrada (e quando aparece como atrasada)** (decisão do dono, 2026-11-15): compra no **cartão** só é cobrada no **vencimento da fatura**, nunca no dia da compra (`getSharedChargeDate`). Quem tem o cartão calcula pelo dia de vencimento do cartão no mês da fatura. Quem **recebe** o espelho não tem o cartão; por isso o app de quem lançou envia o vencimento junto (`sharedDueDate`, validado pelo servidor como data real). Espelho antigo sem essa data só vence no **último dia do mês da fatura** (nunca atrasa antes da hora). Fora do cartão vale a data do lançamento. O lembrete diz **"Pagar a [pessoa]"** quando outra pessoa pagou e eu devo a minha parte, e **"Reembolso de [pessoa]"** quando eu paguei e ela me deve.
 - **A Receber não é compartilhado**: um item de A Receber (ex.: fatura do cartão adicional de outra pessoa) fica só na conta de quem o lançou; ele não aparece na conta da pessoa, mesmo com convite aceito.
 - Compras do tipo "familiar pagou" não entram como seu gasto no cartão (`sharedPaidBy === 'member'`).
 

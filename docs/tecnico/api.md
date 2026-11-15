@@ -129,7 +129,7 @@ Sem verificação de e-mail: o convite familiar dentro do sistema é o vínculo 
 
 - `GET/POST /api/family/invitations`: lista e cria convites. Nos convites **pendentes enviados pelo próprio usuário**, a resposta traz `invited_has_account` (`true` = o e-mail já tem conta; `false` = ainda não; ausente se a consulta falhar). Quem foi convidado e convites já aceitos/recusados não recebem o campo.
 - `POST /api/family/invitations/:invitationId/respond` e `/revoke`: aceitar/recusar e revogar (`404` convite inexistente para a conta; `409` convite já respondido).
-- `GET/PUT /api/family/shared`: lê e sincroniza despesas compartilhadas (cota validada em centavos; `400` se inválida). O `GET` devolve `transactions` (recebidas), `outgoingSettlements` (acertos informados pela outra pessoa) e `outgoingSharedIds` (ids que esta conta já enviou, usados pelo app para reenviar os que faltam).
+- `GET/PUT /api/family/shared`: lê e sincroniza despesas compartilhadas (cota validada em centavos; `400` se inválida). O `PUT` aceita `sharedDueDate` (vencimento da fatura do cartão de quem lançou; descartado se não for uma data real) e a leva no espelho. `POST /api/family/invitations` tem limite de 20 por hora por usuário (`429`). O `GET` devolve `transactions` (recebidas), `outgoingSettlements` (acertos informados pela outra pessoa) e `outgoingSharedIds` (ids que esta conta já enviou, usados pelo app para reenviar os que faltam).
 
 ---
 

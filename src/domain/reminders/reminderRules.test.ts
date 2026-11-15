@@ -241,6 +241,58 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     assert.equal(at('2026-12-06').find((r) => r.type === 'shared_pending')?.urgency, 'overdue');
   });
 
+  const mirrorOf = (extra: Partial<Transaction> = {}): Transaction => ({
+    id: 'tx-mirror-t1', sharedSyncId: 't1', description: 'Amazon', amount: 120, date: '2026-10-30', competenceMonth: '2026-12',
+    type: 'expense', status: 'pending', categoryId: 'cat-compras', paymentMethod: 'credit_card', recurrence: 'single',
+    isShared: true, isCompanionOnlyExpense: true, sharedStatus: 'pending', sharedAmount: 60, sharedPaidBy: 'member',
+    sharedMemberId: 'fam-inv-w', sharedOriginEmail: 'w@example.com', ...extra,
+  } as Transaction);
+
+  test('shared expense received from another account is charged on the sender invoice due date, not on the purchase date', () => {
+    const transactions = [mirrorOf({ sharedDueDate: '2026-12-05' })];
+    const at = (referenceDate: string) => calculateDailyReminders({ transactions, cards: [], referenceDate }).filter((r) => r.type === 'shared_pending');
+
+    assert.equal(at('2026-11-15').length, 0, 'a compra foi em 30/10, mas a fatura só vence em dezembro: nada a cobrar nem atrasado');
+    assert.equal(at('2026-12-01').length, 0, 'ainda longe do vencimento');
+    const soon = at('2026-12-03');
+    assert.equal(soon.length, 1);
+    assert.equal(soon[0].urgency, 'due_soon');
+    assert.equal(soon[0].dueDate, '2026-12-05');
+    assert.equal(at('2026-12-06')[0].urgency, 'overdue');
+    assert.equal(at('2026-12-06')[0].daysRemaining, -1);
+  });
+
+  test('received card expense without the sender due date is never overdue before its invoice month ends', () => {
+    const transactions = [mirrorOf()];
+    const at = (referenceDate: string) => calculateDailyReminders({ transactions, cards: [], referenceDate }).filter((r) => r.type === 'shared_pending');
+    assert.equal(at('2026-11-15').length, 0);
+    assert.equal(at('2026-12-15').length, 0);
+    assert.equal(at('2026-12-29')[0].urgency, 'due_soon');
+    assert.equal(at('2026-12-29')[0].dueDate, '2026-12-31');
+    assert.equal(at('2027-01-02')[0].urgency, 'overdue');
+  });
+
+  test('quando eu devo a minha parte o lembrete diz "Pagar a ..." e, quando o outro me deve, "Reembolso de ..."', () => {
+    const members = [{ id: 'fam-inv-w', name: 'Wesley', relationship: 'cônjuge' as const, color: '#000' }];
+    const owe = calculateDailyReminders({
+      transactions: [mirrorOf({ sharedDueDate: '2026-12-05' })], cards: [], familyMembers: members, referenceDate: '2026-12-04',
+    }).find((r) => r.type === 'shared_pending');
+    assert.equal(owe?.title, 'Pagar a Wesley');
+    assert.equal(owe?.description, 'Sua parte de "Amazon"');
+    const owed = calculateDailyReminders({
+      transactions: [mirrorOf({ sharedDueDate: '2026-12-05', sharedPaidBy: 'me' })], cards: [], familyMembers: members, referenceDate: '2026-12-04',
+    }).find((r) => r.type === 'shared_pending');
+    assert.equal(owed?.title, 'Reembolso de Wesley');
+  });
+
+  test('received expense that was not on a card keeps the launch date as the charge date', () => {
+    const transactions = [mirrorOf({ paymentMethod: 'pix', date: '2026-11-10', competenceMonth: '2026-11' })];
+    const reminders = calculateDailyReminders({ transactions, cards: [], referenceDate: '2026-11-15' }).filter((r) => r.type === 'shared_pending');
+    assert.equal(reminders.length, 1);
+    assert.equal(reminders[0].urgency, 'overdue');
+    assert.equal(reminders[0].dueDate, '2026-11-10');
+  });
+
   test('summarizeReminders computes aggregate counts and urgent counts correctly', () => {
     const reminders = [
       {

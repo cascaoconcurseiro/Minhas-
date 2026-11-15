@@ -414,13 +414,14 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
       partnerEmail: 'member@example.com',
       deletedSharedIds: [],
       transactions: [{ id: 'tx-local-1', isShared: true, description: 'Fixture', amount: 12, sharedAmount: 6, date: '2026-11-03',
-        installmentTotal: 3, installmentNumber: 1, installmentPurchaseTotal: 36 }],
+        installmentTotal: 3, installmentNumber: 1, installmentPurchaseTotal: 36, sharedDueDate: '2026-12-28' }],
     }),
   });
   assert.equal(sync.status, 200, await sync.clone().text());
   assert.deepEqual(await sync.json(), { ok: true, forbidden: false, upserted: 1, settled: 0, deleted: 0 });
   assert.equal(shared.size, 1);
   assert.equal((shared.get('tx-local-1') as { installmentPurchaseTotal?: number })?.installmentPurchaseTotal, 36);
+  assert.equal((shared.get('tx-local-1') as { sharedDueDate?: string })?.sharedDueDate, '2026-12-28', 'vencimento da fatura vai no espelho');
   const settle = await originalFetch(`${baseUrl}/api/family/shared`, { method:'PUT',
     headers:{Authorization:`Bearer ${authTokens.invited}`,'Content-Type':'application/json'},
     body:JSON.stringify({partnerEmail:'owner@example.com',transactions:[{id:'tx-mirror-tx-local-1',sharedSyncId:'tx-local-1',sharedStatus:'received',sharedSettledDate:'2026-11-04'}]}) });
@@ -450,6 +451,19 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   assert.deepEqual(await revoked.json(), { ok: true });
   assert.equal(shared.size, 0);
   assert.equal(invitation.status, 'revoked');
+});
+
+test('criar convites tem limite por usuário e não afeta os outros usuários', async () => {
+  const post = (token: string) => originalFetch(`${baseUrl}/api/family/invitations`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ invitedEmail: 'not-an-email', ownerMemberId: 'm' }),
+  });
+  for (let attempt = 1; attempt <= 20; attempt += 1) assert.equal((await post(authTokens.other)).status, 400, `tentativa ${attempt}`);
+  const blocked = await post(authTokens.other);
+  assert.equal(blocked.status, 429);
+  assert.match(((await blocked.json()) as { error: string }).error, /Muitos convites/);
+  assert.equal((await post(authTokens.invited)).status, 400, 'outro usuário continua livre');
 });
 
 test('API de workspace mantém leituras isoladas pelo UID autenticado', async () => {

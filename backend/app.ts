@@ -9,7 +9,7 @@ import { Pool } from 'pg';
 import { normalizeDatabaseConnectionString } from './databaseConnection.ts';
 import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
-import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
+import { normalizeSharedAmount, normalizeSharedDueDate } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/domain/trips/travelRules.ts';
 import { parseWorkspaceArray, validateWorkspaceConsistency } from '../src/services/workspace/workspacePayload.ts';
@@ -484,12 +484,16 @@ async function startServer() {
   app.use('/api/family', verifyAuthUser);
   app.use('/api/reminders/send-email', verifyAuthUser);
   // Rotas que chamam IA/Google gastam cota: limite por usuário (cada chamada conta), por instância do servidor.
-  const createUsageLimit = (maxCalls: number, windowMs: number): RequestHandler => {
+  const createUsageLimit = (
+    maxCalls: number,
+    windowMs: number,
+    message = 'Muitas consultas em pouco tempo. Aguarde um pouco e tente de novo.'
+  ): RequestHandler => {
     const limiter = createAttemptLimiter(maxCalls, windowMs);
     return (req, res, next) => {
       const key = String((res.locals.authUser as AuthUserIdentity | undefined)?.uid ?? req.ip ?? 'anon');
       if (limiter.isBlocked(key)) {
-        res.status(429).json({ error: 'Muitas consultas em pouco tempo. Aguarde um pouco e tente de novo.' });
+        res.status(429).json({ error: message });
         return;
       }
       limiter.recordFailure(key);
@@ -681,7 +685,8 @@ async function startServer() {
     }
   });
 
-  app.post('/api/family/invitations', async (req, res) => {
+  // Convidar também revela se o e-mail tem conta: limite por usuário para ninguém testar e-mails em massa.
+  app.post('/api/family/invitations', createUsageLimit(20, 60 * 60 * 1000, 'Muitos convites em pouco tempo. Aguarde uma hora e tente de novo.'), async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     const invitedEmail = String(req.body?.invitedEmail || '').trim().toLowerCase();
     const ownerMemberId = String(req.body?.ownerMemberId || '').trim();
@@ -984,6 +989,7 @@ async function startServer() {
 
           const senderPaidByMember = tx.sharedPaidBy === 'member';
           const sharedAmount = normalizeSharedAmount(tx.amount, tx.sharedAmount);
+          const sharedDueDate = normalizeSharedDueDate(tx.sharedDueDate);
           const mirror = {
             id: `tx-mirror-${sharedSyncId}`,
             sharedSyncId,
@@ -1013,6 +1019,7 @@ async function startServer() {
             sharedPaidBy: senderPaidByMember ? 'me' : 'member',
             sharedStatus: tx.sharedStatus === 'received' ? 'received' : 'pending',
             ...(typeof tx.sharedSettledDate === 'string' ? { sharedSettledDate: tx.sharedSettledDate } : {}),
+            ...(sharedDueDate ? { sharedDueDate } : {}),
             isCompanionOnlyExpense: true,
           };
           await client.query(
