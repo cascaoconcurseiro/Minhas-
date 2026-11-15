@@ -165,3 +165,19 @@ test('finance metadata survives local cache and Neon workspace JSON serializatio
   assert.equal(hydrated[0].effectiveExchangeRate, transaction.effectiveExchangeRate);
   assert.equal(hydrated[0].currencyRegime, transaction.currencyRegime);
 });
+
+import { validateWorkspaceConsistency } from './workspacePayload';
+
+const okTx = { id: 't1', description: 'x', amount: 10, date: '2026-11-02', competenceMonth: '2026-11', type: 'expense', status: 'paid', categoryId: 'c', accountId: 'a1' };
+test('servidor: lançamento coerente passa', () => {
+  assert.equal(validateWorkspaceConsistency({ accounts: [{ id: 'a1' }], cards: [], transactions: [okTx] }), null);
+});
+test('servidor: recusa lançamento incompleto, conta/cartão inexistente e cota maior que o valor', () => {
+  const run = (tx: object) => validateWorkspaceConsistency({ accounts: [{ id: 'a1' }], cards: [{ id: 'c1' }], transactions: [tx] });
+  assert.ok(run({ id: 'incomplete' }));
+  assert.ok(run({ ...okTx, accountId: 'nao-existe' }));
+  assert.ok(run({ ...okTx, accountId: undefined, creditCardId: 'nao-existe' }));
+  assert.ok(run({ ...okTx, sharedAmount: 999 }));
+  assert.ok(run({ ...okTx, status: 'xyz' }));
+  assert.equal(run({ ...okTx, type: 'transfer', accountId: 'a1', destinationAccountId: 'inv:asset' }), null);
+});

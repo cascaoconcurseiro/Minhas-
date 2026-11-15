@@ -26,6 +26,7 @@ import {
   formatBRL,
   formatShortDateBR,
   getEffectiveExpenseAmountForUser,
+  isOutsidePersonalResult,
   getLedgerTransactionsForMonth,
   normalizeSearchText,
 } from '../../domain/finance/financeRules';
@@ -265,7 +266,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     let pendingAmount = 0;
     let pendingCount = 0;
     for (const tx of monthTransactions) {
-      if (tx.isInvoicePayment || tx.type === 'transfer' || tx.isCompanionOnlyExpense) continue;
+      if (tx.isInvoicePayment || tx.type === 'transfer' || isOutsidePersonalResult(tx)) continue;
       if (tx.type === 'income') {
         if (tx.sharedPaidBy === 'member') continue;
         income += tx.amount;

@@ -1081,7 +1081,7 @@ test('o seletor de parcelas do cartão oferece todos os números de 2 a 48 (incl
   const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard] });
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="recurrence-installment-btn"]')?.click(); });
-  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x sem juros no cartão'));
+  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x no cartão'));
   assert.ok(select, 'seletor de parcelas visível');
   const values = [...select.querySelectorAll('option')].map((option) => Number(option.value));
   assert.deepEqual(values, Array.from({ length: 47 }, (_, i) => i + 2));
@@ -1096,7 +1096,7 @@ test('ao editar uma compra parcelada no cartão, aparecem a frequência e o núm
   const rest = [2, 3].map((n): Transaction => ({ ...tx, id: `inst-${n}`, installmentNumber: n, competenceMonth: `2026-${10 + n}`, date: `2026-${10 + n}-02` }));
   const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard], editingTransaction: tx, transactions: [tx, ...rest] });
   assert.ok(page.querySelector('[data-testid="main-recurrence-selector"]'), 'frequência visível na edição');
-  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x sem juros no cartão'));
+  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x no cartão'));
   assert.ok(select, 'número de parcelas visível na edição');
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(select, '5');

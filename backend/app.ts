@@ -12,7 +12,7 @@ import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/domain/trips/travelRules.ts';
-import { parseWorkspaceArray } from '../src/services/workspace/workspacePayload.ts';
+import { parseWorkspaceArray, validateWorkspaceConsistency } from '../src/services/workspace/workspacePayload.ts';
 import { parseSharedSettlementReceipts } from '../src/domain/family/sharedSettlementReceipts.ts';
 import {
   createAttemptLimiter,
@@ -119,6 +119,16 @@ function getRequestWorkspacePayload(
     } catch {
       return null;
     }
+  }
+  try {
+    const consistencyError = validateWorkspaceConsistency({
+      accounts: parseWorkspaceArray(payload.accountsJson, [], 'accountsJson'),
+      cards: parseWorkspaceArray(payload.cardsJson, [], 'cardsJson'),
+      transactions: parseWorkspaceArray(payload.transactionsJson, [], 'transactionsJson'),
+    });
+    if (consistencyError) return null;
+  } catch {
+    return null;
   }
   for (const field of [
     'familyMembersJson',

@@ -51,7 +51,7 @@ As categorias de despesa aparecem agrupadas por tipo (Essenciais, Estilo de vida
 - **Fixo (assinatura/recorrente)**: gera lançamentos para os próximos meses. O sistema sugere "gastos que se repetem" detectando o padrão no histórico (`recurrenceDetection.ts`): mesmo estabelecimento em meses seguidos; o usuário pode dispensar a sugestão.
 
 ### 2.4b Editar mudando parcelas ou repetição
-Ao editar, o formulário mostra os mesmos campos do lançamento original, inclusive **forma de pagamento (conta/débito ou cartão), frequência (à vista, fixo, parcelado) e número de parcelas**. Trocar entre cartão e conta também refaz a série. Mudar isso **refaz a série inteira** com o que está no formulário (mesmo total dividido de novo, na mesma posição da lista; `rebuildTransactionSeries`). É **recusado, sem alterar nada**, se a série tiver parcela já paga, antecipada, dividida por pagamento parcial, vinda de extrato ou acerto compartilhado recebido: primeiro estornar o pagamento da fatura ou desfazer a antecipação (`getSeriesRebuildBlocker`). Mudar só o número de meses de um lançamento **fixo** continua não refazendo a série.
+Ao editar, o formulário mostra os mesmos campos do lançamento original, inclusive **forma de pagamento (conta/débito ou cartão), frequência (à vista, fixo, parcelado) e número de parcelas**. Trocar entre cartão e conta também refaz a série. Mudar isso **refaz a série inteira** com o que está no formulário (mesmo total dividido de novo, na mesma posição da lista; `rebuildTransactionSeries`). É **recusado, sem alterar nada**, se a série tiver parcela já paga, antecipada, dividida por pagamento parcial, vinda de extrato ou acerto compartilhado recebido: primeiro estornar o pagamento da fatura ou desfazer a antecipação (`getSeriesRebuildBlocker`). Mudar só o número de meses de um lançamento **fixo** não refaz a série: aumentar acrescenta meses "previstos" no fim e diminuir tira meses do fim, só se ainda estiverem pendentes (`adjustFixedSeriesLength`).
 
 ### 2.5 Edição e exclusão em cascata
 Ao editar ou apagar um lançamento de série, o modo de cascata decide o alcance: `single` (só este), `this_and_future` (este e os próximos), `all_series` (a série toda) (`applyCascadeTransactionEdit`, `applyCascadeTransactionDelete`).
@@ -247,6 +247,10 @@ Simula juros compostos para 100% CDI, 110% CDI, Tesouro Selic, LCI/LCA (92% CDI,
 - **Sino**: junta atrasos, vencimentos próximos, **faturas de cartão em aberto** (vencidas ou perto de vencer), previsão de saldo negativo, cartão perto do limite e dados para revisar; avisos informativos aparecem sem contar na bolinha.
 - Fatura vencida aparece como "Atrasado há Nd" a partir do dia de vencimento do mês de competência da fatura.
 - Lembretes por e-mail usam o SMTP do próprio usuário (não verificado em produção).
+
+**Servidor recusa dado incoerente (`validateWorkspaceConsistency`)**: ao gravar, o servidor rejeita lançamento sem tipo, descrição, categoria, valor, data, mês ou situação, que aponte para conta/cartão que não existe, ou com cota compartilhada maior que o valor. Conferido por leitura nos dados reais: os 131 lançamentos existentes cumprem todas as regras (0 órfãos).
+
+**Apagar viagem**: o dinheiro de compras de câmbio da viagem continua no extrato (o lançamento deixa de ser "do lote" e pode ser editado ou apagado normalmente).
 
 ## 14. Sincronização e dados (`src/services/workspace/`)
 - O workspace é um documento. Gravação com **revisão otimista**: o servidor só aceita se a revisão esperada ainda for a atual; senão responde `409`.

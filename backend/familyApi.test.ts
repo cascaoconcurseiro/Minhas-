@@ -633,7 +633,7 @@ test('API persiste e relê o payload completo de uma restauração de backup', a
     accountsJson: JSON.stringify([{ id: 'qa-account' }]),
     cardsJson: JSON.stringify([{ id: 'qa-card' }]),
     categoriesJson: JSON.stringify([{ id: 'qa-category' }]),
-    transactionsJson: JSON.stringify([{ id: 'qa-transaction' }]),
+    transactionsJson: JSON.stringify([{ id: 'qa-transaction', description: 'QA', amount: 10, date: '2026-11-04', competenceMonth: '2026-11', type: 'expense', status: 'paid', categoryId: 'qa-category', accountId: 'qa-account' }]),
     goalsJson: JSON.stringify([{ id: 'qa-goal' }]),
     familyMembersJson: JSON.stringify([{ id: 'qa-member' }]),
     investmentsJson: JSON.stringify([{ id: 'qa-investment' }]),
