@@ -28,6 +28,7 @@ Atualizado em: 2026-11-15.
 
 | Arquivo | Para que serve |
 |---|---|
+| `AGENTS.md` / `CLAUDE.md` | **Instruções para qualquer IA**: o que ler antes, o que atualizar ao terminar, regras que não se quebram. |
 | `README.md` | Porta de entrada: o que é o projeto e como rodar. |
 | `MASTER_BLUEPRINT.md` | Visão resumida da arquitetura, decisões e regras permanentes do projeto. |
 | `HANDOFF.md` | **Diário de bordo**: onde estamos, o que mudou, o que falta. Preenchimento obrigatório a cada entrega. |

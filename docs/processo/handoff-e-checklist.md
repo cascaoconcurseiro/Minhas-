@@ -40,6 +40,9 @@ Os oito campos são obrigatórios e não podem ficar vazios. Se algo não se apl
 
 > Mudou `src/`, `backend/`, `api/`, `db/`, `shared/` ou `package.json`? Então o `HANDOFF.md` muda na mesma entrega.
 
+- **Instruções para IA**: `AGENTS.md` (e `CLAUDE.md`, que o importa) na raiz diz a qualquer IA que leia o projeto a ordem de leitura e que o HANDOFF é obrigatório ao terminar.
+- **Gancho do Claude Code** (`.claude/settings.json`): ao tentar encerrar, roda `check-handoff --uncommitted`; com código alterado e HANDOFF intocado, impede encerrar e manda atualizar.
+- **Gancho `pre-push`** (`.githooks/pre-push`, ativado por `bun install`): barra o `git push` nas mesmas condições.
 - **Local**: `bun run check:handoff` (ou `bun run check`, que roda lint, testes, build e a checagem).
 - **CI** (`.github/workflows/ci.yml`): o passo "Verificar HANDOFF atualizado" **falha** se o código mudou sem mudar o `HANDOFF.md`, se faltar alguma seção, ou se a entrada mais recente tiver campo ausente ou vazio.
 - **Aviso** (não falha): se `src/domain/` mudou sem mudar `docs/produto/regras-de-negocio.md`. Se a regra mudou, atualize o documento; se não, escreva o motivo no campo "Documentação atualizada".

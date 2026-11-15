@@ -8,6 +8,7 @@ Tudo está em [`docs/`](./docs/README.md) (índice completo lá). Atalhos:
 
 | Quero | Arquivo |
 |---|---|
+| **IA ou pessoa nova no projeto**: comece por | [`AGENTS.md`](./AGENTS.md) |
 | Saber **onde estamos** e o que falta | [`HANDOFF.md`](./HANDOFF.md) · [`CHECKLIST.md`](./CHECKLIST.md) |
 | Entender o produto e as regras de cálculo | [`docs/produto/`](./docs/produto/visao-geral.md) |
 | Entender como o código é organizado | [`docs/tecnico/estrutura-do-codigo.md`](./docs/tecnico/estrutura-do-codigo.md) |

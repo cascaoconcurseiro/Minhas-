@@ -44,6 +44,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-15 — Handoff obrigatório para qualquer IA (instruções e ganchos)
+- **O que mudou:** criados `AGENTS.md` (instruções universais) e `CLAUDE.md` (importa o AGENTS); gancho de parada do Claude Code em `.claude/settings.json`; gancho Git `.githooks/pre-push` ativado por `bun install` (script `prepare`); `check-handoff` ganhou `--uncommitted`.
+- **Por quê:** o CI só barrava depois do push e nenhum arquivo dizia a uma IA nova para ler os docs e atualizar o HANDOFF. Agora a obrigação aparece em quatro pontos: instruções lidas ao abrir o projeto, gancho ao encerrar, gancho ao enviar e CI.
+- **Arquivos/áreas:** `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.githooks/pre-push`, `scripts/check-handoff.ts`, `package.json`, `docs/processo/handoff-e-checklist.md`, `docs/README.md`, `README.md`.
+- **Como foi verificado:** o verificador barrou uma alteração de código sem HANDOFF (código de saída 1) e o gancho `pre-push` barrou meu próprio push nessa situação; passa com a entrada; testes e build rodados.
+- **Não verificado:** o gancho de parada em uma sessão nova do Claude Code e o `pre-push` em outro computador (dependem do `bun install` ali); IAs que ignoram `AGENTS.md` só são barradas pelo CI, depois do push.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/processo/handoff-e-checklist.md`, `docs/README.md`, `README.md`.
+- **Próximo passo:** acompanhar se as próximas entregas chegam com HANDOFF; considerar proteger a branch `main` exigindo o CI.
+
 ### 2026-11-15 — Correção urgente: API com erro 500 depois da reorganização
 - **O que mudou:** dois imports sem extensão no caminho do backend voltaram a ter `.ts` (`financeRules.ts` → `formatting.ts`; `travelRules.ts` → `financeRules.ts`). Novo teste `backend/runtimeImports.test.ts` falha se qualquer import relativo executado pela API ficar sem extensão.
 - **Por quê:** em produção `/api/auth/me`, `/api/workspace`, `/api/family/*` respondiam 500 e o app dizia que não conectava ao banco. O Neon estava saudável (1 usuário, 1 workspace, dados intactos); a causa foi a função da Vercel não carregar módulos importados sem extensão, introduzidos por mim ao reorganizar as pastas e extrair `formatting.ts`. (O mesmo tipo de falha já tinha ocorrido em 2026-11-11.)
