@@ -65,6 +65,9 @@ const makeSnapshot = (accountName = 'Conta Neon sintética'): SyntheticSnapshot 
 });
 
 let loadWorkspace: () => Promise<SyntheticSnapshot> = async () => makeSnapshot();
+type SyntheticSharedSnapshot = { transactions: Record<string, unknown>[]; outgoingSettlements: unknown[]; outgoingSharedIds?: string[] };
+let loadSharedSnapshot: () => Promise<SyntheticSharedSnapshot> = async () => ({ transactions: [], outgoingSettlements: [] });
+const sharedSyncCalls: Array<{ partnerEmail: string; transactions: Array<Record<string, unknown>> }> = [];
 let loadCalls = 0;
 let createCalls = 0;
 let saveCalls = 0;
@@ -132,7 +135,7 @@ mock.module('../lib/neonWorkspace', () => ({
   createNeonFamilyInvitation: async () => ({ invitationId: 'qa-invite' }),
   loadNeonFamilyInvitations: async () => [],
   loadNeonSharedTransactions: async () => [],
-  loadNeonSharedSnapshot: async () => ({ transactions: [], outgoingSettlements: [] }),
+  loadNeonSharedSnapshot: () => loadSharedSnapshot(),
   loadNeonWorkspace: async () => {
     loadCalls += 1;
     return loadWorkspace();
@@ -146,7 +149,10 @@ mock.module('../lib/neonWorkspace', () => ({
     saveRevisionArgs.push(expectedRevision);
     return saveWorkspaceImpl(expectedRevision);
   },
-  syncNeonSharedTransactions: async () => {},
+  syncNeonSharedTransactions: async (input: { partnerEmail: string; transactions: Array<Record<string, unknown>> }) => {
+    sharedSyncCalls.push(input);
+    return { ok: true, upserted: input.transactions.length, settled: 0, deleted: 0 };
+  },
 }));
 
 mock.module('../components/overview/OverviewTab', () => ({
@@ -231,6 +237,8 @@ afterEach(() => {
   container = null;
   loadWorkspace = async () => makeSnapshot();
   loadCalls = 0;
+  loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [] });
+  sharedSyncCalls.length = 0;
   createCalls = 0;
   saveCalls = 0;
   saveWorkspaceImpl = async () => ({ revision: 8, updatedAt: '2026-11-07T12:00:01.000Z' });
@@ -304,6 +312,55 @@ test('email registration through the app uses Firebase and then hydrates the Neo
   assert.equal(signInCalls.length, 0);
   assert.equal(loadCalls, 1);
   assert.equal(page.querySelector('[data-cloud-sync-status]')?.getAttribute('data-cloud-sync-status'), 'synced');
+});
+
+test('after the invitation is accepted, shared expenses created earlier are sent to the partner once', async () => {
+  const sharedTx = (id: string) => ({
+    id, description: id, amount: 100, date: '2026-12-01', competenceMonth: '2026-12', type: 'expense',
+    status: 'pending', categoryId: 'cat-outros', paymentMethod: 'pix', recurrence: 'single',
+    accountId: 'qa-account-001', isShared: true, sharedMemberId: 'fam-partner', sharedAmount: 50,
+    sharedPaidBy: 'me', sharedStatus: 'pending', sharedSplitMode: 'half',
+  });
+  loadWorkspace = async () => {
+    const snapshot = makeSnapshot();
+    snapshot.payload.transactionsJson = JSON.stringify([sharedTx('tx-old-1'), sharedTx('tx-old-2'), sharedTx('tx-already')]);
+    snapshot.payload.familyMembersJson = JSON.stringify([{
+      id: 'fam-partner', name: 'Parceira', relationship: 'cônjuge', color: '#000',
+      email: 'parceira@example.test', inviteStatus: 'accepted', direction: 'outgoing',
+    }]);
+    return snapshot;
+  };
+  loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [], outgoingSharedIds: ['tx-already'] });
+
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  await waitFor(() => assert.equal(sharedSyncCalls.length, 1));
+  assert.equal(sharedSyncCalls[0].partnerEmail, 'parceira@example.test');
+  assert.deepEqual(sharedSyncCalls[0].transactions.map((tx) => tx.id), ['tx-old-1', 'tx-old-2']);
+  await flushReact();
+  await flushReact();
+  assert.equal(sharedSyncCalls.length, 1, 'não reenvia o mesmo lançamento na mesma sessão');
+});
+
+test('an old server without the sent-ids list never triggers a resend', async () => {
+  loadWorkspace = async () => {
+    const snapshot = makeSnapshot();
+    snapshot.payload.transactionsJson = JSON.stringify([{
+      id: 'tx-old-1', description: 'x', amount: 100, date: '2026-12-01', competenceMonth: '2026-12', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', paymentMethod: 'pix', recurrence: 'single', accountId: 'qa-account-001',
+      isShared: true, sharedMemberId: 'fam-partner', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending',
+    }]);
+    snapshot.payload.familyMembersJson = JSON.stringify([{
+      id: 'fam-partner', name: 'Parceira', relationship: 'cônjuge', color: '#000',
+      email: 'parceira@example.test', inviteStatus: 'accepted', direction: 'outgoing',
+    }]);
+    return snapshot;
+  };
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  await flushReact();
+  await flushReact();
+  assert.equal(sharedSyncCalls.length, 0);
 });
 
 test('auth loads the synthetic Neon snapshot before exposing synchronized workspace state', async () => {

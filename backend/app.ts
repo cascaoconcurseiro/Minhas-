@@ -825,19 +825,22 @@ async function startServer() {
         );
         return result.rows;
       });
-      const outgoing = await withWorkspaceRls(user, async (client) => {
+      const outgoingRows = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `SELECT shared_sync_id, payload ->> 'recipientSharedStatus' AS status,
                   payload ->> 'recipientSettledDate' AS date
              FROM public.finance_shared_transactions
             WHERE sender_user_id = $1`, [user.uid]);
-        return result.rows.filter((row) => row.status === 'received' || row.status === 'pending');
+        return result.rows;
       });
+      const outgoing = outgoingRows.filter((row) => row.status === 'received' || row.status === 'pending');
       res.json({ transactions: transactions.map((row) => ({ ...row, payload: {
         ...row.payload,
         ...(row.payload.recipientSharedStatus ? { sharedStatus: row.payload.recipientSharedStatus,
           sharedSettledDate: row.payload.recipientSettledDate || undefined } : {}),
-      } })), outgoingSettlements: outgoing });
+      } })), outgoingSettlements: outgoing,
+      // Ids já enviados por esta conta: o app reenvia os compartilhados que faltam (ex.: lançados antes do aceite).
+      outgoingSharedIds: outgoingRows.map((row) => String(row.shared_sync_id)) });
     } catch (error) {
       console.error('Erro ao carregar lançamentos compartilhados:', error);
       res.status(503).json({ error: 'Não foi possível carregar os lançamentos compartilhados.' });

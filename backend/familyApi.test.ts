@@ -405,8 +405,9 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
     body:JSON.stringify({partnerEmail:'owner@example.com',transactions:[{id:'tx-mirror-tx-local-1',sharedSyncId:'tx-local-1',sharedStatus:'received',sharedSettledDate:'2026-11-04'}]}) });
   assert.equal(settle.status,200);
   const reports = await originalFetch(`${baseUrl}/api/family/shared`, {headers});
-  const reportBody = await reports.json() as {transactions:unknown[];outgoingSettlements:unknown[]};
+  const reportBody = await reports.json() as {transactions:unknown[];outgoingSettlements:unknown[];outgoingSharedIds:unknown[]};
   assert.deepEqual(reportBody.transactions,[]);
+  assert.deepEqual(reportBody.outgoingSharedIds,['tx-local-1']);
   assert.deepEqual(reportBody.outgoingSettlements,[{shared_sync_id:'tx-local-1',status:'received',date:'2026-11-04'}]);
   const received = await originalFetch(`${baseUrl}/api/family/shared`, {headers:{Authorization:`Bearer ${authTokens.invited}`}});
   const receivedBody = await received.json() as {transactions:Array<{payload:{sharedStatus:string}}>};

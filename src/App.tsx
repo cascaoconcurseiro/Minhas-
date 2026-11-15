@@ -1,6 +1,6 @@
 import { getAccountCurrency, resolveBankTransfer } from './domain/finance/transferRules';
 import { newEntityId } from './utils/ids';
-import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './domain/family/sharedFinanceRules';
+import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts, findUnsentSharedTransactions, getSharedSyncId } from './domain/family/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { createReceivable, deleteReceivable, getReceivableBalance, registerReceivablePayment, removeReceivablePayment, summarizeReceivables } from './domain/receivables/receivables';
@@ -478,6 +478,8 @@ export default function App() {
   const [receivables, setReceivables] = useState<Receivable[]>([]);
   const [receivablesIntent, setReceivablesIntent] = useState<import('./components/receivables/ReceivablesTab').ReceivablesIntent | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
+  // Ids dos compartilhados que o servidor já tem desta conta (null = ainda não lido ou servidor antigo).
+  const [serverSentSharedIds, setServerSentSharedIds] = useState<ReadonlySet<string> | null>(null);
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
   const [investmentTargets, setInvestmentTargets] = useState<InvestmentTargetMap>(
     DEFAULT_INVESTMENT_TARGETS
@@ -1215,6 +1217,7 @@ export default function App() {
         setGoals(stripLegacyMockItems(parseWorkspaceArray<SavingsGoal>(data.goalsJson, INITIAL_SAVINGS_GOALS, 'goalsJson')));
         setReceivables(parseWorkspaceArray<Receivable>(data.receivablesJson, [], 'receivablesJson'));
         setFamilyMembers(familyMembers);
+        setServerSentSharedIds(sharedSnapshot.outgoingSharedIds ? new Set(sharedSnapshot.outgoingSharedIds) : null);
         setInvestments(stripLegacyMockItems(parseWorkspaceArray<InvestmentAsset>(data.investmentsJson, INITIAL_INVESTMENTS, 'investmentsJson')));
         setTrips(stripLegacyMockItems(parseWorkspaceArray<Trip>(data.tripsJson, INITIAL_TRIPS, 'tripsJson')));
         setInvestmentTargets(parseWorkspaceObject(data.investmentTargetsJson, DEFAULT_INVESTMENT_TARGETS, 'investmentTargetsJson'));
@@ -1459,6 +1462,13 @@ export default function App() {
           const next = replaceIncomingSharedTransactions(applyRemoteSettlementReports(previous, sharedSnapshot.outgoingSettlements), sharedSnapshot.transactions as unknown as Transaction[]);
           return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
         });
+        const sentIds = sharedSnapshot.outgoingSharedIds;
+        if (sentIds) {
+          setServerSentSharedIds((previous) =>
+            previous && previous.size === sentIds.length && sentIds.every((id) => previous.has(id))
+              ? previous
+              : new Set(sentIds));
+        }
       } catch (error) {
         if (active) {
           console.warn(
@@ -1818,6 +1828,40 @@ export default function App() {
       sendToPartner(0);
     }
   };
+
+  // Envia à pessoa vinculada os compartilhados que ainda não estão no servidor (ex.: lançados antes de ela
+  // aceitar o convite; o envio normal só acontece ao salvar). Silencioso, só depois de ler o Neon, em lotes,
+  // e cada lançamento é tentado uma vez por sessão (falha de rede libera nova tentativa na próxima leitura).
+  const sharedResendAttemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!serverSentSharedIds || !hasLoadedRemoteOnceRef.current || !effectiveUserEmail) return;
+    const attempted = sharedResendAttemptedRef.current;
+    for (const pending of findUnsentSharedTransactions(transactions, familyMembers, serverSentSharedIds, effectiveUserEmail)) {
+      const keyOf = (tx: Transaction) => `${effectiveUserEmail}|${pending.partnerEmail}|${getSharedSyncId(tx)}`;
+      const fresh = pending.transactions.filter((tx) => !attempted.has(keyOf(tx)));
+      if (fresh.length === 0) continue;
+      fresh.forEach((tx) => attempted.add(keyOf(tx)));
+      void (async () => {
+        for (let start = 0; start < fresh.length; start += 40) {
+          const chunk = fresh.slice(start, start + 40);
+          try {
+            await syncNeonSharedTransactions({
+              partnerEmail: pending.partnerEmail,
+              transactions: chunk as unknown as Array<Record<string, unknown>>,
+            });
+          } catch (error) {
+            fresh.slice(start).forEach((tx) => attempted.delete(keyOf(tx)));
+            console.error(
+              `Falha ao enviar compartilhados pendentes para ${pending.partnerEmail}.`,
+              error instanceof Error ? error.message : String(error)
+            );
+            return;
+          }
+        }
+      })();
+    }
+    // Só reage a uma nova leitura do servidor ou a mudança de vínculo; edições já sincronizam ao salvar.
+  }, [serverSentSharedIds, familyMembers]);
 
   const handleSaveTransactionBatch = (
     input: CreateTransactionBatchInput,
