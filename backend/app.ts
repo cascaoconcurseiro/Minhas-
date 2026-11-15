@@ -9,7 +9,7 @@ import { Pool } from 'pg';
 import { normalizeDatabaseConnectionString } from './databaseConnection.ts';
 import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
-import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
+import { normalizeSharedAmount, normalizeSharedDueDate } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/domain/trips/travelRules.ts';
 import { parseWorkspaceArray, validateWorkspaceConsistency } from '../src/services/workspace/workspacePayload.ts';
@@ -484,12 +484,16 @@ async function startServer() {
   app.use('/api/family', verifyAuthUser);
   app.use('/api/reminders/send-email', verifyAuthUser);
   // Rotas que chamam IA/Google gastam cota: limite por usuário (cada chamada conta), por instância do servidor.
-  const createUsageLimit = (maxCalls: number, windowMs: number): RequestHandler => {
+  const createUsageLimit = (
+    maxCalls: number,
+    windowMs: number,
+    message = 'Muitas consultas em pouco tempo. Aguarde um pouco e tente de novo.'
+  ): RequestHandler => {
     const limiter = createAttemptLimiter(maxCalls, windowMs);
     return (req, res, next) => {
       const key = String((res.locals.authUser as AuthUserIdentity | undefined)?.uid ?? req.ip ?? 'anon');
       if (limiter.isBlocked(key)) {
-        res.status(429).json({ error: 'Muitas consultas em pouco tempo. Aguarde um pouco e tente de novo.' });
+        res.status(429).json({ error: message });
         return;
       }
       limiter.recordFailure(key);
@@ -681,7 +685,8 @@ async function startServer() {
     }
   });
 
-  app.post('/api/family/invitations', async (req, res) => {
+  // Convidar também revela se o e-mail tem conta: limite por usuário para ninguém testar e-mails em massa.
+  app.post('/api/family/invitations', createUsageLimit(20, 60 * 60 * 1000, 'Muitos convites em pouco tempo. Aguarde uma hora e tente de novo.'), async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     const invitedEmail = String(req.body?.invitedEmail || '').trim().toLowerCase();
     const ownerMemberId = String(req.body?.ownerMemberId || '').trim();
@@ -863,19 +868,24 @@ async function startServer() {
       const outgoingRows = await withWorkspaceRls(user, async (client) => {
         const result = await client.query(
           `SELECT shared_sync_id, payload ->> 'recipientSharedStatus' AS status,
-                  payload ->> 'recipientSettledDate' AS date
+                  payload ->> 'recipientSettledDate' AS date,
+                  (payload ->> 'paymentMethod' = 'credit_card' AND NOT (payload ? 'sharedDueDate')) AS missing_due_date
              FROM public.finance_shared_transactions
             WHERE sender_user_id = $1`, [user.uid]);
         return result.rows;
       });
-      const outgoing = outgoingRows.filter((row) => row.status === 'received' || row.status === 'pending');
+      const outgoing = outgoingRows
+        .filter((row) => row.status === 'received' || row.status === 'pending')
+        .map((row) => ({ shared_sync_id: row.shared_sync_id, status: row.status, date: row.date }));
       res.json({ transactions: transactions.map((row) => ({ ...row, payload: {
         ...row.payload,
         ...(row.payload.recipientSharedStatus ? { sharedStatus: row.payload.recipientSharedStatus,
           sharedSettledDate: row.payload.recipientSettledDate || undefined } : {}),
       } })), outgoingSettlements: outgoing,
       // Ids já enviados por esta conta: o app reenvia os compartilhados que faltam (ex.: lançados antes do aceite).
-      outgoingSharedIds: outgoingRows.map((row) => String(row.shared_sync_id)) });
+      outgoingSharedIds: outgoingRows.map((row) => String(row.shared_sync_id)),
+      // Espelhos de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo): o app novo completa.
+      outgoingSharedStaleIds: outgoingRows.filter((row) => row.missing_due_date === true).map((row) => String(row.shared_sync_id)) });
     } catch (error) {
       console.error('Erro ao carregar lançamentos compartilhados:', error);
       res.status(503).json({ error: 'Não foi possível carregar os lançamentos compartilhados.' });
@@ -984,6 +994,7 @@ async function startServer() {
 
           const senderPaidByMember = tx.sharedPaidBy === 'member';
           const sharedAmount = normalizeSharedAmount(tx.amount, tx.sharedAmount);
+          const sharedDueDate = normalizeSharedDueDate(tx.sharedDueDate);
           const mirror = {
             id: `tx-mirror-${sharedSyncId}`,
             sharedSyncId,
@@ -1013,6 +1024,7 @@ async function startServer() {
             sharedPaidBy: senderPaidByMember ? 'me' : 'member',
             sharedStatus: tx.sharedStatus === 'received' ? 'received' : 'pending',
             ...(typeof tx.sharedSettledDate === 'string' ? { sharedSettledDate: tx.sharedSettledDate } : {}),
+            ...(sharedDueDate ? { sharedDueDate } : {}),
             isCompanionOnlyExpense: true,
           };
           await client.query(

@@ -104,10 +104,13 @@ assert.equal('invited_has_account' in (await request('/api/family/invitations',o
 assert.ok(accepted.invitation.invited_user_id);
 assert.equal((await request('/api/family/invitations',owner.token)).invitations.find((row: {invited_email:string})=>row.invited_email==='late@qa.example').status,'accepted');
 assert.deepEqual((await request('/api/family/shared',owner.token)).outgoingSharedIds,[]);
-await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'late@qa.example',transactions:[sharedItem('late-backlog-1',{sharedMemberId:'qa-late-member'}),sharedItem('late-backlog-2',{sharedMemberId:'qa-late-member'})]});
+await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'late@qa.example',transactions:[sharedItem('late-backlog-1',{sharedMemberId:'qa-late-member',paymentMethod:'credit_card',sharedDueDate:'2026-12-28'}),sharedItem('late-backlog-2',{sharedMemberId:'qa-late-member',paymentMethod:'credit_card',sharedDueDate:'2026-02-31'})]});
 const lateIncoming = (await request('/api/family/shared',lateAccount.token)).transactions.map((row: {payload:Transaction})=>row.payload);
 assert.deepEqual(lateIncoming.map((tx: Transaction)=>tx.id).sort(),['tx-mirror-late-backlog-1','tx-mirror-late-backlog-2']);
 assert.ok(lateIncoming.every((tx: Transaction)=>tx.sharedPaidBy==='member' && tx.sharedMemberId==='fam-inv-owner_qa_example'));
+assert.equal(lateIncoming.find((tx: Transaction)=>tx.id==='tx-mirror-late-backlog-1').sharedDueDate,'2026-12-28','invoice due date travels with the mirror');
+assert.equal('sharedDueDate' in lateIncoming.find((tx: Transaction)=>tx.id==='tx-mirror-late-backlog-2'),false,'an impossible due date is dropped by the server');
+assert.deepEqual((await request('/api/family/shared',owner.token)).outgoingSharedStaleIds,['late-backlog-2'],'a card mirror without a valid due date is reported as stale so the new app completes it');
 assert.deepEqual((await request('/api/family/shared',owner.token)).outgoingSharedIds.sort(),['late-backlog-1','late-backlog-2']);
 console.log('PASS: after acceptance the backlog launched before the account existed reaches the new account (owner -> invited)');
 await request('/api/family/shared',lateAccount.token,'PUT',{partnerEmail:'owner@qa.example',transactions:[sharedItem('late-own-1',{sharedMemberId:'fam-inv-owner_qa_example'})]});

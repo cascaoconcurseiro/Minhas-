@@ -1,5 +1,5 @@
-import type { BankAccount, FamilyMember, Transaction } from '../../types/finance';
-import { formatBRL, formatMonthYearPT, getSharedSettlementLinks } from '../finance/financeRules';
+import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../types/finance';
+import { formatBRL, formatMonthYearPT, getClampedMonthDate, getSharedSettlementLinks } from '../finance/financeRules';
 import { getAccountCurrency } from '../finance/transferRules';
 import { parseSharedSettlementReceipts } from './sharedSettlementReceipts';
 import type { SharedSettlementReceipt } from './sharedSettlementReceipts';
@@ -9,6 +9,39 @@ export type { SharedSettlementReceipt } from './sharedSettlementReceipts';
 export function getDomesticSharedTransactions(transactions: Transaction[]) {
   return transactions.filter((tx) => tx.type === 'expense' && tx.isShared && tx.sharedMemberId && !tx.tripId &&
     (!tx.isCompanionOnlyExpense || tx.id.startsWith('tx-mirror-')));
+}
+
+function isRealISODate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * Dia em que a parte de um compartilhado deve ser cobrada (ou paga).
+ * - Compra no cartão: o vencimento da fatura, nunca o dia da compra. Quem tem o cartão calcula pelo dia de
+ *   vencimento do cartão; quem recebe o espelho usa o vencimento que quem lançou enviou (`sharedDueDate`).
+ * - Espelho de cartão sem esse vencimento (envio antigo): só vence no último dia do mês da fatura, para nunca
+ *   aparecer como atrasado antes da hora.
+ * - Fora do cartão: a data do lançamento.
+ */
+export function getSharedChargeDate(tx: Transaction, cards: CreditCard[]): string {
+  const card = tx.creditCardId ? cards.find((item) => item.id === tx.creditCardId) : undefined;
+  if (card && tx.competenceMonth) return getClampedMonthDate(tx.competenceMonth, card.dueDay);
+  if (isRealISODate(tx.sharedDueDate)) return tx.sharedDueDate;
+  if (tx.id.startsWith('tx-mirror-') && tx.paymentMethod === 'credit_card' && /^\d{4}-\d{2}$/.test(tx.competenceMonth || '')) {
+    return getClampedMonthDate(tx.competenceMonth, 31);
+  }
+  return tx.date;
+}
+
+/** Cópia dos lançamentos para enviar à outra conta: compras no cartão levam o vencimento da fatura. */
+export function withSharedDueDates(transactions: Transaction[], cards: CreditCard[]): Transaction[] {
+  return transactions.map((tx) => {
+    const card = tx.creditCardId ? cards.find((item) => item.id === tx.creditCardId) : undefined;
+    if (!card || !tx.competenceMonth) return tx;
+    return { ...tx, sharedDueDate: getClampedMonthDate(tx.competenceMonth, card.dueDay) };
+  });
 }
 
 /** Id do espelho no servidor (o mesmo que `PUT /api/family/shared` grava). */
@@ -30,8 +63,13 @@ export function findUnsentSharedTransactions(
   transactions: Transaction[],
   members: FamilyMember[],
   sentSharedIds: ReadonlySet<string>,
-  userEmail: string
+  userEmail: string,
+  /** Já no servidor, mas de cartão e sem o vencimento da fatura: são reenviados se der para calcular a data. */
+  staleSharedIds: ReadonlySet<string> = new Set(),
+  cards: CreditCard[] = []
 ): UnsentSharedTransactions[] {
+  const canCompleteDueDate = (tx: Transaction) =>
+    Boolean(tx.creditCardId && tx.competenceMonth && cards.some((card) => card.id === tx.creditCardId));
   const me = userEmail.trim().toLowerCase();
   const result: UnsentSharedTransactions[] = [];
   for (const member of members) {
@@ -39,7 +77,9 @@ export function findUnsentSharedTransactions(
     if (!partnerEmail || partnerEmail === me || member.inviteStatus !== 'accepted') continue;
     const missing = transactions.filter((tx) =>
       tx.isShared && !tx.tripId && !tx.id.startsWith('tx-mirror-') &&
-      String(tx.sharedMemberId || '') === member.id && !sentSharedIds.has(getSharedSyncId(tx)));
+      String(tx.sharedMemberId || '') === member.id &&
+      (!sentSharedIds.has(getSharedSyncId(tx)) ||
+        (staleSharedIds.has(getSharedSyncId(tx)) && canCompleteDueDate(tx))));
     if (missing.length > 0) result.push({ partnerEmail, memberId: member.id, transactions: missing });
   }
   return result;

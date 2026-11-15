@@ -200,14 +200,17 @@ export async function loadNeonSharedSnapshot(): Promise<{
   outgoingSettlements: OutgoingSharedSettlement[];
   /** Ids dos compartilhados que esta conta já enviou. Ausente em servidor antigo: não reenviar nada. */
   outgoingSharedIds?: string[];
+  /** Compartilhados de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo). */
+  outgoingSharedStaleIds?: string[];
 }> {
-  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[]; outgoingSharedIds?: string[] }>(
+  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[]; outgoingSharedIds?: string[]; outgoingSharedStaleIds?: string[] }>(
     '/api/family/shared'
   );
   return {
     transactions: (result.transactions || []).map((row) => row.payload),
     outgoingSettlements: result.outgoingSettlements || [],
     ...(Array.isArray(result.outgoingSharedIds) ? { outgoingSharedIds: result.outgoingSharedIds.map(String) } : {}),
+    ...(Array.isArray(result.outgoingSharedStaleIds) ? { outgoingSharedStaleIds: result.outgoingSharedStaleIds.map(String) } : {}),
   };
 }
 

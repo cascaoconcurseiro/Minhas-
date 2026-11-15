@@ -149,6 +149,7 @@ export interface Transaction {
   sharedRemoteSettledDate?: string;
   sharedSyncId?: string; // Correlation ID shared between linked family accounts
   sharedOriginEmail?: string; // Email of the user who originally created the shared transaction
+  sharedDueDate?: string; // Vencimento da fatura do cartão de quem lançou (YYYY-MM-DD); só vem nos espelhos recebidos
   sharedTargetEmail?: string; // Email of the linked family member
   targetInvestmentAssetId?: string; // Optional link when a transfer/expense is a direct investment contribution
   // Transferência com conta em moeda estrangeira: `amount` segue em reais; estes campos guardam a perna estrangeira

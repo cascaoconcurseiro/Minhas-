@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 767 testes passando · build PWA ok · `scripts/qa-postgres.ts` passou em PostgreSQL 16 local descartável.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 782 testes passando · build PWA ok · `scripts/qa-postgres.ts` passou em PostgreSQL 16 local descartável.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -42,6 +42,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Compartilhado só é cobrado no vencimento da fatura (lado de quem recebe) e limite de convites
+- **O que mudou:** (1) O espelho de um compartilhado recebido por convite não tem o cartão de quem lançou; por isso o app dele cobrava na **data da compra** e mostrava "atrasado". Agora o app de quem lança envia o **vencimento da fatura** (`sharedDueDate`, calculado pelo dia de vencimento do cartão no mês da fatura), o servidor valida como data real e grava no espelho, e os lembretes usam `getSharedChargeDate` (vencimento enviado; sem ele, último dia do mês da fatura; fora do cartão, a data do lançamento). (2) O lembrete diz **"Pagar a [pessoa]"** quando eu devo a minha parte e **"Reembolso de [pessoa]"** quando a pessoa me deve (antes dizia sempre "Reembolso de"). (3) Criar convite passou a ter **limite de 20 por hora por usuário** (o aviso "tem conta" permitiria testar e-mails em massa).
+- **Por quê:** pedido do dono: compartilhado deve ser cobrado só no vencimento da fatura do cartão; para a Fran aparecia "para pagar" e como atraso. Reproduzido com teste: compra de 30/10 com fatura em dezembro saía como atrasada em 15/11.
+- **Arquivos/áreas:** `src/domain/family/sharedFinanceRules.ts` (`getSharedChargeDate`, `withSharedDueDates`), `src/domain/reminders/reminderRules.ts`, `src/types/finance.ts`, `src/App.tsx` (envio ao salvar e no envio automático), `backend/app.ts`, `backend/sharedTransactionValidation.ts`; testes em `sharedChargeDate.test.ts`, `reminderRules.test.ts`, `sharedTransactionValidation.test.ts`, `familyApi.test.ts`, `appOrchestrationHarness.tsx`/`App.test.tsx`, `scripts/qa-postgres.ts`.
+- **Como foi verificado:** os testes de lembrete e de autocorreção novos falhavam antes; `bun run check`; `scripts/qa-postgres.ts` em PostgreSQL 16 local descartável (vencimento chega ao espelho e data impossível é descartada).
+- **Não verificado:** a tela da Fran com a correção (precisa publicar e ela atualizar o app); a tela do sino em celular real.
+- **Impacto em dados/Neon:** nenhum esquema. **Gravação direta que foi desfeita:** com autorização do dono gravei `sharedDueDate` nos 109 espelhos de cartão da Fran (91 Itaú azul dia 5, 12 Nubank dia 5, 6 Mercado Livre dia 15; 05/12/2026 a 05/11/2027) e conferi; minutos depois o app do dono (ainda na versão antiga) reenviou todos os compartilhados e **sobrescreveu** a data (0 com vencimento, conferido). Por isso a correção definitiva é a **autocorreção** (`outgoingSharedStaleIds`): o app novo reenvia sozinho os espelhos de cartão sem vencimento. Enquanto isso, o app da Fran usa o último dia do mês da fatura (não aparece atrasado).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (8), `docs/tecnico/api.md`, `docs/tecnico/seguranca.md`.
+- **Próximo passo:** o dono atualizar o app (Conta, Login & Nuvem → Buscar atualização agora) e abri-lo: o app completa os vencimentos sozinho; conferir no Neon `count(*) FILTER (WHERE payload ? 'sharedDueDate')` = 109; implementar o código de aceite do convite (decidido pelo dono).
 
 ### 2026-11-15 — Convite familiar: aviso "pessoa sem conta", copiar/WhatsApp e auditoria de todas as situações
 - **O que mudou:** (1) `GET/POST /api/family/invitations` passam a devolver `invited_has_account` nos convites **pendentes que o próprio usuário enviou** (consulta a `app_users`; ausente se falhar). (2) Na tela Compartilhado → Pessoas, o convite pendente mostra um painel: "Essa pessoa ainda não tem conta" (aviso amarelo), "Ela já tem conta" (só falta aceitar) ou texto neutro, com **Copiar convite** e **Enviar pelo WhatsApp** (mensagem pronta com o endereço do app e o e-mail a usar). O aviso ao registrar o convite também muda conforme o caso. O app lê isso na abertura e a cada minuto. (3) O envio automático do backlog (entrega anterior, #46) agora tem teste cobrindo o caso "a pessoa cria a conta e aceita com o app aberto".

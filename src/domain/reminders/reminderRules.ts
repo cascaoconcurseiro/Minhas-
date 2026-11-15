@@ -16,6 +16,7 @@ import {
   getClampedMonthDate,
   isPendingBankObligation,
 } from '../finance/financeRules';
+import { getSharedChargeDate } from '../family/sharedFinanceRules';
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
@@ -285,25 +286,24 @@ export function calculateDailyReminders({
   // 3. Reembolsos de familiares a cobrar. O momento da cobrança é o vencimento da fatura (compra no
   // cartão) ou a data do lançamento; nunca o dia em que a compra foi feita no cartão.
   if (settings.notifySharedReimbursements) {
-    const cardById = new Map(cards.map((card) => [card.id, card]));
     const pendingShared = transactions.filter(
       (tx) => tx.isShared && tx.sharedStatus === 'pending' && (tx.sharedAmount ?? 0) > 0
     );
 
     for (const tx of pendingShared) {
-      const card = tx.creditCardId ? cardById.get(tx.creditCardId) : undefined;
-      const chargeDate =
-        card && tx.competenceMonth ? getClampedMonthDate(tx.competenceMonth, card.dueDay) : tx.date;
+      const chargeDate = getSharedChargeDate(tx, cards);
       const daysRemaining = getDaysDifference(referenceDate, chargeDate);
       const urgency = classifyUrgency(daysRemaining, BILL_WARNING_DAYS);
       if (!urgency) continue;
 
       const memberName = tx.sharedMemberId ? memberMap.get(tx.sharedMemberId) : 'Familiar';
+      // Outra pessoa pagou e eu devo a minha parte: é um pagamento meu, não um reembolso a receber.
+      const iOwe = tx.sharedPaidBy === 'member';
       reminders.push({
         id: `shared-pending-${tx.id}`,
         type: 'shared_pending',
-        title: `Reembolso de ${memberName || 'Familiar'}`,
-        description: `Rateio pendente de "${tx.description}"`,
+        title: iOwe ? `Pagar a ${memberName || 'Familiar'}` : `Reembolso de ${memberName || 'Familiar'}`,
+        description: iOwe ? `Sua parte de "${tx.description}"` : `Rateio pendente de "${tx.description}"`,
         amount: tx.sharedAmount ?? 0,
         dueDate: chargeDate,
         urgency,

@@ -65,7 +65,7 @@ const makeSnapshot = (accountName = 'Conta Neon sintética'): SyntheticSnapshot 
 });
 
 let loadWorkspace: () => Promise<SyntheticSnapshot> = async () => makeSnapshot();
-type SyntheticSharedSnapshot = { transactions: Record<string, unknown>[]; outgoingSettlements: unknown[]; outgoingSharedIds?: string[] };
+type SyntheticSharedSnapshot = { transactions: Record<string, unknown>[]; outgoingSettlements: unknown[]; outgoingSharedIds?: string[]; outgoingSharedStaleIds?: string[] };
 let loadSharedSnapshot: () => Promise<SyntheticSharedSnapshot> = async () => ({ transactions: [], outgoingSettlements: [] });
 let loadInvitations: () => Promise<unknown[]> = async () => [];
 const sharedSyncCalls: Array<{ partnerEmail: string; transactions: Array<Record<string, unknown>> }> = [];
@@ -388,6 +388,56 @@ test('while the app is open, the partner creating the account later and acceptin
   } finally {
     window.setInterval = realSetInterval;
   }
+});
+
+test('shared expenses on a card are sent with the invoice due date, never with the purchase date alone', async () => {
+  loadWorkspace = async () => {
+    const snapshot = makeSnapshot();
+    snapshot.payload.cardsJson = JSON.stringify([{ id: 'card-1', name: 'Azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: '', color: '#000' }]);
+    snapshot.payload.transactionsJson = JSON.stringify([{
+      id: 'tx-card-1', description: 'Amazon', amount: 100, date: '2026-10-30', competenceMonth: '2026-12', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-1', paymentMethod: 'credit_card', recurrence: 'single',
+      isShared: true, sharedMemberId: 'fam-partner', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending', sharedSplitMode: 'half',
+    }]);
+    snapshot.payload.familyMembersJson = JSON.stringify([{
+      id: 'fam-partner', name: 'Parceira', relationship: 'cônjuge', color: '#000',
+      email: 'parceira@example.test', inviteStatus: 'accepted', direction: 'outgoing',
+    }]);
+    return snapshot;
+  };
+  loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [], outgoingSharedIds: [] });
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  await waitFor(() => assert.equal(sharedSyncCalls.length, 1));
+  assert.equal(sharedSyncCalls[0].transactions[0].sharedDueDate, '2026-12-28');
+  assert.equal(sharedSyncCalls[0].transactions[0].date, '2026-10-30');
+});
+
+test('card expenses already on the server without the invoice due date (sent by an old app) are completed by the new app', async () => {
+  loadWorkspace = async () => {
+    const snapshot = makeSnapshot();
+    snapshot.payload.cardsJson = JSON.stringify([{ id: 'card-1', name: 'Azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 5, defaultAccountId: '', color: '#000' }]);
+    const card = (id: string) => ({
+      id, description: id, amount: 100, date: '2026-10-30', competenceMonth: '2026-12', type: 'expense',
+      status: 'pending', categoryId: 'cat-outros', creditCardId: 'card-1', paymentMethod: 'credit_card', recurrence: 'single',
+      isShared: true, sharedMemberId: 'fam-partner', sharedAmount: 50, sharedPaidBy: 'me', sharedStatus: 'pending', sharedSplitMode: 'half',
+    });
+    snapshot.payload.transactionsJson = JSON.stringify([card('tx-stale'), card('tx-fine')]);
+    snapshot.payload.familyMembersJson = JSON.stringify([{
+      id: 'fam-partner', name: 'Parceira', relationship: 'cônjuge', color: '#000',
+      email: 'parceira@example.test', inviteStatus: 'accepted', direction: 'outgoing',
+    }]);
+    return snapshot;
+  };
+  loadSharedSnapshot = async () => ({ transactions: [], outgoingSettlements: [], outgoingSharedIds: ['tx-stale', 'tx-fine'], outgoingSharedStaleIds: ['tx-stale'] });
+  const page = renderApp();
+  await waitFor(() => assert.match(page.textContent ?? '', /Contas carregadas do Neon/));
+  await waitFor(() => assert.equal(sharedSyncCalls.length, 1));
+  assert.deepEqual(sharedSyncCalls[0].transactions.map((tx) => tx.id), ['tx-stale']);
+  assert.equal(sharedSyncCalls[0].transactions[0].sharedDueDate, '2026-12-05');
+  await flushReact();
+  await flushReact();
+  assert.equal(sharedSyncCalls.length, 1, 'completa uma vez por sessão');
 });
 
 test('an old server without the sent-ids list never triggers a resend', async () => {
