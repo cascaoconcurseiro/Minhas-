@@ -42,7 +42,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 
 ### Auditoria financeira de 2026-11-15 — o que ficou aberto (ver `HANDOFF.md`)
 - [ ] **[Decidir]** A08/A09: consumo pessoal × bruto no acerto compartilhado (hoje o acerto em outro mês move o gasto de mês); recomendação da auditoria: cota pessoal na competência, acerto só liquida saldo.
-- [ ] **[Decidir]** A16: simplificação de dívida de viagem com câmbios diferentes (a dívida é em moeda estrangeira ou em reais? hoje saldo estrangeiro 0 esconde diferença em reais).
 - [ ] **[Dev]** A19: compra de câmbio sem conta internacional vinculada ainda vira despesa; apagar viagem/lote apaga o débito bancário. Precisa de comando de câmbio com duas pernas.
 - [ ] **[Dev]** A11: validação estrita de transação no servidor (campos obrigatórios, conta/cartão/categoria existentes, soma das cotas). Só ativar depois de checar os dados reais de produção por leitura, para não recusar gravação legítima.
 - [ ] **[Dev]** A14: IOF por vigência/finalidade (tabela versionada); conferir norma oficial vigente antes de mudar percentuais.

@@ -214,6 +214,7 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 ## 10. Viagens e câmbio (`travelRules.ts`)
 - **Lotes de câmbio**: cada compra de moeda registra valor e custo; o **VET médio ponderado** (Valor Efetivo Total) mistura os lotes. IOF padrão: 1,1% conta global, 3,38% cartão internacional, 0% espécie.
 - **Divisão de gastos** (estilo Splitwise): `equal`, `exact`, `percentage`, `shares` (pesos), `individual`; o resto do rateio respeita a menor unidade da moeda (JPY e CLP dividem em unidades inteiras, não em centavos); **simplificação de dívidas** entre participantes e quitação.
+- **Moeda da dívida (decisão do dono, 2026-11-15)**: a dívida entre participantes é sempre na **moeda da viagem**. Se o saldo na moeda da viagem fecha em zero, não há cobrança, mesmo que o equivalente em reais difira (a diferença é variação de câmbio, não dívida). Ao vincular um lançamento a uma viagem, o formulário passa sozinho para a moeda e o símbolo da viagem (ex.: US$).
 - **Economia cambial**: compara o VET médio dos lotes com a cotação comercial do dia.
 - Gastos pagos só por acompanhantes não debitam suas contas e ficam fora do resultado pessoal.
 

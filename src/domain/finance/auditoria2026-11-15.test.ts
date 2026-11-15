@@ -9,7 +9,7 @@ import {
   payCreditCardInvoice, reverseCreditCardInvoicePayment, toggleTransactionStatusWithCascade,
 } from './financeRules';
 import { anticipateCardInstallments, reverseInstallmentAnticipation } from '../budgets/uxEnhancementRules';
-import { calculateTripExpenseSplit } from '../trips/travelRules';
+import { calculateTripExpenseSplit, simplifyTripDebts } from '../trips/travelRules';
 import type { BankAccount, CreditCard, Transaction } from '../../types/finance';
 
 const acc: BankAccount = { id: 'a1', name: 'Banco', institution: 'X', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true };
@@ -138,4 +138,12 @@ test('A10 identificador do extrato (FITID) só vale dentro da mesma conta', asyn
   assert.equal(checkItemDuplicate(item, [existing], 'contaA').isDuplicate, true, 'mesma conta: duplicado');
   assert.equal(checkItemDuplicate(item, [existing], 'contaB').isDuplicate, false, 'outra conta: não é duplicado');
   assert.equal(checkItemDuplicate(item, [existing], 'contaB', 'BRL', undefined, undefined, buildDuplicateLookup([existing])).isDuplicate, false);
+});
+
+test('A16 a dívida da viagem é na moeda da viagem: saldo estrangeiro zero não gera cobrança, mesmo com diferença em reais', () => {
+  const b = (id: string, f: number, r: number) => ({ participantId: id, participantName: id, netBalanceForeign: f, netBalanceBrl: r }) as any;
+  assert.deepEqual(simplifyTripDebts([b('a', 0, 50), b('b', 0, -50)], 5), []);
+  const t = simplifyTripDebts([b('a', 20, 100), b('b', -20, -100)], 5);
+  assert.equal(t.length, 1);
+  assert.equal(t[0].amountForeign, 20, 'a cobrança é em moeda da viagem');
 });

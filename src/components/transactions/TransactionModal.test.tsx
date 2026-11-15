@@ -23,6 +23,7 @@ function renderTransactionModal(
     familyMembers?: FamilyMember[];
     onAddFamilyMember?: (member: Omit<FamilyMember, 'id'>) => FamilyMember | void;
     editingTransaction?: Transaction;
+    trips?: import('../../types/finance').Trip[];
     transactions?: Transaction[];
     onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
     /** Não escolhe a forma de pagamento sozinho: a tela abre como abre para a pessoa. */
@@ -64,6 +65,7 @@ function renderTransactionModal(
         cards,
         categories: options.categories ?? [category],
         transactions: options.transactions ?? [],
+        trips: options.trips,
         familyMembers: options.familyMembers ?? [],
         onAddFamilyMember: options.onAddFamilyMember,
         selectedMonth: '2026-11',
@@ -1031,4 +1033,28 @@ test('com mais de uma conta ou cartão, nada vem escolhido e é obrigatório esc
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
   assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Escolha o cartão/);
   assert.equal(saved.length, 1);
+});
+
+test('ao vincular uma viagem, o campo de valor passa para a moeda e o símbolo da viagem', async () => {
+  const trip = {
+    id: 'trip-usd', name: 'Orlando', destination: 'EUA', startDate: '2026-11-01', endDate: '2026-11-20', status: 'active' as const,
+    currency: 'USD' as const, defaultExchangeRate: 5.5, budgetForeign: 1000,
+    participants: [{ id: 'me', name: 'Eu', isMe: true, color: '#000' }], exchangeLots: [], settlements: [], coverColor: '#000',
+  };
+  const page = renderTransactionModal(() => {}, () => {}, { trips: [trip as never] });
+  assert.equal(page.querySelector('[data-testid="tx-foreign-amount-input"]'), null, 'sem viagem, só reais');
+  const toggle = page.querySelector<HTMLButtonElement>('[data-testid="toggle-trip-switch"]');
+  assert.ok(toggle);
+  await act(async () => { toggle.click(); });
+  const select = page.querySelector<HTMLSelectElement>('[data-testid="tx-trip-select"]');
+  if (select) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(select, 'trip-usd');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+  }
+  const foreign = page.querySelector('[data-testid="tx-foreign-amount-input"]');
+  assert.ok(foreign, 'o campo de valor na moeda da viagem aparece');
+  assert.match(page.textContent || '', /US\$/);
+  assert.match(page.textContent || '', /Valor na Moeda da Viagem \(USD\)/);
 });
