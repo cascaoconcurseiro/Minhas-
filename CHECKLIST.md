@@ -9,7 +9,7 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 ## A. Próximas entregas
 - [ ] **[Dono]** Conferir no app que as compras de 30/10 do Itaú azul (R$ 98,29) aparecem em dezembro e que o aviso de atraso sumiu (dado já corrigido no Neon).
 - [ ] **[Decidir]** Leitura de fatura de cartão em PDF/foto: IA externa (mais precisa, com custo e envio do arquivo) ou só no aparelho (privada, menos precisa).
-- [ ] **[Dev]** Importar **fatura de cartão** (OFX/CSV) criando as compras no cartão certo com mês da fatura — precisa de um arquivo real de fatura (pode ter nomes apagados).
+- [ ] **[Dev]** Importar **fatura de cartão** (OFX) pelo app. Já temos um arquivo real (Nubank, 05/12/2026), que mostra: o `FITID` se repete entre uma compra e o IOF dela; parcelas vêm no texto ("Parcela 5/12", "- 8/8"); há créditos ("Pagamento recebido", "IOF de volta") que não são compra; o saldo do arquivo é a fatura menos os estornos de IOF. Regra do dono: valor repetido = já lançado.
 - [ ] **[Dev]** Ler **valor e data** de foto de comprovante e abrir o lançamento preenchido (categoria/pagamento/conta continuam obrigatórios).
 - [ ] **[Dev]** Atalho do iPhone (automação "Transação" do Apple Pay) abrindo o app com valor e estabelecimento preenchidos.
 
