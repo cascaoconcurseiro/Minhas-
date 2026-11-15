@@ -41,7 +41,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** Exercitar `/api/fx/live-rate` e `/api/investments/sync-quotes` contra o Gemini real (modelo `gemini-3.8-flash` nunca testado de verdade) quando houver chave.
 
 ### Auditoria financeira de 2026-11-15 — o que ficou aberto (ver `HANDOFF.md`)
-- [ ] **[Decidir]** A08/A09: consumo pessoal × bruto no acerto compartilhado (hoje o acerto em outro mês move o gasto de mês); recomendação da auditoria: cota pessoal na competência, acerto só liquida saldo.
 - [ ] **[Dev]** A19: compra de câmbio sem conta internacional vinculada ainda vira despesa; apagar viagem/lote apaga o débito bancário. Precisa de comando de câmbio com duas pernas.
 - [ ] **[Dev]** A11: validação estrita de transação no servidor (campos obrigatórios, conta/cartão/categoria existentes, soma das cotas). Só ativar depois de checar os dados reais de produção por leitura, para não recusar gravação legítima.
 - [ ] **[Dev]** A14: IOF por vigência/finalidade (tabela versionada); conferir norma oficial vigente antes de mudar percentuais.

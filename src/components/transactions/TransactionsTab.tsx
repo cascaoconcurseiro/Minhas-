@@ -240,7 +240,8 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
         );
         return tokens.every((tk) => searchable.includes(tk));
       })
-      .sort((a, b) => b.date.localeCompare(a.date));
+      // Sempre em ordem cronológica (do dia 1 para o fim do mês).
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [
     transactions,
     selectedMonth,

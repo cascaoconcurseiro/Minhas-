@@ -89,7 +89,9 @@ Ao **mudar o dia de fechamento ou a opção** de um cartão, as compras **penden
 - **Limite usado** = tudo que está em aberto (faturas atuais e futuras). **Limite livre** = limite − usado.
 - Os valores a receber de cartão adicional (seção 7) **entram na fatura e no limite**, porque o banco cobra o total.
 
-As compras da fatura são listadas em **ordem cronológica** (da mais antiga para a mais recente).
+**Regra geral (decisão do dono): toda lista de cartão, conta e lançamentos é sempre em ordem cronológica** (do dia 1 para o fim do mês). Vale para as compras da fatura, o extrato da conta (sem opção de inverter) e a lista de Lançamentos.
+
+**Acerto compartilhado (A08, decisão do dono):** o comportamento atual foi aprovado e fica como está: o gasto compartilhado acertado em outro mês acompanha o mês do acerto.
 
 ### 3.3 Pagar fatura — `payCreditCardInvoice`
 - Gera um lançamento de saída na conta escolhida (marcado como pagamento de fatura) e marca as compras do mês como pagas, em cascata.
