@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AppSettings } from '../types/finance';
-import { DEFAULT_REMINDER_SETTINGS, resolveSmtpCredentials } from './reminderRules';
+import { DEFAULT_REMINDER_SETTINGS, resolveSmtpCredentials } from '../domain/reminders/reminderRules';
 import {
   parsePersistedSettings,
   removeSmtpPasswordsFromSettings,

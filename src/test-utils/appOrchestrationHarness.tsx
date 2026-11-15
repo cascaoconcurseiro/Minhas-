@@ -149,7 +149,7 @@ mock.module('../lib/neonWorkspace', () => ({
   syncNeonSharedTransactions: async () => {},
 }));
 
-mock.module('../components/OverviewTab', () => ({
+mock.module('../components/overview/OverviewTab', () => ({
   OverviewTab: ({ accounts, onToggleAccountInTotal }: {
     accounts: Array<{ id: string; name: string }>;
     onToggleAccountInTotal?: (id: string) => void;
@@ -162,12 +162,12 @@ mock.module('../components/OverviewTab', () => ({
       }, 'Alterar conta sintética')),
 }));
 
-mock.module('../components/SidebarNav', () => ({
+mock.module('../components/layout/SidebarNav', () => ({
   SidebarNav: ({ cloudSyncStatus }: { cloudSyncStatus: string }) =>
     React.createElement('nav', { 'aria-label': 'Navegação sintética', 'data-cloud-sync-status': cloudSyncStatus },
       `Estado da nuvem: ${cloudSyncStatus}`),
 }));
-mock.module('../components/WorkspaceConflictModal', () => ({
+mock.module('../components/settings/WorkspaceConflictModal', () => ({
   WorkspaceConflictModal: ({
     conflict,
     isOpen,
@@ -185,10 +185,10 @@ mock.module('../components/WorkspaceConflictModal', () => ({
       React.createElement('button', { 'data-testid': 'use-cloud-version', onClick: onUseCloud }, 'Usar nuvem'))
     : null,
 }));
-mock.module('../components/MobileBottomNav', () => ({
+mock.module('../components/layout/MobileBottomNav', () => ({
   MobileBottomNav: () => React.createElement('nav', { 'aria-label': 'Navegação móvel sintética' }),
 }));
-mock.module('../components/PWAInstallButton', () => ({
+mock.module('../components/settings/PWAInstallButton', () => ({
   PWAInstallButton: () => null,
 }));
 

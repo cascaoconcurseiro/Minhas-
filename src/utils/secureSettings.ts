@@ -1,5 +1,5 @@
 import type { AppSettings, ReminderSettings } from '../types/finance';
-import { parseWorkspaceObject } from './workspacePayload';
+import { parseWorkspaceObject } from '../services/workspace/workspacePayload';
 
 /** Remove SMTP secrets before settings leave the active in-memory session. */
 export function removeSmtpPasswordsFromSettings(settings: AppSettings): AppSettings {

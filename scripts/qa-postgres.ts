@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
-import { collectSharedSettlementReceipts, restoreSharedSettlementReceipts, settleSharedExpenses, reopenSharedSettlement } from '../src/utils/sharedFinanceRules';
+import { collectSharedSettlementReceipts, restoreSharedSettlementReceipts, settleSharedExpenses, reopenSharedSettlement } from '../src/domain/family/sharedFinanceRules';
 import type { BankAccount, Transaction } from '../src/types/finance';
 
 const connection = process.env.QA_POSTGRES_URL;

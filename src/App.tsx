@@ -1,12 +1,12 @@
-import { getAccountCurrency, resolveBankTransfer } from './utils/transferRules';
+import { getAccountCurrency, resolveBankTransfer } from './domain/finance/transferRules';
 import { newEntityId } from './utils/ids';
-import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './utils/sharedFinanceRules';
+import { settleSharedExpenses, reopenSharedSettlement, replaceIncomingSharedTransactions, applyRemoteSettlementReports, collectSharedSettlementReceipts, restoreSharedSettlementReceipts } from './domain/family/sharedFinanceRules';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { createReceivable, deleteReceivable, getReceivableBalance, registerReceivablePayment, removeReceivablePayment, summarizeReceivables } from './utils/receivables';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
+import { createReceivable, deleteReceivable, getReceivableBalance, registerReceivablePayment, removeReceivablePayment, summarizeReceivables } from './domain/receivables/receivables';
 import { useModalAccessibility } from './hooks/useModalAccessibility';
 import { hasUpdateBlockers, setUpdateBlocker } from './pwa/updateBlockers';
-import { parseQuickCsvLines } from './utils/quickCsvImport';
+import { parseQuickCsvLines } from './services/import-export/quickCsvImport';
 import {
   Bell,
   CheckCircle2,
@@ -90,7 +90,7 @@ import {
   calculateCurrentPosition,
   calculateSharedAmount,
   resolveCreditCardInvoiceMonth,
-} from './utils/financeRules';
+} from './domain/finance/financeRules';
 import {
   DEFAULT_MONTH,
   INITIAL_ACCOUNTS,
@@ -101,7 +101,7 @@ import {
   INITIAL_SAVINGS_GOALS,
   INITIAL_TRANSACTIONS,
   INITIAL_TRIPS,
-} from './utils/seedData';
+} from './domain/finance/seedData';
 import {
   applyAssetOperation,
   createInvestmentCashMovement,
@@ -109,8 +109,8 @@ import {
   createGoalInvestmentContribution,
   getInvestmentDeletionRestriction,
   DEFAULT_INVESTMENT_TARGETS,
-} from './utils/investmentRules';
-import { parseWorkspaceArray, parseWorkspaceObject } from './utils/workspacePayload';
+} from './domain/investments/investmentRules';
+import { parseWorkspaceArray, parseWorkspaceObject } from './services/workspace/workspacePayload';
 import {
   parsePersistedSettings,
   removeSmtpPasswordsFromSettings,
@@ -120,65 +120,65 @@ import {
 import {
   isRetryableWorkspaceSaveError,
   updateWorkspaceConflictLocalPayload,
-} from './utils/workspaceSyncRecovery';
-import { applyHighConfidenceInstallmentTotals } from './utils/legacyFinancialAudit';
+} from './services/workspace/workspaceSyncRecovery';
+import { applyHighConfidenceInstallmentTotals } from './domain/budgets/legacyFinancialAudit';
 import {
   clearWorkspaceCacheForVault,
   isWorkspaceLoadedForUser,
   shouldResetWorkspaceForAuthChange,
-} from './utils/workspaceSession';
-const OverviewTab = lazy(() => import('./components/OverviewTab').then((m) => ({ default: m.OverviewTab })));
-const AccountsTab = lazy(() => import('./components/AccountsTab').then((m) => ({ default: m.AccountsTab })));
-const InvestmentsTab = lazy(() => import('./components/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
-const TransactionsTab = lazy(() => import('./components/TransactionsTab').then((m) => ({ default: m.TransactionsTab })));
-const CreditCardsTab = lazy(() => import('./components/CreditCardsTab').then((m) => ({ default: m.CreditCardsTab })));
-const ReceivablesTab = lazy(() => import('./components/ReceivablesTab').then((m) => ({ default: m.ReceivablesTab })));
-const SharedExpensesTab = lazy(() => import('./components/SharedExpensesTab').then((m) => ({ default: m.SharedExpensesTab })));
-const TripsTab = lazy(() => import('./components/TripsTab').then((m) => ({ default: m.TripsTab })));
-const BudgetsTab = lazy(() => import('./components/BudgetsTab').then((m) => ({ default: m.BudgetsTab })));
-const GoalsAndSimulatorTab = lazy(() => import('./components/GoalsAndSimulatorTab').then((m) => ({ default: m.GoalsAndSimulatorTab })));
-const ReportsAndDataTab = lazy(() => import('./components/ReportsAndDataTab').then((m) => ({ default: m.ReportsAndDataTab })));
-const AuthAndCloudTab = lazy(() => import('./components/AuthAndCloudTab').then((m) => ({ default: m.AuthAndCloudTab })));
-import { FaceIdOfferBanner } from './components/FaceIdOfferBanner';
-const LoginPage = lazy(() => import('./components/LoginPage').then((m) => ({ default: m.LoginPage })));
-const TransactionModal = lazy(() => import('./components/TransactionModal').then((m) => ({ default: m.TransactionModal })));
-const GlobalSearchPanel = lazy(() => import('./components/GlobalSearchPanel').then((m) => ({ default: m.GlobalSearchPanel })));
-const SettingsModal = lazy(() => import('./components/SettingsModal').then((m) => ({ default: m.SettingsModal })));
-const ReminderCenterModal = lazy(() => import('./components/ReminderCenterModal').then((m) => ({ default: m.ReminderCenterModal })));
-const BankReconciliationModal = lazy(() => import('./components/BankReconciliationModal').then((m) => ({ default: m.BankReconciliationModal })));
-const WorkspaceConflictModal = lazy(() => import('./components/WorkspaceConflictModal').then((m) => ({ default: m.WorkspaceConflictModal })));
-import { MobileBottomNav } from './components/MobileBottomNav';
-import { SidebarNav } from './components/SidebarNav';
+} from './services/workspace/workspaceSession';
+const OverviewTab = lazy(() => import('./components/overview/OverviewTab').then((m) => ({ default: m.OverviewTab })));
+const AccountsTab = lazy(() => import('./components/accounts/AccountsTab').then((m) => ({ default: m.AccountsTab })));
+const InvestmentsTab = lazy(() => import('./components/investments/InvestmentsTab').then((m) => ({ default: m.InvestmentsTab })));
+const TransactionsTab = lazy(() => import('./components/transactions/TransactionsTab').then((m) => ({ default: m.TransactionsTab })));
+const CreditCardsTab = lazy(() => import('./components/cards/CreditCardsTab').then((m) => ({ default: m.CreditCardsTab })));
+const ReceivablesTab = lazy(() => import('./components/receivables/ReceivablesTab').then((m) => ({ default: m.ReceivablesTab })));
+const SharedExpensesTab = lazy(() => import('./components/family/SharedExpensesTab').then((m) => ({ default: m.SharedExpensesTab })));
+const TripsTab = lazy(() => import('./components/trips/TripsTab').then((m) => ({ default: m.TripsTab })));
+const BudgetsTab = lazy(() => import('./components/budgets/BudgetsTab').then((m) => ({ default: m.BudgetsTab })));
+const GoalsAndSimulatorTab = lazy(() => import('./components/budgets/GoalsAndSimulatorTab').then((m) => ({ default: m.GoalsAndSimulatorTab })));
+const ReportsAndDataTab = lazy(() => import('./components/reports/ReportsAndDataTab').then((m) => ({ default: m.ReportsAndDataTab })));
+const AuthAndCloudTab = lazy(() => import('./components/auth/AuthAndCloudTab').then((m) => ({ default: m.AuthAndCloudTab })));
+import { FaceIdOfferBanner } from './components/auth/FaceIdOfferBanner';
+const LoginPage = lazy(() => import('./components/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
+const TransactionModal = lazy(() => import('./components/transactions/TransactionModal').then((m) => ({ default: m.TransactionModal })));
+const GlobalSearchPanel = lazy(() => import('./components/layout/GlobalSearchPanel').then((m) => ({ default: m.GlobalSearchPanel })));
+const SettingsModal = lazy(() => import('./components/settings/SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const ReminderCenterModal = lazy(() => import('./components/overview/ReminderCenterModal').then((m) => ({ default: m.ReminderCenterModal })));
+const BankReconciliationModal = lazy(() => import('./components/transactions/BankReconciliationModal').then((m) => ({ default: m.BankReconciliationModal })));
+const WorkspaceConflictModal = lazy(() => import('./components/settings/WorkspaceConflictModal').then((m) => ({ default: m.WorkspaceConflictModal })));
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
+import { SidebarNav } from './components/layout/SidebarNav';
 import {
   BudgetsSkeleton,
   CreditCardsSkeleton,
   DashboardSkeleton,
   ReportsSkeleton,
   TransactionsSkeleton,
-} from './components/SkeletonScreens';
-import type { WorkspaceConflictState } from './components/WorkspaceConflictModal';
-import { parseCachedWorkspace } from './utils/workspaceCache';
-import { forecastCashBalance } from './utils/cashForecast';
-import { assessDataHealth } from './utils/dataHealth';
+} from './components/layout/SkeletonScreens';
+import type { WorkspaceConflictState } from './components/settings/WorkspaceConflictModal';
+import { parseCachedWorkspace } from './services/workspace/workspaceCache';
+import { forecastCashBalance } from './domain/budgets/cashForecast';
+import { assessDataHealth } from './domain/budgets/dataHealth';
 import {
   calculateCardCommitmentByMonth,
   describeCommitmentAfterPurchase,
   getCommitmentAlerts,
-} from './utils/cardCommitment';
-import { workspaceContentSignature } from './utils/workspaceSyncRecovery';
-import { buildAppNotices, countBellNotices, type AppNoticeAction } from './utils/appNotices';
-import { detectRecurringExpenses, type RecurringCandidate } from './utils/recurrenceDetection';
-import { learnSharingFromHistory } from './utils/learningRules';
+} from './domain/cards/cardCommitment';
+import { workspaceContentSignature } from './services/workspace/workspaceSyncRecovery';
+import { buildAppNotices, countBellNotices, type AppNoticeAction } from './domain/reminders/appNotices';
+import { detectRecurringExpenses, type RecurringCandidate } from './domain/budgets/recurrenceDetection';
+import { learnSharingFromHistory } from './domain/budgets/learningRules';
 import {
   mergeCategoryCatalog,
   stripLegacySubcategories,
   stripLegacyTransactionSubcategory,
-} from './utils/categoryCatalog';
+} from './domain/finance/categoryCatalog';
 import {
   anticipateCardInstallments,
   reverseInstallmentAnticipation,
-} from './utils/uxEnhancementRules';
-import { compactTransactionListForStorage } from './utils/ofxParser';
+} from './domain/budgets/uxEnhancementRules';
+import { compactTransactionListForStorage } from './services/import-export/ofxParser';
 import {
   getPortableBackupFamilyMembers,
   getPortableBackupTransactions,
@@ -187,7 +187,7 @@ import {
   parseFullFinanceBackup,
   prepareRestoredBackupTransactions,
   resolveFullBackupOptionalState,
-} from './utils/fullBackup';
+} from './services/workspace/fullBackup';
 import {
   calculateDailyReminders,
   DEFAULT_REMINDER_SETTINGS,
@@ -200,12 +200,12 @@ import {
   shouldTriggerDailyNotification,
   shouldTriggerEmailNotification,
   summarizeReminders,
-} from './utils/reminderRules';
+} from './domain/reminders/reminderRules';
 import {
   stripLegacyMockRecords,
   sanitizeAndRepairFinancialState,
   runFinancialIntegrityAudit,
-} from './utils/travelRules';
+} from './domain/trips/travelRules';
 
 export type ActiveTab =
   | 'overview'
@@ -473,7 +473,7 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [goals, setGoals] = useState<SavingsGoal[]>(INITIAL_SAVINGS_GOALS);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
-  const [receivablesIntent, setReceivablesIntent] = useState<import('./components/ReceivablesTab').ReceivablesIntent | null>(null);
+  const [receivablesIntent, setReceivablesIntent] = useState<import('./components/receivables/ReceivablesTab').ReceivablesIntent | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
   const [investmentTargets, setInvestmentTargets] = useState<InvestmentTargetMap>(
@@ -1277,18 +1277,18 @@ export default function App() {
   useEffect(() => {
     if (workspaceLoadState !== 'ready') return;
     const loaders: Array<() => Promise<unknown>> = [
-      () => import('./components/TransactionModal'),
-      () => import('./components/GlobalSearchPanel'),
-      () => import('./components/TransactionsTab'),
-      () => import('./components/ReminderCenterModal'),
-      () => import('./components/SettingsModal'),
-      () => import('./components/CreditCardsTab'),
-      () => import('./components/AccountsTab'),
-      () => import('./components/BudgetsTab'),
-      () => import('./components/SharedExpensesTab'),
-      () => import('./components/TripsTab'),
-      () => import('./components/GoalsAndSimulatorTab'),
-      () => import('./components/InvestmentsTab'),
+      () => import('./components/transactions/TransactionModal'),
+      () => import('./components/layout/GlobalSearchPanel'),
+      () => import('./components/transactions/TransactionsTab'),
+      () => import('./components/overview/ReminderCenterModal'),
+      () => import('./components/settings/SettingsModal'),
+      () => import('./components/cards/CreditCardsTab'),
+      () => import('./components/accounts/AccountsTab'),
+      () => import('./components/budgets/BudgetsTab'),
+      () => import('./components/family/SharedExpensesTab'),
+      () => import('./components/trips/TripsTab'),
+      () => import('./components/budgets/GoalsAndSimulatorTab'),
+      () => import('./components/investments/InvestmentsTab'),
     ];
     let cancelled = false;
     let index = 0;
@@ -1315,7 +1315,7 @@ export default function App() {
     const preload = (event: Event) => {
       const target = event.target as Element | null;
       if (target?.closest?.('[data-testid="new-transaction-btn"], [aria-label="Novo lançamento"]')) {
-        void import('./components/TransactionModal').catch(() => undefined);
+        void import('./components/transactions/TransactionModal').catch(() => undefined);
       }
     };
     document.addEventListener('pointerover', preload, true);
@@ -1582,7 +1582,7 @@ export default function App() {
   // Valores a receber: fatura de cartão adicional cobrada por inteiro e empréstimos com pagamentos parciais
   const newReceivableId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const receivablesSummary = useMemo(() => summarizeReceivables(receivables), [receivables]);
-  const handleCreateReceivable = (input: import('./components/ReceivablesTab').ReceivableCreateInput): string | null => {
+  const handleCreateReceivable = (input: import('./components/receivables/ReceivablesTab').ReceivableCreateInput): string | null => {
     const result = createReceivable({
       ...input,
       id: newReceivableId('rcv'),

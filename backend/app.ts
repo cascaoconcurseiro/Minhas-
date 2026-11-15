@@ -11,9 +11,9 @@ import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
 import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
-import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/utils/travelRules.ts';
-import { parseWorkspaceArray } from '../src/utils/workspacePayload.ts';
-import { parseSharedSettlementReceipts } from '../src/utils/sharedSettlementReceipts.ts';
+import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/domain/trips/travelRules.ts';
+import { parseWorkspaceArray } from '../src/services/workspace/workspacePayload.ts';
+import { parseSharedSettlementReceipts } from '../src/domain/family/sharedSettlementReceipts.ts';
 import {
   createAttemptLimiter,
   hashPassword,
@@ -34,7 +34,7 @@ import {
   ParsedGoogleFinanceQuote,
   parseGoogleFinanceHtmlQuote,
   parseGoogleFinanceQuotesFromText,
-} from '../src/utils/investmentRules.ts';
+} from '../src/domain/investments/investmentRules.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

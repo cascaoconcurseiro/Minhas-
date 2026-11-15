@@ -1,5 +1,5 @@
 import type { CurrencyCode } from '../types/finance';
-import { CURRENCY_CATALOG } from './travelRules';
+import { CURRENCY_CATALOG } from '../domain/trips/travelRules';
 
 export interface CurrencyInputOptions {
   /** Keep incomplete decimal text (for example `1,`) while the input is focused. */

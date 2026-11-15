@@ -1,5 +1,9 @@
 # Handoff — Minhas Economias
 
+## Organização do código: pastas por área (sem mudança de comportamento)
+- `src/components/` agora tem uma pasta por área (layout, ui, overview, transactions, accounts, cards, budgets, receivables, family, trips, investments, reports, settings, auth). `src/utils/` foi dividido em `src/domain/` (regras de negócio puras, por assunto) e `src/services/` (workspace/backup e importação/exportação); sobraram em `src/utils/` só auxiliares de interface. Imports reescritos por script; 707 testes, tsc e build passam.
+- Limpeza: removidos hooks sem uso, `metadata.json`, `scripts/sync-github.sh`, imagem de teste do AI Studio e dependências sem uso (`motion`, `autoprefixer`, `esbuild`); `zz_fuzz2.test.ts` virou `domain/finance/propertyFuzz.test.ts`; pacote renomeado para `minhas-economias`.
+
 ## Cartão: ao mudar a regra do fechamento, compras já lançadas mudam de fatura
 - Caso real (Itaú azul, fecha 30, vence 5): duas compras de 30/10 (Amazon 41,29 + Nona 57,00 = 98,29) ficaram na fatura de novembro (vence 05/11) e apareciam como "Atrasado há 10d" no sino, mas o banco as põe na fatura de dezembro. Faltava só marcar a opção do cartão.
 - `reclassifyClosingDayPurchases` (financeRules) roda em `handleUpdateCard` quando muda o dia de fechamento ou a opção: move para a fatura certa só compras pendentes feitas no dia do fechamento, sem parcelamento, sem pagamento de fatura, sem valor a receber e sem ajuste manual de competência. Teste novo; verificado no navegador de teste.
