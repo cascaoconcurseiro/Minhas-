@@ -50,6 +50,9 @@ As categorias de despesa aparecem agrupadas por tipo (Essenciais, Estilo de vida
 - **Parcelado**: de 2 a 48 parcelas (o seletor do formulário mostra todos os números, sem pular nenhum). O valor total é dividido em centavos; a diferença de centavos fica na **primeira** parcela (`createTransactionBatch`). Cada parcela vai para a fatura do seu mês. Em compra de **viagem** em moeda estrangeira, o valor original (`originalAmount`), a cota pessoal e as cotas por participante são **divididos entre as parcelas** (a soma das parcelas fecha exatamente o total); nunca se repete o valor inteiro em cada parcela.
 - **Fixo (assinatura/recorrente)**: gera lançamentos para os próximos meses. O sistema sugere "gastos que se repetem" detectando o padrão no histórico (`recurrenceDetection.ts`): mesmo estabelecimento em meses seguidos; o usuário pode dispensar a sugestão.
 
+### 2.4b Editar mudando parcelas ou repetição
+Ao editar, o formulário mostra os mesmos campos do lançamento original, inclusive **forma de pagamento (conta/débito ou cartão), frequência (à vista, fixo, parcelado) e número de parcelas**. Trocar entre cartão e conta também refaz a série. Mudar isso **refaz a série inteira** com o que está no formulário (mesmo total dividido de novo, na mesma posição da lista; `rebuildTransactionSeries`). É **recusado, sem alterar nada**, se a série tiver parcela já paga, antecipada, dividida por pagamento parcial, vinda de extrato ou acerto compartilhado recebido: primeiro estornar o pagamento da fatura ou desfazer a antecipação (`getSeriesRebuildBlocker`). Mudar só o número de meses de um lançamento **fixo** continua não refazendo a série.
+
 ### 2.5 Edição e exclusão em cascata
 Ao editar ou apagar um lançamento de série, o modo de cascata decide o alcance: `single` (só este), `this_and_future` (este e os próximos), `all_series` (a série toda) (`applyCascadeTransactionEdit`, `applyCascadeTransactionDelete`).
 

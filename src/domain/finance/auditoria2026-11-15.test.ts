@@ -153,3 +153,51 @@ test('fatura do cartão lista as compras em ordem cronológica (mais antiga prim
   const summary = calculateCreditCardSummary(card, rows, '2026-11');
   assert.deepEqual(summary.transactions.map((t) => t.id), ['a', 'c', 'b']);
 });
+
+import { rebuildTransactionSeries } from './financeRules';
+
+const batchInput = (o: Record<string, unknown> = {}) => ({
+  description: 'TV', amount: 300, date: '2026-11-02', type: 'expense' as const, status: 'pending' as const, categoryId: 'cat',
+  creditCardId: 'c1', paymentMethod: 'credit_card' as const, recurrence: 'installment' as const, installmentTotal: 3, amountMode: 'total_divided' as const, ...o,
+});
+
+test('editar parcelamento: trocar 3x por 5x refaz a série com o mesmo total e no mesmo lugar', () => {
+  const original = createTransactionBatch(batchInput() as any);
+  const other = purchase({ id: 'outra', date: '2026-11-09' });
+  const list = [other, ...original];
+  const r = rebuildTransactionSeries(list, original[1].id, batchInput({ installmentTotal: 5 }) as any);
+  assert.equal(r.error, undefined);
+  assert.equal(r.removedCount, 3);
+  assert.equal(r.createdCount, 5);
+  const rows = r.updatedTransactions.filter((t) => t.installmentGroupId);
+  assert.equal(rows.length, 5);
+  assert.equal(Math.round(rows.reduce((s, t) => s + t.amount, 0) * 100), 30000);
+  assert.equal(r.updatedTransactions[0].id, 'outra');
+});
+
+test('editar parcelamento: de parcelado para à vista e de à vista para parcelado', () => {
+  const series = createTransactionBatch(batchInput() as any);
+  const toSingle = rebuildTransactionSeries(series, series[0].id, batchInput({ recurrence: 'single', installmentTotal: undefined }) as any);
+  assert.equal(toSingle.updatedTransactions.length, 1);
+  assert.equal(toSingle.updatedTransactions[0].amount, 300);
+  const toInstallments = rebuildTransactionSeries(toSingle.updatedTransactions, toSingle.updatedTransactions[0].id, batchInput({ installmentTotal: 4 }) as any);
+  assert.equal(toInstallments.updatedTransactions.length, 4);
+});
+
+test('editar parcelamento é recusado se alguma parcela já foi paga (nada muda)', () => {
+  const series = createTransactionBatch(batchInput() as any);
+  const paid = payCreditCardInvoice(card, series, '2026-11', 'a1', '2026-11-10');
+  const r = rebuildTransactionSeries(paid, series[1].id, batchInput({ installmentTotal: 5 }) as any);
+  assert.ok(r.error);
+  assert.equal(r.updatedTransactions, paid);
+});
+
+test('editar parcelado no cartão e trocar para conta/débito vira um lançamento único na conta', () => {
+  const series = createTransactionBatch(batchInput() as any);
+  const r = rebuildTransactionSeries(series, series[0].id, batchInput({ creditCardId: undefined, accountId: 'a1', paymentMethod: 'pix', recurrence: 'single', installmentTotal: undefined, status: 'paid' }) as any);
+  assert.equal(r.error, undefined);
+  assert.equal(r.updatedTransactions.length, 1);
+  assert.equal(r.updatedTransactions[0].creditCardId, undefined);
+  assert.equal(r.updatedTransactions[0].accountId, 'a1');
+  assert.equal(r.updatedTransactions[0].amount, 300);
+});

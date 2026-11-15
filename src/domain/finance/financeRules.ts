@@ -2390,6 +2390,68 @@ export function duplicateFinancialTransaction(tx: Transaction, id: string): Tran
   return copy;
 }
 
+/**
+ * Mudar o tipo de repetição (único, fixo, parcelado) ou o número de parcelas de um lançamento já criado é refazer a
+ * série inteira. Só é seguro quando nada da série já foi liquidado ou ligado a outra operação; senão o dinheiro
+ * (pagamento de fatura, antecipação, extrato importado) ficaria em desacordo com as novas parcelas.
+ */
+export function getSeriesRebuildBlocker(transactions: Transaction[], targetId: string): string | null {
+  const target = transactions.find((tx) => tx.id === targetId);
+  if (!target) return 'Lançamento não encontrado.';
+  const rows = target.installmentGroupId
+    ? transactions.filter((tx) => tx.installmentGroupId === target.installmentGroupId)
+    : [target];
+  const blockedByLink = rows.some((tx) =>
+    getTransactionEditRestriction(tx) !== null || tx.invoicePaymentId || tx.partialSplitOriginalId || tx.id.includes('-paid-') ||
+    tx.isAnticipated || tx.fitid || (tx.isShared && tx.sharedStatus === 'received'));
+  const hasPaid = rows.some((tx) => tx.status === 'paid' && (tx.creditCardId || rows.length > 1));
+  if (blockedByLink || hasPaid) {
+    return 'Para mudar o número de parcelas ou o tipo de repetição, a série não pode ter parcelas já pagas, antecipadas, divididas por pagamento parcial ou vindas de extrato. Estorne o pagamento da fatura (ou desfaça a antecipação) antes.';
+  }
+  return null;
+}
+
+/** Substitui o lançamento (ou a série dele) por uma série nova gerada a partir do formulário, na mesma posição da lista. */
+export function rebuildTransactionSeries(
+  transactions: Transaction[],
+  targetId: string,
+  input: CreateTransactionBatchInput
+): {
+  updatedTransactions: Transaction[];
+  removedCount: number;
+  createdCount: number;
+  removedSharedSyncIds: string[];
+  error?: string;
+} {
+  const blocker = getSeriesRebuildBlocker(transactions, targetId);
+  if (blocker) {
+    return { updatedTransactions: transactions, removedCount: 0, createdCount: 0, removedSharedSyncIds: [], error: blocker };
+  }
+  const target = transactions.find((tx) => tx.id === targetId)!;
+  const removedIds = new Set(
+    (target.installmentGroupId
+      ? transactions.filter((tx) => tx.installmentGroupId === target.installmentGroupId)
+      : [target]).map((tx) => tx.id)
+  );
+  const created = createTransactionBatch(input);
+  const updatedTransactions: Transaction[] = [];
+  let inserted = false;
+  for (const tx of transactions) {
+    if (removedIds.has(tx.id)) {
+      if (!inserted) {
+        updatedTransactions.push(...created);
+        inserted = true;
+      }
+      continue;
+    }
+    updatedTransactions.push(tx);
+  }
+  const removedSharedSyncIds = transactions
+    .filter((tx) => removedIds.has(tx.id) && tx.isShared)
+    .map((tx) => tx.sharedSyncId || tx.id);
+  return { updatedTransactions, removedCount: removedIds.size, createdCount: created.length, removedSharedSyncIds };
+}
+
 export function applyCascadeTransactionEdit(
   transactions: Transaction[],
   editedTx: Transaction,

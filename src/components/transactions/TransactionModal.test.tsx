@@ -1087,3 +1087,32 @@ test('o seletor de parcelas do cartão oferece todos os números de 2 a 48 (incl
   assert.deepEqual(values, Array.from({ length: 47 }, (_, i) => i + 2));
   assert.ok(values.includes(11));
 });
+
+test('ao editar uma compra parcelada no cartão, aparecem a frequência e o número de parcelas e salvar refaz a série', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const tx: Transaction = { id: 'inst-1', description: 'TV', amount: 100, date: '2026-11-02', competenceMonth: '2026-11', type: 'expense', status: 'pending',
+    categoryId: 'category-test', creditCardId: 'card-test', paymentMethod: 'credit_card', recurrence: 'installment',
+    installmentGroupId: 'g1', installmentNumber: 1, installmentTotal: 3, installmentPurchaseTotal: 300 };
+  const rest = [2, 3].map((n): Transaction => ({ ...tx, id: `inst-${n}`, installmentNumber: n, competenceMonth: `2026-${10 + n}`, date: `2026-${10 + n}-02` }));
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard], editingTransaction: tx, transactions: [tx, ...rest] });
+  assert.ok(page.querySelector('[data-testid="main-recurrence-selector"]'), 'frequência visível na edição');
+  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x sem juros no cartão'));
+  assert.ok(select, 'número de parcelas visível na edição');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(select, '5');
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].recurrence, 'installment');
+  assert.equal(saved[0].installmentTotal, 5);
+});
+
+test('ao editar compra parcelada no cartão, a forma de pagamento também pode ser trocada', () => {
+  const tx: Transaction = { id: 'inst-1', description: 'TV', amount: 100, date: '2026-11-02', competenceMonth: '2026-11', type: 'expense', status: 'pending',
+    categoryId: 'category-test', creditCardId: 'card-test', paymentMethod: 'credit_card', recurrence: 'installment',
+    installmentGroupId: 'g1', installmentNumber: 1, installmentTotal: 3, installmentPurchaseTotal: 300 };
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard], editingTransaction: tx, transactions: [tx] });
+  assert.ok(page.querySelector('[data-testid="payment-method-account"]'), 'Conta / débito disponível na edição');
+  assert.ok(page.querySelector('[data-testid="payment-method-card"]'), 'Cartão disponível na edição');
+});
