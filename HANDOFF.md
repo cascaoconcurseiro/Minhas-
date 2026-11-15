@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 746 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 748 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -62,6 +62,16 @@
 - **Impacto em dados/Neon:** nenhum.
 - **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3 e decisões), `CHECKLIST.md` (A08 fechado).
 - **Próximo passo:** nenhum pendente desta rodada; restam os itens da seção D do CHECKLIST (A11, A14, A18–A19, A21–A24).
+
+### 2026-11-15 — Comprometimento do cartão: chave "Geral / Só a minha parte"
+- **O que mudou:** na tela Cartões → "Comprometimento do cartão mês a mês" entrou a chave **Geral (tudo do cartão)** × **Só a minha parte**. A visão "minha parte" soma suas compras e parcelas (nos compartilhados que você pagou, só a sua metade) mais o que você deve em despesas compartilhadas pagas por outra pessoa; A Receber (cartão da Fran) fica fora das duas. A porcentagem da renda e o limite valem para a visão escolhida; ao abrir o mês, a lista mostra cada item com o valor da sua parte.
+- **Por quê:** pedido do dono: ver o geral e, separado, o valor que é dele por mês.
+- **Arquivos/áreas:** `src/domain/cards/cardCommitment.ts` (`mine`, `getMyCardPurchaseAmount`, lista por visão), `src/components/cards/CardCommitmentSection.tsx`, testes em `cardCommitment.test.ts`, `CardCommitmentSection.test.tsx`, `appNotices.test.ts`.
+- **Como foi verificado:** testes novos (compartilhado pela metade, A Receber fora, compartilhado que devo, chave na tela); `bun run check`.
+- **Não verificado:** tela no navegador/celular; com dados reais (o A Receber da Fran e as parcelas de hoje entram corretamente por leitura, mas não abri a tela); compartilhado "pago por outra pessoa" só entra se estiver pendente e fora do cartão.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3.5).
+- **Próximo passo:** o dono conferir os valores mês a mês em "Só a minha parte"; avaliar se os alertas de comprometimento (sino) também devem usar a visão da minha parte.
 
 ### 2026-11-15 — Dado lançado no Neon: DeepSeek no Nubank e diferença da FRAN em A Receber
 - **O que mudou:** no workspace de produção (revisão 250 → 254): (1) lançado o **R$ 60,27 do DeepSeek** no Nubank (`tx-nubank-ofx-13`, competência 2026-12; compra internacional diferente do "Zafari" do azul) e os 3 lançamentos DeepSeek do Nubank passaram para a categoria **Assinaturas** (mesma de GPT e Claude); (2) **A Receber da FRAN**: valor de **R$ 905,68** (`rcv-azul-fran-2026-12`, fatura de cartão adicional do Itaú azul, dezembro de 2026) com a linha correspondente na fatura do azul (`tx-recv-rcv-azul-fran-2026-12`), que conta na fatura e no limite mas fica fora do resultado pessoal; (3) `Mp*hupicorrida` (azul) reclassificado para Compras (Mp = Mercado Pago = compra no Mercado Livre).

@@ -90,3 +90,25 @@ test('o botão do limite abre as configurações', () => {
   act(() => btn.click());
   assert.equal(opened, 1);
 });
+
+test('chave "Só a minha parte": mostra o geral por padrão e troca para a minha parte (compartilhado pela metade)', () => {
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+  const data = [
+    tx({ type: 'income', amount: 5000, competenceMonth: '2026-12', paymentMethod: 'pix' }),
+    tx({ creditCardId: 'c1', amount: 1000, description: 'Mercado dividido', isShared: true, sharedMemberId: 'm1', sharedAmount: 400, sharedPaidBy: 'me' }),
+    tx({ creditCardId: 'c1', amount: 905.68, description: 'Fatura da Fran', receivableId: 'rcv-1' }),
+  ];
+  act(() => root?.render(React.createElement(CardCommitmentSection, { transactions: data, referenceMonth: '2026-12' })));
+  const dec = () => container!.querySelector('[data-testid="card-commitment-2026-12"]')!.textContent || '';
+  assert.match(dec(), /1\.000,00/, 'geral: compra inteira, sem o A Receber');
+  assert.doesNotMatch(dec(), /905,68/);
+  const mine = container.querySelector('[data-testid="card-commitment-view-mine"]') as HTMLButtonElement;
+  act(() => mine.click());
+  assert.match(dec(), /600,00/, 'minha parte: 1000 − 400 da outra pessoa');
+  assert.ok(container.querySelector('[data-testid="card-commitment-mine-help"]'));
+  const all = container.querySelector('[data-testid="card-commitment-view-all"]') as HTMLButtonElement;
+  act(() => all.click());
+  assert.match(dec(), /1\.000,00/);
+});

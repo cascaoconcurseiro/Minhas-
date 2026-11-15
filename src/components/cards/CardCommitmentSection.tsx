@@ -6,6 +6,7 @@ import {
   listCardCommitmentItems,
   normalizeCommitmentLimit,
   type CardCommitmentMonth,
+  type CardCommitmentView,
   type CardCommitmentStatus,
 } from '../../domain/cards/cardCommitment';
 import { formatBRL } from '../../domain/finance/financeRules';
@@ -67,20 +68,23 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
 }) => {
   const [openMonth, setOpenMonth] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [view, setView] = useState<CardCommitmentView>('all');
+  const isMine = view === 'mine';
   const limit = normalizeCommitmentLimit(limitPercent);
   const rows = useMemo(
     () => calculateCardCommitmentByMonth({ transactions, referenceMonth, limitPercent: limit, warnPercent }),
     [transactions, referenceMonth, limit, warnPercent]
   );
   const items = useMemo(
-    () => (openMonth ? listCardCommitmentItems(transactions, openMonth) : []),
-    [transactions, openMonth]
+    () => (openMonth ? listCardCommitmentItems(transactions, openMonth, view) : []),
+    [transactions, openMonth, view]
   );
 
   const visibleRows = showAll ? rows : rows.slice(0, VISIBLE_MONTHS);
   const hiddenCount = rows.length - VISIBLE_MONTHS;
-  const hasAnyCard = rows.some((row) => row.cardTotal > 0);
-  const scaleMax = Math.max(10, limit ? limit * 1.5 : 0, ...rows.map((row) => row.cardPercent ?? 0));
+  const hasAnyCard = rows.some((row) => row.cardTotal > 0 || row.mine.total > 0);
+  const percentOf = (row: CardCommitmentMonth) => (isMine ? row.mine.percent : row.cardPercent);
+  const scaleMax = Math.max(10, limit ? limit * 1.5 : 0, ...rows.map((row) => percentOf(row) ?? 0));
 
   return (
     <section
@@ -112,6 +116,38 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
         )}
       </div>
 
+      <div
+        role="group"
+        aria-label="O que mostrar"
+        data-testid="card-commitment-view"
+        className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 text-xs font-semibold"
+      >
+        <button
+          type="button"
+          aria-pressed={!isMine}
+          data-testid="card-commitment-view-all"
+          onClick={() => setView('all')}
+          className={`min-h-10 rounded-md px-3 ${!isMine ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
+        >
+          Geral (tudo do cartão)
+        </button>
+        <button
+          type="button"
+          aria-pressed={isMine}
+          data-testid="card-commitment-view-mine"
+          onClick={() => setView('mine')}
+          className={`min-h-10 rounded-md px-3 ${isMine ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
+        >
+          Só a minha parte
+        </button>
+      </div>
+      {isMine && (
+        <p className="text-[11px] text-slate-500" data-testid="card-commitment-mine-help">
+          Suas compras e parcelas, mais só a sua metade do que é dividido e o que você deve em despesas pagas por outra
+          pessoa. O que é de terceiros (A Receber) não entra.
+        </p>
+      )}
+
       {!hasAnyCard && (
         <p className="rounded-lg bg-slate-50 px-3 py-3 text-xs text-slate-600" data-testid="card-commitment-empty">
           Nenhuma compra no cartão nos próximos meses. Quando você lançar compras no cartão, elas aparecem aqui.
@@ -122,7 +158,10 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
         {visibleRows.map((row) => {
           const isOpen = openMonth === row.month;
           const isCurrent = row.month === referenceMonth;
-          const barWidth = row.cardPercent === null ? 0 : Math.min(100, (row.cardPercent / scaleMax) * 100);
+          const rowPercent = percentOf(row);
+          const rowTotal = isMine ? row.mine.total : row.cardTotal;
+          const rowStatus = isMine ? row.mine.status : row.status;
+          const barWidth = rowPercent === null ? 0 : Math.min(100, (rowPercent / scaleMax) * 100);
           const limitMarker = limit ? Math.min(100, (limit / scaleMax) * 100) : null;
           return (
             <li key={row.month} data-testid={`card-commitment-${row.month}`}>
@@ -143,7 +182,7 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                   </span>
                   <span className="relative h-2.5 min-w-0 flex-1 rounded-full bg-slate-100">
                     <span
-                      className={`absolute inset-y-0 left-0 rounded-full ${BAR_COLORS[row.status]}`}
+                      className={`absolute inset-y-0 left-0 rounded-full ${BAR_COLORS[rowStatus]}`}
                       style={{ width: `${barWidth}%` }}
                     />
                     {limitMarker !== null && (
@@ -155,11 +194,11 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                     )}
                   </span>
                   <span className="w-24 shrink-0 text-right">
-                    <span className={`block font-mono text-sm font-bold tabular-nums ${TEXT_COLORS[row.status]}`}>
-                      {row.cardPercent === null ? '—' : formatPercent(row.cardPercent)}
+                    <span className={`block font-mono text-sm font-bold tabular-nums ${TEXT_COLORS[rowStatus]}`}>
+                      {rowPercent === null ? '—' : formatPercent(rowPercent)}
                     </span>
                     <span className="block font-mono text-[11px] tabular-nums text-slate-600">
-                      {formatBRL(row.cardTotal)}
+                      {formatBRL(rowTotal)}
                     </span>
                   </span>
                   <ChevronDown
@@ -167,13 +206,19 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                   />
                 </div>
                 <p className="mt-1 pl-[68px] text-[11px] text-slate-500">
-                  {row.cardTotal > 0
+                  {isMine
+                    ? rowTotal > 0
+                      ? `Parcelas minhas ${formatBRL(row.mine.installmentTotal)}${
+                          row.mine.sharedByOthersTotal > 0 ? ` · compartilhado que devo ${formatBRL(row.mine.sharedByOthersTotal)}` : ''
+                        }`
+                      : 'Nada seu neste mês'
+                    : row.cardTotal > 0
                     ? `Parcelas ${formatBRL(row.installmentTotal)}${
                         row.installmentPercent !== null ? ` (${formatPercent(row.installmentPercent)})` : ''
                       }`
                     : 'Sem compras no cartão'}
                   {row.income > 0 ? ` · renda ${formatBRL(row.income)}` : ''}
-                  {statusNote(row, limit) ? ` · ${statusNote(row, limit)}` : ''}
+                  {statusNote({ ...row, status: rowStatus }, limit) ? ` · ${statusNote({ ...row, status: rowStatus }, limit)}` : ''}
                 </p>
               </button>
 
@@ -181,17 +226,35 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                 <div className="mb-3 rounded-lg bg-slate-50 p-3 text-xs" data-testid="card-commitment-detail">
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
                     <div>
-                      <dt className="text-slate-500">Total no cartão</dt>
-                      <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.cardTotal)}</dd>
+                      <dt className="text-slate-500">{isMine ? 'Minha parte no cartão' : 'Total no cartão'}</dt>
+                      <dd className="font-mono font-bold tabular-nums text-slate-900">
+                        {formatBRL(isMine ? row.mine.cardTotal : row.cardTotal)}
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-slate-500">Parcelas</dt>
-                      <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.installmentTotal)}</dd>
+                      <dt className="text-slate-500">{isMine ? 'Minhas parcelas' : 'Parcelas'}</dt>
+                      <dd className="font-mono font-bold tabular-nums text-slate-900">
+                        {formatBRL(isMine ? row.mine.installmentTotal : row.installmentTotal)}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-slate-500">À vista e fixas</dt>
-                      <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.otherTotal)}</dd>
+                      <dd className="font-mono font-bold tabular-nums text-slate-900">
+                        {formatBRL(isMine ? row.mine.otherTotal : row.otherTotal)}
+                      </dd>
                     </div>
+                    {isMine && (
+                      <div>
+                        <dt className="text-slate-500">Compartilhado que devo</dt>
+                        <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.mine.sharedByOthersTotal)}</dd>
+                      </div>
+                    )}
+                    {isMine && (
+                      <div>
+                        <dt className="text-slate-500">Total meu no mês</dt>
+                        <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.mine.total)}</dd>
+                      </div>
+                    )}
                     <div>
                       <dt className="text-slate-500">Renda do mês</dt>
                       <dd className="font-mono font-bold tabular-nums text-slate-900">
@@ -205,6 +268,11 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                         <li key={item.id} className="flex items-baseline justify-between gap-3">
                           <span className="min-w-0 break-words text-slate-800">
                             {item.description}
+                            {item.isSharedOwed && (
+                              <span className="ml-1.5 rounded bg-white px-1.5 py-0.5 text-[10px] text-slate-600">
+                                compartilhado
+                              </span>
+                            )}
                             {item.installmentLabel && (
                               <span className="ml-1.5 rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
                                 {item.installmentLabel}
