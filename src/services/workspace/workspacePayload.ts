@@ -99,6 +99,27 @@ function validateTrip(item: Record<string, unknown>): boolean {
   return true;
 }
 
+/** Valor a receber: valor positivo em centavos, datas reais e pagamentos que não passam do valor total. */
+function validateReceivable(item: Record<string, unknown>): boolean {
+  if (!['card_invoice', 'loan'].includes(String(item.kind))) return false;
+  if (typeof item.personName !== 'string' || !item.personName.trim()) return false;
+  if (!isSafeMoneyValue(item.amount, false, true) || (item.amount as number) <= 0) return false;
+  if (!isValidISODate(item.createdDate)) return false;
+  if (item.dueDate !== undefined && !isValidISODate(item.dueDate)) return false;
+  if (item.kind === 'card_invoice' && item.invoiceMonth !== undefined && !isValidYearMonth(item.invoiceMonth)) return false;
+  if (!Array.isArray(item.payments)) return false;
+  let paidCents = 0;
+  const paymentIds = new Set<string>();
+  for (const payment of item.payments) {
+    if (!isRecord(payment) || typeof payment.id !== 'string' || !payment.id.trim() || paymentIds.has(payment.id)) return false;
+    paymentIds.add(payment.id);
+    if (!isSafeMoneyValue(payment.amount, false, true) || (payment.amount as number) <= 0) return false;
+    if (!isValidISODate(payment.date) || typeof payment.accountId !== 'string' || !payment.accountId) return false;
+    paidCents += Math.round((payment.amount as number) * 100);
+  }
+  return paidCents <= Math.round((item.amount as number) * 100);
+}
+
 function validateFinancialItem(item: Record<string, unknown>, field: string): boolean {
   const optionalMoneyFields: Record<string, string[]> = {
     accountsJson: ['initialBalance', 'initialBalanceForeign'],
@@ -187,6 +208,7 @@ function validateFinancialItem(item: Record<string, unknown>, field: string): bo
     }
     if ('monthlyYieldPercent' in item && (item.monthlyYieldPercent as number) < 0) return false;
   }
+  if (field === 'receivablesJson' && !validateReceivable(item)) return false;
   if (field === 'tripsJson' && !validateTrip(item)) return false;
   return true;
 }

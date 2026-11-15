@@ -55,6 +55,13 @@ flowchart TD
 
 ## 2. Especificação da API REST (`backend/app.ts`)
 
+### 2.0. Comportamento comum (auditado em 2026-11-15)
+- **Respostas sempre em JSON.** Erros não tratados, JSON malformado (`400 {"error":"Requisição inválida."}`) e corpo acima de 4 MB (`413`) viram JSON curto; nunca HTML com detalhes técnicos.
+- **IP do cliente**: na Vercel o servidor confia em 1 proxy (`trust proxy`), então os limites de tentativa usam o IP real (cadastro 10/h, login 8 falhas/15 min por IP+e-mail, Face ID 20 falhas/15 min). Os contadores ficam na memória de cada instância da função (limite de melhor esforço, não global).
+- **Conexões do Neon**: o pool trata o erro de conexão ociosa (autosuspend) e descarta conexão quebrada depois de falha no `ROLLBACK`.
+- **Validação do workspace** (`PUT/POST /api/workspace`): seis coleções obrigatórias (`accountsJson`, `cardsJson`, `categoriesJson`, `transactionsJson`, `goalsJson`, `investmentsJson`) e campos opcionais (`familyMembersJson`, `investmentTargetsJson`, `tripsJson`, `settingsJson`, `receivablesJson`, `sharedSettlementReceiptsJson`). `receivablesJson` valida tipo, valor em centavos, datas e pagamentos que não passam do valor. O payload é gravado inteiro (nenhum campo do app é descartado).
+- **Câmbio ao vivo sem chave do Gemini** responde `503` com mensagem amigável (não `500`).
+
 ### 2.1. `GET /api/status` e `GET /api/readiness`
 
 `GET /api/status` é público e informa somente se a API e as configurações

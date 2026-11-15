@@ -26,7 +26,7 @@ import {
   verifyPassword,
   verifySessionToken,
 } from './authSession.ts';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { registerPasskeyRoutes } from './passkeys.ts';
 import {
   formatGoogleFinanceSymbol,
@@ -39,6 +39,10 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+// Na Vercel há um proxy na frente da função: sem isto, `req.ip` seria o IP do proxy (igual para todos) e os
+// limites de tentativa (cadastro, Face ID) valeriam para todos os usuários juntos. Com 1 salto confiável,
+// `req.ip` passa a ser o IP real do cliente (X-Forwarded-For).
+if (process.env.VERCEL) app.set('trust proxy', 1);
 app.locals.reminderSmtpRouteDependencies = {
   resolveTarget: resolvePublicSmtpTarget,
   createTransport: nodemailer.createTransport,
@@ -50,12 +54,19 @@ function getNeonPool(): Pool {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL não configurada no servidor.');
   }
-  neonPool ??= new Pool({
-    connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL),
-    max: 5,
-    connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 30000,
-  });
+  if (!neonPool) {
+    neonPool = new Pool({
+      connectionString: normalizeDatabaseConnectionString(process.env.DATABASE_URL),
+      max: 5,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 30000,
+    });
+    // O Neon encerra conexões ociosas (autosuspend). Sem este ouvinte, o erro de uma conexão parada
+    // derruba o processo inteiro (evento 'error' sem tratamento) e a função responde 500.
+    neonPool.on('error', (error) => {
+      console.error('Conexão ociosa do Neon encerrada:', error instanceof Error ? error.message : error);
+    });
+  }
   return neonPool;
 }
 
@@ -139,6 +150,7 @@ async function withWorkspaceRls<T>(
 ): Promise<T> {
   const vaultId = getVaultIdForUid(user.uid);
   const client = await getNeonPool().connect();
+  let discardConnection = false;
   try {
     await client.query('BEGIN');
     await client.query("SELECT set_config('app.user_id', $1, true)", [user.uid]);
@@ -149,10 +161,15 @@ async function withWorkspaceRls<T>(
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Conexão quebrada: preserva o erro original e descarta a conexão em vez de devolvê-la ao pool.
+      discardConnection = true;
+    }
     throw error;
   } finally {
-    client.release();
+    client.release(discardConnection ? true : undefined);
   }
 }
 
@@ -168,13 +185,15 @@ const CURRENCY_NAMES_PT: Record<string, string> = {
   BRL: 'Real Brasileiro (BRL)',
 };
 
+class GeminiNotConfiguredError extends Error {
+  constructor() {
+    super('A cotação em tempo real não está ativada neste servidor. Informe a cotação manualmente.');
+  }
+}
+
 function createGeminiClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      'GEMINI_API_KEY não encontrada no ambiente do servidor. Verifique o painel Settings > Secrets.'
-    );
-  }
+  if (!apiKey) throw new GeminiNotConfiguredError();
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
@@ -1023,7 +1042,13 @@ async function startServer() {
   // opening a Neon connection when the secret is absent or does not match.
   app.get('/api/readiness', async (req, res) => {
     const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret || req.get('authorization') !== `Bearer ${cronSecret}`) {
+    const expectedAuthorization = Buffer.from(`Bearer ${cronSecret ?? ''}`);
+    const receivedAuthorization = Buffer.from(req.get('authorization') ?? '');
+    const authorized =
+      Boolean(cronSecret) &&
+      expectedAuthorization.length === receivedAuthorization.length &&
+      timingSafeEqual(expectedAuthorization, receivedAuthorization);
+    if (!authorized) {
       res.set('Cache-Control', 'no-store');
       res.status(401).json({ error: 'Unauthorized' });
       return;
@@ -1180,7 +1205,7 @@ async function startServer() {
           ? err.message
           : 'Erro ao consultar cotação em tempo real via Google Search.';
       console.error('Erro em /api/fx/live-rate:', message);
-      res.status(500).json({ error: message });
+      res.status(err instanceof GeminiNotConfiguredError ? 503 : 500).json({ error: message });
     }
   });
 
@@ -1455,6 +1480,26 @@ async function startServer() {
       console.log(`Server listening on http://0.0.0.0:${PORT}`);
     });
   }
+
+  // Última camada: qualquer erro não tratado (JSON malformado, corpo grande demais, falha inesperada) vira
+  // resposta JSON curta, nunca página HTML com detalhes técnicos. O app lê todas as respostas da API como JSON.
+  app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (res.headersSent) {
+      next(error);
+      return;
+    }
+    const status = typeof (error as { status?: unknown })?.status === 'number'
+      ? (error as { status: number }).status
+      : 500;
+    if (status >= 400 && status < 500) {
+      res.status(status).json({
+        error: status === 413 ? 'Os dados enviados são grandes demais.' : 'Requisição inválida.',
+      });
+      return;
+    }
+    console.error('Erro não tratado na API:', error);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  });
 }
 
 void startServer();

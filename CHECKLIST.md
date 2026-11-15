@@ -36,6 +36,10 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** Aplicar metadados históricos de parcelamento de alta confiança (com backup JSON antes).
 - [ ] **[Dev]** Compartilhado entre duas contas: retorno do estado de acerto do destinatário para a transação do remetente; convite aceito que ainda bloqueia envio (403).
 
+- [ ] **[Decidir]** Limites de tentativa (login, cadastro, Face ID, câmbio, cotações) ficam na memória de cada instância da função (melhor esforço). Para valerem globalmente seria preciso guardá-los no banco; avaliar se compensa.
+- [ ] **[Dev]** O desafio do Face ID não é de uso único no servidor (token assinado de 5 min); avaliar registrar o uso.
+- [ ] **[Dev]** Exercitar `/api/fx/live-rate` e `/api/investments/sync-quotes` contra o Gemini real (modelo `gemini-3.8-flash` nunca testado de verdade) quando houver chave.
+
 ## E. Dívida técnica (sem mudar comportamento)
 - [ ] **[Dev]** Dividir `src/components/transactions/TransactionModal.tsx` (~4.600 linhas) por tipo de lançamento.
 - [ ] **[Dev]** Extrair de `src/App.tsx` (~4.600 linhas) hooks por área (valores a receber, cartões, sincronização).

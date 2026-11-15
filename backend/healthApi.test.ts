@@ -196,3 +196,33 @@ test('login works without AUTH_SESSION_SECRET by deriving the key from DATABASE_
     else process.env.AUTH_SESSION_SECRET = secret;
   }
 });
+
+test('JSON malformado ou grande demais vira resposta JSON curta (nunca HTML)', async () => {
+  const malformed = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{ isto não é json',
+  });
+  assert.equal(malformed.status, 400);
+  assert.match(malformed.headers.get('content-type') ?? '', /application\/json/);
+  assert.deepEqual(await malformed.json(), { error: 'Requisição inválida.' });
+
+  const tooLarge = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'a@b.co', password: 'x'.repeat(5 * 1024 * 1024) }),
+  });
+  assert.equal(tooLarge.status, 413);
+  assert.match(tooLarge.headers.get('content-type') ?? '', /application\/json/);
+  assert.deepEqual(await tooLarge.json(), { error: 'Os dados enviados são grandes demais.' });
+});
+
+test('na Vercel o servidor confia no proxy para enxergar o IP real do cliente', async () => {
+  const { default: app } = await import('./app.ts');
+  assert.equal(app.get('trust proxy'), 1, 'sem isto os limites de tentativa valem para todos os usuários juntos');
+});
+
+test('o pool do Neon trata erro de conexão ociosa (senão o processo cai)', async () => {
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync('backend/app.ts', 'utf8'), /neonPool\.on\('error'/);
+});

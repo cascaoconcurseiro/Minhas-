@@ -826,6 +826,19 @@ test('FX não-BRL retorna cotação Gemini válida e fontes sintéticas', async 
   }
 });
 
+test('FX sem chave do Gemini responde 503 com mensagem amigável (não 500 com texto de painel)', async () => {
+  delete process.env.GEMINI_API_KEY;
+  const response = await originalFetch(`${baseUrl}/api/fx/live-rate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${authTokens.owner}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency: 'USD' }),
+  });
+  assert.equal(response.status, 503);
+  const result = await response.json() as { error: string };
+  assert.match(result.error, /não está ativada/);
+  assert.doesNotMatch(result.error, /Settings|Secrets|GEMINI_API_KEY/);
+});
+
 test('FX rejeita moeda não suportada ou tipo inválido antes de chamar Gemini', async () => {
   const headers = {
     Authorization: `Bearer ${authTokens.owner}`,

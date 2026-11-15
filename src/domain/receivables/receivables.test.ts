@@ -144,3 +144,16 @@ test('ao marcar a regra do fechamento, compras pendentes feitas no dia do fecham
   assert.equal(out[4].competenceMonth, '2026-11', 'parcelamento não muda');
   assert.equal(reclassifyClosingDayPurchases(out, next, itau)[0].competenceMonth, '2026-11', 'desmarcar volta ao normal');
 });
+
+test('o servidor rejeita valor a receber corrompido (kind, valor, data, pagamentos maiores que a dívida)', async () => {
+  const { parseWorkspaceArray } = await import('../../services/workspace/workspacePayload');
+  const ok = { id: 'r', kind: 'loan', personName: 'Muri', amount: 6500, createdDate: '2026-11-14', payments: [] };
+  assert.equal(parseWorkspaceArray(JSON.stringify([ok]), [], 'receivablesJson').length, 1);
+  const bad = (patch: Record<string, unknown>) => () => parseWorkspaceArray(JSON.stringify([{ ...ok, ...patch }]), [], 'receivablesJson');
+  assert.throws(bad({ kind: 'outro' }));
+  assert.throws(bad({ amount: -1 }));
+  assert.throws(bad({ amount: 10.005 }));
+  assert.throws(bad({ createdDate: '2026-13-40' }));
+  assert.throws(bad({ amount: 10, payments: [{ id: 'p', amount: 11, date: '2026-11-15', accountId: 'a' }] }));
+  assert.throws(bad({ payments: [{ id: 'p', amount: 1, date: '2026-11-15', accountId: 'a' }, { id: 'p', amount: 1, date: '2026-11-15', accountId: 'a' }] }));
+});

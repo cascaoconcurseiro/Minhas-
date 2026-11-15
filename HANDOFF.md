@@ -42,6 +42,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-15 — Auditoria do backend e paridade frontend × backend
+- **O que mudou:** (1) `trust proxy` na Vercel: os limites de tentativa passam a usar o IP real do cliente (antes todos compartilhavam o IP do proxy: 10 cadastros/h e 20 tentativas de Face ID para todo mundo junto); (2) o pool do Neon agora trata erro de conexão ociosa (sem isso o autosuspend podia derrubar a função com erro 500) e descarta conexão quebrada após falha no `ROLLBACK`; (3) respostas de erro sempre em JSON (JSON malformado 400, corpo grande 413, erro inesperado 500 genérico); (4) câmbio ao vivo sem `GEMINI_API_KEY` responde 503 com mensagem amigável (antes 500 com texto "Verifique o painel Settings > Secrets"); (5) `/api/readiness` compara o segredo em tempo constante; (6) detalhes técnicos do Face ID não saem mais em falhas de banco; (7) `receivablesJson` passou a ser validado no servidor (tipo, centavos, datas, pagamentos ≤ valor).
+- **Por quê:** meta do dono: conferir se tudo que o frontend usa existe no backend e revisar o backend inteiro.
+- **Arquivos/áreas:** `backend/app.ts`, `backend/passkeys.ts`, `src/services/workspace/workspacePayload.ts`, testes em `backend/healthApi.test.ts`, `backend/familyApi.test.ts`, `src/domain/receivables/receivables.test.ts`, docs `docs/tecnico/api.md` e `seguranca.md`.
+- **Como foi verificado:** paridade conferida por leitura: as 22 chamadas do frontend têm rota no backend (mesmo método e formato de resposta), `api/` cobre todos os caminhos, e todas as colunas e privilégios usados pelo backend existem no Neon real (tabelas, colunas e grants consultados por leitura). 719 testes, `tsc` e build passando; o valor a receber real do dono ("Muri") passa na validação nova.
+- **Não verificado:** comportamento em produção depois do deploy (limites por IP real, pool); `scripts/qa-postgres.ts` (PostgreSQL real) só roda no CI; o modelo `gemini-3.8-flash` e a rota de câmbio nunca foram exercitados contra o Gemini real (a chave não está na Vercel).
+- **Impacto em dados/Neon:** nenhum (só leitura de esquema e privilégios).
+- **Documentação atualizada:** `docs/tecnico/api.md`, `docs/tecnico/seguranca.md`.
+- **Próximo passo:** conferir `/api/readiness` e o app após o deploy; decidir se limites de tentativa precisam ser globais (Redis/tabela) e se vale configurar `GEMINI_API_KEY`.
+
 ### 2026-11-15 — Dado corrigido no Neon: compras de 30/10 do Itaú azul foram para a fatura de dezembro
 - **O que mudou:** no workspace de produção (revisão 241 → 242) o cartão **Itaú azul** recebeu `closingDayStartsNextInvoice: true` e duas compras pendentes de 30/10 mudaram de competência `2026-11` para `2026-12`: **Nona R$ 57,00** (`tx-1794740662190-1-4onn`) e **Amazon R$ 41,29** (`tx-1794740623488-1-qwnn`), total R$ 98,29. Nenhuma outra linha foi tocada (119 lançamentos no total, antes e depois).
 - **Por quê:** o dono viu os R$ 98,29 ainda em novembro (Cartões e notificações de fatura atrasada) e pediu a correção; no banco dele a compra no dia do fechamento vai para a fatura seguinte (05/12).

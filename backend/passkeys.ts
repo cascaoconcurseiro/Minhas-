@@ -129,7 +129,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       });
     } catch (error) {
       console.error('Erro ao listar passkeys:', error);
-      fail(res, 503, 'Não foi possível consultar o Face ID agora.', error);
+      fail(res, 503, 'Não foi possível consultar o Face ID agora.');
     }
   });
 
@@ -172,7 +172,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       res.json({ options, challengeToken });
     } catch (error) {
       console.error('Erro ao preparar cadastro de passkey:', error);
-      fail(res, 503, 'Não foi possível preparar o Face ID agora.', error);
+      fail(res, 503, 'Não foi possível preparar o Face ID agora.');
     }
   });
 
@@ -267,7 +267,7 @@ export function registerPasskeyRoutes(app: Express, deps: PasskeyRouteDeps): voi
       res.json({ options, challengeToken });
     } catch (error) {
       console.error('Erro ao preparar login com passkey:', error);
-      fail(res, 503, 'Não foi possível preparar o Face ID agora.', error);
+      fail(res, 503, 'Não foi possível preparar o Face ID agora.');
     }
   });
 

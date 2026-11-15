@@ -33,6 +33,8 @@
 
 - Implementado com WebAuthn (`@simplewebauthn`): o aparelho guarda a chave privada e o rosto/digital **nunca saem do celular**. O servidor guarda só a chave pública, o contador de uso, os transportes, o domínio (`rp_id`) e um rótulo do aparelho em `app_user_passkeys` (migração 010).
 - Atestação `none`, verificação biométrica obrigatória, até 10 aparelhos por conta; o desafio viaja em token assinado com validade de 5 minutos.
+- Erros técnicos da biblioteca (`detail`) só são devolvidos quando a verificação do Face ID falha; falhas de banco devolvem só a mensagem amigável.
+- O desafio é um token assinado de 5 min, sem uso único no servidor (replay só seria possível com a resposta biométrica completa interceptada).
 - Login por passkey tem limite de 20 falhas a cada 15 minutos por IP; remover o Face ID de um aparelho é possível a qualquer momento.
 - A oferta de cadastro do Face ID aparece só em celular e tablet.
 - **Nunca verificado**: Face ID em iPhone/Safari reais (cobertura apenas por testes automáticos).
