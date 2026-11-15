@@ -5,7 +5,7 @@ import {
   createReceivable, deleteReceivable, getInvoiceMonthOptions, getReceivableBalance, getReceivableStatus,
   registerReceivablePayment, removeReceivablePayment, summarizeReceivables,
 } from './receivables';
-import { resolveCreditCardInvoiceMonth, calculateNetWorth, calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
+import { reclassifyClosingDayPurchases, resolveCreditCardInvoiceMonth, calculateNetWorth, calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from './financeRules';
 
 const account: BankAccount = { id: 'a', name: 'Conta', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true };
 const card: CreditCard = { id: 'c', name: 'Itaú azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: 'a', color: '#00f' };
@@ -125,4 +125,22 @@ test('fechamento: compra no dia do fechamento vai para a próxima fatura só se 
   assert.equal(resolveCreditCardInvoiceMonth('2026-11-30', normal), '2026-12', 'fecha 30, vence 10: compra até o dia 30 vence em dezembro');
   assert.equal(resolveCreditCardInvoiceMonth('2026-11-30', { ...normal, closingDayStartsNextInvoice: true }), '2027-01');
   assert.equal(resolveCreditCardInvoiceMonth('2026-11-29', { ...normal, closingDayStartsNextInvoice: true }), '2026-12');
+});
+
+test('ao marcar a regra do fechamento, compras pendentes feitas no dia do fechamento mudam de fatura', () => {
+  const itau: CreditCard = { ...card, id: 'i', closingDay: 30, dueDay: 5 };
+  const base: Transaction = { ...own, type: 'expense', status: 'pending', paymentMethod: 'credit_card', creditCardId: 'i', accountId: 'a' };
+  const onClosing: Transaction = { ...base, id: 'x1', date: '2026-10-30', competenceMonth: '2026-11' };
+  const before: Transaction = { ...base, id: 'x2', date: '2026-10-29', competenceMonth: '2026-11' };
+  const manual: Transaction = { ...base, id: 'x3', date: '2026-10-30', competenceMonth: '2027-02' };
+  const paid: Transaction = { ...base, id: 'x4', date: '2026-10-30', competenceMonth: '2026-11', status: 'paid' };
+  const installment: Transaction = { ...base, id: 'x5', date: '2026-10-30', competenceMonth: '2026-11', installmentGroupId: 'g' };
+  const next = { ...itau, closingDayStartsNextInvoice: true };
+  const out = reclassifyClosingDayPurchases([onClosing, before, manual, paid, installment], itau, next);
+  assert.equal(out[0].competenceMonth, '2026-12');
+  assert.equal(out[1].competenceMonth, '2026-11', 'véspera do fechamento não muda');
+  assert.equal(out[2].competenceMonth, '2027-02', 'ajuste manual preservado');
+  assert.equal(out[3].competenceMonth, '2026-11', 'já pago não muda');
+  assert.equal(out[4].competenceMonth, '2026-11', 'parcelamento não muda');
+  assert.equal(reclassifyClosingDayPurchases(out, next, itau)[0].competenceMonth, '2026-11', 'desmarcar volta ao normal');
 });

@@ -1,5 +1,10 @@
 # Handoff — Minhas Economias
 
+## Cartão: ao mudar a regra do fechamento, compras já lançadas mudam de fatura
+- Caso real (Itaú azul, fecha 30, vence 5): duas compras de 30/10 (Amazon 41,29 + Nona 57,00 = 98,29) ficaram na fatura de novembro (vence 05/11) e apareciam como "Atrasado há 10d" no sino, mas o banco as põe na fatura de dezembro. Faltava só marcar a opção do cartão.
+- `reclassifyClosingDayPurchases` (financeRules) roda em `handleUpdateCard` quando muda o dia de fechamento ou a opção: move para a fatura certa só compras pendentes feitas no dia do fechamento, sem parcelamento, sem pagamento de fatura, sem valor a receber e sem ajuste manual de competência. Teste novo; verificado no navegador de teste.
+- Nenhum dado do Neon foi alterado por mim; só li as compras do cartão para achar a causa. O dono precisa abrir Cartões > Itaú azul > Editar Cartão e marcar a opção.
+
 ## Visão Geral: bloco "A receber de outras pessoas" removido
 - A pedido do dono ("não está bom ali"), o bloco saiu da Visão Geral. A Receber continua na barra lateral (PC) e em "Mais" (celular). O patrimônio e o score continuam somando o a receber em aberto (`receivablesSummary`). O mecanismo `ReceivablesIntent` em `ReceivablesTab` ficou, sem uso por enquanto.
 

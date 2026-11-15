@@ -80,6 +80,7 @@ import {
   createTransactionBatch,
   formatBRL,
   getTransactionsLinkedToCreditCard,
+  reclassifyClosingDayPurchases,
   getTransactionsLinkedToCategory,
   getLocalDateISO,
   formatMonthYearPT,
@@ -2205,6 +2206,15 @@ export default function App() {
   };
 
   const handleUpdateCard = (updatedCard: CreditCard) => {
+    const previousCard = cards.find((c) => c.id === updatedCard.id);
+    if (
+      previousCard &&
+      (previousCard.closingDay !== updatedCard.closingDay ||
+        Boolean(previousCard.closingDayStartsNextInvoice) !== Boolean(updatedCard.closingDayStartsNextInvoice))
+    ) {
+      const moved = reclassifyClosingDayPurchases(transactions, previousCard, updatedCard);
+      if (moved.some((tx, index) => tx !== transactions[index])) setTransactions(moved);
+    }
     setCards((prev) =>
       prev.map((c) => (c.id === updatedCard.id ? updatedCard : c))
     );

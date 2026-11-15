@@ -1073,6 +1073,36 @@ export function resolveCreditCardInvoiceMonth(
   return addMonthsToYearMonth(yearMonth, monthOffset);
 }
 
+/**
+ * Quando o dono muda a regra do dia de fechamento do cartão, move para a fatura certa as compras
+ * pendentes feitas exatamente no dia do fechamento. Só mexe no que seguia a regra antiga
+ * (mês de competência igual ao que a regra antiga calculava), então ajustes manuais ficam intactos.
+ * Parcelamentos, pagamentos de fatura e valores a receber não são alterados.
+ */
+export function reclassifyClosingDayPurchases(
+  transactions: Transaction[],
+  oldCard: CreditCard,
+  newCard: CreditCard
+): Transaction[] {
+  const closing = String(newCard.closingDay).padStart(2, '0');
+  return transactions.map((tx) => {
+    if (
+      tx.creditCardId !== newCard.id ||
+      tx.type !== 'expense' ||
+      tx.status !== 'pending' ||
+      tx.isInvoicePayment ||
+      tx.receivableId ||
+      tx.installmentGroupId ||
+      tx.date.slice(8, 10) !== closing
+    ) {
+      return tx;
+    }
+    if (tx.competenceMonth !== resolveCreditCardInvoiceMonth(tx.date, oldCard)) return tx;
+    const next = resolveCreditCardInvoiceMonth(tx.date, newCard);
+    return next === tx.competenceMonth ? tx : { ...tx, competenceMonth: next };
+  });
+}
+
 /** Returns purchases and invoice payments tied to a card, including legacy payment IDs. */
 export function getTransactionsLinkedToCreditCard(
   card: CreditCard,
