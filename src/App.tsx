@@ -4136,11 +4136,6 @@ export default function App() {
                   recurringSuggestions={recurringSuggestions}
                   cashForecast={cashForecast}
                   receivablesSummary={receivablesSummary}
-                  onOpenReceivables={() => handleSelectTab('receivables')}
-                  receivablesOpenList={receivables
-                    .filter((item) => getReceivableBalance(item) > 0)
-                    .map((item) => ({ id: item.id, personName: item.personName, description: item.description, balance: getReceivableBalance(item) }))}
-                  onReceivablesAction={(intent) => { setReceivablesIntent(intent); handleSelectTab('receivables'); }}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={

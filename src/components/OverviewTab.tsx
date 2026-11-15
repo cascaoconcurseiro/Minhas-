@@ -43,7 +43,6 @@ import { InstitutionMark } from './InstitutionMark';
 import { CreditCardFace } from './CreditCardFace';
 import { RecurringSuggestionsCard } from './RecurringSuggestionsCard';
 import { CashForecastCard } from './CashForecastCard';
-import type { ReceivablesIntent } from './ReceivablesTab';
 import type { CashForecast } from '../utils/cashForecast';
 import type { RecurringCandidate } from '../utils/recurrenceDetection';
 
@@ -70,9 +69,6 @@ interface OverviewTabProps {
   cashForecast?: CashForecast | null;
   /** Total que outras pessoas devem (faturas de cartão adicional e empréstimos). */
   receivablesSummary?: { totalOpen: number; byPerson: Array<{ personName: string; balance: number }> } | null;
-  onOpenReceivables?: () => void;
-  receivablesOpenList?: Array<{ id: string; personName: string; description: string; balance: number }>;
-  onReceivablesAction?: (intent: ReceivablesIntent) => void;
   onScheduleRecurring?: (candidate: RecurringCandidate) => void;
   onDismissRecurring?: (candidate: RecurringCandidate) => void;
   onToggleStatus: (txId: string) => void;
@@ -115,9 +111,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   recurringSuggestions = [],
   cashForecast = null,
   receivablesSummary = null,
-  onOpenReceivables,
-  receivablesOpenList,
-  onReceivablesAction,
   onScheduleRecurring,
   onDismissRecurring,
   onToggleStatus,
@@ -474,48 +467,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       </section>
 
       <CashForecastCard forecast={cashForecast} />
-      {onReceivablesAction && (
-        <div data-testid="overview-receivables" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">A receber de outras pessoas</p>
-              <p className="text-xl font-mono font-extrabold text-slate-900 dark:text-white">{formatBRL(receivablesSummary?.totalOpen ?? 0)}</p>
-            </div>
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <button type="button" data-testid="overview-receivable-invoice" onClick={() => onReceivablesAction({ type: 'new', kind: 'card_invoice' })} className="flex-1 sm:flex-none rounded-lg bg-slate-900 dark:bg-white px-3 py-2.5 text-xs font-bold text-white dark:text-slate-900">
-                Cobrar fatura do cartão adicional
-              </button>
-              <button type="button" data-testid="overview-receivable-loan" onClick={() => onReceivablesAction({ type: 'new', kind: 'loan' })} className="flex-1 sm:flex-none rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100">
-                Dívida a receber
-              </button>
-            </div>
-          </div>
-          {receivablesOpenList && receivablesOpenList.length > 0 ? (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {receivablesOpenList.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{item.personName}</p>
-                    <p className="text-xs text-slate-500 truncate">{item.description}</p>
-                    <p className="text-xs font-mono font-bold text-rose-700">Falta {formatBRL(item.balance)}</p>
-                  </div>
-                  <button type="button" data-testid={`overview-receive-${item.id}`} onClick={() => onReceivablesAction({ type: 'pay', id: item.id })} className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white">
-                    Receber
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-slate-500">Nada a receber agora. Use os botões acima quando o cartão adicional fechar ou quando emprestar dinheiro.</p>
-          )}
-          {onOpenReceivables && (
-            <button type="button" onClick={onOpenReceivables} className="text-xs font-semibold text-slate-600 dark:text-slate-300 underline">
-              Ver tudo em A Receber
-            </button>
-          )}
-        </div>
-      )}
-
       {onScheduleRecurring && onDismissRecurring && (
         <RecurringSuggestionsCard
           suggestions={recurringSuggestions}

@@ -1,5 +1,8 @@
 # Handoff — Minhas Economias
 
+## Visão Geral: bloco "A receber de outras pessoas" removido
+- A pedido do dono ("não está bom ali"), o bloco saiu da Visão Geral. A Receber continua na barra lateral (PC) e em "Mais" (celular). O patrimônio e o score continuam somando o a receber em aberto (`receivablesSummary`). O mecanismo `ReceivablesIntent` em `ReceivablesTab` ficou, sem uso por enquanto.
+
 ## Cartão: opção "compra no dia do fechamento vai para a próxima fatura"
 - Regra anterior (mantida como padrão): compra até o dia do fechamento (inclusive) fica na fatura atual; só depois do fechamento vai para a próxima. Bancos diferem, então cada cartão ganhou a opção `closingDayStartsNextInvoice` (caixa em Novo cartão / Editar Cartão). Quando marcada, compra no próprio dia de fechamento entra na fatura seguinte. Afeta `resolveCreditCardInvoiceMonth` (todas as compras novas) e "melhor dia de compra".
 - Compras já lançadas NÃO são reclassificadas sozinhas; só valem para lançamentos feitos depois de marcar (ou ao editar a compra). Teste novo em `receivables.test.ts`; verificado no navegador (editar cartão, fecha dia 30, marcar, salvar).
