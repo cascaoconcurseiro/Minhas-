@@ -17,6 +17,7 @@ Veja a tabela em [../tecnico/estrutura-do-codigo.md](../tecnico/estrutura-do-cod
 - **Nada pré-selecionado** em forma de pagamento, categoria e conta quando há mais de uma opção.
 - **Sem avisos de sincronização**: atualizações chegam em silêncio.
 - **Migração SQL**: nunca editar uma migração antiga; criar a próxima numeração. Campo opcional novo no workspace não precisa de migração.
+- **Backend e extensões**: todo import relativo de código que a API executa (`backend/` e o que ele importa de `src/` e `shared/`) precisa ter extensão explícita (`.ts`). Sem isso a função da Vercel dá erro 500. O teste `backend/runtimeImports.test.ts` barra isso.
 - **Segredos**: nunca no frontend (nada de `VITE_` em credencial), nunca no repositório.
 - **Texto para o usuário**: português do Brasil, simples.
 - **Celular**: nada pode estourar a largura em 360–390 px; alvos de toque grandes.

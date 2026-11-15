@@ -44,6 +44,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-15 — Correção urgente: API com erro 500 depois da reorganização
+- **O que mudou:** dois imports sem extensão no caminho do backend voltaram a ter `.ts` (`financeRules.ts` → `formatting.ts`; `travelRules.ts` → `financeRules.ts`). Novo teste `backend/runtimeImports.test.ts` falha se qualquer import relativo executado pela API ficar sem extensão.
+- **Por quê:** em produção `/api/auth/me`, `/api/workspace`, `/api/family/*` respondiam 500 e o app dizia que não conectava ao banco. O Neon estava saudável (1 usuário, 1 workspace, dados intactos); a causa foi a função da Vercel não carregar módulos importados sem extensão, introduzidos por mim ao reorganizar as pastas e extrair `formatting.ts`. (O mesmo tipo de falha já tinha ocorrido em 2026-11-11.)
+- **Arquivos/áreas:** `src/domain/finance/financeRules.ts`, `src/domain/trips/travelRules.ts`, `backend/runtimeImports.test.ts`.
+- **Como foi verificado:** `tsc`, suíte de testes e build; o novo teste falha quando o import sem extensão é reposto e passa com a correção. Causa inferida pelo código e pelo histórico: os logs da Vercel não estavam acessíveis a esta sessão.
+- **Não verificado:** a correção em produção (depende do deploy da Vercel; conferir `/api/status` e o login no app).
+- **Impacto em dados/Neon:** nenhum; dados conferidos por consulta de leitura.
+- **Documentação atualizada:** `docs/processo/guia-de-contribuicao.md` (regra de imports do backend).
+- **Próximo passo:** conferir o app após o deploy e, se o erro persistir, ler os logs da função na Vercel.
+
 ### 2026-11-15 — Reorganização do código e documentação completa
 - **O que mudou:** `src/components/` em pastas por área; `src/utils/` dividido em `src/domain/` (regras) e `src/services/` (dados); correção de dependências invertidas (`categoryMatching` saiu de `ofxParser`; `WorkspaceConflictState` foi para `services`); formatação de dinheiro e datas extraída de `financeRules.ts` para `domain/finance/formatting.ts` (reexportada, imports antigos continuam valendo); limpeza (hooks sem uso, `metadata.json`, `sync-github.sh`, dependências `motion`/`autoprefixer`/`esbuild`, pacote renomeado para `minhas-economias`); `docs/` refeita (produto, técnico, operação, processo, arquivo); HANDOFF e CHECKLIST reestruturados com verificação obrigatória em CI (`scripts/check-handoff.ts`).
 - **Por quê:** pedido do dono para organizar como um programador sênior, limpar e ter documentação completa e handoff obrigatório.

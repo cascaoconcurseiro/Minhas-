@@ -18,7 +18,7 @@ import {
   TripParticipantBalance,
   TripSplitMethod,
 } from '../../types/finance';
-import { getLocalDateISO, parseBRLInput } from '../finance/financeRules';
+import { getLocalDateISO, parseBRLInput } from '../finance/financeRules.ts';
 
 export interface CurrencyMetadata {
   code: CurrencyCode;

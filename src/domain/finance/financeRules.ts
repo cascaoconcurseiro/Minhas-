@@ -33,7 +33,7 @@ import {
   formatShortMonthPT,
   formatShortDateBR,
   getMonthRange,
-} from './formatting';
+} from './formatting.ts';
 
 export {
   formatBRL,
@@ -46,7 +46,7 @@ export {
   formatShortMonthPT,
   formatShortDateBR,
   getMonthRange,
-} from './formatting';
+} from './formatting.ts';
 
 /**
  * Lançamentos que não fazem parte do seu resultado pessoal (nem gasto, nem receita): gastos só de acompanhantes de
