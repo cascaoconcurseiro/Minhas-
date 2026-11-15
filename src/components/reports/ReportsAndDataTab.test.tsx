@@ -90,7 +90,7 @@ test('ReportsAndDataTab supports annual and custom ranges, updating the visible 
   const annual = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Anual (2026)'));
   assert.ok(annual);
   await act(async () => { annual.click(); });
-  assert.ok(page.textContent?.includes('Receitas (7 meses)'), 'annual 2026 preset covers June through December');
+  assert.ok(page.textContent?.includes('Receitas (12 meses)'), 'o anual de 2026 cobre janeiro a dezembro (12 meses)');
 
   const custom = [...page.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Personalizado');
   assert.ok(custom);

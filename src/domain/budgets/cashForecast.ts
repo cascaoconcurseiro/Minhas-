@@ -61,11 +61,13 @@ export function forecastCashBalance(
   const deltas = new Map<string, number>();
   let monthStartBalance = 0;
   months.forEach((month, index) => {
-    const opening = calculateAccountBalances(accounts, transactions, addMonthsToYearMonth(month, -1))
-      .filter((balance) => includedIds.has(balance.accountId))
-      .reduce((sum, balance) => sum + balance.currentBalance, 0);
+    const openingBalances = calculateAccountBalances(accounts, transactions, addMonthsToYearMonth(month, -1))
+      .filter((balance) => includedIds.has(balance.accountId));
+    const opening = openingBalances.reduce((sum, balance) => sum + balance.currentBalance, 0);
     if (index === 0) monthStartBalance = opening;
-    let previous = opening;
+    // O fluxo diário já abre com o que ficou pendente em meses anteriores (saldo projetado): a variação de cada dia
+    // parte desse mesmo ponto. As contas atrasadas entram uma só vez, em `overdueDelta`, logo abaixo.
+    let previous = openingBalances.reduce((sum, balance) => sum + balance.projectedBalance, 0);
     for (const point of calculateDailyCashFlow(accounts, cards, transactions, month)) {
       deltas.set(point.date, round2(point.projectedBalance - previous));
       previous = point.projectedBalance;

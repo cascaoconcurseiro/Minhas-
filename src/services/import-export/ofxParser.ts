@@ -476,16 +476,20 @@ function cleanDescriptionForComparison(desc: string): string {
 }
 
 export interface DuplicateLookup {
-  byFitid: Map<string, Transaction>;
+  byFitid: Map<string, Transaction[]>;
   byDate: Map<string, Transaction[]>;
 }
 
 /** Índices por identificador e por dia, para conferir centenas de linhas sem varrer o histórico inteiro a cada uma. */
 export function buildDuplicateLookup(transactions: Transaction[]): DuplicateLookup {
-  const byFitid = new Map<string, Transaction>();
+  const byFitid = new Map<string, Transaction[]>();
   const byDate = new Map<string, Transaction[]>();
   for (const tx of transactions) {
-    if (tx.fitid && !byFitid.has(tx.fitid)) byFitid.set(tx.fitid, tx);
+    if (tx.fitid) {
+      const sameId = byFitid.get(tx.fitid);
+      if (sameId) sameId.push(tx);
+      else byFitid.set(tx.fitid, [tx]);
+    }
     const list = byDate.get(tx.date);
     if (list) list.push(tx);
     else byDate.set(tx.date, [tx]);
@@ -520,9 +524,13 @@ export function checkItemDuplicate(
   // 1. Exact FITID match
   // Ids antigos 'csv-row-N' vinham da posição da linha e não identificam o lançamento: ignora-os
   if (item.fitid && !/^csv-row-\d+$/.test(item.fitid)) {
-    const fitidMatch = lookup
-      ? (() => { const hit = lookup.byFitid.get(item.fitid); return hit && hit.id !== ignoreTransactionId ? hit : undefined; })()
-      : existingTransactions.find((tx) => tx.id !== ignoreTransactionId && tx.fitid && tx.fitid === item.fitid);
+    // O FITID só identifica o lançamento dentro da conta do extrato: a mesma chave em outra conta não é repetição.
+    const sameAccount = (tx: Transaction) =>
+      !targetAccountId || !tx.accountId || tx.accountId === targetAccountId || tx.destinationAccountId === targetAccountId;
+    const candidates = lookup
+      ? lookup.byFitid.get(item.fitid) ?? []
+      : existingTransactions.filter((tx) => tx.fitid && tx.fitid === item.fitid);
+    const fitidMatch = candidates.find((tx) => tx.id !== ignoreTransactionId && sameAccount(tx));
     if (fitidMatch) {
       return {
         isDuplicate: true,

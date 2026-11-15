@@ -40,6 +40,12 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** O desafio do Face ID não é de uso único no servidor (token assinado de 5 min); avaliar registrar o uso.
 - [ ] **[Dev]** Exercitar `/api/fx/live-rate` e `/api/investments/sync-quotes` contra o Gemini real (modelo `gemini-3.8-flash` nunca testado de verdade) quando houver chave.
 
+### Auditoria financeira de 2026-11-15 — o que ficou aberto (ver `HANDOFF.md`)
+- [ ] **[Dev]** A19: compra de câmbio sem conta internacional vinculada ainda vira despesa; apagar viagem/lote apaga o débito bancário. Precisa de comando de câmbio com duas pernas.
+- [ ] **[Dev]** A11: validação estrita de transação no servidor (campos obrigatórios, conta/cartão/categoria existentes, soma das cotas). Só ativar depois de checar os dados reais de produção por leitura, para não recusar gravação legítima.
+- [ ] **[Dev]** A14: IOF por vigência/finalidade (tabela versionada); conferir norma oficial vigente antes de mudar percentuais.
+- [ ] **[Dev]** A18, A21, A22, A23, A24: simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
+
 ## E. Dívida técnica (sem mudar comportamento)
 - [ ] **[Dev]** Dividir `src/components/transactions/TransactionModal.tsx` (~4.600 linhas) por tipo de lançamento.
 - [ ] **[Dev]** Extrair de `src/App.tsx` (~4.600 linhas) hooks por área (valores a receber, cartões, sincronização).

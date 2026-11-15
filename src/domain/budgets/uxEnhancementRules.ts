@@ -4,7 +4,7 @@ import {
   PaymentMethod,
   Transaction,
 } from '../../types/finance';
-import { getCashMovementMonth, getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth, isOutsidePersonalResult } from '../finance/financeRules';
+import { getCashMovementMonth, getClampedMonthDate, getEffectiveExpenseAmountForUser, getLocalDateISO, getPurchaseTransactionsForMonth, isOutsidePersonalResult } from '../finance/financeRules';
 import { matchCategoryByDescription } from '../finance/categoryMatching';
 
 export interface DailyTransactionGroup {
@@ -670,12 +670,35 @@ export function anticipateCardInstallments(
     Math.round(futureTargets.reduce((acc, t) => acc + t.amount, 0) * 100) / 100;
   const safeDiscount = Math.max(
     0,
-    Math.min(originalSum - 0.01 * futureTargets.length, discountAmount)
+    Math.min(originalSum - 0.01 * futureTargets.length, Number.isFinite(discountAmount) ? discountAmount : 0)
   );
-  const discountPerInstallment =
-    futureTargets.length > 0
-      ? Math.round((safeDiscount / futureTargets.length) * 100) / 100
-      : 0;
+  // Desconto repartido em centavos inteiros: o total descontado é exatamente o informado (sem perder nem criar
+  // centavo por arredondamento) e nenhuma parcela fica abaixo de R$ 0,01.
+  const totalDiscountCents = Math.round(safeDiscount * 100);
+  const discountCentsById = new Map<string, number>(
+    futureTargets.map((target) => [target.id, 0])
+  );
+  let discountLeft = totalDiscountCents;
+  const evenShare = Math.floor(totalDiscountCents / futureTargets.length);
+  for (const target of futureTargets) {
+    const share = Math.min(evenShare, Math.round(target.amount * 100) - 1);
+    discountCentsById.set(target.id, Math.max(0, share));
+    discountLeft -= Math.max(0, share);
+  }
+  // Reparte 1 centavo por vez, em ordem, só para parcelas que ainda comportam (mínimo de R$ 0,01 por parcela).
+  while (discountLeft > 0) {
+    let gave = false;
+    for (const target of futureTargets) {
+      if (discountLeft <= 0) break;
+      const given = discountCentsById.get(target.id) || 0;
+      if (Math.round(target.amount * 100) - given > 1) {
+        discountCentsById.set(target.id, given + 1);
+        discountLeft -= 1;
+        gave = true;
+      }
+    }
+    if (!gave) break;
+  }
 
   let finalSum = 0;
 
@@ -684,11 +707,11 @@ export function anticipateCardInstallments(
 
     const discountedAmount = Math.max(
       0.01,
-      Math.round((tx.amount - discountPerInstallment) * 100) / 100
+      (Math.round(tx.amount * 100) - (discountCentsById.get(tx.id) || 0)) / 100
     );
     finalSum = Math.round((finalSum + discountedAmount) * 100) / 100;
 
-    const daySuffix = tx.date.slice(8, 10) || '15';
+    const dayOfPurchase = Number(tx.date.slice(8, 10)) || 15;
     const nextDesc = tx.description.includes('(Antecipada)')
       ? tx.description
       : `${tx.description} (Antecipada)`;
@@ -700,8 +723,12 @@ export function anticipateCardInstallments(
       originalDateBeforeAnticipation: tx.originalDateBeforeAnticipation || tx.date,
       originalAmountBeforeDiscount: tx.originalAmountBeforeDiscount || tx.amount,
       amount: discountedAmount,
+      // A cota compartilhada nunca pode passar do novo valor da parcela.
+      sharedAmount:
+        tx.sharedAmount === undefined ? undefined : Math.min(tx.sharedAmount, discountedAmount),
       competenceMonth: targetCompetenceMonth,
-      date: `${targetCompetenceMonth}-${daySuffix}`,
+      // Dia 31 em mês de 28 dias vira o último dia do mês (nunca uma data inexistente como 2027-02-31).
+      date: getClampedMonthDate(targetCompetenceMonth, dayOfPurchase),
       description: nextDesc,
       notes:
         safeDiscount > 0
@@ -724,8 +751,11 @@ export function reverseInstallmentAnticipation(
 ): {
   updatedTransactions: Transaction[];
   restoredCount: number;
+  /** Parcelas antecipadas que já foram pagas: não são devolvidas (o pagamento precisa ser estornado antes). */
+  blockedPaidCount: number;
 } {
   let restoredCount = 0;
+  let blockedPaidCount = 0;
 
   const updatedTransactions = transactions.map((tx) => {
     const isMatch =
@@ -734,6 +764,13 @@ export function reverseInstallmentAnticipation(
       tx.isAnticipated || tx.description.includes('(Antecipada)');
 
     if (!isMatch || !wasAnticipated) return tx;
+
+    // Parcela antecipada já paga: devolver valor e mês mudaria a obrigação já liquidada (pagou com desconto,
+    // voltaria a valer o cheio sem dinheiro nenhum para cobrir a diferença).
+    if (tx.status === 'paid' || tx.invoicePaymentId) {
+      blockedPaidCount += 1;
+      return tx;
+    }
 
     restoredCount += 1;
     const restoredMonth = tx.originalCompetenceMonth || tx.competenceMonth;
@@ -759,6 +796,7 @@ export function reverseInstallmentAnticipation(
   return {
     updatedTransactions,
     restoredCount,
+    blockedPaidCount,
   };
 }
 

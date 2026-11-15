@@ -202,9 +202,6 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   const [statementFilter, setStatementFilter] = useState<
     'all' | 'credit' | 'debit' | 'transfer' | 'pending'
   >('all');
-  const [statementOrder, setStatementOrder] = useState<'chronological' | 'newest'>(
-    'chronological'
-  );
   const [searchQuery, setSearchQuery] = useState('');
 
   // Account Create / Edit Form state
@@ -268,10 +265,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
 
   const filteredStatementEntries = useMemo(() => {
     if (!statementSummary) return [];
-    const baseList =
-      statementOrder === 'chronological'
-        ? statementSummary.entriesChronological
-        : statementSummary.entriesNewestFirst;
+    // O extrato é sempre cronológico (01 → 31).
+    const baseList = statementSummary.entriesChronological;
 
     const normQuery = normalizeSearchText(searchQuery);
 
@@ -291,7 +286,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       }
       return true;
     });
-  }, [statementSummary, statementOrder, statementFilter, searchQuery, catMap]);
+  }, [statementSummary, statementFilter, searchQuery, catMap]);
 
   const openNewAccountForm = (initialType: AccountType = 'checking') => {
     setEditingAccount(null);
@@ -1476,17 +1471,6 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                 />
               </div>
 
-              <select
-                aria-label="Ordenação do extrato bancário"
-                value={statementOrder}
-                onChange={(e) =>
-                  setStatementOrder(e.target.value as 'chronological' | 'newest')
-                }
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700"
-              >
-                <option value="chronological">Ordem Bancária (01 → 31)</option>
-                <option value="newest">Mais Recentes Primeiro</option>
-              </select>
             </div>
           </div>
         </div>

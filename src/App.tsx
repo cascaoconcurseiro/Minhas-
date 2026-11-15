@@ -2093,7 +2093,12 @@ export default function App() {
   const handleReverseAnticipation = (targetIdOrGroupId: string) => {
     const prevSnapshot = [...transactions];
     const res = reverseInstallmentAnticipation(transactions, targetIdOrGroupId);
-    if (res.restoredCount === 0) return;
+    if (res.restoredCount === 0) {
+      if (res.blockedPaidCount > 0) {
+        showNotice('Esta parcela antecipada já foi paga. Estorne o pagamento da fatura antes de desfazer a antecipação.', undefined, true);
+      }
+      return;
+    }
     setTransactions(res.updatedTransactions);
     showNotice(
       `Antecipação desfeita: ${res.restoredCount} parcela(s) devolvida(s) aos meses de vencimento originais!`,
@@ -2115,6 +2120,17 @@ export default function App() {
       .map((t) => t.sharedSyncId || t.id);
 
     setTransactions(res.updatedTransactions);
+    // Apagar o movimento bancário de um acerto de viagem reabre o acerto (senão o grupo ficaria "quitado" sem dinheiro).
+    const removedTxIds = prevSnapshot.filter((t) => !updatedIds.has(t.id)).map((t) => t.id);
+    if (removedTxIds.some((id) => id.startsWith('tx-tripsettle'))) {
+      setTrips((prev) =>
+        prev.map((trip) =>
+          trip.settlements.some((st) => st.linkedTransactionId && removedTxIds.includes(st.linkedTransactionId))
+            ? { ...trip, settlements: trip.settlements.filter((st) => !(st.linkedTransactionId && removedTxIds.includes(st.linkedTransactionId))) }
+            : trip
+        )
+      );
+    }
     if (deletedSharedIds.length > 0) {
       triggerCrossAccountSharedTxSync(
         res.updatedTransactions,
@@ -2350,25 +2366,33 @@ export default function App() {
       description: string;
     }
   ) => {
+    const settlementTxId = bankAccountEffect && bankAccountEffect.brlAmount > 0
+      ? newEntityId('tx-tripsettle')
+      : undefined;
+    // Vínculo nos dois sentidos: o acerto aponta para o movimento do extrato (apagar o movimento reabre o acerto).
+    const linkedSettlement: TripSettlement = settlementTxId
+      ? { ...settlement, linkedTransactionId: settlementTxId }
+      : settlement;
     setTrips((prev) =>
       prev.map((t) =>
         t.id === tripId
-          ? { ...t, settlements: [settlement, ...t.settlements] }
+          ? { ...t, settlements: [linkedSettlement, ...t.settlements] }
           : t
       )
     );
 
-    if (bankAccountEffect && bankAccountEffect.brlAmount > 0) {
+    if (bankAccountEffect && settlementTxId) {
       const settleTx: Transaction = {
-        id: newEntityId('tx-tripsettle'),
+        id: settlementTxId,
         description: bankAccountEffect.description,
         amount: bankAccountEffect.brlAmount,
         date: settlement.date,
         competenceMonth: settlement.date.slice(0, 7),
         type: bankAccountEffect.type,
         status: 'paid',
+        // Reembolso de viagem não é rendimento de investimento: usa a categoria de reembolsos.
         categoryId:
-          bankAccountEffect.type === 'income' ? 'cat-rendimentos' : 'cat-lazer',
+          bankAccountEffect.type === 'income' ? 'cat-reembolsos' : 'cat-viagens',
         accountId: bankAccountEffect.accountId,
         paymentMethod: 'pix',
         recurrence: 'single',

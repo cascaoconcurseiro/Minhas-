@@ -23,6 +23,7 @@ function renderTransactionModal(
     familyMembers?: FamilyMember[];
     onAddFamilyMember?: (member: Omit<FamilyMember, 'id'>) => FamilyMember | void;
     editingTransaction?: Transaction;
+    trips?: import('../../types/finance').Trip[];
     transactions?: Transaction[];
     onRequestCreate?: (kind: 'account' | 'card' | 'international_account') => void;
     /** Não escolhe a forma de pagamento sozinho: a tela abre como abre para a pessoa. */
@@ -64,6 +65,7 @@ function renderTransactionModal(
         cards,
         categories: options.categories ?? [category],
         transactions: options.transactions ?? [],
+        trips: options.trips,
         familyMembers: options.familyMembers ?? [],
         onAddFamilyMember: options.onAddFamilyMember,
         selectedMonth: '2026-11',
@@ -1031,4 +1033,57 @@ test('com mais de uma conta ou cartão, nada vem escolhido e é obrigatório esc
   await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
   assert.match(page.querySelector('[role="alert"]')?.textContent ?? '', /Escolha o cartão/);
   assert.equal(saved.length, 1);
+});
+
+test('ao vincular uma viagem, o campo de valor passa para a moeda e o símbolo da viagem', async () => {
+  const trip = {
+    id: 'trip-usd', name: 'Orlando', destination: 'EUA', startDate: '2026-11-01', endDate: '2026-11-20', status: 'active' as const,
+    currency: 'USD' as const, defaultExchangeRate: 5.5, budgetForeign: 1000,
+    participants: [{ id: 'me', name: 'Eu', isMe: true, color: '#000' }], exchangeLots: [], settlements: [], coverColor: '#000',
+  };
+  const page = renderTransactionModal(() => {}, () => {}, { trips: [trip as never] });
+  assert.equal(page.querySelector('[data-testid="tx-foreign-amount-input"]'), null, 'sem viagem, só reais');
+  const toggle = page.querySelector<HTMLButtonElement>('[data-testid="toggle-trip-switch"]');
+  assert.ok(toggle);
+  await act(async () => { toggle.click(); });
+  const select = page.querySelector<HTMLSelectElement>('[data-testid="tx-trip-select"]');
+  if (select) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set?.call(select, 'trip-usd');
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+  }
+  const foreign = page.querySelector('[data-testid="tx-foreign-amount-input"]');
+  assert.ok(foreign, 'o campo de valor na moeda da viagem aparece');
+  assert.match(page.textContent || '', /US\$/);
+  assert.match(page.textContent || '', /Valor na Moeda da Viagem \(USD\)/);
+});
+
+test('categorias de despesa aparecem agrupadas por tipo e em ordem alfabética', () => {
+  const mk = (id: string, name: string, bucket: Category['bucket']): Category => ({ id, name, type: 'expense', bucket, monthlyBudget: 0, color: '#000', icon: 'utensils' });
+  const page = renderTransactionModal(() => {}, () => {}, {
+    categories: [mk('c1', 'Lazer', 'lifestyle'), mk('c2', 'Moradia', 'essential'), mk('c3', 'Aportes', 'financial'), mk('c4', 'Contas', 'essential')],
+  });
+  const select = page.querySelector<HTMLSelectElement>('#tx-category-select');
+  assert.ok(select);
+  const groups = [...select.querySelectorAll('optgroup')].map((group) => ({
+    label: group.label,
+    options: [...group.querySelectorAll('option')].map((option) => option.textContent),
+  }));
+  assert.deepEqual(groups, [
+    { label: 'Essenciais', options: ['Contas', 'Moradia'] },
+    { label: 'Estilo de vida e lazer', options: ['Lazer'] },
+    { label: 'Objetivos e poupança', options: ['Aportes'] },
+  ]);
+});
+
+test('o seletor de parcelas do cartão oferece todos os números de 2 a 48 (inclui 11, 13, 14...)', async () => {
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard] });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="recurrence-installment-btn"]')?.click(); });
+  const select = [...page.querySelectorAll('select')].find((el) => el.textContent?.includes('x sem juros no cartão'));
+  assert.ok(select, 'seletor de parcelas visível');
+  const values = [...select.querySelectorAll('option')].map((option) => Number(option.value));
+  assert.deepEqual(values, Array.from({ length: 47 }, (_, i) => i + 2));
+  assert.ok(values.includes(11));
 });
