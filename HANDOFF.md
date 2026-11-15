@@ -43,6 +43,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-15 — Dado lançado no Neon: parcelas restantes do Itaú azul da Francy (francy.von@gmail.com)
+- **O que mudou:** no workspace de produção da Francy (revisão 8 → 10, 0 → 41 lançamentos) foram lançadas as **12 compras parceladas** do print da fatura de dezembro do cartão **Azul** (`card-1794778043837-yro5fd`), só as **parcelas de dezembro/2026 em diante**, mês a mês. Ids `tx-azul-fran-*`, grupos `tx-grp-azul-fran-*`, status pendente, data dia 28 do mês anterior à fatura (mesmo padrão do azul do dono). Numeração renumerada de 1 a N restantes; a parcela real do banco está nas notas. Categorias: Academia (Tpforma, Decathlon), Beleza (Boticário), Farmácia (Panvel), Compras (Mercado Livre, Shopee e 3 lojas não identificadas), Vestuário (Riachuelo, Adidas).
+- **Por quê:** pedido do dono: lançar os parcelamentos do cartão azul da Francy e só o que falta daqui para frente.
+- **Arquivos/áreas:** apenas dados no Neon (`finance_workspaces.payload.transactionsJson`); nenhum código.
+- **Como foi verificado:** releitura: 41 lançamentos, ids únicos; dezembro R$ 707,09 (igual ao "resultado da pesquisa" do print), janeiro R$ 401,53 e fevereiro R$ 344,04 (iguais às abas do banco); último mês nov/2027 (Tpforma 12/12). Gravação com trava de revisão.
+- **Não verificado:** a tela renderizada; categorias de "Filial Caxias do S", "060 - RS Caxias do" e "New Brasil POA" são palpite (Compras); o print mostra só os parcelamentos, então o restante da fatura de dezembro (R$ 1.089,84 no total) não foi lançado.
+- **Impacto em dados/Neon:** escrita direta. **Para reverter:** apagar da Francy os lançamentos com id iniciando em `tx-azul-fran-`.
+- **Documentação atualizada:** não necessário: nenhuma regra mudou.
+- **Próximo passo:** a Francy conferir a fatura de dezembro/janeiro no app e corrigir categorias duvidosas.
+
 ### 2026-11-15 — Dado lançado no Neon: 110 compartilhados enviados para a conta da Fran
 - **O que mudou:** gravados direto em `finance_shared_transactions` os **110 espelhos** dos compartilhados do dono com a FRAN (remetente = conta do dono, destinatária = conta da Fran, convite aceito). Cada espelho foi montado no mesmo formato que `PUT /api/family/shared` grava (`tx-mirror-*`, quem pagou invertido, `sharedMemberId` = `fam-inv-wesley_diaslima_gmail_com`, cota arredondada em centavos).
 - **Por quê:** depois de publicada a correção (#46), a Fran ainda não via nada: o envio depende de o app do dono abrir na versão nova, e o app instalado não tinha atualizado. O dono escolheu gravar direto no banco.
