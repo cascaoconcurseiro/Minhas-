@@ -59,6 +59,8 @@ let invitation: {
   status: 'accepted',
 };
 const shared = new Map<string, unknown>();
+let registeredEmails: string[] = [];
+let failAccountLookup = false;
 const sqlLog: string[] = [];
 const invitationInsertParameters: unknown[][] = [];
 const workspaceQueries: Array<{ sql: string; params: unknown[] }> = [];
@@ -121,7 +123,12 @@ before(async () => {
   };
 
   // Session check (token_version / e-mail verification) runs through pool.query.
-  Pool.prototype.query = (async function (sql: string) {
+  Pool.prototype.query = (async function (sql: string, params: unknown[] = []) {
+    if (String(sql).includes('lower(email) = ANY')) {
+      if (failAccountLookup) throw new Error('simulated account lookup failure');
+      const asked = (params[0] as string[]).map((email) => email.toLowerCase());
+      return { rows: registeredEmails.filter((email) => asked.includes(email)).map((email) => ({ email })), rowCount: 0 };
+    }
     if (String(sql).includes('FROM public.app_users')) {
       return { rows: [{ token_version: 0, email_verified: true }], rowCount: 1 };
     }
@@ -320,6 +327,20 @@ test('API familiar exige login e sincroniza pelo Neon antes de revogar', async (
   assert.equal(createdBody.invitation.owner_user_id, 'owner-uid');
   assert.equal(createdBody.invitation.status, 'invited');
   assert.equal(invitationInsertParameters.at(-1)?.[3], 'member@example.com');
+  assert.equal((createdBody.invitation as { invited_has_account?: boolean }).invited_has_account, false, 'e-mail sem conta é sinalizado a quem convidou');
+
+  const listPending = async (token: string) =>
+    ((await (await originalFetch(`${baseUrl}/api/family/invitations`, { headers: { Authorization: `Bearer ${token}` } })).json()) as { invitations: Array<{ invited_has_account?: boolean }> }).invitations;
+  assert.equal((await listPending(authTokens.owner))[0].invited_has_account, false);
+  registeredEmails = ['member@example.com'];
+  assert.equal((await listPending(authTokens.owner))[0].invited_has_account, true, 'depois que a pessoa cria a conta, o aviso muda');
+  assert.equal('invited_has_account' in (await listPending(authTokens.invited))[0], false, 'quem foi convidado não recebe essa informação');
+  failAccountLookup = true;
+  const withoutLookup = await listPending(authTokens.owner);
+  assert.equal(withoutLookup.length, 1, 'falha ao consultar contas não derruba a lista de convites');
+  assert.equal('invited_has_account' in withoutLookup[0], false);
+  failAccountLookup = false;
+  registeredEmails = [];
 
   const wrongInvitee = await originalFetch(`${baseUrl}/api/family/invitations/${createdBody.invitation.invitation_id}/respond`, {
     method: 'POST',

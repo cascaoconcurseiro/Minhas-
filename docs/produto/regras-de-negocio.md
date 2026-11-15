@@ -214,6 +214,18 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 - **Acerto (encontro de contas)** (`settleSharedExpenses`): compensa créditos e débitos recíprocos e liquida o líquido em **um lançamento bancário**, com rastreabilidade (`sharedSettlementId`). Pode ser **reaberto** (`reopenSharedSettlement`).
 - **Entre contas diferentes**: convites (`fam-inv-*`) e espelhos de despesas (`tx-mirror-*`) são sincronizados pelo servidor entre contas vinculadas; recibos bancários locais ficam em `sharedSettlementReceiptsJson` e não vazam para o outro usuário.
 - **Compartilhados lançados antes do aceite do convite** (correção de 2026-11-15): o servidor informa quais compartilhados desta conta já tem (`outgoingSharedIds`); ao abrir o app e a cada leitura periódica, o app envia, em silêncio e em lotes de 40, os que faltam para cada pessoa com convite aceito (`findUnsentSharedTransactions`). Cada lançamento é tentado uma vez por sessão; falha de rede libera nova tentativa. Antes, o envio só acontecia ao salvar um lançamento, e o que existia antes do aceite nunca chegava à outra conta.
+- **Situações do convite (verificadas com PostgreSQL real em `scripts/qa-postgres.ts`)**:
+
+| Situação | O que acontece |
+|---|---|
+| Convidar um e-mail **sem conta** | O convite fica guardado no servidor (o app **não envia e-mail**). A tela avisa "Essa pessoa ainda não tem conta" e oferece **Copiar convite** e **Enviar pelo WhatsApp** com a mensagem pronta. Nada é enviado antes de o convite ser aceito (o servidor responde 403). |
+| A pessoa **cria a conta depois** (com o mesmo e-mail, em qualquer combinação de maiúsculas) | Ao entrar, ela vê o convite pendente na aba Compartilhado e aceita. Na tela de quem convidou, o aviso muda para "Ela já tem conta" (atualiza a cada minuto) e, ao aceitar, vira "Conta vinculada". |
+| Depois do aceite | Quem convidou envia automaticamente, em silêncio, os compartilhados que já existiam (aberto o app, em até 1 minuto) e todos os novos ao salvar. |
+| **Os dois sentidos** | Cada lado lança compartilhados e o outro recebe como espelho (`tx-mirror-*`) com "quem pagou" invertido e a cota dele. Editar o lançamento atualiza o espelho; apagar do lado de quem lançou remove o espelho; apagar do lado de quem recebeu só esconde a cópia dele (e ela não é reenviada). |
+| **Recusa** | Bloqueia o envio. Quem convidou pode convidar de novo ("Atualizar convite"): o convite volta a pendente e pode ser aceito. |
+| **Revogação** (por qualquer lado) | Apaga os espelhos nos dois sentidos. Convidar de novo recomeça do zero e quem convidou reenvia os compartilhados sozinho. |
+| Convite para si mesmo, e-mail inválido, sem login | Recusado (400/401). Outra pessoa não vê nem aceita um convite que não é dela (404). |
+
 - **A Receber não é compartilhado**: um item de A Receber (ex.: fatura do cartão adicional de outra pessoa) fica só na conta de quem o lançou; ele não aparece na conta da pessoa, mesmo com convite aceito.
 - Compras do tipo "familiar pagou" não entram como seu gasto no cartão (`sharedPaidBy === 'member'`).
 
