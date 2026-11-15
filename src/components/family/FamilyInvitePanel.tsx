@@ -11,6 +11,8 @@ interface FamilyInvitePanelProps {
   email: string;
   /** true/false vindo do servidor; undefined quando ele não soube responder. */
   hasAccount?: boolean;
+  /** Código que a pessoa convidada precisa digitar para aceitar (só quem convidou o vê). */
+  inviteCode?: string;
   onFeedback: (message: string) => void;
 }
 
@@ -21,9 +23,9 @@ const TONE_STYLES: Record<FamilyInviteTone, string> = {
 };
 
 /** Convite pendente enviado por mim: diz em que pé está e deixa avisar a pessoa (o app não envia e-mail). */
-export const FamilyInvitePanel: React.FC<FamilyInvitePanelProps> = ({ email, hasAccount, onFeedback }) => {
+export const FamilyInvitePanel: React.FC<FamilyInvitePanelProps> = ({ email, hasAccount, inviteCode, onFeedback }) => {
   const status = getFamilyInviteStatus(email, hasAccount);
-  const message = buildFamilyInviteMessage({ appUrl: window.location.origin, email });
+  const message = buildFamilyInviteMessage({ appUrl: window.location.origin, email, code: inviteCode });
   const Icon = status.tone === 'warning' ? AlertTriangle : Info;
 
   const copyInvite = async () => {
@@ -47,6 +49,12 @@ export const FamilyInvitePanel: React.FC<FamilyInvitePanelProps> = ({ email, has
           <p className="mt-0.5">{status.detail}</p>
         </div>
       </div>
+      {inviteCode && (
+        <p className="rounded border border-current/30 bg-white/60 px-2 py-1.5 dark:bg-slate-900/40">
+          Código do convite:{' '}
+          <strong data-testid="family-invite-code-value" className="font-mono text-sm tracking-wider">{inviteCode}</strong>
+        </p>
+      )}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"

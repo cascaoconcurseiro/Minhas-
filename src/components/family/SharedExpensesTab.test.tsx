@@ -22,7 +22,7 @@ function renderSharedExpensesTab(
     accounts?: BankAccount[];
     onDeleteFamilyMember?: (memberId: string) => void;
     onSettleSharedTransaction?: (txId: string, accountId: string, date: string) => void;
-    onAcceptFamilyInvite?: (member: FamilyMember) => void;
+    onAcceptFamilyInvite?: (member: FamilyMember, code: string) => void;
     onDeclineFamilyInvite?: (member: FamilyMember) => void;
     onResendFamilyInvite?: (member: FamilyMember) => void;
     onUpdateFamilyMember?: (member: FamilyMember) => void | boolean | Promise<void | boolean>;
@@ -31,6 +31,7 @@ function renderSharedExpensesTab(
     onOpenNewSharedTransaction?: (memberId?: string) => void;
     userPixKey?: string;
     inviteeHasAccount?: Record<string, boolean>;
+    inviteCodes?: Record<string, string>;
   } = {}
 ) {
   container = document.createElement('div');
@@ -57,6 +58,7 @@ function renderSharedExpensesTab(
         onResendFamilyInvite: options.onResendFamilyInvite,
         userPixKey: options.userPixKey,
         inviteeHasAccount: options.inviteeHasAccount,
+        inviteCodes: options.inviteCodes,
       })
     );
   });
@@ -537,18 +539,22 @@ test('incoming shared invite accept and decline are routed through synthetic cal
     color: '#059669', email: 'sender@example.test', inviteStatus: 'invited', direction: 'incoming',
     invitedByName: 'Remetente Teste', invitedByEmail: 'sender@example.test',
   };
-  const accepted: FamilyMember[] = [];
+  const accepted: Array<[FamilyMember, string]> = [];
   const declined: FamilyMember[] = [];
   const page = renderSharedExpensesTab(() => {}, {
     familyMembers: [incoming],
-    onAcceptFamilyInvite: (member) => accepted.push(member),
+    onAcceptFamilyInvite: (member, code) => accepted.push([member, code]),
     onDeclineFamilyInvite: (member) => declined.push(member),
   });
   const accept = page.querySelector<HTMLButtonElement>(`[data-testid="accept-family-invite-${incoming.id}"]`);
   const decline = page.querySelector<HTMLButtonElement>(`[data-testid="decline-family-invite-${incoming.id}"]`);
-  assert.ok(accept && decline);
-  await act(async () => { accept.click(); decline.click(); });
-  assert.deepEqual(accepted, [incoming]);
+  const codeInput = page.querySelector<HTMLInputElement>(`[data-testid="family-invite-code-${incoming.id}"]`);
+  assert.ok(accept && decline && codeInput);
+  assert.equal(accept.disabled, true, 'sem o código não dá para aceitar');
+  await act(async () => { decline.click(); });
+  await act(async () => { setInputValue(codeInput, 'ab3def4h'); });
+  await act(async () => { accept.click(); });
+  assert.deepEqual(accepted, [[incoming, 'AB3D-EF4H']]);
   assert.deepEqual(declined, [incoming]);
 });
 
@@ -633,6 +639,28 @@ test('sem informação do servidor o convite não afirma se a pessoa tem conta',
   const page = await openInviteTabWith(pendingMember);
   assert.doesNotMatch(page.textContent ?? '', /ainda não tem conta|Ela já tem conta/);
   assert.match(page.textContent ?? '', /O app não envia e-mail/);
+});
+
+test('quem convidou vê o código do convite e ele vai na mensagem copiada e no WhatsApp', async () => {
+  let copied = '';
+  originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { copied = text; } } });
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [pendingMember], inviteeHasAccount: { 'fran@example.test': false }, inviteCodes: { 'fran@example.test': 'AB3D-EF4H' },
+  });
+  const tab = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Pessoas & Convites por E-mail'));
+  await act(async () => { tab!.click(); });
+  assert.equal(page.querySelector('[data-testid="family-invite-code-value"]')?.textContent, 'AB3D-EF4H');
+  const copy = [...page.querySelectorAll('button')].find((button) => button.textContent?.includes('Copiar convite'));
+  await act(async () => { copy!.click(); await Promise.resolve(); });
+  assert.match(copied, /Código do convite: AB3D-EF4H/);
+  const whatsapp = [...page.querySelectorAll('a')].find((link) => link.textContent?.includes('WhatsApp'));
+  assert.match(decodeURIComponent(whatsapp?.getAttribute('href') ?? ''), /Código do convite: AB3D-EF4H/);
+});
+
+test('sem código disponível o painel não mostra a linha do código', async () => {
+  const page = await openInviteTabWith(pendingMember, { 'fran@example.test': false });
+  assert.equal(page.querySelector('[data-testid="family-invite-code-value"]'), null);
 });
 
 test('painel do convite não aparece para vínculo aceito nem para convite recebido', async () => {

@@ -12,12 +12,26 @@ export interface FamilyInviteStatus {
 }
 
 /** Mensagem pronta para colar no WhatsApp ou em qualquer conversa. */
-export function buildFamilyInviteMessage(input: { appUrl: string; email: string }): string {
+export function buildFamilyInviteMessage(input: { appUrl: string; email: string; code?: string }): string {
   return [
     'Oi! Convidei você para dividirmos despesas no Minhas Economias.',
     `Abra ${input.appUrl} e entre com o e-mail ${input.email} (se ainda não tem conta, crie uma com esse mesmo e-mail).`,
     'Depois aceite o meu convite na aba Compartilhado.',
+    ...(input.code ? [`Código do convite: ${input.code} (você vai digitar para aceitar)`] : []),
   ].join('\n');
+}
+
+const INVITE_CODE_LENGTH = 8;
+const cleanInviteCode = (input: string) => input.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** O que a pessoa digita vira o código: maiúsculas, só letras/números, hífen depois do 4º caractere, até 8. */
+export function formatFamilyInviteCodeInput(input: string): string {
+  const clean = cleanInviteCode(input).slice(0, INVITE_CODE_LENGTH);
+  return clean.length > 4 ? `${clean.slice(0, 4)}-${clean.slice(4)}` : clean;
+}
+
+export function isFamilyInviteCodeComplete(input: string): boolean {
+  return cleanInviteCode(input).length === INVITE_CODE_LENGTH;
 }
 
 /** Abre o WhatsApp com a mensagem pronta; quem convida escolhe o contato e envia. */
@@ -35,20 +49,20 @@ export function getFamilyInviteStatus(email: string, hasAccount: boolean | undef
     return {
       tone: 'warning',
       title: 'Essa pessoa ainda não tem conta',
-      detail: `Peça para ela criar a conta com o e-mail ${email} e aceitar o convite na aba Compartilhado. O app não envia e-mail: use os botões abaixo para avisar.`,
+      detail: `Peça para ela criar a conta com o e-mail ${email} e aceitar o convite na aba Compartilhado, digitando o código abaixo. O app não envia e-mail: use os botões abaixo para avisar.`,
     };
   }
   if (hasAccount === true) {
     return {
       tone: 'info',
       title: 'Ela já tem conta',
-      detail: 'Falta abrir o app e aceitar o convite na aba Compartilhado. O app não envia e-mail: se quiser, avise pelos botões abaixo.',
+      detail: 'Falta abrir o app e aceitar o convite na aba Compartilhado, digitando o código abaixo. O app não envia e-mail: se quiser, avise pelos botões abaixo.',
     };
   }
   return {
     tone: 'neutral',
     title: 'Convite registrado',
-    detail: `O app não envia e-mail. Peça para a pessoa entrar com ${email} e aceitar o convite na aba Compartilhado.`,
+    detail: `O app não envia e-mail. Peça para a pessoa entrar com ${email} e aceitar o convite na aba Compartilhado, digitando o código do convite.`,
   };
 }
 

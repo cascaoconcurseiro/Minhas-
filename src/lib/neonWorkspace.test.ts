@@ -6,6 +6,7 @@ import {
   loadNeonWorkspace,
   NeonWorkspaceError,
   parseNeonWorkspaceSnapshot,
+  respondToNeonFamilyInvitation,
   saveNeonWorkspace,
 } from './neonWorkspace';
 
@@ -173,5 +174,33 @@ test('workspace HTTP operations authenticate, retry an expired token once, and p
     else Reflect.deleteProperty(globalThis, 'fetch');
     if (originalUser) Object.defineProperty(auth, 'currentUser', originalUser);
     else Reflect.deleteProperty(auth, 'currentUser');
+  }
+});
+
+test('aceitar convite envia o código; recusar não envia código; erro 403 chega com o status', async () => {
+  const originalFetch = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+  const originalUser = Object.getOwnPropertyDescriptor(auth, 'currentUser');
+  const bodies: unknown[] = [];
+  let status = 200;
+  try {
+    Object.defineProperty(auth, 'currentUser', { configurable: true, enumerable: true, writable: true, value: { isAnonymous: false, getIdToken: async () => 'token' } });
+    Object.defineProperty(globalThis, 'fetch', {
+      configurable: true, writable: true,
+      value: (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        return jsonResponse(status, status === 200 ? { invitation: { status: 'accepted' } } : { error: 'Código do convite incorreto.' });
+      }) as typeof fetch,
+    });
+    await respondToNeonFamilyInvitation('inv-1', 'accepted', 'AB3D-EF4H');
+    await respondToNeonFamilyInvitation('inv-1', 'declined');
+    assert.deepEqual(bodies, [{ action: 'accepted', code: 'AB3D-EF4H' }, { action: 'declined' }]);
+    status = 403;
+    await assert.rejects(
+      respondToNeonFamilyInvitation('inv-1', 'accepted', 'AAAA-AAAA'),
+      (error: unknown) => error instanceof NeonWorkspaceError && error.status === 403
+    );
+  } finally {
+    if (originalFetch) Object.defineProperty(globalThis, 'fetch', originalFetch);
+    if (originalUser) Object.defineProperty(auth, 'currentUser', originalUser);
   }
 });

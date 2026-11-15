@@ -25,6 +25,8 @@ import {
   signSessionToken,
   verifyPassword,
   verifySessionToken,
+  deriveFamilyInviteCode,
+  isFamilyInviteCodeValid,
 } from './authSession.ts';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { registerPasskeyRoutes } from './passkeys.ts';
@@ -202,18 +204,28 @@ async function findRegisteredEmails(emails: string[]): Promise<Set<string> | nul
   }
 }
 
-/** Acrescenta `invited_has_account` só nos convites pendentes enviados por este usuário. */
-async function withInviteeAccountStatus<T extends { owner_user_id: string; invited_email: string; status: string }>(
+/**
+ * Nos convites pendentes enviados por este usuário: `invite_code` (o código que a pessoa convidada precisa
+ * digitar para aceitar) e `invited_has_account` (se a consulta de contas funcionou). Quem foi convidado nunca
+ * recebe esses campos.
+ */
+async function withOwnerInviteInfo<
+  T extends { owner_user_id: string; invitation_id: string; invited_email: string; status: string; created_at?: unknown }
+>(
   invitations: T[],
   userUid: string
-): Promise<Array<T & { invited_has_account?: boolean }>> {
-  const pending = invitations.filter((row) => row.owner_user_id === userUid && row.status === 'invited');
+): Promise<Array<T & { invite_code?: string; invited_has_account?: boolean }>> {
+  const isOwnPending = (row: T) => row.owner_user_id === userUid && row.status === 'invited';
+  const pending = invitations.filter(isOwnPending);
   if (pending.length === 0) return invitations;
   const registered = await findRegisteredEmails(pending.map((row) => row.invited_email));
-  if (!registered) return invitations;
   return invitations.map((row) =>
-    row.owner_user_id === userUid && row.status === 'invited'
-      ? { ...row, invited_has_account: registered.has(String(row.invited_email).trim().toLowerCase()) }
+    isOwnPending(row)
+      ? {
+          ...row,
+          invite_code: deriveFamilyInviteCode(row.invitation_id, row.created_at),
+          ...(registered ? { invited_has_account: registered.has(String(row.invited_email).trim().toLowerCase()) } : {}),
+        }
       : row
   );
 }
@@ -678,7 +690,7 @@ async function startServer() {
         );
         return result.rows;
       });
-      res.json({ invitations: await withInviteeAccountStatus(invitations, user.uid) });
+      res.json({ invitations: await withOwnerInviteInfo(invitations, user.uid) });
     } catch (error) {
       console.error('Erro ao carregar convites familiares:', error);
       res.status(503).json({ error: 'Não foi possível carregar os convites familiares.' });
@@ -751,13 +763,16 @@ async function startServer() {
         );
         return result.rows[0];
       });
-      res.status(201).json({ invitation: (await withInviteeAccountStatus([invitation], user.uid))[0] });
+      res.status(201).json({ invitation: (await withOwnerInviteInfo([invitation], user.uid))[0] });
     } catch (error) {
       console.error('Erro ao criar convite familiar:', error);
       res.status(503).json({ error: 'Não foi possível salvar o convite familiar.' });
     }
   });
 
+  // Aceitar exige o código do convite (criar conta com o e-mail convidado não basta). Errar o código muitas
+  // vezes bloqueia o usuário por uma hora, para ninguém adivinhar.
+  const inviteCodeLimiter = createAttemptLimiter(8, 60 * 60 * 1000);
   app.post('/api/family/invitations/:invitationId/respond', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     const action = req.body?.action;
@@ -765,26 +780,12 @@ async function startServer() {
       res.status(400).json({ error: 'Resposta de convite inválida.' });
       return;
     }
+    if (action === 'accepted' && inviteCodeLimiter.isBlocked(user.uid)) {
+      res.status(429).json({ error: 'Muitas tentativas com código errado. Aguarde uma hora e tente de novo.' });
+      return;
+    }
     try {
       const response = await withWorkspaceRls(user, async (client) => {
-        const result = await client.query(
-          `UPDATE public.finance_family_invitations
-              SET status = $1,
-                  invited_user_id = $2,
-                  updated_at = now(),
-                  responded_at = now()
-            WHERE invitation_id = $3
-              AND lower(invited_email) = lower($4)
-              AND status = 'invited'
-          RETURNING invitation_id, owner_user_id, owner_email, invited_email,
-                    invited_user_id, owner_member_id, owner_name, owner_pix_key,
-                    relationship, color, status, created_at, updated_at, responded_at`,
-          [action, user.uid, req.params.invitationId, user.email]
-        );
-        if (result.rows[0]) return { invitation: result.rows[0] };
-
-        // A repeated identical response is safe and idempotent. A different
-        // action after the invitation is terminal must not silently replace it.
         const existingResult = await client.query(
           `SELECT invitation_id, owner_user_id, owner_email, invited_email,
                   invited_user_id, owner_member_id, owner_name, owner_pix_key,
@@ -797,7 +798,35 @@ async function startServer() {
           [req.params.invitationId, user.email]
         );
         const existing = existingResult.rows[0];
-        if (!existing || existing.invited_user_id !== user.uid) return { notFound: true as const };
+        if (!existing) return { notFound: true as const };
+
+        if (existing.status === 'invited') {
+          if (
+            action === 'accepted' &&
+            !isFamilyInviteCodeValid(req.body?.code, existing.invitation_id, existing.created_at)
+          ) {
+            return { badCode: true as const };
+          }
+          const result = await client.query(
+            `UPDATE public.finance_family_invitations
+                SET status = $1,
+                    invited_user_id = $2,
+                    updated_at = now(),
+                    responded_at = now()
+              WHERE invitation_id = $3
+                AND lower(invited_email) = lower($4)
+                AND status = 'invited'
+            RETURNING invitation_id, owner_user_id, owner_email, invited_email,
+                      invited_user_id, owner_member_id, owner_name, owner_pix_key,
+                      relationship, color, status, created_at, updated_at, responded_at`,
+            [action, user.uid, req.params.invitationId, user.email]
+          );
+          return result.rows[0] ? { invitation: result.rows[0] } : { notFound: true as const };
+        }
+
+        // A repeated identical response is safe and idempotent (sem pedir o código de novo). A different
+        // action after the invitation is terminal must not silently replace it.
+        if (existing.invited_user_id !== user.uid) return { notFound: true as const };
         if (existing.status === action) return { invitation: existing };
         return { conflict: true as const };
       });
@@ -805,10 +834,16 @@ async function startServer() {
         res.status(404).json({ error: 'Convite não encontrado para esta conta.' });
         return;
       }
+      if ('badCode' in response) {
+        inviteCodeLimiter.recordFailure(user.uid);
+        res.status(403).json({ error: 'Código do convite incorreto. Peça o código a quem convidou.' });
+        return;
+      }
       if ('conflict' in response) {
         res.status(409).json({ error: 'Este convite já recebeu uma resposta diferente.' });
         return;
       }
+      if (action === 'accepted') inviteCodeLimiter.reset(user.uid);
       res.json({ invitation: response.invitation });
     } catch (error) {
       console.error('Erro ao responder convite familiar:', error);

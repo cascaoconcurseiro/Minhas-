@@ -481,6 +481,8 @@ export default function App() {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
   // E-mail (minúsculo) → a pessoa convidada já tem conta? Só convites pendentes que eu enviei; vem do servidor.
   const [inviteeHasAccount, setInviteeHasAccount] = useState<Record<string, boolean>>({});
+  // E-mail (minúsculo) → código do convite que eu enviei; a pessoa convidada digita para aceitar.
+  const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
   // Ids dos compartilhados que o servidor já tem desta conta (null = ainda não lido ou servidor antigo).
   const [serverSentSharedIds, setServerSentSharedIds] = useState<ReadonlySet<string> | null>(null);
   // Dos já enviados, os de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo).
@@ -1785,14 +1787,17 @@ export default function App() {
   };
 
   const sharedSyncVersionRef = useRef<Record<string, number>>({});
-  const rememberInviteeAccounts = (invitations: Array<{ invited_email: string; status: string; invited_has_account?: boolean }>) => {
-    const next: Record<string, boolean> = {};
+  const rememberInviteeAccounts = (invitations: Array<{ invited_email: string; status: string; invited_has_account?: boolean; invite_code?: string }>) => {
+    const accounts: Record<string, boolean> = {};
+    const codes: Record<string, string> = {};
     for (const invitation of invitations) {
-      if (invitation.status === 'invited' && typeof invitation.invited_has_account === 'boolean') {
-        next[invitation.invited_email.trim().toLowerCase()] = invitation.invited_has_account;
-      }
+      if (invitation.status !== 'invited') continue;
+      const email = invitation.invited_email.trim().toLowerCase();
+      if (typeof invitation.invited_has_account === 'boolean') accounts[email] = invitation.invited_has_account;
+      if (typeof invitation.invite_code === 'string') codes[email] = invitation.invite_code;
     }
-    setInviteeHasAccount((previous) => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+    setInviteeHasAccount((previous) => JSON.stringify(previous) === JSON.stringify(accounts) ? previous : accounts);
+    setInviteCodes((previous) => JSON.stringify(previous) === JSON.stringify(codes) ? previous : codes);
   };
   const triggerCrossAccountSharedTxSync = (
     nextTransactions: Transaction[],
@@ -2669,6 +2674,10 @@ export default function App() {
         const hasAccount = invitation.invited_has_account;
         setInviteeHasAccount((previous) => ({ ...previous, [inviteeEmail]: hasAccount }));
       }
+      if (invitation.status === 'invited' && typeof invitation.invite_code === 'string') {
+        const code = invitation.invite_code;
+        setInviteCodes((previous) => ({ ...previous, [inviteeEmail]: code }));
+      }
       showNotice(getFamilyInviteCreatedNotice(
         member.email,
         invitation.status === 'invited' ? invitation.invited_has_account : undefined
@@ -2802,12 +2811,12 @@ export default function App() {
     return true;
   };
 
-  const handleAcceptFamilyInvite = (member: FamilyMember) => {
+  const handleAcceptFamilyInvite = (member: FamilyMember, code: string) => {
     if (!member.invitationId) {
       showNotice('Este convite ainda não foi migrado para a sincronização segura no Neon.');
       return;
     }
-    void respondToNeonFamilyInvitation(member.invitationId, 'accepted')
+    void respondToNeonFamilyInvitation(member.invitationId, 'accepted', code)
       .then(() => {
         const nextMembers = familyMembers.map((item) =>
           item.id === member.id ? { ...item, inviteStatus: 'accepted' as const } : item
@@ -2818,7 +2827,16 @@ export default function App() {
       })
       .catch((error) => {
         console.error('Falha ao aceitar convite familiar:', error);
-        showNotice('Não foi possível aceitar o convite. Nenhuma alteração foi confirmada.');
+        const status = error instanceof NeonWorkspaceError ? error.status : undefined;
+        showNotice(
+          status === 403
+            ? 'Código do convite incorreto. Confira o código com quem convidou e tente de novo.'
+            : status === 429
+              ? 'Muitas tentativas com código errado. Aguarde uma hora e tente de novo.'
+              : 'Não foi possível aceitar o convite. Nenhuma alteração foi confirmada.',
+          undefined,
+          true
+        );
       });
   };
 
@@ -4478,6 +4496,7 @@ export default function App() {
                   onDeclineFamilyInvite={handleDeclineFamilyInvite}
                   onResendFamilyInvite={triggerCrossAccountInviteSync}
                   inviteeHasAccount={inviteeHasAccount}
+                  inviteCodes={inviteCodes}
                   onSettleSharedTransaction={handleSettleSharedTransaction}
                   onSettleAllMemberInvoices={handleSettleAllMemberInvoices}
                   onReopenSharedTransaction={handleReopenSharedTransaction}
