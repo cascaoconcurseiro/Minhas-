@@ -21,7 +21,7 @@
 4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data).
 
 ## 4. Pendências do dono (dependem do Wesley)
-- Depois de publicado: **abrir o app na sua conta** (Wesley) para os 110 compartilhados com a FRAN serem enviados; depois a Fran abre ou atualiza o app dela.
+- Pedir à Fran para atualizar o app e conferir os 110 compartilhados (já gravados no Neon em 2026-11-15).
 - Atualizar o app instalado: Conta, Login & Nuvem → **Buscar atualização agora**.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
@@ -42,6 +42,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Dado lançado no Neon: 110 compartilhados enviados para a conta da Fran
+- **O que mudou:** gravados direto em `finance_shared_transactions` os **110 espelhos** dos compartilhados do dono com a FRAN (remetente = conta do dono, destinatária = conta da Fran, convite aceito). Cada espelho foi montado no mesmo formato que `PUT /api/family/shared` grava (`tx-mirror-*`, quem pagou invertido, `sharedMemberId` = `fam-inv-wesley_diaslima_gmail_com`, cota arredondada em centavos).
+- **Por quê:** depois de publicada a correção (#46), a Fran ainda não via nada: o envio depende de o app do dono abrir na versão nova, e o app instalado não tinha atualizado. O dono escolheu gravar direto no banco.
+- **Arquivos/áreas:** apenas dados no Neon (`finance_shared_transactions`); nenhum código.
+- **Como foi verificado:** antes: 0 linhas; os 110 lançamentos de origem conferidos (valores e cotas numéricos, nenhuma cota maior que o valor, ids únicos); prévia do formato com amostras. Depois: 110 linhas, remetente e destinatária iguais aos do convite, 0 ocultas, parte da Fran somando R$ 8.509,22 (competências 2026-12 a 2027-11). A gravação tinha trava de convite aceito e `ON CONFLICT DO NOTHING`.
+- **Não verificado:** a tela da Fran com os lançamentos (não tenho acesso ao navegador dela); como o app dela trata os 109 itens "pago por outra pessoa" no cartão do dono.
+- **Impacto em dados/Neon:** escrita direta. **Para reverter:** apagar de `finance_shared_transactions` as linhas com remetente = conta do dono e destinatária = conta da Fran. Quando o app do dono abrir na versão nova, ele verá os 110 como já enviados e não reenvia; edições futuras atualizam essas mesmas linhas.
+- **Documentação atualizada:** não necessário: nenhuma regra mudou.
+- **Próximo passo:** a Fran atualizar o app e conferir; o dono decidir se quer que o servidor envie sozinho no momento do aceite (sem depender do app de quem convidou).
 
 ### 2026-11-15 — Compartilhados lançados antes do aceite chegam à outra conta; dia do cartão por seletor
 - **O que mudou:** (1) **Família:** o app passa a enviar sozinho, para a pessoa com convite aceito, os lançamentos compartilhados que ainda não estão no servidor. O servidor agora devolve em `GET /api/family/shared` a lista do que esta conta já enviou (`outgoingSharedIds`); ao abrir o app e na leitura de cada minuto, o app compara com os compartilhados locais (`findUnsentSharedTransactions`) e envia os que faltam em lotes de 40, uma vez por sessão (falha de rede tenta de novo na leitura seguinte). (2) **Cartões:** "Dia Fecha" e "Dia Vence" (cadastro nas duas telas e edição) viraram um seletor de 1 a 31 (`DayOfMonthSelect`), no lugar do campo numérico.
