@@ -39,7 +39,7 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 ## E. Dívida técnica (sem mudar comportamento)
 - [ ] **[Dev]** Dividir `src/components/transactions/TransactionModal.tsx` (~4.600 linhas) por tipo de lançamento.
 - [ ] **[Dev]** Extrair de `src/App.tsx` (~4.600 linhas) hooks por área (valores a receber, cartões, sincronização).
-- [ ] **[Dev]** Dividir `src/domain/finance/financeRules.ts` (~3.500 linhas) por assunto mantendo um índice que reexporta.
+- [ ] **[Dev]** Dividir `src/domain/finance/financeRules.ts` (~3.300 linhas; a formatação de R$ e datas já foi extraída para `formatting.ts`) por assunto mantendo um índice que reexporta.
 - [ ] **[Dev]** Dividir `backend/app.ts` (~1.500 linhas) em uma rota por arquivo.
 - [ ] **[Dev]** Renomear rótulos e testes antigos que ainda citam Firebase (`firebaseAuthConfigured`, títulos em `src/test-utils/appOrchestrationHarness.tsx`).
 - [ ] **[Dev]** Remover campo sem uso `AppSettings.financialMonthStartDay` e o mecanismo `ReceivablesIntent` (hoje sem uso).

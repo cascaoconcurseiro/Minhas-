@@ -30,7 +30,7 @@ src/
 ├── types/finance.ts         # contratos TypeScript de todas as entidades
 │
 ├── domain/                  # REGRAS DE NEGÓCIO PURAS (sem React, sem rede). Cada .test.ts fica ao lado.
-│   ├── finance/             # lançamentos, contas, faturas, resultado, patrimônio (financeRules.ts) e afins
+│   ├── finance/             # lançamentos, contas, faturas, resultado, patrimônio (financeRules.ts), formatação de R$ e datas (formatting.ts) e afins
 │   ├── cards/               # comprometimento do cartão, inteligência de cartão
 │   ├── budgets/             # orçamentos, previsão de caixa, aprendizado, recorrência, saúde dos dados
 │   ├── receivables/         # A Receber (fatura de cartão adicional, empréstimos)
@@ -81,7 +81,7 @@ Convenções:
 |---|---|---|
 | `src/components/transactions/TransactionModal.tsx` | ~4.600 | Modal único de lançamento; candidato a ser dividido por tipo (despesa/receita/transferência) |
 | `src/App.tsx` | ~4.600 | Estado e handlers; candidato a extrair hooks por área (ex.: valores a receber, cartões) |
-| `src/domain/finance/financeRules.ts` | ~3.500 | Regras centrais; candidato a dividir por assunto mantendo um índice de reexportação |
+| `src/domain/finance/financeRules.ts` | ~3.300 | Regras centrais; candidato a dividir por assunto mantendo um índice de reexportação |
 | `src/components/trips/TripsTab.tsx` | ~3.000 | Tela de viagens |
 | `backend/app.ts` | ~1.500 | Rotas Express; candidato a dividir por rota |
 
