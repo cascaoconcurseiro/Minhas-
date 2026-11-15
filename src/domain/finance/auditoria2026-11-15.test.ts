@@ -191,3 +191,13 @@ test('editar parcelamento é recusado se alguma parcela já foi paga (nada muda)
   assert.ok(r.error);
   assert.equal(r.updatedTransactions, paid);
 });
+
+test('editar parcelado no cartão e trocar para conta/débito vira um lançamento único na conta', () => {
+  const series = createTransactionBatch(batchInput() as any);
+  const r = rebuildTransactionSeries(series, series[0].id, batchInput({ creditCardId: undefined, accountId: 'a1', paymentMethod: 'pix', recurrence: 'single', installmentTotal: undefined, status: 'paid' }) as any);
+  assert.equal(r.error, undefined);
+  assert.equal(r.updatedTransactions.length, 1);
+  assert.equal(r.updatedTransactions[0].creditCardId, undefined);
+  assert.equal(r.updatedTransactions[0].accountId, 'a1');
+  assert.equal(r.updatedTransactions[0].amount, 300);
+});

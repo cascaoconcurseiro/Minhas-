@@ -1886,7 +1886,8 @@ export default function App() {
         const recurrenceChanged =
           input.type !== 'transfer' &&
           !input.isInvoicePayment &&
-          (input.recurrence !== (targetTx.recurrence ?? 'single') ||
+          (Boolean(input.creditCardId) !== Boolean(targetTx.creditCardId) ||
+            input.recurrence !== (targetTx.recurrence ?? 'single') ||
             (input.recurrence === 'installment' && input.installmentTotal !== targetTx.installmentTotal));
         if (recurrenceChanged) {
           const rebuilt = rebuildTransactionSeries(transactions, editingId, input);

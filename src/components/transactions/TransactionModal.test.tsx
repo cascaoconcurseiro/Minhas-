@@ -1107,3 +1107,12 @@ test('ao editar uma compra parcelada no cartão, aparecem a frequência e o núm
   assert.equal(saved[0].recurrence, 'installment');
   assert.equal(saved[0].installmentTotal, 5);
 });
+
+test('ao editar compra parcelada no cartão, a forma de pagamento também pode ser trocada', () => {
+  const tx: Transaction = { id: 'inst-1', description: 'TV', amount: 100, date: '2026-11-02', competenceMonth: '2026-11', type: 'expense', status: 'pending',
+    categoryId: 'category-test', creditCardId: 'card-test', paymentMethod: 'credit_card', recurrence: 'installment',
+    installmentGroupId: 'g1', installmentNumber: 1, installmentTotal: 3, installmentPurchaseTotal: 300 };
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard], editingTransaction: tx, transactions: [tx] });
+  assert.ok(page.querySelector('[data-testid="payment-method-account"]'), 'Conta / débito disponível na edição');
+  assert.ok(page.querySelector('[data-testid="payment-method-card"]'), 'Cartão disponível na edição');
+});

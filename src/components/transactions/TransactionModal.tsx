@@ -281,7 +281,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       (editingTransaction.type === 'expense' &&
         !editingTransaction.isInvoicePayment &&
         !editingTransaction.invoicePaymentId &&
-        (editingTransaction.recurrence ?? 'single') === 'single' &&
         !editingTransaction.tripId)
   );
   const selectedPaymentAccount = accounts.find((account) => account.id === accountId) ?? null;

@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 740 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 742 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -47,6 +47,7 @@
 - **Por quê:** pedido do dono: ao editar tem que poder alterar tudo como no lançamento original.
 - **Arquivos/áreas:** `src/domain/finance/financeRules.ts`, `src/App.tsx`, `src/components/transactions/TransactionModal.tsx`, testes em `auditoria2026-11-15.test.ts` e `TransactionModal.test.tsx`.
 - **Como foi verificado:** testes novos (3x→5x conserva o total, parcelado↔à vista, recusa com parcela paga, formulário de edição mostra parcelas e envia 5x); `bun run check`.
+- **Também:** a troca de forma de pagamento (conta/débito ↔ cartão) agora aparece na edição de compra parcelada/série e refaz a série (antes só aparecia em lançamento único).
 - **Não verificado:** tela no navegador/celular; efeito da série refeita com compartilhamento entre duas contas reais; mudar só o número de meses de lançamento **fixo** não refaz a série (ainda).
 - **Impacto em dados/Neon:** nenhum esquema; a série refeita recebe IDs novos (as parcelas antigas somem e as novas entram).
 - **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (2.4b).
