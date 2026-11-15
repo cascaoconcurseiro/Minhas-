@@ -6,7 +6,7 @@
 - **Atualizado em:** 2026-11-15
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 733 testes passando · build PWA ok.
+- **Verificação mais recente (2026-11-15):** `tsc` limpo · 735 testes passando · build PWA ok.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
@@ -41,6 +41,16 @@
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-15 — Categorias agrupadas por tipo e fatura do cartão em ordem cronológica
+- **O que mudou:** no formulário de lançamento, as categorias de despesa agora aparecem agrupadas por tipo (Essenciais, Estilo de vida e lazer, Objetivos e poupança), em ordem alfabética; a lista de compras da fatura do cartão passou a ser cronológica (mais antiga primeiro; antes era a mais nova primeiro).
+- **Por quê:** pedido do dono.
+- **Arquivos/áreas:** `src/components/transactions/TransactionModal.tsx`, `src/domain/finance/financeRules.ts` (`calculateCreditCardSummary`), testes em `TransactionModal.test.tsx` e `auditoria2026-11-15.test.ts`.
+- **Como foi verificado:** `tsc`, testes (735) e build; teste novo confere grupos/ordem das categorias e a ordem das compras da fatura.
+- **Não verificado:** telas no navegador; "lançamentos no cartão conta" foi entendido como a lista da fatura do cartão (o extrato da conta já tem seletor de ordem próprio).
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (2.3b e 3).
+- **Próximo passo:** o dono conferir se a ordem desejada também vale para o extrato da conta e para outras listas.
 
 ### 2026-11-15 — Correções da auditoria financeira (achados confirmados)
 - **O que mudou:** de 24 achados de uma auditoria externa, reproduzi cada um neste código antes de mexer. **Corrigidos (reais):** A02 estorno de pagamento parcial reabria também o valor pago por outro pagamento (dívida 100 em vez de 40); A04 desconto de antecipação perdia centavos e podia gerar data inexistente (2027-02-31); A05 antecipação já paga podia ser desfeita; A06 parcelar/pagar parcial compra de viagem repetia moeda estrangeira e cotas em cada linha (agora rateia e recompõe); A07 fluxo diário esquecia pendências bancárias de meses anteriores (e o `cashForecast` foi ajustado para não contar em dobro); A09 espelho de despesa compartilhada recebida ficava fora do consumo e da projeção (agora conta a minha cota); A10 `FITID` valia entre contas diferentes; A12 botão de status/lote ainda mexia em aporte de investimento e lote de câmbio; A15 rateio de viagem ignorava moedas sem centavos (JPY/CLP); A17 relatório "Anual" ia de junho a dezembro e o botão dizia sempre "2026"; A20 acerto de viagem agora guarda o vínculo com o movimento (apagar o movimento reabre o acerto) e reembolso usa "Reembolsos" em vez de "Rendimentos". **Já estavam corretos neste código (auditoria desatualizada ou imprecisa):** A01 (baixa direta de compra de cartão já bloqueada), A03 (edição/exclusão de compra quitada já bloqueada), A13 (aporte já exige quantidade exata), A12 em edição/exclusão/duplicação, A10 `csv-row-N`, A20 data em UTC (já usa data local). **Decidido pelo dono depois:** A16 — a dívida da viagem é na moeda da viagem (saldo estrangeiro zero não gera cobrança; diferença em reais é variação cambial), e o formulário já troca sozinho para a moeda/símbolo da viagem (teste novo). **Não corrigidos:** A08, A19, A11, A14, A18, A21–A24 (decisão sua ou mudança de modelo; ver `CHECKLIST.md`, seção D).

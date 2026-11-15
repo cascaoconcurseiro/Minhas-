@@ -43,6 +43,9 @@ Tudo isso vive em um único documento por usuário (workspace). Tipos em `src/ty
 | **Receita** | Entra na conta |
 | **Transferência** | Move dinheiro entre contas (mesma moeda ou com conversão); não é gasto nem receita. Origem e destino não podem ser a mesma conta |
 
+### 2.3b Categoria no formulário
+As categorias de despesa aparecem agrupadas por tipo (Essenciais, Estilo de vida e lazer, Objetivos e poupança), em ordem alfabética dentro de cada grupo; as de receita ficam em uma lista só, também em ordem alfabética.
+
 ### 2.4 Parcelado e fixo
 - **Parcelado**: de 2 a 48 parcelas. O valor total é dividido em centavos; a diferença de centavos fica na **primeira** parcela (`createTransactionBatch`). Cada parcela vai para a fatura do seu mês. Em compra de **viagem** em moeda estrangeira, o valor original (`originalAmount`), a cota pessoal e as cotas por participante são **divididos entre as parcelas** (a soma das parcelas fecha exatamente o total); nunca se repete o valor inteiro em cada parcela.
 - **Fixo (assinatura/recorrente)**: gera lançamentos para os próximos meses. O sistema sugere "gastos que se repetem" detectando o padrão no histórico (`recurrenceDetection.ts`): mesmo estabelecimento em meses seguidos; o usuário pode dispensar a sugestão.
@@ -85,6 +88,8 @@ Ao **mudar o dia de fechamento ou a opção** de um cartão, as compras **penden
 - **Pendente** = total menos o que já foi pago. A fatura está paga quando há compras e o pendente é zero.
 - **Limite usado** = tudo que está em aberto (faturas atuais e futuras). **Limite livre** = limite − usado.
 - Os valores a receber de cartão adicional (seção 7) **entram na fatura e no limite**, porque o banco cobra o total.
+
+As compras da fatura são listadas em **ordem cronológica** (da mais antiga para a mais recente).
 
 ### 3.3 Pagar fatura — `payCreditCardInvoice`
 - Gera um lançamento de saída na conta escolhida (marcado como pagamento de fatura) e marca as compras do mês como pagas, em cascata.

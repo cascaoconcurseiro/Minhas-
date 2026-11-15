@@ -1109,6 +1109,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     [categories, entryMode]
   );
 
+  // Categorias de despesa agrupadas por tipo (Essenciais, Estilo de vida, Objetivos), em ordem alfabética dentro
+  // de cada grupo; as de receita ficam numa lista só, também em ordem alfabética.
+  const groupedCategoryOptions = useMemo(() => {
+    const byName = (a: Category, b: Category) => a.name.localeCompare(b.name, 'pt-BR');
+    if (entryMode === 'income') {
+      return [{ key: 'income', label: '', items: [...filteredCategories].sort(byName) }];
+    }
+    const groups: Array<{ key: string; label: string; bucket: Category['bucket'] }> = [
+      { key: 'essential', label: 'Essenciais', bucket: 'essential' },
+      { key: 'lifestyle', label: 'Estilo de vida e lazer', bucket: 'lifestyle' },
+      { key: 'financial', label: 'Objetivos e poupança', bucket: 'financial' },
+    ];
+    return groups
+      .map((group) => ({
+        key: group.key,
+        label: group.label,
+        items: filteredCategories.filter((cat) => cat.bucket === group.bucket).sort(byName),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [filteredCategories, entryMode]);
+
   const selectedCategoryObj =
     filteredCategories.find((c) => c.id === categoryId);
 
@@ -3044,11 +3065,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         className="w-full min-w-0 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-emerald-600 focus:outline-none"
                       >
                         {!categoryId && <option value="">Escolha a categoria…</option>}
-                        {filteredCategories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
+                        {groupedCategoryOptions.map((group) =>
+                          group.label ? (
+                            <optgroup key={group.key} label={group.label}>
+                              {group.items.map((cat) => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                            </optgroup>
+                          ) : (
+                            group.items.map((cat) => (
+                              <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))
+                          )
+                        )}
                       </select>
                     </div>
                     {smartCategorySuggestion && smartCategoryTarget &&

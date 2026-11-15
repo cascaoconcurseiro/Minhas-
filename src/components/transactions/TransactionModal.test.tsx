@@ -1058,3 +1058,21 @@ test('ao vincular uma viagem, o campo de valor passa para a moeda e o símbolo d
   assert.match(page.textContent || '', /US\$/);
   assert.match(page.textContent || '', /Valor na Moeda da Viagem \(USD\)/);
 });
+
+test('categorias de despesa aparecem agrupadas por tipo e em ordem alfabética', () => {
+  const mk = (id: string, name: string, bucket: Category['bucket']): Category => ({ id, name, type: 'expense', bucket, monthlyBudget: 0, color: '#000', icon: 'utensils' });
+  const page = renderTransactionModal(() => {}, () => {}, {
+    categories: [mk('c1', 'Lazer', 'lifestyle'), mk('c2', 'Moradia', 'essential'), mk('c3', 'Aportes', 'financial'), mk('c4', 'Contas', 'essential')],
+  });
+  const select = page.querySelector<HTMLSelectElement>('#tx-category-select');
+  assert.ok(select);
+  const groups = [...select.querySelectorAll('optgroup')].map((group) => ({
+    label: group.label,
+    options: [...group.querySelectorAll('option')].map((option) => option.textContent),
+  }));
+  assert.deepEqual(groups, [
+    { label: 'Essenciais', options: ['Contas', 'Moradia'] },
+    { label: 'Estilo de vida e lazer', options: ['Lazer'] },
+    { label: 'Objetivos e poupança', options: ['Aportes'] },
+  ]);
+});

@@ -696,7 +696,8 @@ export function calculateCreditCardSummary(
   );
   const monthTx = cardAllTx
     .filter((tx) => tx.competenceMonth === selectedMonth)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    // Ordem cronológica: da compra mais antiga para a mais recente (empate: pela ordem original dos lançamentos).
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   let invoiceTotal = 0;
   let invoicePaidAmount = 0;

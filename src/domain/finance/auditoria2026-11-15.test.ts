@@ -147,3 +147,9 @@ test('A16 a dívida da viagem é na moeda da viagem: saldo estrangeiro zero não
   assert.equal(t.length, 1);
   assert.equal(t[0].amountForeign, 20, 'a cobrança é em moeda da viagem');
 });
+
+test('fatura do cartão lista as compras em ordem cronológica (mais antiga primeiro)', () => {
+  const rows = [purchase({ id: 'b', date: '2026-11-20' }), purchase({ id: 'a', date: '2026-11-03' }), purchase({ id: 'c', date: '2026-11-11' })];
+  const summary = calculateCreditCardSummary(card, rows, '2026-11');
+  assert.deepEqual(summary.transactions.map((t) => t.id), ['a', 'c', 'b']);
+});
