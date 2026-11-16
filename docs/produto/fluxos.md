@@ -111,6 +111,8 @@ A Receber → **Empréstimo / dívida**: pessoa, valor, data; opcionalmente a co
 4. **Reabrir acerto** estorna o lançamento se foi engano.
 5. Entre contas diferentes: enviar **convite** (Compartilhado → Pessoas & Convites). O app **não envia e-mail**: se a pessoa ainda não tem conta, a tela avisa e oferece **Copiar convite** e **Enviar pelo WhatsApp**; ela cria a conta com o mesmo e-mail e aceita na aba Compartilhado **digitando o código do convite** (que aparece no cartão da pessoa e já vai na mensagem copiada/WhatsApp). Depois de aceito, despesas compartilhadas espelham na outra conta pelo servidor, nos dois sentidos. As que já existiam antes do aceite são enviadas quando quem as lançou abre o app (ou na leitura periódica seguinte, em até 1 minuto). Itens de A Receber não vão para a outra conta.
 
+Quando o familiar pagou (por exemplo, a cobrança de academia da Fran), o lançamento recebido aparece em **Compartilhado → Eu devo** pela sua cota. Ele não entra nas suas despesas, no calendário financeiro pessoal nem nos relatórios pessoais. O valor pago por você só aparece como saída real no extrato depois de fazer o acerto.
+
 ## 9. Importar extrato OFX/CSV
 
 1. Baixar o extrato OFX/CSV no app ou site do banco.

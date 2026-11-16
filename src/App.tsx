@@ -72,6 +72,7 @@ import {
   canSettleTransactionDirectly,
   getTransactionEditRestriction,
   isSharedTransactionCreatedByOther,
+  isSharedOnlyExpense,
   calculateCategoryBreakdown,
   calculateCreditCardSummary,
   calculateMonthlySummary,
@@ -114,7 +115,7 @@ import {
   getInvestmentDeletionRestriction,
   DEFAULT_INVESTMENT_TARGETS,
 } from './domain/investments/investmentRules';
-import { parseWorkspaceArray, parseWorkspaceObject } from './services/workspace/workspacePayload';
+import { getReceivableLinkIssues, parseWorkspaceArray, parseWorkspaceObject, validateWorkspaceConsistency } from './services/workspace/workspacePayload';
 import {
   parsePersistedSettings,
   removeSmtpPasswordsFromSettings,
@@ -470,6 +471,13 @@ export default function App() {
   const isWorkspaceReadyForCurrentUser =
     workspaceLoadState === 'ready' &&
     isWorkspaceLoadedForUser(loadedWorkspaceUidRef.current, currentUser?.uid ?? null);
+  const cachedWorkspaceIsReadOnly = isShowingCachedWorkspace && !isWorkspaceReadyForCurrentUser;
+  const workspaceReadOnlyMessage = 'Os dados salvos neste aparelho estão em modo de leitura. Aguarde a nuvem carregar para alterar.';
+  const requireWorkspaceWrite = () => {
+    if (!cachedWorkspaceIsReadOnly) return true;
+    showNotice(workspaceReadOnlyMessage, undefined, true);
+    return false;
+  };
 
   const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [cards, setCards] = useState<CreditCard[]>(INITIAL_CREDIT_CARDS);
@@ -485,6 +493,10 @@ export default function App() {
   const [inviteCodes, setInviteCodes] = useState<Record<string, string>>({});
   // Ids dos compartilhados que o servidor já tem desta conta (null = ainda não lido ou servidor antigo).
   const [serverSentSharedIds, setServerSentSharedIds] = useState<ReadonlySet<string> | null>(null);
+  const sharedWorkspaceProjectionRef = useRef(false);
+  const sharedProjectedRevisionsRef = useRef(new Map<string, { revision: number; attemptedAt: number }>());
+  const sharedPendingHideRef = useRef(new Map<string, Set<string>>());
+  const acceptedSharedPartnersRef = useRef(new Map<string, string[]>());
   // Dos já enviados, os de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo).
   const [serverStaleSharedIds, setServerStaleSharedIds] = useState<ReadonlySet<string>>(new Set());
   const [investments, setInvestments] = useState<InvestmentAsset[]>(INITIAL_INVESTMENTS);
@@ -584,6 +596,7 @@ export default function App() {
   // Cadastro pedido pelo formulário de lançamento (falta conta ou cartão): fecha o formulário e abre a tela certa já no cadastro.
   const [pendingCreateRequest, setPendingCreateRequest] = useState<'account' | 'card' | 'international_account' | null>(null);
   const handleRequestCreateFromTransaction = (kind: 'account' | 'card' | 'international_account') => {
+    if (!requireWorkspaceWrite()) return;
     setIsModalOpen(false);
     setEditingTransaction(null);
     setModalInitialTripId(undefined);
@@ -636,6 +649,7 @@ export default function App() {
   };
 
   const handleUndoLastTransactionChange = () => {
+    if (!requireWorkspaceWrite()) return;
     if (undoStack.length === 0) return;
     const [latest, ...rest] = undoStack;
     setAccounts(latest.accounts);
@@ -705,6 +719,7 @@ export default function App() {
     ...(effectiveUserEmail ? { email: effectiveUserEmail } : {}),
     ...(effectiveUserDisplayName ? { displayName: effectiveUserDisplayName } : {}),
     updatedAt: new Date().toISOString(),
+    ...(sharedWorkspaceProjectionRef.current ? { sharedWorkspaceProjection: true } : {}),
     accountsJson: JSON.stringify(accounts),
     cardsJson: JSON.stringify(cards),
     categoriesJson: JSON.stringify(categories),
@@ -722,6 +737,42 @@ export default function App() {
     tripsJson: JSON.stringify(trips),
     settingsJson: serializeSettingsWithoutSmtpSecrets(settings),
   });
+
+  const syncSavedFamilyWorkspace = (revision: number, partnerEmails: Iterable<string>) => {
+    if (!sharedWorkspaceProjectionRef.current || !currentUser || !navigator.onLine) return;
+    const uid = currentUser.uid;
+    for (const partnerEmail of new Set(partnerEmails)) {
+      const key = `${uid}|${partnerEmail}`;
+      const revisions = sharedProjectedRevisionsRef.current;
+      const pendingHides = sharedPendingHideRef.current.get(key);
+      const previous = revisions.get(key);
+      const attemptedAt = Date.now();
+      if (previous && previous.revision > revision) continue;
+      if (previous && previous.revision >= revision && attemptedAt - previous.attemptedAt < 60_000 && !pendingHides?.size) continue;
+      const attempt = { revision, attemptedAt };
+      revisions.set(key, attempt);
+      const deletedSharedIds = pendingHides ? [...pendingHides] : [];
+      void syncNeonSharedTransactions({ partnerEmail, workspaceRevision: revision, deletedSharedIds })
+        .then(() => {
+          if (pendingHides) for (const id of deletedSharedIds) pendingHides.delete(id);
+        })
+        .catch((error) => {
+          if (revisions.get(key) === attempt) revisions.delete(key);
+          if (authenticatedUidRef.current === uid && !(error instanceof NeonWorkspaceError && [403, 409].includes(error.status))) {
+            console.warn('Não foi possível sincronizar os compartilhados.', error);
+          }
+        });
+    }
+  };
+
+  const syncSavedFamilyMembers = (revision: number) => {
+    if (!effectiveUserEmail) return;
+    const partners = familyMembers
+      .filter((member) => member.inviteStatus === 'accepted')
+      .map((member) => (member.email || member.invitedByEmail || '').trim().toLowerCase())
+      .filter((email) => email && email !== effectiveUserEmail);
+    syncSavedFamilyWorkspace(revision, [...partners, ...(acceptedSharedPartnersRef.current.get(effectiveUserEmail) ?? [])]);
+  };
 
   const queueNeonWorkspaceSave = (payload: Record<string, unknown>) => {
     const authenticatedUser = currentUser;
@@ -1120,6 +1171,7 @@ export default function App() {
         const data = cleaned.payload;
         const [familyInvitations, sharedSnapshot] = await extraLoads;
         if (!active || authenticatedUidRef.current !== loadUid) return;
+        sharedWorkspaceProjectionRef.current = sharedSnapshot.workspaceProjectionSupported === true;
         rememberInviteeAccounts(familyInvitations);
         if (silent) isApplyingRemoteSnapshotRef.current = true;
 
@@ -1236,6 +1288,7 @@ export default function App() {
         isApplyingRemoteSnapshotRef.current = false;
         setIsShowingCachedWorkspace(false);
         setWorkspaceLoadState('ready');
+        syncSavedFamilyMembers(snapshot.revision);
         setCloudSyncStatus('synced');
         setLastSyncedAt(
           typeof data.updatedAt === 'string'
@@ -1413,7 +1466,10 @@ export default function App() {
           loadNeonSharedSnapshot(),
         ]);
         if (!active) return;
+        sharedWorkspaceProjectionRef.current = sharedSnapshot.workspaceProjectionSupported === true;
         rememberInviteeAccounts(invitations);
+        const revision = neonWorkspaceRevisionRef.current;
+        if (revision !== null) syncSavedFamilyWorkspace(revision, acceptedSharedPartnersRef.current.get(effectiveUserEmail) ?? []);
         setFamilyMembers((previous) => {
           const next = [...previous];
           for (const invitation of invitations) {
@@ -1609,6 +1665,7 @@ export default function App() {
   const newReceivableId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const receivablesSummary = useMemo(() => summarizeReceivables(receivables), [receivables]);
   const handleCreateReceivable = (input: import('./components/receivables/ReceivablesTab').ReceivableCreateInput): string | null => {
+    if (!requireWorkspaceWrite()) return workspaceReadOnlyMessage;
     const result = createReceivable({
       ...input,
       id: newReceivableId('rcv'),
@@ -1628,6 +1685,7 @@ export default function App() {
     receivableId: string,
     input: { date: string; amount: number; accountId: string; note?: string }
   ): string | null => {
+    if (!requireWorkspaceWrite()) return workspaceReadOnlyMessage;
     const target = receivables.find((item) => item.id === receivableId);
     if (!target) return 'Valor a receber não encontrado.';
     const result = registerReceivablePayment(target, { ...input, id: newReceivableId('pay') });
@@ -1642,6 +1700,7 @@ export default function App() {
     return null;
   };
   const handleRemoveReceivablePayment = (receivableId: string, paymentId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const target = receivables.find((item) => item.id === receivableId);
     if (!target) return;
     const result = removeReceivablePayment(target, transactions, paymentId);
@@ -1649,12 +1708,9 @@ export default function App() {
     setTransactions(result.transactions);
   };
   const handleDeleteReceivable = (receivableId: string): string | null => {
-    const target = receivables.find((item) => item.id === receivableId);
-    const linked = target?.linkedTransactionId ? transactions.find((tx) => tx.id === target.linkedTransactionId) : undefined;
-    if (target?.kind === 'card_invoice' && linked?.status === 'paid') {
-      return 'Essa fatura do cartão já foi paga. Estorne o pagamento da fatura (em Cartões) antes de apagar.';
-    }
+    if (!requireWorkspaceWrite()) return workspaceReadOnlyMessage;
     const result = deleteReceivable(receivables, transactions, receivableId);
+    if (result.error) return result.error;
     setReceivables(result.receivables);
     setTransactions(result.transactions);
     return null;
@@ -1705,6 +1761,7 @@ export default function App() {
   expireSessionRef.current = expireSession;
 
   const handleUpdateSettings = (partial: Partial<AppSettings>) => {
+    if (!requireWorkspaceWrite()) return;
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
@@ -1744,6 +1801,7 @@ export default function App() {
     tripIdOrDate?: string,
     explicitDate?: string
   ) => {
+    if (!requireWorkspaceWrite()) return;
     setEditingTransaction(null);
     setModalDefaultMode(mode);
     if (tripIdOrDate && /^\d{4}-\d{2}-\d{2}$/.test(tripIdOrDate)) {
@@ -1757,6 +1815,7 @@ export default function App() {
   };
 
   const handleEditTransaction = (tx: Transaction) => {
+    if (!requireWorkspaceWrite()) return;
     const restriction = isSharedTransactionCreatedByOther(tx, effectiveUserEmail)
       ? 'Este lançamento compartilhado foi criado por outra pessoa. Só quem criou pode editá-lo por completo.'
       : getTransactionEditRestriction(tx);
@@ -1778,6 +1837,7 @@ export default function App() {
   };
 
   const handleDuplicateTransaction = (tx: Transaction) => {
+    if (!requireWorkspaceWrite()) return;
     const cloned = duplicateFinancialTransaction(tx, `tx-dup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     if (!cloned) { showNotice('Este lançamento é vinculado a outra operação. Crie um novo lançamento para registrar outra movimentação.', undefined, true); return; }
     const next = [cloned, ...transactions];
@@ -1787,15 +1847,21 @@ export default function App() {
   };
 
   const sharedSyncVersionRef = useRef<Record<string, number>>({});
-  const rememberInviteeAccounts = (invitations: Array<{ invited_email: string; status: string; invited_has_account?: boolean; invite_code?: string }>) => {
+  const rememberInviteeAccounts = (invitations: Array<{ owner_email: string; invited_email: string; status: string; invited_has_account?: boolean; invite_code?: string }>) => {
     const accounts: Record<string, boolean> = {};
     const codes: Record<string, string> = {};
+    const acceptedPartners: string[] = [];
     for (const invitation of invitations) {
-      if (invitation.status !== 'invited') continue;
+      const owner = invitation.owner_email.trim().toLowerCase();
       const email = invitation.invited_email.trim().toLowerCase();
+      if (invitation.status === 'accepted') {
+        acceptedPartners.push(owner === effectiveUserEmail ? email : owner);
+      }
+      if (invitation.status !== 'invited') continue;
       if (typeof invitation.invited_has_account === 'boolean') accounts[email] = invitation.invited_has_account;
       if (typeof invitation.invite_code === 'string') codes[email] = invitation.invite_code;
     }
+    if (effectiveUserEmail) acceptedSharedPartnersRef.current.set(effectiveUserEmail, acceptedPartners);
     setInviteeHasAccount((previous) => JSON.stringify(previous) === JSON.stringify(accounts) ? previous : accounts);
     setInviteCodes((previous) => JSON.stringify(previous) === JSON.stringify(codes) ? previous : codes);
   };
@@ -1807,6 +1873,29 @@ export default function App() {
     deletedOnlyForMemberId?: string
   ) => {
     if (!effectiveUserEmail) return;
+    if (sharedWorkspaceProjectionRef.current) {
+      // Outgoing writes and settlement state come from the revision actually saved in PostgreSQL.
+      // Only explicitly hiding a received mirror needs an extra instruction.
+      if (!currentUser || !deletedSharedSyncIds?.length) return;
+      const revision = neonWorkspaceRevisionRef.current;
+      const deleting = new Set(deletedSharedSyncIds.map((id) => id.replace(/^tx-mirror-/, '')));
+      const partners: string[] = [];
+      for (const member of nextMembers) {
+        const partnerEmail = (member.email || member.invitedByEmail || '').trim().toLowerCase();
+        if (!partnerEmail || member.inviteStatus !== 'accepted' ||
+            (deletedOnlyForMemberId && member.id !== deletedOnlyForMemberId)) continue;
+        const hides = transactions.filter((tx) =>
+          tx.id.startsWith('tx-mirror-') && tx.sharedMemberId === member.id && deleting.has(getSharedSyncId(tx)));
+        if (hides.length === 0) continue;
+        const key = `${currentUser.uid}|${partnerEmail}`;
+        const pending = sharedPendingHideRef.current.get(key) ?? new Set<string>();
+        hides.forEach((tx) => pending.add(getSharedSyncId(tx)));
+        sharedPendingHideRef.current.set(key, pending);
+        partners.push(partnerEmail);
+      }
+      if (revision !== null) syncSavedFamilyWorkspace(revision, partners);
+      return;
+    }
     const sharedList = nextTransactions.filter((t) => t.isShared && !t.tripId);
     if (
       sharedList.length === 0 &&
@@ -1859,6 +1948,7 @@ export default function App() {
   // e cada lançamento é tentado uma vez por sessão (falha de rede libera nova tentativa na próxima leitura).
   const sharedResendAttemptedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    if (sharedWorkspaceProjectionRef.current) return;
     if (!serverSentSharedIds || !hasLoadedRemoteOnceRef.current || !effectiveUserEmail) return;
     const attempted = sharedResendAttemptedRef.current;
     for (const pending of findUnsentSharedTransactions(transactions, familyMembers, serverSentSharedIds, effectiveUserEmail, serverStaleSharedIds, cards)) {
@@ -1893,6 +1983,7 @@ export default function App() {
     editingId?: string,
     cascadeScope: CascadeScope = 'single'
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const prevSnapshot = [...transactions];
 
     if (input.type === 'transfer' && input.destinationAccountId) {
@@ -2158,6 +2249,7 @@ export default function App() {
     txId: string,
     cascadeScope: CascadeScope = 'single'
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const target = transactions.find((t) => t.id === txId);
     if (!target) return;
     const prevSnapshot = [...transactions];
@@ -2176,6 +2268,7 @@ export default function App() {
   };
 
   const handleBatchSettleTransactions = (txIds: string[]) => {
+    if (!requireWorkspaceWrite()) return;
     if (txIds.length === 0) return;
     const prevSnapshot = [...transactions];
     // Só movimentos bancários pendentes: compra de cartão se quita pela fatura e o que já está pago não muda.
@@ -2203,6 +2296,7 @@ export default function App() {
     discountAmount: number,
     maxCountToAdvance?: number
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const prevSnapshot = [...transactions];
     const res = anticipateCardInstallments(
       transactions,
@@ -2227,6 +2321,7 @@ export default function App() {
   };
 
   const handleReverseAnticipation = (targetIdOrGroupId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const prevSnapshot = [...transactions];
     const res = reverseInstallmentAnticipation(transactions, targetIdOrGroupId);
     if (res.restoredCount === 0) {
@@ -2243,6 +2338,7 @@ export default function App() {
   };
 
   const handleDeleteTransaction = (txId: string, deleteGroup = false) => {
+    if (!requireWorkspaceWrite()) return;
     const prevSnapshot = [...transactions];
     const scope: CascadeScope = deleteGroup ? 'all_series' : 'single';
     const res = applyCascadeTransactionDelete(transactions, txId, scope, cards);
@@ -2284,6 +2380,7 @@ export default function App() {
   };
 
   const handleToggleAccountInTotal = (accountId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const targetAcc = accounts.find((a) => a.id === accountId);
     setAccounts((prev) =>
       prev.map((acc) =>
@@ -2304,6 +2401,7 @@ export default function App() {
     paymentAccountId: string,
     customAmount?: number
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
     const effectiveAccountId =
@@ -2349,6 +2447,7 @@ export default function App() {
   };
 
   const handleAddCard = (newCard: Omit<CreditCard, 'id'>) => {
+    if (!requireWorkspaceWrite()) return;
     const created: CreditCard = {
       ...newCard,
       id: newEntityId('card'),
@@ -2358,6 +2457,7 @@ export default function App() {
   };
 
   const handleUpdateCard = (updatedCard: CreditCard) => {
+    if (!requireWorkspaceWrite()) return;
     const previousCard = cards.find((c) => c.id === updatedCard.id);
     if (
       previousCard &&
@@ -2374,6 +2474,7 @@ export default function App() {
   };
 
   const handleDeleteCard = (cardId: string): boolean => {
+    if (!requireWorkspaceWrite()) return false;
     const target = cards.find((c) => c.id === cardId);
     if (!target) return false;
     const linkedTransactions = getTransactionsLinkedToCreditCard(target, transactions);
@@ -2392,11 +2493,13 @@ export default function App() {
 
   // Trips & Multi-Currency Handlers
   const handleAddTrip = (newTrip: Trip) => {
+    if (!requireWorkspaceWrite()) return;
     setTrips((prev) => [newTrip, ...prev]);
     showNotice(`Viagem "${newTrip.name}" criada com sucesso!`);
   };
 
   const handleUpdateTrip = (updatedTrip: Trip) => {
+    if (!requireWorkspaceWrite()) return;
     setTrips((prev) =>
       prev.map((t) => (t.id === updatedTrip.id ? updatedTrip : t))
     );
@@ -2404,6 +2507,7 @@ export default function App() {
   };
 
   const handleDeleteTrip = (tripId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const target = trips.find((t) => t.id === tripId);
     const lotIdList = (target?.exchangeLots || []).map((l) => l.id);
     setTrips((prev) => prev.filter((t) => t.id !== tripId));
@@ -2429,6 +2533,7 @@ export default function App() {
     lot: TripExchangeLot,
     debitFromAccountId?: string
   ) => {
+    if (!requireWorkspaceWrite()) return;
     setTrips((prev) =>
       prev.map((t) =>
         t.id === tripId
@@ -2475,6 +2580,7 @@ export default function App() {
   };
 
   const handleDeleteExchangeLot = (tripId: string, lotId: string) => {
+    if (!requireWorkspaceWrite()) return;
     setTrips((prev) =>
       prev.map((t) =>
         t.id === tripId
@@ -2501,6 +2607,7 @@ export default function App() {
       description: string;
     }
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const settlementTxId = bankAccountEffect && bankAccountEffect.brlAmount > 0
       ? newEntityId('tx-tripsettle')
       : undefined;
@@ -2540,6 +2647,7 @@ export default function App() {
   };
 
   const handleUpdateCategoryBudget = (categoryId: string, newBudget: number) => {
+    if (!requireWorkspaceWrite()) return;
     setCategories((prev) =>
       prev.map((cat) =>
         cat.id === categoryId ? { ...cat, monthlyBudget: newBudget } : cat
@@ -2549,6 +2657,7 @@ export default function App() {
   };
 
   const handleAddCategory = (newCat: Omit<Category, 'id'>) => {
+    if (!requireWorkspaceWrite()) return;
     const created: Category = {
       ...newCat,
       id: newEntityId('cat'),
@@ -2558,6 +2667,7 @@ export default function App() {
   };
 
   const handleUpdateCategory = (updatedCat: Category) => {
+    if (!requireWorkspaceWrite()) return;
     setCategories((prev) =>
       prev.map((cat) => (cat.id === updatedCat.id ? updatedCat : cat))
     );
@@ -2565,6 +2675,7 @@ export default function App() {
   };
 
   const handleDeleteCategory = (categoryId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const target = categories.find((c) => c.id === categoryId);
     if (!target) return;
     const linkedTransactions = getTransactionsLinkedToCategory(categoryId, transactions);
@@ -2581,6 +2692,7 @@ export default function App() {
   };
 
   const handleApplyHistoricalInstallmentTotals = () => {
+    if (!requireWorkspaceWrite()) return;
     const previousTransactions = [...transactions];
     const result = applyHighConfidenceInstallmentTotals(transactions, cards);
     if (result.updatedRows === 0) {
@@ -2600,6 +2712,7 @@ export default function App() {
     debitAccountId?: string,
     contributionDate: string = getLocalDateISO()
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const targetGoal = goals.find((g) => g.id === goalId);
     if (!targetGoal || !Number.isFinite(amount) || !Number.isSafeInteger(Math.round(amount * 100)) || Math.round(amount * 100) <= 0) return;
     const parsedDate = new Date(`${contributionDate}T00:00:00.000Z`);
@@ -2630,6 +2743,7 @@ export default function App() {
   };
 
   const handleAddGoal = (newGoal: Omit<SavingsGoal, 'id'>) => {
+    if (!requireWorkspaceWrite()) return;
     const created: SavingsGoal = {
       ...newGoal,
       id: newEntityId('goal'),
@@ -2639,6 +2753,7 @@ export default function App() {
   };
 
   const handleUpdateGoal = (updatedGoal: SavingsGoal) => {
+    if (!requireWorkspaceWrite()) return;
     setGoals((prev) =>
       prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g))
     );
@@ -2646,11 +2761,13 @@ export default function App() {
   };
 
   const handleDeleteGoal = (goalId: string) => {
+    if (!requireWorkspaceWrite()) return;
     setGoals((prev) => prev.filter((g) => g.id !== goalId));
     showNotice('Meta de economia removida.');
   };
 
   const triggerCrossAccountInviteSync = async (member: FamilyMember) => {
+    if (!requireWorkspaceWrite()) return false;
     if (!member.email || !effectiveUserEmail) return false;
     try {
       const { invitation } = await createNeonFamilyInvitation({
@@ -2697,6 +2814,7 @@ export default function App() {
   const handleAddFamilyMember = (
     newMember: Omit<FamilyMember, 'id'>
   ): FamilyMember | undefined => {
+    if (!requireWorkspaceWrite()) return;
     if (newMember.email?.trim()) {
       showNotice('Para vincular por e-mail, cadastre o familiar na aba Compartilhado.');
       return undefined;
@@ -2714,6 +2832,7 @@ export default function App() {
   const handleAddFamilyMemberWithInvite = async (
     newMember: Omit<FamilyMember, 'id'>
   ): Promise<boolean> => {
+    if (!requireWorkspaceWrite()) return false;
     const created: FamilyMember = {
       ...newMember,
       id: newEntityId('fam'),
@@ -2729,6 +2848,7 @@ export default function App() {
   };
 
   const handleUpdateFamilyMember = async (updated: FamilyMember): Promise<boolean> => {
+    if (!requireWorkspaceWrite()) return false;
     const previousMember = familyMembers.find((member) => member.id === updated.id);
     const emailChanged =
       previousMember?.email?.trim().toLowerCase() !==
@@ -2812,6 +2932,7 @@ export default function App() {
   };
 
   const handleAcceptFamilyInvite = (member: FamilyMember, code: string) => {
+    if (!requireWorkspaceWrite()) return;
     if (!member.invitationId) {
       showNotice('Este convite ainda não foi migrado para a sincronização segura no Neon.');
       return;
@@ -2841,6 +2962,7 @@ export default function App() {
   };
 
   const handleDeclineFamilyInvite = (member: FamilyMember) => {
+    if (!requireWorkspaceWrite()) return;
     if (!member.invitationId) {
       showNotice('Este convite ainda não foi migrado para a sincronização segura no Neon.');
       return;
@@ -2857,6 +2979,7 @@ export default function App() {
   };
 
   const handleDeleteFamilyMember = (memberId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const target = familyMembers.find((m) => m.id === memberId);
     if (!target) return;
     const removeLocalLink = () => {
@@ -2897,6 +3020,7 @@ export default function App() {
   };
 
   const applySharedSettlement = (input: { txId?: string; memberId?: string; month?: string; accountId: string; date: string }) => {
+    if (!requireWorkspaceWrite()) return;
     const tx = input.txId ? transactions.find((item) => item.id === input.txId) : undefined;
     const member = familyMembers.find((item) => item.id === (input.memberId || tx?.sharedMemberId));
     const result = settleSharedExpenses(transactions, accounts, { ...input, memberName: member?.name || 'Familiar',
@@ -2918,6 +3042,7 @@ export default function App() {
   };
 
   const handleReopenSharedTransaction = (txId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const result = reopenSharedSettlement(transactions, txId);
     if (!result.affectedCount) return;
     setTransactions(result.transactions);
@@ -2925,7 +3050,8 @@ export default function App() {
     showNotice(`${result.affectedCount} despesa(s) compartilhada(s) reaberta(s) e acerto estornado.`);
   };
 
-  const handleAddAccount = (newAcc: Omit<BankAccount, 'id'>): BankAccount => {
+  const handleAddAccount = (newAcc: Omit<BankAccount, 'id'>): BankAccount | undefined => {
+    if (!requireWorkspaceWrite()) return;
     const created: BankAccount = {
       ...newAcc,
       id: newEntityId('acc'),
@@ -2936,6 +3062,7 @@ export default function App() {
   };
 
   const handleUpdateAccount = (updatedAcc: BankAccount) => {
+    if (!requireWorkspaceWrite()) return;
     setAccounts((prev) =>
       prev.map((acc) => (acc.id === updatedAcc.id ? updatedAcc : acc))
     );
@@ -2943,6 +3070,11 @@ export default function App() {
   };
 
   const handleDeleteAccount = (accountId: string) => {
+    if (!requireWorkspaceWrite()) return;
+    if (receivables.some((item) => item.payments.some((payment) => payment.accountId === accountId))) {
+      showNotice('Esta conta tem recebimentos vinculados em A Receber. Desfaça ou corrija esses recebimentos antes de remover a conta.', undefined, true);
+      return;
+    }
     const tripsUsingAccount = trips.filter((trip) =>
       trip.linkedAccountId === accountId ||
       trip.exchangeLots.some((lot) => lot.accountId === accountId || lot.debitAccountId === accountId)
@@ -2971,6 +3103,7 @@ export default function App() {
   };
 
   const handleUpdateAccountInitialBalance = (accountId: string, newInitial: number) => {
+    if (!requireWorkspaceWrite()) return;
     setAccounts((prev) =>
       prev.map((acc) =>
         acc.id === accountId ? { ...acc, initialBalance: newInitial } : acc
@@ -2980,6 +3113,7 @@ export default function App() {
   };
 
   const handleAddInvestmentAsset = (newAsset: Omit<InvestmentAsset, 'id'>) => {
+    if (!requireWorkspaceWrite()) return;
     const created: InvestmentAsset = {
       ...newAsset,
       id: newEntityId('inv'),
@@ -2989,6 +3123,7 @@ export default function App() {
   };
 
   const handleUpdateInvestmentAsset = (updatedAsset: InvestmentAsset) => {
+    if (!requireWorkspaceWrite()) return;
     setInvestments((prev) =>
       prev.map((a) => (a.id === updatedAsset.id ? updatedAsset : a))
     );
@@ -2996,6 +3131,7 @@ export default function App() {
   };
 
   const handleBatchUpdateInvestmentAssets = (updatedAssets: InvestmentAsset[]) => {
+    if (!requireWorkspaceWrite()) return;
     setInvestments(updatedAssets);
     showNotice(
       'Cotações sincronizadas automaticamente com o Google Finance!',
@@ -3005,6 +3141,7 @@ export default function App() {
   };
 
   const handleDeleteInvestmentAsset = (assetId: string) => {
+    if (!requireWorkspaceWrite()) return;
     const target = investments.find((a) => a.id === assetId);
     if (!target) return;
     const restriction = getInvestmentDeletionRestriction(target, transactions, goals);
@@ -3021,6 +3158,7 @@ export default function App() {
     settlementAccountId?: string,
     operationDate: string = getLocalDateISO()
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const targetAsset = investments.find((a) => a.id === assetId);
     if (!targetAsset) return;
 
@@ -3075,6 +3213,7 @@ export default function App() {
     receivingAccountId: string,
     dividendDate: string = getLocalDateISO()
   ) => {
+    if (!requireWorkspaceWrite()) return;
     const parsedDate = new Date(`${dividendDate}T00:00:00.000Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dividendDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dividendDate || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId && getAccountCurrency(account) === 'BRL')) return;
     const dividendTx: Transaction = {
@@ -3098,6 +3237,7 @@ export default function App() {
   };
 
   const handleImportQuickCsvLines = (linesText: string, targetAccountId: string): number => {
+    if (!requireWorkspaceWrite()) return 0;
     const importAccount = accounts.find((account) => account.id === targetAccountId);
     if (!importAccount) {
       showNotice('Escolha uma conta cadastrada para importar os lançamentos.', undefined, true);
@@ -3131,6 +3271,7 @@ export default function App() {
   };
 
   const handleOpenReconciliation = (accountId?: string) => {
+    if (!requireWorkspaceWrite()) return;
     setReconciliationTargetAccountId(accountId || accounts[0]?.id);
     setIsReconciliationModalOpen(true);
   };
@@ -3139,6 +3280,7 @@ export default function App() {
     newTxs: Transaction[],
     accountId: string
   ) => {
+    if (!requireWorkspaceWrite()) return 0;
     if (newTxs.length === 0) return;
     const result = applyReconciledBankTransactions(transactions, newTxs, cards);
     if (result.importedCount === 0) {
@@ -3193,6 +3335,7 @@ export default function App() {
   };
 
   const handleImportFullBackupJson = (jsonText: string): boolean => {
+    if (!requireWorkspaceWrite()) return false;
     try {
       const parsed = parseFullFinanceBackup(jsonText);
       if (!parsed) return false;
@@ -3215,11 +3358,6 @@ export default function App() {
         investments: parsed.investments,
         trips: parsed.trips,
       });
-      setAccounts(repaired.accounts);
-      setCards(repaired.cards);
-      setCategories(parsed.categories as Category[]);
-      setGoals(repaired.goals);
-      setReceivables(optionalState.receivables);
       const restoredFamilyMembers = stripLegacyMockItems(
         mergeRestoredFamilyMembersWithCurrentIncoming(
           familyMembers,
@@ -3234,14 +3372,35 @@ export default function App() {
         ? [...restoredTransactions.filter((tx) => !tx.id.startsWith('tx-mirror-')),
           ...restoreSharedSettlementReceipts(restoredTransactions.filter((tx) => tx.id.startsWith('tx-mirror-')), parsed.sharedSettlementReceiptsJson, restoredTransactions)]
         : restoredTransactions;
+      const consistencyError = validateWorkspaceConsistency({
+        accounts: repaired.accounts,
+        cards: repaired.cards,
+        transactions: repaired.transactions,
+      });
+      const receivableIssues = getReceivableLinkIssues(
+        optionalState.receivables, repaired.transactions, repaired.accounts
+      );
+      if (consistencyError || receivableIssues.size) {
+        showNotice(consistencyError || 'O backup contém valores a receber sem movimentos correspondentes.', undefined, true);
+        return false;
+      }
+      setAccounts(repaired.accounts);
+      setCards(repaired.cards);
+      setCategories(parsed.categories);
+      setGoals(repaired.goals);
+      setReceivables(optionalState.receivables);
       setTransactions(restoredWithReceipts);
       setFamilyMembers(restoredFamilyMembers);
       setInvestments(repaired.investments);
       setTrips(repaired.trips);
       setInvestmentTargets(optionalState.investmentTargets);
       setSettings(optionalState.settings);
-      if (sameOwner) {
-        triggerCrossAccountSharedTxSync(restoredTransactions, restoredFamilyMembers);
+      if (sameOwner && !sharedWorkspaceProjectionRef.current) {
+        const restoredIds = new Set(restoredWithReceipts.filter((tx) => tx.isShared && !tx.tripId).map(getSharedSyncId));
+        const removed = transactions.filter((tx) =>
+          tx.isShared && !tx.tripId && !tx.id.startsWith('tx-mirror-') && !restoredIds.has(getSharedSyncId(tx))
+        );
+        triggerCrossAccountSharedTxSync(restoredWithReceipts, restoredFamilyMembers, removed.map(getSharedSyncId));
       }
       showNotice(
         'Backup carregado nesta sessão. Confira o status da nuvem para confirmar o salvamento no Neon.'
@@ -3254,6 +3413,7 @@ export default function App() {
   };
 
   const handleResetWorkspaceData = () => {
+    if (!requireWorkspaceWrite()) return;
     showNotice('Dados do workspace pessoal removidos. Convites e lançamentos compartilhados não foram alterados.');
     setAccounts(INITIAL_ACCOUNTS);
     setCards(INITIAL_CREDIT_CARDS);
@@ -3334,7 +3494,8 @@ export default function App() {
           tx.competenceMonth === selectedMonth &&
           tx.status === 'pending' &&
           tx.type === 'expense' &&
-          !tx.isInvoicePayment
+          !tx.isInvoicePayment &&
+          !isSharedOnlyExpense(tx)
       ).length,
     [transactions, selectedMonth]
   );
@@ -3395,9 +3556,10 @@ export default function App() {
     () => calculateCurrentPosition(accounts, cards, transactions, todayDateStr),
     [accounts, cards, transactions, todayDateStr]
   );
+  const currentReceivables = useMemo(() => summarizeReceivables(receivables, todayDateStr), [receivables, todayDateStr]);
   const netWorthSnapshot = useMemo(
-    () => calculateNetWorth(currentPosition.accountBalances, investments, currentPosition.cardSummaries, receivablesSummary.totalOpen),
-    [currentPosition, investments, receivablesSummary.totalOpen]
+    () => calculateNetWorth(currentPosition.accountBalances, investments, currentPosition.cardSummaries, currentReceivables.totalOpen),
+    [currentPosition, investments, currentReceivables.totalOpen]
   );
   const accountsTotalBalance = netWorthSnapshot.liquidAccountsBalance;
   const investmentsTotalValue = netWorthSnapshot.investedAssetsValue;
@@ -3421,6 +3583,7 @@ export default function App() {
   );
 
   const handleScheduleRecurring = (candidate: RecurringCandidate) => {
+    if (!requireWorkspaceWrite()) return;
     const card = candidate.creditCardId ? cards.find((item) => item.id === candidate.creditCardId) : undefined;
     const learned = learnSharingFromHistory(candidate.description, transactions, familyMembers);
     const sharing = learned
@@ -3450,6 +3613,7 @@ export default function App() {
   };
 
   const handleDismissRecurring = (candidate: RecurringCandidate) => {
+    if (!requireWorkspaceWrite()) return;
     setSettings((prev) => ({
       ...prev,
       dismissedRecurringKeys: [...new Set([...(prev.dismissedRecurringKeys ?? []), candidate.key])],
@@ -3776,7 +3940,7 @@ export default function App() {
           className="fixed left-1/2 top-3 z-[100] w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>Sem conexão com a nuvem. Você está vendo a última versão salva.</span>
+            <span>Sem conexão com a nuvem. A última versão salva está disponível para consulta.</span>
             <button
               type="button"
               onClick={() => setWorkspaceLoadAttempt((attempt) => attempt + 1)}
@@ -4325,7 +4489,7 @@ export default function App() {
                   currentPosition={currentPosition}
                   recurringSuggestions={recurringSuggestions}
                   cashForecast={cashForecast}
-                  receivablesSummary={receivablesSummary}
+                  receivablesSummary={currentReceivables}
                   onScheduleRecurring={handleScheduleRecurring}
                   onDismissRecurring={handleDismissRecurring}
                   userName={
@@ -4405,6 +4569,7 @@ export default function App() {
                   onOperateAsset={handleOperateInvestmentAsset}
                   onRecordDividendIncome={handleRecordDividendIncome}
                   onUpdateTargetMap={(nextMap) => {
+                    if (!requireWorkspaceWrite()) return;
                     setInvestmentTargets(nextMap);
                     showNotice('Metas estratégicas de alocação salvas.');
                   }}
@@ -4561,7 +4726,7 @@ export default function App() {
                 <ReportsAndDataTab
                   selectedMonth={selectedMonth}
                   currentPosition={currentPosition}
-                  receivablesTotal={receivablesSummary.totalOpen}
+                  receivablesTotal={currentReceivables.totalOpen}
                   accounts={accounts}
                   onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   accountBalances={accountBalances}

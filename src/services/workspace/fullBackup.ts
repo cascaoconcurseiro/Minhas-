@@ -13,6 +13,7 @@ import type {
 } from '../../types/finance';
 import { removeSmtpPasswordsFromSettings } from '../../utils/secureSettings';
 import { parseSharedSettlementReceipts } from '../../domain/family/sharedFinanceRules';
+import { getReceivableLinkIssues, parseWorkspaceArray, validateWorkspaceConsistency } from './workspacePayload';
 
 export interface FullBackupDefaults {
   familyMembers: FamilyMember[];
@@ -57,6 +58,7 @@ const FAMILY_SHARE_FIELDS = [
   'sharedRemoteStatus',
   'sharedRemoteSettledDate',
   'sharedSyncId',
+  'sharedDueDate',
   'sharedOriginEmail',
   'sharedTargetEmail',
 ] as const;
@@ -70,6 +72,9 @@ export function prepareRestoredBackupTransactions<
   return portableTransactions.map((transaction) => {
     if (!FAMILY_SHARE_FIELDS.some((field) => field in transaction)) return transaction;
     const personalTransaction = { ...transaction } as T & Record<string, unknown>;
+    if (personalTransaction.sharedPaidBy === 'member') {
+      Object.assign(personalTransaction, { isCompanionOnlyExpense: true });
+    }
     for (const field of FAMILY_SHARE_FIELDS) delete personalTransaction[field];
     return personalTransaction;
   });
@@ -120,6 +125,56 @@ function isValidBackupMonth(value: unknown): value is string {
   return true;
 }
 
+export function validateRestoredBackupCollections(state: Pick<FullFinanceBackup,
+  'accounts' | 'cards' | 'transactions' | 'goals' | 'investments' | 'receivables'
+>): boolean {
+  const { accounts, cards, transactions, goals, investments, receivables = [] } = state;
+  if (accounts.some((account) =>
+    typeof account.name !== 'string' || !account.name.trim() ||
+    !['checking', 'savings', 'cash', 'investment', 'international'].includes(account.type) ||
+    typeof account.initialBalance !== 'number' || !Number.isFinite(account.initialBalance) ||
+    typeof account.institution !== 'string' || typeof account.color !== 'string' ||
+    typeof account.includeInTotal !== 'boolean' ||
+    (account.initialBalanceForeign !== undefined &&
+      (typeof account.initialBalanceForeign !== 'number' || !Number.isFinite(account.initialBalanceForeign))) ||
+    (account.currency !== undefined && !['BRL', 'USD', 'EUR', 'GBP', 'ARS', 'CLP', 'JPY', 'CAD', 'CHF'].includes(account.currency))
+  )) return false;
+  if (cards.some((card) => typeof card.name !== 'string' || !card.name.trim() ||
+    !['Mastercard', 'Visa', 'Elo'].includes(card.brand) ||
+    typeof card.limit !== 'number' || !Number.isFinite(card.limit) || card.limit < 0 ||
+    typeof card.defaultAccountId !== 'string' || typeof card.color !== 'string' ||
+    ![card.closingDay, card.dueDay].every((day) => Number.isInteger(day) && day >= 1 && day <= 31)
+  )) return false;
+  if (goals.some((goal) => typeof goal.name !== 'string' || !goal.name.trim() ||
+    ![goal.targetAmount, goal.currentAmount, goal.monthlyContribution].every((value) =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0) ||
+    !isValidBackupDate(goal.deadline) ||
+    !['CDI_100', 'CDI_110', 'TESOURO_SELIC', 'LCI_92', 'POUPANCA'].includes(goal.indexer) ||
+    typeof goal.category !== 'string'
+  )) return false;
+  if (investments.some((asset) => typeof asset.ticker !== 'string' || typeof asset.name !== 'string' ||
+    !asset.ticker.trim() || !asset.name.trim() ||
+    !['renda_fixa_pos', 'renda_fixa_ipca', 'fiis', 'acoes_br', 'exterior_etf'].includes(asset.assetClass) ||
+    ![asset.quantity, asset.averagePrice, asset.currentPrice, asset.monthlyYieldPercent].every((value) =>
+      typeof value === 'number' && Number.isFinite(value)) ||
+    typeof asset.institution !== 'string' || typeof asset.isTaxExempt !== 'boolean'
+  )) return false;
+  if (transactions.some((tx) => (tx.tags !== undefined &&
+    (!Array.isArray(tx.tags) || !tx.tags.every((tag) => typeof tag === 'string'))) ||
+    (tx.tripShares !== undefined && (!Array.isArray(tx.tripShares) ||
+      tx.tripShares.some((share) => !isRecord(share) || typeof share.participantId !== 'string' ||
+        !Number.isFinite(share.foreignShare) || !Number.isFinite(share.brlShare))))
+  )) return false;
+
+  parseWorkspaceArray(accounts, [], 'accountsJson');
+  parseWorkspaceArray(cards, [], 'cardsJson');
+  parseWorkspaceArray(goals, [], 'goalsJson');
+  parseWorkspaceArray(investments, [], 'investmentsJson');
+  parseWorkspaceArray(transactions, [], 'transactionsJson');
+  return !validateWorkspaceConsistency({ accounts, cards, transactions }) &&
+    getReceivableLinkIssues(receivables, transactions, accounts).size === 0;
+}
+
 export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | null {
   try {
     const parsed: unknown = JSON.parse(jsonText);
@@ -153,7 +208,9 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
     if (
       !requiredCollections.every((key) => {
         const value = parsed[key];
-        return Array.isArray(value) && value.every(isRecord);
+        if (!Array.isArray(value) || !value.every((item) => isRecord(item) &&
+          typeof item.id === 'string' && item.id.trim())) return false;
+        return new Set(value.map((item) => item.id.trim())).size === value.length;
       })
     ) {
       return null;
@@ -206,15 +263,51 @@ export function parseFullFinanceBackup(jsonText: string): FullFinanceBackup | nu
     if (
       ('familyMembers' in parsed &&
         (!Array.isArray(parsed.familyMembers) ||
-          !parsed.familyMembers.every(isRecord))) ||
-      ('investmentTargets' in parsed && !isRecord(parsed.investmentTargets)) ||
+          !parsed.familyMembers.every((member) => isRecord(member) &&
+            typeof member.id === 'string' && typeof member.name === 'string'))) ||
+      ('investmentTargets' in parsed && (!isRecord(parsed.investmentTargets) ||
+        !Object.values(parsed.investmentTargets).every((target) =>
+          typeof target === 'number' && Number.isFinite(target) && target >= 0 && target <= 100))) ||
       ('settings' in parsed && !isRecord(parsed.settings)) ||
       ('exportedAt' in parsed && typeof parsed.exportedAt !== 'string')
     ) {
       return null;
     }
 
+    if (isRecord(parsed.settings)) {
+      const { dismissedRecurringKeys, reminders, categorySharingRules } = parsed.settings;
+      if ((dismissedRecurringKeys !== undefined &&
+        (!Array.isArray(dismissedRecurringKeys) || !dismissedRecurringKeys.every((key) => typeof key === 'string'))) ||
+        (reminders !== undefined && (!isRecord(reminders) ||
+          (reminders.smtpConfig !== undefined && !isRecord(reminders.smtpConfig)))) ||
+        (categorySharingRules !== undefined && (!isRecord(categorySharingRules) ||
+          !Object.values(categorySharingRules).every(isRecord)))) return null;
+    }
+
+    const trips = parseWorkspaceArray<Trip>(parsed.trips, [], 'tripsJson');
+    for (const trip of trips) {
+      if (typeof trip.name !== 'string' || typeof trip.destination !== 'string' ||
+        !Array.isArray(trip.participants)) return null;
+      const participants = parseWorkspaceArray<Trip['participants'][number]>(
+        trip.participants, [], 'tripParticipants'
+      );
+      if (participants.some((participant) => typeof participant.name !== 'string')) return null;
+    }
+
     parseSharedSettlementReceipts(parsed.sharedSettlementReceiptsJson);
+    if ('receivables' in parsed && !Array.isArray(parsed.receivables)) return null;
+    const receivables = parseWorkspaceArray<Receivable>(parsed.receivables, [], 'receivablesJson');
+    if (parsed.version === 6) {
+      parseWorkspaceArray(parsed.familyMembers, [], 'familyMembersJson');
+      if (!validateRestoredBackupCollections({
+        accounts: parsed.accounts as BankAccount[],
+        cards: parsed.cards as CreditCard[],
+        transactions: getPortableBackupTransactions(parsed.transactions as Transaction[]),
+        goals: parsed.goals as SavingsGoal[],
+        investments: parsed.investments as InvestmentAsset[],
+        receivables,
+      })) return null;
+    }
     const sanitized = { ...parsed };
     if (isRecord(sanitized.settings)) {
       sanitized.settings = removeSmtpPasswordsFromSettings(

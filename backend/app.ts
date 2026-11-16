@@ -9,10 +9,12 @@ import { Pool } from 'pg';
 import { normalizeDatabaseConnectionString } from './databaseConnection.ts';
 import { getVaultIdForUid } from '../shared/workspaceIdentity.ts';
 import { createHash } from 'crypto';
-import { normalizeSharedAmount, normalizeSharedDueDate } from './sharedTransactionValidation.ts';
+import { normalizeSharedAmount } from './sharedTransactionValidation.ts';
 import { resolvePublicSmtpTarget } from './smtpSecurity.ts';
 import { isPlausibleLiveRate, parseLiveExchangeRateFromText } from '../src/domain/trips/travelRules.ts';
-import { parseWorkspaceArray, validateWorkspaceConsistency } from '../src/services/workspace/workspacePayload.ts';
+import { applySharedFamilySnapshot } from './sharedWorkspaceProjection.ts';
+import type { FamilyProjectionLink } from './sharedWorkspaceProjection.ts';
+import { getReceivableLinkIssues, parseWorkspaceArray, validateWorkspaceConsistency } from '../src/services/workspace/workspacePayload.ts';
 import { parseSharedSettlementReceipts } from '../src/domain/family/sharedSettlementReceipts.ts';
 import {
   createAttemptLimiter,
@@ -142,7 +144,9 @@ function getRequestWorkspacePayload(
     if (payload[field] === undefined) continue;
     try {
       const parsed = JSON.parse(String(payload[field]));
-      if (field === 'familyMembersJson' || field === 'tripsJson' || field === 'receivablesJson') {
+      if (field === 'receivablesJson') {
+        parseWorkspaceArray(payload[field], [], field);
+      } else if (field === 'familyMembersJson' || field === 'tripsJson') {
         parseWorkspaceArray(parsed, [], field);
       } else if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
         return null;
@@ -154,6 +158,14 @@ function getRequestWorkspacePayload(
   // Identity always comes from the verified session token, never from a
   // client-provided or legacy backup UID.
   return { ...payload, uid: vaultId };
+}
+
+function getWorkspaceReceivableIssues(payload: Record<string, unknown>) {
+  return getReceivableLinkIssues(
+    parseWorkspaceArray(payload.receivablesJson, [], 'receivablesJson'),
+    parseWorkspaceArray(payload.transactionsJson, [], 'transactionsJson'),
+    parseWorkspaceArray(payload.accountsJson, [], 'accountsJson')
+  );
 }
 
 async function withWorkspaceRls<T>(
@@ -182,6 +194,36 @@ async function withWorkspaceRls<T>(
     throw error;
   } finally {
     client.release(discardConnection ? true : undefined);
+  }
+}
+
+async function projectAcceptedFamilyLinks(user: AuthUserIdentity, revision: number) {
+  try {
+    await withWorkspaceRls(user, async (client) => {
+      const links = await client.query<FamilyProjectionLink>(
+        `SELECT owner_user_id, owner_email, invited_email, invited_user_id, owner_member_id
+           FROM public.finance_family_invitations
+          WHERE status = 'accepted' AND invited_user_id IS NOT NULL
+            AND (owner_user_id = $1 OR invited_user_id = $1)
+          ORDER BY invitation_id FOR UPDATE`,
+        [user.uid]
+      );
+      if (!links.rows.length) return;
+      const result = await client.query<{ payload: Record<string, unknown> }>(
+        `SELECT payload FROM public.finance_workspaces
+          WHERE owner_user_id = $1 AND revision = $2 LIMIT 1 FOR UPDATE`,
+        [user.uid, revision]
+      );
+      const payload = result.rows[0]?.payload;
+      if (!payload || payload.sharedWorkspaceProjection !== true) return;
+      for (const link of links.rows) {
+        const partnerEmail = (link.owner_user_id === user.uid ? link.invited_email : link.owner_email).trim().toLowerCase();
+        await applySharedFamilySnapshot(client, user, link, partnerEmail, [], [], payload);
+      }
+    });
+  } catch (error) {
+    // O workspace já foi confirmado. O próximo salvamento ou a leitura da família tenta novamente.
+    console.error('Não foi possível projetar os compartilhados do workspace confirmado.', error);
   }
 }
 
@@ -575,7 +617,7 @@ async function startServer() {
     }
     const vaultId = getVaultIdForUid(user.uid);
     const payload = getRequestWorkspacePayload(req.body?.payload, vaultId);
-    if (!payload) {
+    if (!payload || getWorkspaceReceivableIssues(payload).size > 0) {
       res.status(400).json({ error: 'Payload inicial do workspace inválido.' });
       return;
     }
@@ -609,6 +651,9 @@ async function startServer() {
         res.status(409).json({ error: 'O workspace já foi criado no Neon.' });
         return;
       }
+      if (payload.sharedWorkspaceProjection === true) {
+        await projectAcceptedFamilyLinks(user, Number(created.revision));
+      }
       res.status(201).json({
         revision: Number(created.revision),
         updatedAt: created.updated_at,
@@ -639,18 +684,33 @@ async function startServer() {
     }
 
     try {
+      const receivableIssues = getWorkspaceReceivableIssues(payload);
       const updated = await withWorkspaceRls(user, async (client) => {
+        if (receivableIssues.size > 0) {
+          const previous = await client.query<{ payload: Record<string, unknown> }>(
+            `SELECT payload FROM public.finance_workspaces
+              WHERE owner_user_id = $1 AND revision = $2 LIMIT 1 FOR UPDATE`,
+            [user.uid, expectedRevision]
+          );
+          if (!previous.rows[0]) return null;
+          const previousIssues = getWorkspaceReceivableIssues(previous.rows[0].payload);
+          if ([...receivableIssues].some(([id, issue]) => previousIssues.get(id) !== issue)) return 'invalid_receivable';
+        }
         const result = await client.query(
           `UPDATE public.finance_workspaces
               SET vault_id = $1,
-                  payload = $2::jsonb,
+                  payload = $2::jsonb || CASE
+                    WHEN payload -> 'sharedWorkspaceProjection' = 'true'::jsonb
+                      THEN '{"sharedWorkspaceProjection":true}'::jsonb
+                    ELSE '{}'::jsonb
+                  END,
                   owner_email = $3,
                   display_name = $4,
                   revision = revision + 1,
                   updated_at = now()
             WHERE owner_user_id = $5
               AND revision = $6
-          RETURNING revision, updated_at`,
+          RETURNING revision, updated_at, payload -> 'sharedWorkspaceProjection' AS shared_workspace_projection`,
           [
             vaultId,
             JSON.stringify(payload),
@@ -662,9 +722,16 @@ async function startServer() {
         );
         return result.rows[0] ?? null;
       });
+      if (updated === 'invalid_receivable') {
+        res.status(400).json({ error: 'Há movimentos inconsistentes com os registros em A Receber.' });
+        return;
+      }
       if (!updated) {
         res.status(409).json({ error: 'Workspace ausente ou revisão desatualizada.' });
         return;
+      }
+      if (updated.shared_workspace_projection === true) {
+        await projectAcceptedFamilyLinks(user, Number(updated.revision));
       }
       res.json({ revision: Number(updated.revision), updatedAt: updated.updated_at });
     } catch (error) {
@@ -912,7 +979,7 @@ async function startServer() {
       const outgoing = outgoingRows
         .filter((row) => row.status === 'received' || row.status === 'pending')
         .map((row) => ({ shared_sync_id: row.shared_sync_id, status: row.status, date: row.date }));
-      res.json({ transactions: transactions.map((row) => ({ ...row, payload: {
+      res.json({ workspaceProjectionSupported: true, transactions: transactions.map((row) => ({ ...row, payload: {
         ...row.payload,
         ...(row.payload.recipientSharedStatus ? { sharedStatus: row.payload.recipientSharedStatus,
           sharedSettledDate: row.payload.recipientSettledDate || undefined } : {}),
@@ -930,7 +997,9 @@ async function startServer() {
   app.put('/api/family/shared', async (req, res) => {
     const user = res.locals.authUser as AuthUserIdentity;
     const partnerEmail = String(req.body?.partnerEmail || '').trim().toLowerCase();
-    const transactions = req.body?.transactions;
+    const workspaceRevision = req.body?.workspaceRevision;
+    const projectsWorkspace = workspaceRevision !== undefined;
+    const transactions = projectsWorkspace ? [] : req.body?.transactions;
     const deletedSharedIds = Array.isArray(req.body?.deletedSharedIds)
       ? req.body.deletedSharedIds.map((id: unknown) => String(id).replace(/^tx-mirror-/, ''))
       : [];
@@ -939,7 +1008,8 @@ async function startServer() {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail) ||
       !Array.isArray(transactions) ||
       transactions.length > 5000 ||
-      deletedSharedIds.length > 5000
+      deletedSharedIds.length > 5000 ||
+      (projectsWorkspace && (!Number.isSafeInteger(workspaceRevision) || workspaceRevision < 1))
     ) {
       res.status(400).json({ error: 'Snapshot de compartilhamento inválido.' });
       return;
@@ -977,129 +1047,42 @@ async function startServer() {
         const link = linkResult.rows[0];
         if (!link || !link.invited_user_id) return { forbidden: true };
 
-        const ownerIsSender = link.owner_user_id === user.uid;
-        const partnerUid = ownerIsSender
-          ? String(link.invited_user_id)
-          : String(link.owner_user_id);
-        const senderEmail = user.email!.toLowerCase();
-        const recipientEmail = partnerEmail;
-        const recipientMemberId = ownerIsSender
-          ? `fam-inv-${senderEmail.replace(/[^a-z0-9]/g, '_')}`
-          : String(link.owner_member_id);
-        let upserted = 0;
-        let settled = 0;
-
-        for (const tx of transactions as Array<Record<string, unknown>>) {
-          if (!tx || typeof tx !== 'object') continue;
-          if (String(tx.id || '').startsWith('tx-mirror-')) {
-            const sharedSyncId = String(tx.sharedSyncId || tx.id).replace(/^tx-mirror-/, '');
-            if (!sharedSyncId) continue;
-            const sharedStatus = tx.sharedStatus === 'received' ? 'received' : 'pending';
-            const settledDate = typeof tx.sharedSettledDate === 'string'
-              ? tx.sharedSettledDate.slice(0, 32)
-              : null;
-            await client.query(
-              `UPDATE public.finance_shared_transactions
-                  SET payload = jsonb_set(
-                    CASE WHEN $5::text IS NULL
-                      THEN payload - 'recipientSettledDate'
-                      ELSE jsonb_set(payload, '{recipientSettledDate}', to_jsonb($5::text), true)
-                    END,
-                    '{recipientSharedStatus}', to_jsonb($4::text), true
-                  ),
-                  updated_at = now()
-                WHERE sender_user_id = $1
-                  AND recipient_user_id = $2
-                  AND shared_sync_id = $3`,
-              [partnerUid, user.uid, sharedSyncId, sharedStatus, settledDate]
-            );
-            settled += 1;
-            continue;
-          }
-
-          if (tx.isShared !== true || tx.tripId || typeof tx.id !== 'string') continue;
-          const sharedSyncId = String(tx.sharedSyncId || tx.id).replace(/^tx-mirror-/, '');
-          const amount = Number(tx.amount);
-          if (
-            !sharedSyncId || sharedSyncId.length > 160 ||
-            !Number.isFinite(amount) || amount < 0 ||
-            typeof tx.description !== 'string' || tx.description.length > 500 ||
-            typeof tx.date !== 'string' || tx.date.length > 32
-          ) continue;
-
-          const senderPaidByMember = tx.sharedPaidBy === 'member';
-          const sharedAmount = normalizeSharedAmount(tx.amount, tx.sharedAmount);
-          const sharedDueDate = normalizeSharedDueDate(tx.sharedDueDate);
-          const mirror = {
-            id: `tx-mirror-${sharedSyncId}`,
-            sharedSyncId,
-            sharedOriginEmail: senderEmail,
-            sharedTargetEmail: recipientEmail,
-            description: tx.description,
-            amount,
-            date: tx.date,
-            competenceMonth: typeof tx.competenceMonth === 'string' ? tx.competenceMonth : tx.date.slice(0, 7),
-            type: 'expense',
-            status: tx.status === 'pending' ? 'pending' : 'paid',
-            categoryId: typeof tx.categoryId === 'string' ? tx.categoryId : 'cat-outros',
-            ...(typeof tx.subcategoryId === 'string' ? { subcategoryId: tx.subcategoryId } : {}),
-            paymentMethod: typeof tx.paymentMethod === 'string' ? tx.paymentMethod : 'pix',
-            recurrence: typeof tx.recurrence === 'string' ? tx.recurrence : 'single',
-            ...(typeof tx.installmentGroupId === 'string' ? { installmentGroupId: `mirror-${tx.installmentGroupId}` } : {}),
-            ...(typeof tx.installmentNumber === 'number' ? { installmentNumber: tx.installmentNumber } : {}),
-            ...(typeof tx.installmentTotal === 'number' ? { installmentTotal: tx.installmentTotal } : {}),
-            ...(typeof tx.installmentPurchaseTotal === 'number' && Number.isFinite(tx.installmentPurchaseTotal) &&
-              tx.installmentPurchaseTotal >= 0 && Number.isSafeInteger(Math.round(tx.installmentPurchaseTotal * 100))
-              ? { installmentPurchaseTotal: tx.installmentPurchaseTotal } : {}),
-            ...(typeof tx.notes === 'string' ? { notes: tx.notes.slice(0, 2000) } : {}),
-            isShared: true,
-            sharedMemberId: recipientMemberId,
-            sharedAmount: sharedAmount ?? amount,
-            sharedSplitMode: ['full', 'half', 'custom'].includes(String(tx.sharedSplitMode)) ? tx.sharedSplitMode : 'half',
-            sharedPaidBy: senderPaidByMember ? 'me' : 'member',
-            sharedStatus: tx.sharedStatus === 'received' ? 'received' : 'pending',
-            ...(typeof tx.sharedSettledDate === 'string' ? { sharedSettledDate: tx.sharedSettledDate } : {}),
-            ...(sharedDueDate ? { sharedDueDate } : {}),
-            isCompanionOnlyExpense: true,
-          };
+        // Hold the authoritative revision until all mirror writes and deletions commit.
+        const workspace = await client.query(
+          `SELECT vault_id, payload, revision, updated_at FROM public.finance_workspaces
+            WHERE owner_user_id = $1 LIMIT 1 FOR UPDATE`,
+          [user.uid]
+        );
+        const current = workspace.rows[0];
+        if (projectsWorkspace && Number(current?.revision) !== workspaceRevision) {
+          return { stale: true };
+        }
+        const legacyForProjectedWorkspace = !projectsWorkspace && current?.payload?.sharedWorkspaceProjection === true;
+        if (legacyForProjectedWorkspace && deletedSharedIds.length === 0) {
+          return { stale: true };
+        }
+        if (projectsWorkspace && current.payload.sharedWorkspaceProjection !== true) {
           await client.query(
-            `INSERT INTO public.finance_shared_transactions
-               (sender_user_id, recipient_user_id, shared_sync_id, payload, updated_at)
-             VALUES ($1, $2, $3, $4::jsonb, now())
-             ON CONFLICT (sender_user_id, recipient_user_id, shared_sync_id)
-             DO UPDATE SET payload = EXCLUDED.payload || jsonb_strip_nulls(jsonb_build_object(
-               'recipientSharedStatus', public.finance_shared_transactions.payload -> 'recipientSharedStatus',
-               'recipientSettledDate', public.finance_shared_transactions.payload -> 'recipientSettledDate'
-             )), updated_at = now()`,
-            [user.uid, partnerUid, sharedSyncId, JSON.stringify(mirror)]
+            `UPDATE public.finance_workspaces
+                SET payload = payload || '{"sharedWorkspaceProjection":true}'::jsonb
+              WHERE owner_user_id = $1`,
+            [user.uid]
           );
-          upserted += 1;
         }
 
-        let deleted = 0;
-        if (deletedSharedIds.length > 0) {
-          const deletion = await client.query(
-            `DELETE FROM public.finance_shared_transactions
-              WHERE sender_user_id = $1
-                AND recipient_user_id = $2
-                AND shared_sync_id = ANY($3::text[])`,
-            [user.uid, partnerUid, deletedSharedIds]
-          );
-          const hidden = await client.query(
-            `UPDATE public.finance_shared_transactions
-                SET recipient_hidden = true, updated_at = now()
-              WHERE sender_user_id = $1
-                AND recipient_user_id = $2
-                AND shared_sync_id = ANY($3::text[])
-                AND recipient_hidden = false`,
-            [partnerUid, user.uid, deletedSharedIds]
-          );
-          deleted = (deletion.rowCount ?? 0) + (hidden.rowCount ?? 0);
-        }
-        return { forbidden: false, upserted, settled, deleted };
+        return {
+          forbidden: false,
+          ...await applySharedFamilySnapshot(client, user, link, partnerEmail,
+            legacyForProjectedWorkspace ? [] : transactions, deletedSharedIds,
+            projectsWorkspace ? current.payload : undefined, legacyForProjectedWorkspace),
+        };
       });
       if (result.forbidden) {
         res.status(403).json({ error: 'O compartilhamento exige convite familiar aceito.' });
+        return;
+      }
+      if ('stale' in result) {
+        res.status(409).json({ error: 'A versão do workspace mudou. Atualize antes de sincronizar os compartilhados.' });
         return;
       }
       res.json({ ok: true, ...result });

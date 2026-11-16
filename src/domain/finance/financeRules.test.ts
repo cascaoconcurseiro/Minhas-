@@ -148,11 +148,11 @@ test('personal DRE uses the same shared-expense and income exclusions as monthly
   ];
   const dre = calculatePersonalDre(rows, '2026-11', [], [], []);
   const monthly = calculateMonthlySummary([], [], rows, '2026-11');
-  assert.equal(dre.consumptionExpenses, 30);
+  assert.equal(dre.consumptionExpenses, 0);
   assert.equal(dre.consumptionExpenses, monthly.expenseTotal);
   assert.equal(dre.totalIncome, monthly.incomeTotal);
   assert.equal(dre.totalIncome, 200);
-  assert.equal(dre.netSurplusAfterInvestments, 170);
+  assert.equal(dre.netSurplusAfterInvestments, 200);
 });
 
 test('parseBRLInput parses Brazilian and standard decimal strings accurately', () => {
@@ -1411,7 +1411,7 @@ test('resolveCreditCardInvoiceMonth accounts for both the card closing and due d
   assert.equal(resolveCreditCardInvoiceMonth('2026-09-06', dueAfterClosing), '2026-10');
 });
 
-test('shared expenses paid by member count only user share while pending and avoid double counting once settled', () => {
+test('shared expenses paid by member count only through the bank movement after settlement', () => {
   const accounts: BankAccount[] = [
     {
       id: 'acc-1',
@@ -1455,7 +1455,7 @@ test('shared expenses paid by member count only user share while pending and avo
   };
 
   const effPending = getEffectiveExpenseAmountForUser(pendingSharedTx);
-  assert.deepEqual(effPending, { amount: 150, status: 'pending' });
+  assert.equal(effPending, null);
 
   const summaryBeforeSettle = calculateMonthlySummary(
     accounts,
@@ -1463,12 +1463,11 @@ test('shared expenses paid by member count only user share while pending and avo
     [pendingSharedTx],
     '2026-10'
   );
-  // Only the user's R$ 150 share counts as pending expense; bank current balance remains R$ 2.000
-  assert.equal(summaryBeforeSettle.expenseTotal, 150);
-  assert.equal(summaryBeforeSettle.expensePending, 150);
+  assert.equal(summaryBeforeSettle.expenseTotal, 0);
+  assert.equal(summaryBeforeSettle.expensePending, 0);
   assert.equal(summaryBeforeSettle.expenseRealized, 0);
   assert.equal(summaryBeforeSettle.totalCurrentBalance, 2000);
-  assert.equal(summaryBeforeSettle.totalProjectedBalance, 1850);
+  assert.equal(summaryBeforeSettle.totalProjectedBalance, 2000);
 
   // Now settle the shared expense: original is marked 'received' and a real bank expense tx-reimb- is created
   const settledSharedTx: Transaction = {
@@ -2043,7 +2042,7 @@ test('calculateDailyCashFlow reconciles end-of-month balance with calculateAccou
   assert.equal(lastDayPoint.projectedBalance, includedRealizedEnd);
 });
 
-test('daily cash flow projects open card invoices and member-paid shares without changing realized balance', () => {
+test('daily cash flow projects open card invoices and leaves member-paid shares to Shared', () => {
   const account: BankAccount = {
     id: 'acc-cash-flow', name: 'Conta principal', institution: 'Banco', type: 'checking',
     initialBalance: 1000, color: '#000000', includeInTotal: true,
@@ -2078,8 +2077,8 @@ test('daily cash flow projects open card invoices and member-paid shares without
   assert.equal(flow[14].expense, 100);
   assert.equal(flow[14].projectedBalance, 850);
   assert.equal(flow[14].cumulativeBalance, 1000, 'unpaid invoices do not change the realized balance');
-  assert.equal(flow[19].expense, 25);
-  assert.equal(flow[19].projectedBalance, 825);
+  assert.equal(flow[19].expense, 0);
+  assert.equal(flow[19].projectedBalance, 850);
 
   const monthly = calculateMonthlySummary([account], [card], purchases, '2026-11');
   assert.equal(flow.at(-1)?.projectedBalance, monthly.totalProjectedBalance);

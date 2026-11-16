@@ -187,6 +187,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   );
 
   const budgetAlerts = getBudgetAlerts(categoryBreakdown);
+  const includedAccountIds = new Set(accounts.filter((account) => account.includeInTotal).map((account) => account.id));
+  const todayAccountBalance = currentPosition
+    ? currentPosition.accountBalances.reduce((total, balance) =>
+        total + (includedAccountIds.has(balance.accountId) ? Math.round(balance.currentBalance * 100) : 0), 0) / 100
+    : monthlySummary.totalCurrentBalance;
   const overBudgetItems = budgetAlerts.filter((i) => i.status === 'over');
   const warningBudgetItems = budgetAlerts.filter((i) => i.status === 'warning');
 
@@ -219,7 +224,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
           </div>
           <p className="mt-1.5 sm:mt-2 text-base sm:text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white break-words sm:truncate">
-            {formatBRL(monthlySummary.totalCurrentBalance)}
+            {formatBRL(todayAccountBalance)}
           </p>
           <p className="mt-1 sm:mt-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 break-words sm:truncate">
             <span>Patrimônio contas: {formatBRL(health360.liquidBalance)}</span>

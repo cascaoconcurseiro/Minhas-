@@ -3,34 +3,35 @@
 > **Documento obrigatório.** Toda entrega (commit que muda `src/`, `backend/`, `api/`, `db/`, `shared/` ou `package.json`) **precisa** de uma nova entrada na seção 7 e da atualização das seções 1–6 quando mudarem. O CI barra a entrega se isso não for feito (`bun run check:handoff`). Regras completas: [docs/processo/handoff-e-checklist.md](./docs/processo/handoff-e-checklist.md). Histórico antigo: [docs/arquivo/handoff/](./docs/arquivo/handoff/).
 
 ## 1. Estado atual
-- **Atualizado em:** 2026-11-15
+- **Atualizado em:** 2026-11-16
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-15):** `tsc` limpo · 796 testes passando · build PWA ok · `scripts/qa-postgres.ts` passou em PostgreSQL 16 local descartável.
+- **Verificação mais recente (2026-11-16):** correções desta sessão passaram `bun run check` no Windows (tipagem, testes, build e HANDOFF); testes específicos do backup v6 passaram 21/21. A projeção compartilhada passou QA PostgreSQL 17 descartável, incluindo cliente legado, revisão antiga, restauração que remove item e leitura do recibo. Alterações ainda locais e não publicadas.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
 | Item | Situação |
 |---|---|
+| [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos localmente e verificados; dono autorizou publicação em 2026-11-16. Conferência posterior com a Fran pendente. |
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
-1. Decidir como ler fatura de cartão em **PDF/foto** (IA externa mais precisa × leitura só no aparelho). Sem decisão ainda.
-2. Importação de **fatura de cartão** (OFX/CSV) — exige um arquivo real de fatura do banco do dono para acertar o formato.
-3. Dividir arquivos grandes sem mudar comportamento (`TransactionModal`, `App.tsx`, `financeRules.ts`, `backend/app.ts`) — ver `CHECKLIST.md`.
-4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data).
+1. Publicar as alterações validadas em `main` e acompanhar CI e implantação Vercel.
+2. Após implantação, Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
+3. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
+4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
 
 ## 4. Pendências do dono (dependem do Wesley)
-- Pedir à Fran para atualizar o app e conferir os 110 compartilhados (já gravados no Neon em 2026-11-15).
-- Atualizar o app instalado: Conta, Login & Nuvem → **Buscar atualização agora**.
+- Após publicar, atualizar o app instalado em Conta, Login & Nuvem → **Buscar atualização agora** e pedir à Fran que confira os compartilhados.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
 - Decidir: leitura de fatura por IA externa ou só no aparelho (item 1).
 
 ## 5. Nunca verificado / riscos conhecidos
 - iPhone/Safari reais (campo de data, instalação do PWA), Face ID real, envio real de e-mail (SMTP).
-- Execução **automática** (agendada) do backup cifrado no GitHub e do cron `/api/readiness` na Vercel; só execuções manuais comprovadas (o `SELECT 1` diário do GitHub foi comprovado em 2026-11-07).
-- Restauração completa pela interface contra um Neon de teste; isolamento entre dois usuários com RLS real em produção.
+- A execução agendada do backup cifrado foi comprovada no GitHub. A execução agendada do cron `/api/readiness` da Vercel segue pendente.
+- A restauração JSON pela interface e o roteiro SQL passaram em PostgreSQL 17 local descartável. A prova contra Neon de teste e o isolamento com RLS em produção seguem pendentes.
+- A tela real da conta da Fran com a nova classificação da academia ainda não foi verificada; nenhuma alteração foi feita no Neon nesta sessão.
 - Backup do Neon: plano Free tem janela de 6 h; exportação JSON do app não cobre convites familiares.
 - Recursos de câmbio ao vivo (Gemini) estão desligados na Vercel se `GEMINI_API_KEY` não estiver configurada.
 
@@ -40,8 +41,29 @@
 - Compra no cartão: nada pré-selecionado (forma, categoria, conta); com uma só opção ela já vem marcada.
 - Dia de fechamento: padrão "compra no dia do fechamento fica na fatura atual"; opção por cartão para ir à próxima.
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
+- Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-16 — Correções da auditoria e classificação de compartilhados
+- **O que mudou:** corrigidos os 13 achados M01–M13: proteções de operações ligadas a A Receber; posição atual cortada por data; projeção familiar baseada na revisão confirmada, com reconciliação de exclusões e bloqueio de reenvio atrasado; validação completa de backup v6 antes de aplicar; SQL de recuperação e permissões restritas; ordem cronológica de pagamento parcial; datas/valores válidos; vínculos de recebimentos protegidos ao excluir conta; import de backend portável no Windows; backup v6 portátil entre titulares; cópia offline em modo de leitura. Despesa paga por familiar fica em Compartilhado → Eu devo e sai das despesas e do calendário pessoais.
+- **Por quê:** pedido do dono para corrigir tudo da auditoria e a cobrança de R$ 160 da academia mostrada incorretamente como despesa pessoal/valor a receber.
+- **Arquivos/áreas:** domínio financeiro, A Receber, cartões, Visão Geral, Relatórios, `src/App.tsx`, workspace/backup, API familiar, scripts QA/recuperação SQL; testes de domínio, API, App, import e backup.
+- **Como foi verificado:** `bun run check` no Windows; backup v6 21/21; QA PostgreSQL 17 descartável para revisão cliente antigo/novo, conflito de revisão, reconciliação de remoções e recibos. Build concluiu com aviso existente sobre bundle principal acima de 500 kB.
+- **Não verificado:** implantação na Vercel; a conta/tela da Fran com este código; dados financeiros reais; iPhone/Safari físico e restauração em Neon de teste.
+- **Impacto em dados/Neon:** nenhum nesta sessão. As gravações QA foram feitas apenas no PostgreSQL descartável. As alterações de código ainda não foram publicadas.
+- **Documentação atualizada:** `CHECKLIST.md`, este HANDOFF, `MASTER_BLUEPRINT.md`, regras de negócio, fluxos, índice, manual de backup e relatório da auditoria.
+- **Próximo passo:** acompanhar o CI e a implantação Vercel do commit enviado para `main`; pedir atualização dos dois apps e verificar a tela da Fran.
+
+### 2026-11-15 — Auditoria funcional e financeira do sistema
+- **O que mudou:** registrado o diagnóstico do commit `4edf4b9`, com 13 achados, cenários e cobertura por área. Código e configuração do app sem alterações.
+- **Por quê:** pedido de revisão das funcionalidades e regras do sistema todo.
+- **Arquivos/áreas:** [relatório](docs/AUDITORIA_SISTEMA_2026-11-15.md), `CHECKLIST.md`, `HANDOFF.md` e registro operacional do backup.
+- **Como foi verificado:** suíte local 795/796, tipagem e build aprovados, CI Linux 796/796, PostgreSQL 17 descartável, navegação em 11 áreas do Chrome e cenários de A Receber, cartão, compartilhamento, backup e PDF.
+- **Não verificado:** dados financeiros reais, Face ID em iPhone físico, SMTP externo, recuperação do dump cifrado mais recente em Neon e execução agendada de readiness.
+- **Impacto em dados/Neon:** nenhum. As gravações de prova ocorreram no PostgreSQL local descartável.
+- **Documentação atualizada:** relatório de auditoria, índice, checklist e evidência do backup recorrente.
+- **Próximo passo:** corrigir M01 e M02 no extrato, em A Receber e na validação de vínculos da API, com regressões para os dois fluxos.
 
 ### 2026-11-15 — Aceitar convite familiar exige o código do convite
 - **O que mudou:** (1) O servidor deriva um **código de 8 caracteres** por convite (`deriveFamilyInviteCode`, HMAC com o segredo da sessão; nada novo no banco) e o entrega **só a quem convidou** (`invite_code` em `GET/POST /api/family/invitations`, convites pendentes). (2) `POST .../respond` com `accepted` **exige `code`**: sem código/errado → 403 e o convite não muda; 8 erros por hora → 429; recusar não exige; repetir um aceite já feito não pede de novo. (3) Tela: quem convidou vê o código no cartão da pessoa e ele vai na mensagem **Copiar convite / WhatsApp**; quem recebe digita o código no aviso do topo e no sino (`AcceptFamilyInviteForm`, campo formata `ABCD-EFGH`); mensagens claras para código errado e excesso de tentativas.

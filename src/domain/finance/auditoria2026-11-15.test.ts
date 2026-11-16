@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import {
   calculateAccountBalances, createTransactionBatch, calculateCreditCardSummary, calculateDailyCashFlow, calculateMonthlySummary,
   payCreditCardInvoice, reverseCreditCardInvoicePayment, toggleTransactionStatusWithCascade,
+  calculateCurrentPosition, calculateNetWorth, getLedgerTransactionsForMonth, searchTransactionsGlobal,
 } from './financeRules';
+import { calculateSharedMemberSummary, settleSharedExpenses } from '../family/sharedFinanceRules';
 import { anticipateCardInstallments, reverseInstallmentAnticipation } from '../budgets/uxEnhancementRules';
 import { calculateTripExpenseSplit, simplifyTripDebts } from '../trips/travelRules';
 import type { BankAccount, CreditCard, Transaction } from '../../types/finance';
@@ -119,15 +121,53 @@ test('A06 pagamento parcial divide a moeda estrangeira e a reversão a recompõe
   assert.equal(back[0].tripShares?.[0]?.brlShare, 100);
 });
 
-test('A09 espelho de despesa compartilhada recebida entra no consumo e na projeção pela cota pessoal', () => {
-  const mirror: Transaction = { id: 'tx-mirror-s1', description: 'Mercado (do familiar)', amount: 100, date: '2026-11-05', competenceMonth: '2026-11',
-    type: 'expense', status: 'pending', categoryId: 'cat', paymentMethod: 'pix', recurrence: 'single', isShared: true, sharedMemberId: 'm1',
-    sharedAmount: 50, sharedPaidBy: 'member', sharedStatus: 'pending', isCompanionOnlyExpense: true } as Transaction;
-  const s = calculateMonthlySummary([acc], [], [mirror], '2026-11');
-  assert.equal(s.expenseTotal, 50, 'a minha cota (50) é gasto do mês');
-  assert.equal(bank([mirror]), 1000, 'não debita a conta antes do acerto');
-  const flow = calculateDailyCashFlow([acc], [], [mirror], '2026-11');
-  assert.equal(flow[flow.length - 1].projectedBalance, 950, 'a projeção desconta a cota pendente');
+test('cobrança de R$ 160 paga pela Fran deixa R$ 80 em Eu devo e só entra no extrato quando acertada', () => {
+  const month = '2026-12';
+  const mirror = purchase({ id: 'tx-mirror-ginastica', description: 'Ginástica', amount: 160, date: '2026-12-09', competenceMonth: month,
+    creditCardId: undefined, paymentMethod: 'credit_card', recurrence: 'fixed',
+    isShared: true, sharedMemberId: 'fran', sharedAmount: 80, sharedPaidBy: 'member',
+    sharedStatus: 'pending', isCompanionOnlyExpense: true });
+  assert.deepEqual(getLedgerTransactionsForMonth([mirror], month), []);
+  assert.deepEqual(searchTransactionsGlobal([mirror], [], { query: 'ginastica' }), []);
+  assert.equal(calculateMonthlySummary([acc], [], [mirror], month).expenseTotal, 0);
+  assert.equal(calculateDailyCashFlow([acc], [], [mirror], month).at(-1)?.projectedBalance, 1000);
+  const shared = calculateSharedMemberSummary([mirror], 'fran', month);
+  assert.equal(shared.owedToMeMonthAmount, 0);
+  assert.equal(shared.iOweMemberMonthAmount, 80);
+  const settled = settleSharedExpenses([mirror], [acc], { txId: mirror.id, memberName: 'Fran', accountId: acc.id,
+    date: '2026-12-09', settlementId: 'gym' });
+  assert.equal(calculateMonthlySummary([acc], [], settled.transactions, month).expenseRealized, 80);
+  assert.equal(getLedgerTransactionsForMonth(settled.transactions, month).length, 1);
+  assert.equal(calculateSharedMemberSummary(settled.transactions, 'fran', month).iOweMemberMonthAmount, 0);
+});
+
+test('M03 posição atual e patrimônio cortam lançamentos efetivados depois de hoje', () => {
+  const credit = purchase({ id: 'future-credit', date: '2026-11-30', type: 'income', amount: 300,
+    status: 'paid', creditCardId: undefined, accountId: acc.id, paymentMethod: 'pix' });
+  const position = calculateCurrentPosition([acc], [], [credit], '2026-11-15');
+  assert.equal(position.accountBalances[0].currentBalance, 1000);
+  assert.equal(calculateNetWorth(position.accountBalances, [], []).totalNetWorth, 1000);
+  assert.equal(calculateMonthlySummary([acc], [], [credit], '2026-11').totalCurrentBalance, 1300);
+});
+
+test('M08 pagamento parcial começa nas compras mais antigas mesmo com extrato armazenado fora de ordem', () => {
+  const newest = purchase({ id: 'new', date: '2026-11-12', amount: 60 });
+  const oldest = purchase({ id: 'old', date: '2026-11-02', amount: 60 });
+  const paid = payCreditCardInvoice(card, [newest, oldest], '2026-11', acc.id, '2026-11-15', 40);
+  assert.equal(paid.find((tx) => tx.partialSplitOriginalId === oldest.id)?.amount, 40);
+  assert.equal(paid.find((tx) => tx.id === newest.id)?.amount, 60);
+  assert.equal(debt(paid), 80);
+});
+
+test('M03 pagamento futuro de fatura preserva a dívida e o saldo até a data do débito', () => {
+  const rows = payCreditCardInvoice(card, [purchase()], '2026-11', acc.id, '2026-11-30');
+  const before = calculateCurrentPosition([acc], [card], rows, '2026-11-15');
+  assert.equal(before.accountBalances[0].currentBalance, 1000);
+  assert.equal(before.cardSummaries[0].usedLimit, 100);
+  assert.equal(calculateNetWorth(before.accountBalances, [], before.cardSummaries).totalNetWorth, 900);
+  const after = calculateCurrentPosition([acc], [card], rows, '2026-11-30');
+  assert.equal(after.accountBalances[0].currentBalance, 900);
+  assert.equal(after.cardSummaries[0].usedLimit, 0);
 });
 
 test('A10 identificador do extrato (FITID) só vale dentro da mesma conta', async () => {

@@ -8,7 +8,7 @@ import test from 'node:test';
  * executa precisa ter extensão explícita (.ts ou .js). Sem isso a função cai com HTTP 500 em produção
  * (já aconteceu duas vezes). Importar só tipos de `src/types/finance` é seguro: o compilador remove o import.
  */
-const TYPES_ONLY_TARGET = 'src/types/finance.ts';
+const TYPES_ONLY_TARGET = normalize('src/types/finance.ts');
 const IMPORT = /^(import|export)\s+(type\s+)?[^;]*?from\s+'(\.{1,2}\/[^']+)'/gms;
 
 function resolveImport(from: string, spec: string): string | null {
@@ -39,5 +39,5 @@ test('todo import relativo executado pelo backend tem extensão explícita', () 
     }
   }
   assert.deepEqual(problems, [], `Imports sem extensão no caminho do backend (quebram a API na Vercel):\n${problems.join('\n')}`);
-  assert.ok(seen.has('src/domain/finance/financeRules.ts'), 'o teste precisa alcançar financeRules.ts a partir do backend');
+  assert.ok(seen.has(normalize('src/domain/finance/financeRules.ts')), 'o teste precisa alcançar financeRules.ts a partir do backend');
 });

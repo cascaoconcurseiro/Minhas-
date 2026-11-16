@@ -1,14 +1,15 @@
 import type { Receivable, ReceivablePayment, Transaction } from '../../types/finance';
-import { formatMonthYearPT } from '../finance/financeRules';
+import { formatMonthYearPT, isValidISODate } from '../finance/formatting.ts';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-export function getReceivablePaid(receivable: Receivable): number {
-  return round2(receivable.payments.reduce((sum, payment) => sum + payment.amount, 0));
+export function getReceivablePaid(receivable: Receivable, throughDate?: string): number {
+  return receivable.payments.reduce((sum, payment) =>
+    sum + (!throughDate || payment.date <= throughDate ? Math.round(payment.amount * 100) : 0), 0) / 100;
 }
 
-export function getReceivableBalance(receivable: Receivable): number {
-  return Math.max(0, round2(receivable.amount - getReceivablePaid(receivable)));
+export function getReceivableBalance(receivable: Receivable, throughDate?: string): number {
+  return Math.max(0, Math.round(receivable.amount * 100) - Math.round(getReceivablePaid(receivable, throughDate) * 100)) / 100;
 }
 
 export type ReceivableStatus = 'open' | 'partial' | 'paid';
@@ -25,12 +26,13 @@ export interface ReceivablesSummary {
   byPerson: Array<{ personName: string; balance: number; count: number }>;
 }
 
-export function summarizeReceivables(receivables: Receivable[]): ReceivablesSummary {
+export function summarizeReceivables(receivables: Receivable[], throughDate?: string): ReceivablesSummary {
   const byPerson = new Map<string, { balance: number; count: number }>();
   let totalOpen = 0;
   let openCount = 0;
   for (const receivable of receivables) {
-    const balance = getReceivableBalance(receivable);
+    if (throughDate && receivable.createdDate > throughDate) continue;
+    const balance = getReceivableBalance(receivable, throughDate);
     if (balance <= 0) continue;
     totalOpen += balance;
     openCount += 1;
@@ -72,9 +74,12 @@ export type ReceivableResult =
 export function createReceivable(input: CreateReceivableInput): ReceivableResult {
   const personName = input.personName.trim();
   if (!personName) return { error: 'Informe quem vai pagar.' };
-  if (!Number.isFinite(input.amount) || input.amount <= 0) return { error: 'Informe um valor maior que zero.' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: 'Informe uma data válida.' };
-  const amount = round2(input.amount);
+  const amountCents = Math.round(input.amount * 100);
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) return { error: 'Informe um valor válido maior que zero.' };
+  if (!isValidISODate(input.date) || (input.dueDate !== undefined && !isValidISODate(input.dueDate))) {
+    return { error: 'Informe uma data válida.' };
+  }
+  const amount = amountCents / 100;
 
   if (input.kind === 'card_invoice') {
     if (!input.cardId) return { error: 'Escolha o cartão.' };
@@ -144,12 +149,14 @@ export function registerReceivablePayment(
   input: { id: string; date: string; amount: number; accountId: string; note?: string }
 ): PaymentResult {
   if (!input.accountId) return { error: 'Escolha a conta onde o dinheiro entrou.' };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { error: 'Informe uma data válida.' };
-  if (!Number.isFinite(input.amount) || input.amount <= 0) return { error: 'Informe um valor maior que zero.' };
+  if (!isValidISODate(input.date)) return { error: 'Informe uma data válida.' };
+  const amountCents = Math.round(input.amount * 100);
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) return { error: 'Informe um valor válido maior que zero.' };
+  if (receivable.payments.some((payment) => payment.id === input.id)) return { error: 'Este recebimento já foi registrado.' };
   const balance = getReceivableBalance(receivable);
   if (balance <= 0) return { error: 'Este valor já foi totalmente recebido.' };
-  const amount = round2(input.amount);
-  if (amount > balance + 0.004) return { error: `O valor passa do que falta receber (${balance.toFixed(2).replace('.', ',')}).` };
+  if (amountCents > Math.round(balance * 100)) return { error: `O valor passa do que falta receber (${balance.toFixed(2).replace('.', ',')}).` };
+  const amount = amountCents / 100;
   const payment: ReceivablePayment = { id: input.id, date: input.date, amount, accountId: input.accountId, note: input.note?.trim() || undefined };
   const transaction: Transaction = {
     id: `tx-recv-pay-${input.id}`,
@@ -185,7 +192,17 @@ export function deleteReceivable(
   receivables: Receivable[],
   transactions: Transaction[],
   receivableId: string
-): { receivables: Receivable[]; transactions: Transaction[] } {
+): { receivables: Receivable[]; transactions: Transaction[]; error?: string } {
+  const target = receivables.find((item) => item.id === receivableId);
+  const rootId = target?.linkedTransactionId;
+  const hasPaidCardFragment = target?.kind === 'card_invoice' && transactions.some((tx) => {
+    const isLinked = tx.receivableId === receivableId ||
+      (rootId && (tx.id === rootId || tx.id.startsWith(`${rootId}-paid-`)));
+    return isLinked && Boolean(tx.creditCardId) && (tx.status === 'paid' || Boolean(tx.invoicePaymentId));
+  });
+  if (hasPaidCardFragment) {
+    return { receivables, transactions, error: 'Estorne o pagamento da fatura em Cartões antes de apagar.' };
+  }
   return {
     receivables: receivables.filter((item) => item.id !== receivableId),
     transactions: transactions.filter((tx) => tx.receivableId !== receivableId),

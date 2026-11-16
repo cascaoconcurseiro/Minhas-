@@ -33,6 +33,7 @@ Mapa detalhado e regras de onde colocar código: `docs/tecnico/estrutura-do-codi
 ## Decisões de arquitetura
 | Data | Decisão | Motivo |
 |------|---------|--------|
+| 2026-11-16 | O servidor projeta os espelhos de compartilhamento a partir da revisão de workspace já confirmada no Neon; a revisão aceita também reconcilia remoções e impede que uma gravação atrasada ressuscite itens excluídos | Manter o workspace como fonte de verdade e tornar a sincronização coerente entre cliente antigo, cliente atual e restauração de backup, sem um segundo estado editável pelo cliente |
 | 2026-11-15 | Código organizado por áreas (`components/` em pastas, `src/domain/` para regras puras, `src/services/` para dados); `domain` não importa telas nem clientes de API; documentação refeita em `docs/` (produto, técnico, operação, processo, arquivo) e HANDOFF/CHECKLIST com modelo fixo e verificação obrigatória em CI (`scripts/check-handoff.ts`) | Pedido do dono: organização de nível sênior, documentação completa e handoff sempre preenchido para saber onde estamos, o que mudou e o que falta |
 | 2026-11-14 | Dinheiro de terceiros (valores a receber e gastos só de acompanhantes) fica fora do resultado pessoal (`isOutsidePersonalResult`) mas conta em saldo, fatura e limite; o patrimônio inclui o a receber em aberto como ativo | A fatura do cartão adicional entra na dívida do cartão e não pode virar despesa nem perda de patrimônio |
 | 2026-11-14 | Forma de pagamento, categoria e conta não vêm pré-selecionadas quando há mais de uma opção; sincronização silenciosa (primeiro a gravar vence) | Evitar lançamentos salvos com opção errada e remover avisos de sincronização |
@@ -49,6 +50,7 @@ Mapa detalhado e regras de onde colocar código: `docs/tecnico/estrutura-do-codi
 ## Regras do projeto
 - Nunca expor `DATABASE_URL` no frontend.
 - Toda operação de workspace deve validar a sessão própria e sua versão no banco, restringindo a linha Neon ao ID de usuário autenticado.
+- O servidor deriva os espelhos familiares do workspace confirmado e reconcilia exclusões na mesma revisão; o marcador da projeção preserva compatibilidade com clientes antigos.
 - Tratar a migração financeira como operação idempotente e não substituir silenciosamente dados existentes.
 - Não enviar credenciais PostgreSQL ao frontend; o token de sessão próprio (HS256) identifica o titular nas rotas do backend.
 - Firebase não existe mais no projeto: não reintroduzir Auth, Firestore ou Storage.

@@ -529,11 +529,17 @@ test('when Neon is unreachable the saved copy stays visible with a non-blocking 
   console.error = () => {};
   const page = renderApp();
 
-  await waitFor(() => assert.match(page.textContent ?? '', /Sem conexão com a nuvem\. Você está vendo a última versão salva\./));
+  await waitFor(() => assert.match(page.textContent ?? '', /Sem conexão com a nuvem\. A última versão salva está disponível para consulta\./));
   await waitFor(() => assert.match(page.textContent ?? '', /Conta salva no aparelho/));
   assert.equal(page.querySelector('[role="alertdialog"]'), null, 'não bloqueia a tela inteira');
   assert.equal(saveCalls, 0, 'sem Neon não grava a cópia local');
   assert.equal(createCalls, 0);
+
+  const mutation = page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]');
+  assert.ok(mutation);
+  await act(async () => mutation.click());
+  await waitFor(() => assert.match(page.textContent ?? '', /estão em modo de leitura/));
+  assert.equal(saveCalls, 0);
 
   const retry = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.includes('Tentar novamente'));
   assert.ok(retry);

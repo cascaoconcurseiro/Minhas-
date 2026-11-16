@@ -143,8 +143,7 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
       </div>
       {isMine && (
         <p className="text-[11px] text-slate-500" data-testid="card-commitment-mine-help">
-          Suas compras e parcelas, mais só a sua metade do que é dividido e o que você deve em despesas pagas por outra
-          pessoa. O que é de terceiros (A Receber) não entra.
+          Sua parte nas compras e parcelas do seu cartão.
         </p>
       )}
 
@@ -208,9 +207,7 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                 <p className="mt-1 pl-[68px] text-[11px] text-slate-500">
                   {isMine
                     ? rowTotal > 0
-                      ? `Parcelas minhas ${formatBRL(row.mine.installmentTotal)}${
-                          row.mine.sharedByOthersTotal > 0 ? ` · compartilhado que devo ${formatBRL(row.mine.sharedByOthersTotal)}` : ''
-                        }`
+                      ? `Parcelas minhas ${formatBRL(row.mine.installmentTotal)}`
                       : 'Nada seu neste mês'
                     : row.cardTotal > 0
                     ? `Parcelas ${formatBRL(row.installmentTotal)}${
@@ -245,12 +242,6 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                     </div>
                     {isMine && (
                       <div>
-                        <dt className="text-slate-500">Compartilhado que devo</dt>
-                        <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.mine.sharedByOthersTotal)}</dd>
-                      </div>
-                    )}
-                    {isMine && (
-                      <div>
                         <dt className="text-slate-500">Total meu no mês</dt>
                         <dd className="font-mono font-bold tabular-nums text-slate-900">{formatBRL(row.mine.total)}</dd>
                       </div>
@@ -268,11 +259,6 @@ export const CardCommitmentSection: React.FC<CardCommitmentSectionProps> = ({
                         <li key={item.id} className="flex items-baseline justify-between gap-3">
                           <span className="min-w-0 break-words text-slate-800">
                             {item.description}
-                            {item.isSharedOwed && (
-                              <span className="ml-1.5 rounded bg-white px-1.5 py-0.5 text-[10px] text-slate-600">
-                                compartilhado
-                              </span>
-                            )}
                             {item.installmentLabel && (
                               <span className="ml-1.5 rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
                                 {item.installmentLabel}

@@ -58,6 +58,23 @@ test('overview does not expose technical audit controls to the user', () => {
   assert.doesNotMatch(page.textContent ?? '', /Auditoria Contábil Completa/);
 });
 
+test('saldo de hoje usa a posição diária das contas incluídas, independente do mês exibido', () => {
+  const accounts: BankAccount[] = [
+    { id: 'included', name: 'Giro', type: 'checking', institution: 'Banco', initialBalance: 0, color: '#000', includeInTotal: true },
+    { id: 'excluded', name: 'Reserva', type: 'checking', institution: 'Banco', initialBalance: 0, color: '#000', includeInTotal: false },
+  ];
+  const balance = (accountId: string, currentBalance: number) =>
+    ({ accountId, currentBalance, projectedBalance: currentBalance, monthIncome: 0, monthExpense: 0 });
+  const page = renderOverviewTab(undefined, {
+    accounts,
+    monthlySummary: { ...zeroSummary, totalCurrentBalance: 1300 },
+    currentPosition: { accountBalances: [balance('included', 1000), balance('excluded', 90)], cardSummaries: [] },
+  });
+  const label = page.querySelector('[title="Soma das contas marcadas como \'No giro mensal\'"]');
+  const amount = label?.parentElement?.nextElementSibling?.textContent;
+  assert.match(amount ?? '', /1\.000,00/);
+});
+
 function renderOverviewTab(
   onNavigateTab: (tab: OverviewNavTab) => void = () => {},
   overrides: Partial<OverviewTabProps> = {}

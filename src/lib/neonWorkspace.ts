@@ -206,8 +206,9 @@ export async function loadNeonSharedSnapshot(): Promise<{
   outgoingSharedIds?: string[];
   /** Compartilhados de cartão que o servidor tem sem o vencimento da fatura (enviados por app antigo). */
   outgoingSharedStaleIds?: string[];
+  workspaceProjectionSupported?: boolean;
 }> {
-  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[]; outgoingSharedIds?: string[]; outgoingSharedStaleIds?: string[] }>(
+  const result = await authorizedRequest<{ transactions: NeonSharedTransaction[]; outgoingSettlements?: OutgoingSharedSettlement[]; outgoingSharedIds?: string[]; outgoingSharedStaleIds?: string[]; workspaceProjectionSupported?: boolean }>(
     '/api/family/shared'
   );
   return {
@@ -215,12 +216,14 @@ export async function loadNeonSharedSnapshot(): Promise<{
     outgoingSettlements: result.outgoingSettlements || [],
     ...(Array.isArray(result.outgoingSharedIds) ? { outgoingSharedIds: result.outgoingSharedIds.map(String) } : {}),
     ...(Array.isArray(result.outgoingSharedStaleIds) ? { outgoingSharedStaleIds: result.outgoingSharedStaleIds.map(String) } : {}),
+    ...(result.workspaceProjectionSupported === true ? { workspaceProjectionSupported: true } : {}),
   };
 }
 
-export function syncNeonSharedTransactions(input: {
+export function syncNeonSharedTransactions(input: (
+  { transactions: Array<Record<string, unknown>> } | { workspaceRevision: number }
+) & {
   partnerEmail: string;
-  transactions: Array<Record<string, unknown>>;
   deletedSharedIds?: string[];
 }): Promise<{ ok: true; upserted: number; settled: number; deleted: number }> {
   return authorizedRequest('/api/family/shared', {

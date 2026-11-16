@@ -24,7 +24,8 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dono]** Testar em iPhone/Safari: A Receber, Cartões, campo de data, instalar o PWA, Face ID.
 
 ## C. Verificação que nunca foi feita em ambiente real
-- [ ] **[Dev]** Provar a execução **agendada** (não manual) do backup cifrado `neon-backup.yml` e do cron `/api/readiness` da Vercel.
+- [x] **[Dev]** Confirmar a execução agendada do backup cifrado. A execução [43752047582](https://github.com/cascaoconcurseiro/Minhas-/actions/runs/43752047582) concluiu com sucesso e publicou o artefato.
+- [ ] **[Dev]** Confirmar uma execução agendada do cron `/api/readiness` da Vercel com resposta autenticada.
 - [ ] **[Dev]** Restaurar um backup JSON pela interface em um Neon de teste isolado e conferir a releitura.
 - [ ] **[Dev]** Provar com duas contas e PostgreSQL real que uma conta não enxerga os dados da outra (RLS), além do teste do CI.
 - [ ] **[Dev]** Enviar um e-mail de lembrete real por SMTP de teste.
@@ -32,6 +33,16 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** Backup integral do PostgreSQL independente (o plano Free só tem janela de recuperação de 6 h) e documentar convites/compartilhados no backup.
 
 ## D. Regras de negócio a revisar ou decidir
+
+### Auditoria do sistema — 2026-11-15
+- [x] **[Dev]** M01–M02: proteger no extrato e validar na API movimentos vinculados a A Receber; impedir apagar cobranças com frações pagas.
+- [x] **[Dev]** M03–M04: aplicar corte por data à posição atual; projetar compartilhamentos do workspace confirmado e impedir ressurreição por revisão antiga.
+- [x] **[Dev]** M05–M07: validar backup v6 antes de aplicar, reconciliar espelhos removidos e preparar recuperação SQL com papel restrito.
+- [x] **[Dev]** M08–M12: ordenar pagamento parcial por data, validar datas/centavos, preservar vínculos ao excluir conta, corrigir imports no Windows e definir restauração portátil entre titulares.
+- [x] **[Dev]** M13: manter cópia offline em leitura até confirmar o workspace remoto; bloquear comandos de alteração.
+- [x] **[Dev]** Corrigir compartilhamento pago por familiar: aparece em **Compartilhado → Eu devo**, fica fora das despesas pessoais e só registra saída no acerto.
+
+[Relatório da auditoria](docs/AUDITORIA_SISTEMA_2026-11-15.md)
 - [ ] **[Decidir]** Saldo insuficiente e limite do cartão estourado devem **bloquear** ou só **avisar** (hoje só avisam).
 - [ ] **[Decidir]** `Trip.linkedAccountId` precisa de tela própria?
 - [ ] **[Dev]** Compartilhado, Viagens e contagens de pendência do menu ainda usam a competência da fatura em vez do mês da compra.

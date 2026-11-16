@@ -951,7 +951,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                           {tx.isShared && tx.sharedAmount && (
                             <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 border border-rose-200">
                               <Users className="h-2.5 w-2.5" />
-                              Compartilhado (A receber {formatBRL(tx.sharedAmount)})
+                              Compartilhado ({tx.sharedPaidBy === 'member' ? 'Eu devo' : 'A receber'} {formatBRL(tx.sharedAmount)})
                             </span>
                           )}
 

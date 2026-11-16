@@ -33,6 +33,7 @@ import {
   formatShortMonthPT,
   formatShortDateBR,
   getMonthRange,
+  isValidISODate,
 } from './formatting.ts';
 
 export {
@@ -53,11 +54,12 @@ export {
  * viagem e movimentos de valores a receber (fatura de cartão adicional cobrada de alguém, empréstimos e seus pagamentos).
  */
 export function isOutsidePersonalResult(tx: Transaction): boolean {
-  // O espelho de uma despesa compartilhada recebida por convite (`tx-mirror-`) também vem marcado como
-  // "só do acompanhante" para não debitar a conta antes do acerto, mas a minha cota é gasto meu (igual à mesma
-  // despesa lançada à mão com "pago por outra pessoa"). Por isso ele não fica fora do resultado pessoal.
-  const isIncomingSharedMirror = tx.id.startsWith('tx-mirror-');
-  return Boolean((tx.isCompanionOnlyExpense && !isIncomingSharedMirror) || tx.receivableId);
+  return Boolean(tx.isCompanionOnlyExpense || tx.receivableId || isSharedOnlyExpense(tx));
+}
+
+export function isSharedOnlyExpense(tx: Transaction): boolean {
+  return tx.id.startsWith('tx-mirror-') ||
+    (tx.type === 'expense' && tx.sharedPaidBy === 'member');
 }
 
 function isCreditCardInvoicePurchase(tx: Transaction): boolean {
@@ -465,7 +467,8 @@ export function createTransactionBatch(
 export function calculateAccountBalances(
   accounts: BankAccount[],
   transactions: Transaction[],
-  selectedMonth: string
+  selectedMonth: string,
+  throughDate?: string
 ): AccountBalanceSummary[] {
   return accounts.map((acc) => {
     let currentBalance = acc.initialBalance;
@@ -487,6 +490,7 @@ export function calculateAccountBalances(
         continue;
       }
 
+      if (throughDate && tx.date > throughDate) continue;
       const isSelectedMonth = cashMovementMonth === selectedMonth;
 
       if (tx.type === 'income' && tx.accountId === acc.id) {
@@ -537,12 +541,6 @@ export function calculateAccountBalances(
       monthExpense: Math.round(monthExpense * 100) / 100,
     };
   });
-}
-
-function isValidISODate(value: string): boolean {
-  if (typeof value !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value)) return false;
-  const parsedDate = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
 }
 
 /**
@@ -783,61 +781,53 @@ export function payCreditCardInvoice(
   }
 
   let remainingToSettle = targetPayAmount;
-  const updatedTransactions: Transaction[] = [];
+  const paidById = new Map<string, Transaction[]>();
 
-  for (const tx of transactions) {
-    if (
-      tx.creditCardId === card.id &&
-      tx.competenceMonth === invoiceMonth &&
-      tx.status === 'pending' &&
-      isCreditCardInvoicePurchase(tx)
-    ) {
-      if (!isPartial) {
-        updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus, invoicePaymentId } as Transaction);
-      } else if (remainingToSettle <= 0.001) {
-        updatedTransactions.push(tx);
-      } else if (tx.amount <= remainingToSettle + 0.001) {
-        remainingToSettle = Math.round((remainingToSettle - tx.amount) * 100) / 100;
-        updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus, invoicePaymentId } as Transaction);
-      } else {
-        const paidPart = Math.round(remainingToSettle * 100) / 100;
-        const unpaidRemainder = Math.round((tx.amount - paidPart) * 100) / 100;
-        const sharedPaidPart =
-          tx.sharedAmount === undefined
-            ? undefined
-            : Math.round((tx.sharedAmount * (paidPart / tx.amount)) * 100) / 100;
-        const sharedUnpaidRemainder =
-          tx.sharedAmount === undefined
-            ? undefined
-            : Math.round((tx.sharedAmount - (sharedPaidPart || 0)) * 100) / 100;
-        remainingToSettle = 0;
-        // Valores de viagem em moeda estrangeira acompanham a fração paga; o resto fica na fração em aberto.
-        const wholeCents = Math.round(tx.amount * 100);
-        const paidCents = Math.round(paidPart * 100);
-        const paidTripPart = mapTripAmounts(tx, (value) => Math.round((value * paidCents) / wholeCents));
-        const unpaidTripPart = mapTripAmounts(tx, (value) => value - Math.round((value * paidCents) / wholeCents));
-        updatedTransactions.push({
-          ...tx,
-          ...paidTripPart,
-          id: `${tx.id}-paid-${paymentTimestamp}`,
-          description: `${tx.description} (Abatimento Parcial)`,
-          amount: paidPart,
-          sharedAmount: sharedPaidPart,
-          status: 'paid' as TransactionStatus,
-          invoicePaymentId,
-          partialSplitOriginalId: tx.id,
-        } as Transaction);
-        updatedTransactions.push({
-          ...tx,
-          ...unpaidTripPart,
-          amount: unpaidRemainder,
-          sharedAmount: sharedUnpaidRemainder,
-          status: 'pending' as TransactionStatus,
-        });
-      }
+  for (const tx of pendingInMonth.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))) {
+    if (isPartial && remainingToSettle <= 0.001) break;
+    const updatedTransactions: Transaction[] = [];
+    if (!isPartial) {
+      updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus, invoicePaymentId } as Transaction);
+    } else if (tx.amount <= remainingToSettle + 0.001) {
+      remainingToSettle = Math.round((remainingToSettle - tx.amount) * 100) / 100;
+      updatedTransactions.push({ ...tx, status: 'paid' as TransactionStatus, invoicePaymentId } as Transaction);
     } else {
-      updatedTransactions.push(tx);
+      const paidPart = Math.round(remainingToSettle * 100) / 100;
+      const unpaidRemainder = Math.round((tx.amount - paidPart) * 100) / 100;
+      const sharedPaidPart =
+        tx.sharedAmount === undefined
+          ? undefined
+          : Math.round((tx.sharedAmount * (paidPart / tx.amount)) * 100) / 100;
+      const sharedUnpaidRemainder =
+        tx.sharedAmount === undefined
+          ? undefined
+          : Math.round((tx.sharedAmount - (sharedPaidPart || 0)) * 100) / 100;
+      remainingToSettle = 0;
+      // Valores de viagem em moeda estrangeira acompanham a fração paga; o resto fica na fração em aberto.
+      const wholeCents = Math.round(tx.amount * 100);
+      const paidCents = Math.round(paidPart * 100);
+      const paidTripPart = mapTripAmounts(tx, (value) => Math.round((value * paidCents) / wholeCents));
+      const unpaidTripPart = mapTripAmounts(tx, (value) => value - Math.round((value * paidCents) / wholeCents));
+      updatedTransactions.push({
+        ...tx,
+        ...paidTripPart,
+        id: `${tx.id}-paid-${paymentTimestamp}`,
+        description: `${tx.description} (Abatimento Parcial)`,
+        amount: paidPart,
+        sharedAmount: sharedPaidPart,
+        status: 'paid' as TransactionStatus,
+        invoicePaymentId,
+        partialSplitOriginalId: tx.id,
+      } as Transaction);
+      updatedTransactions.push({
+        ...tx,
+        ...unpaidTripPart,
+        amount: unpaidRemainder,
+        sharedAmount: sharedUnpaidRemainder,
+        status: 'pending' as TransactionStatus,
+      });
     }
+    paidById.set(tx.id, updatedTransactions);
   }
 
   const paymentCashMonth = /^\d{4}-\d{2}-\d{2}$/.test(paymentDate)
@@ -865,7 +855,7 @@ export function payCreditCardInvoice(
       : 'Baixa integral automática de fatura de cartão de crédito',
   };
 
-  return [invoicePaymentTx, ...updatedTransactions];
+  return [invoicePaymentTx, ...transactions.flatMap((tx) => paidById.get(tx.id) ?? [tx])];
 }
 
 export interface ReconciledImportResult {
@@ -1054,11 +1044,8 @@ export function getTransactionsLinkedToCategory(
 }
 
 /**
- * Calcula o impacto efetivo de uma despesa para o usuário logado:
- * - Ignora pagamentos de fatura (`isInvoicePayment`), transferências (`transfer`) e gastos exclusivos de acompanhantes de viagem (`isCompanionOnlyExpense`).
- * - Para despesas compartilhadas pagas pelo familiar (`sharedPaidBy === 'member'`):
- *   - Enquanto não quitadas (`sharedStatus !== 'received'`), considera APENAS a cota devida pelo usuário (`sharedAmount`) como despesa Pendente (`pending`), nunca o valor integral da nota paga pelo familiar.
- *   - Após quitadas (`sharedStatus === 'received'`), retorna `null` porque o lançamento bancário real de reembolso/acerto (`tx-reimb-`) já consta como despesa Efetivada (`paid`) no extrato, evitando bitributação/duplicidade.
+ * Calcula o impacto da despesa pessoal. O acerto de uma despesa paga pelo familiar
+ * entra no resultado pelo movimento bancário criado ao quitar a dívida.
  */
 export function getEffectiveExpenseAmountForUser(
   tx: Transaction
@@ -1069,20 +1056,6 @@ export function getEffectiveExpenseAmountForUser(
     isOutsidePersonalResult(tx)
   ) {
     return null;
-  }
-
-  if (tx.sharedPaidBy === 'member') {
-    if (tx.sharedStatus === 'received') {
-      return null;
-    }
-    const myShare = Math.round((tx.sharedAmount || 0) * 100) / 100;
-    if (myShare <= 0) {
-      return null;
-    }
-    return {
-      amount: myShare,
-      status: 'pending',
-    };
   }
 
   return {
@@ -1116,7 +1089,6 @@ export function calculateMonthlySummary(
   let expenseRealized = 0;
   let expensePending = 0;
   let creditCardMonthTotal = 0;
-  let unsettledMemberSharedThisMonth = 0;
 
   for (const tx of monthTxs) {
     if (tx.type === 'transfer' || tx.isInvoicePayment || isOutsidePersonalResult(tx)) {
@@ -1134,11 +1106,8 @@ export function calculateMonthlySummary(
       const effectiveExp = getEffectiveExpenseAmountForUser(tx);
       if (!effectiveExp) continue;
 
-      if (tx.creditCardId && tx.sharedPaidBy !== 'member') {
+      if (tx.creditCardId) {
         creditCardMonthTotal += effectiveExp.amount;
-      }
-      if (tx.sharedPaidBy === 'member') {
-        unsettledMemberSharedThisMonth += effectiveExp.amount;
       }
       if (effectiveExp.status === 'paid') {
         expenseRealized += effectiveExp.amount;
@@ -1159,7 +1128,7 @@ export function calculateMonthlySummary(
   }, 0);
   const unpaidCardInvoicesThroughMonth = unpaidCardInvoicesThroughMonthCents / 100;
 
-  totalProjectedBalance -= unpaidCardInvoicesThroughMonth + unsettledMemberSharedThisMonth;
+  totalProjectedBalance -= unpaidCardInvoicesThroughMonth;
 
   const incomeTotal = Math.round((incomeRealized + incomePending) * 100) / 100;
   const expenseTotal = Math.round((expenseRealized + expensePending) * 100) / 100;
@@ -1548,25 +1517,6 @@ export function calculateDailyCashFlow(
       amountCents
     );
   }
-  for (const tx of transactions) {
-    if (
-      tx.type !== 'expense' ||
-      tx.sharedPaidBy !== 'member' ||
-      tx.competenceMonth !== selectedMonth
-    ) continue;
-    const effectiveExpense = getEffectiveExpenseAmountForUser(tx);
-    if (!effectiveExpense) continue;
-    const scheduledDate = /^\d{4}-\d{2}-\d{2}$/.test(tx.date) && tx.date.slice(0, 7) === selectedMonth
-      ? tx.date
-      : `${selectedMonth}-01`;
-    const amountCents = Math.round(effectiveExpense.amount * 100);
-    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) continue;
-    cardInvoiceOutflowsByDate.set(
-      scheduledDate,
-      (cardInvoiceOutflowsByDate.get(scheduledDate) || 0) + amountCents
-    );
-    addOutflowNote(scheduledDate, 'Sua parte em despesa compartilhada paga por outra pessoa', amountCents);
-  }
 
   const points: DailyCashFlowPoint[] = [];
 
@@ -1681,7 +1631,8 @@ export function getPurchaseTransactionsForMonth(transactions: Transaction[], mon
  * scheduled in the months they are due.
  */
 export function getLedgerTransactionsForMonth(transactions: Transaction[], month: string): Transaction[] {
-  const cardTransactions = transactions.filter((tx) => Boolean(tx.creditCardId));
+  const personalTransactions = transactions.filter((tx) => !isSharedOnlyExpense(tx));
+  const cardTransactions = personalTransactions.filter((tx) => Boolean(tx.creditCardId));
   const originalTransactionsById = new Map(cardTransactions.map((tx) => [tx.id, tx]));
   const cardPurchases = getPurchaseTransactionsForMonth(cardTransactions, month)
     .map((purchase) => {
@@ -1705,7 +1656,7 @@ export function getLedgerTransactionsForMonth(transactions: Transaction[], month
     }))
     .filter((tx) => tx.date.slice(0, 7) === month);
   const otherTransactions = getCalendarTransactionsForMonth(
-    transactions.filter((tx) => !tx.creditCardId),
+    personalTransactions.filter((tx) => !tx.creditCardId),
     month
   );
 
@@ -1960,6 +1911,7 @@ export function searchTransactionsGlobal(
   const matches: GlobalSearchMatchItem[] = [];
 
   for (const tx of transactions) {
+    if (isSharedOnlyExpense(tx)) continue;
     if (scope === 'selected_month' && options.selectedMonth) {
       if (tx.competenceMonth !== options.selectedMonth) continue;
     }
@@ -2235,6 +2187,7 @@ export function reverseCreditCardInvoicePayment(
  * Marcar a compra como paga sem pagar a fatura apagaria a dívida sem sair dinheiro de nenhuma conta.
  */
 export function canSettleTransactionDirectly(tx: Transaction): boolean {
+  if (tx.receivableId) return false;
   if (tx.isInvoicePayment) return true; // o estorno em cascata tem tratamento próprio
   if (tx.creditCardId) return false;
   // Aporte/resgate de ativo e compra de câmbio mexem em outra posição (carteira, lote): só a operação própria muda isso.
@@ -2268,6 +2221,13 @@ export function toggleTransactionStatusWithCascade(
   }
 
   if (!canSettleTransactionDirectly(target)) {
+    if (target.receivableId) {
+      return {
+        updatedTransactions: transactions,
+        blocked: true,
+        actionDescription: 'Corrija este recebimento na aba A Receber.',
+      };
+    }
     if (target.type === 'transfer' && target.targetInvestmentAssetId) {
       return {
         updatedTransactions: transactions,
@@ -2311,6 +2271,7 @@ export function toggleTransactionStatusWithCascade(
       return { ...tx, status: nextStatus };
     }
     if (shouldCascade && groupId && tx.installmentGroupId === groupId) {
+      if (tx.receivableId) return tx;
       if (
         scope === 'all_series' ||
         (scope === 'this_and_future' && tx.competenceMonth >= target.competenceMonth)
@@ -2345,6 +2306,7 @@ export function toggleTransactionStatusWithCascade(
  * apagar ou editar só o lançamento deixaria a carteira, o lote ou a fatura em desacordo com a conta.
  */
 export function getLinkedOperationRestriction(tx: Transaction, action: 'editar' | 'apagar' | 'duplicar'): string | null {
+  if (tx.receivableId) return 'Corrija este movimento na aba A Receber.';
   if (tx.type === 'transfer' && tx.targetInvestmentAssetId) {
     return `Aporte ou resgate de investimento não pode ${action === 'duplicar' ? 'ser duplicado' : `ser ${action === 'editar' ? 'editado' : 'apagado'} aqui`}: a carteira de ativos já foi atualizada. Para corrigir, registre a operação inversa na aba Investimentos.`;
   }
@@ -2376,6 +2338,7 @@ export function isSharedTransactionCreatedByOther(tx: Transaction, currentUserEm
 }
 
 export function duplicateFinancialTransaction(tx: Transaction, id: string): Transaction | null {
+  if (tx.receivableId) return null;
   if (tx.isInvoicePayment || tx.id.startsWith('tx-reimb-') || tx.id.startsWith('tx-mirror-')) return null;
   if (tx.type === 'transfer' && tx.targetInvestmentAssetId) return null;
   if (tx.id.startsWith('tx-fxlot-')) return null;
@@ -2547,6 +2510,9 @@ export function applyCascadeTransactionEdit(
   const groupTransactions = transactions
     .filter((tx) => tx.installmentGroupId === groupId)
     .sort((a, b) => (a.installmentNumber || 0) - (b.installmentNumber || 0));
+  if (groupTransactions.some((tx) => tx.receivableId)) {
+    return { updatedTransactions: transactions, affectedCount: 0, error: 'Corrija este movimento na aba A Receber.' };
+  }
   if (isPurchaseTotalEdit) {
     const inScope = (tx: Transaction) =>
       scope === 'all_series' ||
@@ -3107,10 +3073,17 @@ export function calculateCurrentPosition(
   referenceDate: string = getLocalDateISO()
 ): CurrentPosition {
   const currentMonth = referenceDate.slice(0, 7);
+  const futureInvoicePaymentIds = new Set(transactions
+    .filter((tx) => tx.isInvoicePayment && tx.date > referenceDate)
+    .map((tx) => tx.id));
+  const cardTransactions = futureInvoicePaymentIds.size === 0 ? transactions : transactions.map((tx) =>
+    tx.invoicePaymentId && futureInvoicePaymentIds.has(tx.invoicePaymentId)
+      ? { ...tx, status: 'pending' as const }
+      : tx);
   return {
-    accountBalances: calculateAccountBalances(accounts, transactions, currentMonth),
+    accountBalances: calculateAccountBalances(accounts, transactions, currentMonth, referenceDate),
     cardSummaries: cards.map((card) =>
-      calculateCreditCardSummary(card, transactions, currentMonth, referenceDate)
+      calculateCreditCardSummary(card, cardTransactions, currentMonth, referenceDate)
     ),
   };
 }

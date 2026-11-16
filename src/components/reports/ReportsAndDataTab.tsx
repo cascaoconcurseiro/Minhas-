@@ -34,6 +34,7 @@ import {
   formatBRL,
   formatMonthYearPT,
   formatShortDateBR,
+  isSharedOnlyExpense,
   parseBRLInput,
 } from '../../domain/finance/financeRules';
 import { exportTransactionsToSafeCSV } from '../../services/import-export/transactionsCsv';
@@ -277,7 +278,7 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
   }, [dailyFlow]);
 
   const handleDownloadCSV = () => {
-    const csvContent = exportTransactionsToSafeCSV(transactions, categories, accounts, cards);
+    const csvContent = exportTransactionsToSafeCSV(transactions.filter((tx) => !isSharedOnlyExpense(tx)), categories, accounts, cards);
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

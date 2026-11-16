@@ -112,7 +112,7 @@ Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e val
 - Alerta para o mês atual e os 2 próximos quando perto/acima do limite.
 
 
-**Chave "Geral / Só a minha parte"** (decisão do dono, 2026-11-15): o *Geral* mostra tudo o que está na fatura (como antes, sem A Receber). *Só a minha parte* soma, por mês: suas compras e parcelas no cartão (nos compartilhados que você pagou, desconta a parte da outra pessoa: `valor − sharedAmount`), mais o que você deve em despesas compartilhadas pagas por outra pessoa (fora do cartão, só pendentes). O que é de terceiros (A Receber, cartão adicional) não entra em nenhuma das duas. A porcentagem da renda e o limite valem para a visão escolhida (`getMyCardPurchaseAmount`, `CardCommitmentMonth.mine`).
+**Chave "Geral / Só a minha parte"** (decisão do dono, 2026-11-15): o *Geral* mostra tudo o que está na fatura (como antes, sem A Receber). *Só a minha parte* soma, por mês, suas compras e parcelas no cartão (nos compartilhados que você pagou, desconta a parte da outra pessoa: `valor − sharedAmount`). Compras pagas por outra pessoa, inclusive as recebidas pelo compartilhamento familiar, ficam em **Compartilhado → Eu devo** e não são despesa pessoal nem entram no comprometimento do seu cartão. O acerto entra no extrato quando você paga sua parte. O que é de terceiros (A Receber, cartão adicional) não entra em nenhuma das duas. A porcentagem da renda e o limite valem para a visão escolhida (`getMyCardPurchaseAmount`, `CardCommitmentMonth.mine`).
 
 ### 3.6 Melhor dia de compra — `bestPurchaseDayFor`
 É o dia em que começa o ciclo novo: dia seguinte ao fechamento (ou o próprio dia de fechamento quando a opção do cartão está marcada); fechamento a partir do dia 28 → dia 1.
@@ -140,7 +140,7 @@ Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e val
 Não contam como despesa, receita, categoria, 50/30/20, DRE, comprometimento de cartão, recorrência nem aprendizado de hábito:
 - gastos **só de acompanhantes de viagem** (pagos por outro participante);
 - movimentos de **valores a receber** (linha da fatura do cartão adicional, saída de empréstimo e os recebimentos).
-- Exceção: o **espelho de despesa compartilhada recebida por convite** (`tx-mirror-*`) não debita a conta antes do acerto, mas a **minha cota** conta como gasto e como obrigação do mês, igual à mesma despesa lançada à mão com "pago por outra pessoa".
+- Despesa paga pelo familiar (`sharedPaidBy === 'member'`) e espelho recebido por convite (`tx-mirror-*`) não entram nas despesas nem no resultado pessoal. A cota devida aparece em **Compartilhado → Eu devo**; após o acerto, a saída real da conta aparece no extrato. Uma despesa compartilhada que você pagou continua contando como despesa sua, descontada a parte a receber.
 Esses movimentos **continuam** afetando saldo de conta, fatura e limite do cartão.
 
 ### 5.3 Orçamento e 50/30/20
@@ -276,7 +276,7 @@ Simula juros compostos para 100% CDI, 110% CDI, Tesouro Selic, LCI/LCA (92% CDI,
 - **Primeiro a gravar vence**; a outra tela recebe a versão nova **em silêncio** (sem aviso, sem piscar) se não houver edição em andamento.
 - O app abre na hora com a cópia local (somente leitura) e substitui pela do Neon; nada é gravado antes de o Neon ser lido; a cópia local é apagada ao sair.
 - Campo inválido no Neon deixa a sincronização em erro e preserva os dados remotos (não zera nem regrava).
-- Backup JSON (versões 3–6; a 6 exige `ownerUserId` igual ao da conta) inclui `receivables`; **não** inclui convites familiares nem a senha SMTP.
+- O backup JSON inclui valores a receber e omite convites familiares e senhas SMTP. A versão 6 identifica o titular no arquivo. Ao restaurar em outra conta, o aplicativo importa os dados portáveis, remove vínculos familiares de origem e mantém pagamentos feitos por terceiros fora do saldo e do resultado pessoal.
 
 ## 15. Segurança de acesso (resumo; detalhes em `../tecnico/seguranca.md`)
 Senha com hash scrypt; sessão assinada de 30 dias com versão no banco (logout revoga tudo); limites de tentativa; Face ID (WebAuthn) por aparelho; cada consulta ao banco aplica isolamento por usuário (RLS).

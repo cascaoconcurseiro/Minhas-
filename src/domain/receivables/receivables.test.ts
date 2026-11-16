@@ -6,6 +6,11 @@ import {
   registerReceivablePayment, removeReceivablePayment, summarizeReceivables,
 } from './receivables';
 import { reclassifyClosingDayPurchases, resolveCreditCardInvoiceMonth, calculateNetWorth, calculateAccountBalances, calculateCreditCardSummary, calculateMonthlySummary, calculateCategoryBreakdown } from '../finance/financeRules';
+import {
+  applyCascadeTransactionDelete, duplicateFinancialTransaction, getTransactionEditRestriction,
+  payCreditCardInvoice, reverseCreditCardInvoicePayment, toggleTransactionStatusWithCascade,
+} from '../finance/financeRules';
+import { getReceivableLinkIssues } from '../../services/workspace/workspacePayload';
 
 const account: BankAccount = { id: 'a', name: 'Conta', institution: 'Banco', type: 'checking', initialBalance: 1000, color: '#000', includeInTotal: true };
 const card: CreditCard = { id: 'c', name: 'Itaú azul', brand: 'Visa', limit: 5000, closingDay: 20, dueDay: 28, defaultAccountId: 'a', color: '#00f' };
@@ -16,6 +21,16 @@ function invoiceReceivable() {
   assert.ok(!result.error);
   return result as Exclude<typeof result, { error: string }>;
 }
+
+test('posição de hoje conserva a dívida até a data de um recebimento futuro', () => {
+  const { receivable } = invoiceReceivable();
+  const result = registerReceivablePayment(receivable, { id: 'later', date: '2026-11-30', amount: 25, accountId: account.id });
+  assert.equal(result.error, undefined);
+  if (result.error !== undefined) return;
+  assert.equal(summarizeReceivables([result.receivable], '2026-11-19').totalOpen, 0);
+  assert.equal(summarizeReceivables([result.receivable], '2026-11-20').totalOpen, 1800);
+  assert.equal(summarizeReceivables([result.receivable], '2026-11-30').totalOpen, 1775);
+});
 
 test('fatura do cartão adicional: entra na fatura e no limite, mas não é gasto seu', () => {
   const { receivable, transactions } = invoiceReceivable();
@@ -156,4 +171,60 @@ test('o servidor rejeita valor a receber corrompido (kind, valor, data, pagament
   assert.throws(bad({ createdDate: '2026-13-40' }));
   assert.throws(bad({ amount: 10, payments: [{ id: 'p', amount: 11, date: '2026-11-15', accountId: 'a' }] }));
   assert.throws(bad({ payments: [{ id: 'p', amount: 1, date: '2026-11-15', accountId: 'a' }, { id: 'p', amount: 1, date: '2026-11-15', accountId: 'a' }] }));
+});
+
+test('a baixa de R$ 25 só pode ser corrigida por A Receber', () => {
+  const { receivable } = invoiceReceivable();
+  const result = registerReceivablePayment(receivable, { id: 'p1', date: '2026-12-02', amount: 25, accountId: 'a' });
+  assert.equal(result.error, undefined);
+  if (result.error !== undefined) return;
+  const transactions = [result.transaction];
+  assert.equal(duplicateFinancialTransaction(result.transaction, 'clone'), null);
+  assert.match(getTransactionEditRestriction(result.transaction) ?? '', /A Receber/);
+  assert.equal(applyCascadeTransactionDelete(transactions, result.transaction.id).updatedTransactions, transactions);
+  assert.equal(toggleTransactionStatusWithCascade(transactions, result.transaction.id).updatedTransactions, transactions);
+});
+
+test('excluir a cobrança após pagar R$ 40 da fatura exige estorno prévio', () => {
+  const { receivable, transactions } = invoiceReceivable();
+  const paid = payCreditCardInvoice(card, transactions, '2026-11', 'a', '2026-11-20', 40);
+  const result = deleteReceivable([receivable], paid, receivable.id);
+  assert.match(result.error ?? '', /Estorne/);
+  assert.equal(result.transactions, paid);
+  assert.equal(result.receivables[0], receivable);
+  assert.equal(calculateCreditCardSummary(card, paid, '2026-11').invoicePendingAmount, 1760);
+  assert.equal(getReceivableLinkIssues([receivable], paid, [account]).size, 0);
+  const bankPayment = paid.find((tx) => tx.isInvoicePayment);
+  assert.ok(bankPayment);
+  const reversed = reverseCreditCardInvoicePayment(paid, bankPayment.id, [card]).updatedTransactions;
+  assert.equal(getReceivableLinkIssues([receivable], reversed, [account]).size, 0);
+  assert.equal(deleteReceivable([receivable], reversed, receivable.id).transactions.length, 0);
+});
+
+test('cadastro e recebimento rejeitam datas impossíveis e valores que arredondem para zero', () => {
+  const { receivable } = invoiceReceivable();
+  const base = { id: 'p1', date: '2026-12-02', amount: 25, accountId: 'a' };
+  assert.match(registerReceivablePayment(receivable, { ...base, date: '2026-02-31' }).error ?? '', /data/);
+  assert.match(registerReceivablePayment(receivable, { ...base, amount: 0.001 }).error ?? '', /maior que zero/);
+  const loan = { ...base, id: 'loan', kind: 'loan' as const, personName: 'Pessoa' };
+  assert.match(createReceivable({ ...loan, dueDate: '2026-02-31' }).error ?? '', /data/);
+  assert.match(createReceivable({ ...loan, amount: 0.001 }).error ?? '', /maior que zero/);
+});
+
+test('workspace exige contrapartida bancária única, com a mesma conta, data, valor e situação', () => {
+  const { receivable, transactions } = invoiceReceivable();
+  const result = registerReceivablePayment(receivable, { id: 'p1', date: '2026-12-02', amount: 25, accountId: 'a' });
+  assert.equal(result.error, undefined);
+  if (result.error !== undefined) return;
+  const linked = result.transaction;
+  const validate = (...movements: Transaction[]) =>
+    getReceivableLinkIssues([result.receivable], [...transactions, ...movements], [account]).size;
+  assert.equal(validate(linked), 0);
+  assert.equal(validate(), 1);
+  assert.equal(validate(linked, { ...linked, id: 'duplicate' }), 1);
+  assert.equal(validate({ ...linked, status: 'pending' }), 1);
+  assert.equal(validate({ ...linked, amount: 26 }), 1);
+  assert.equal(validate({ ...linked, date: '2026-12-03' }), 1);
+  assert.equal(validate({ ...linked, accountId: 'missing' }), 1);
+  assert.equal(getReceivableLinkIssues([], [linked], [account]).size, 1);
 });

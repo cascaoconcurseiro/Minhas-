@@ -51,7 +51,7 @@ test('backup preserves valid local mirror settlement receipts and rejects corrup
   assert.equal(parseFullFinanceBackup(JSON.stringify({...validBackup(),sharedSettlementReceiptsJson:'{}'})),null);
 });
 
-test('accepts version 6 only when it is bound to the authenticated user UID', () => {
+test('version 6 requires an owner identifier and permits portability to another account', () => {
   const backup = { ...validBackup(), version: 6, ownerUserId: 'neon-user-1' };
   assert.equal(parseFullFinanceBackup(JSON.stringify(backup))?.ownerUserId, 'neon-user-1');
   assert.equal(
@@ -138,6 +138,14 @@ test('restoring a portable backup in another account strips family-share linkage
       amount: 10,
     },
     { id: 'tx-stale-shared-field', isShared: false, sharedMemberId: 'old-member', amount: 15 },
+    {
+      id: 'tx-paid-by-member',
+      isShared: true,
+      sharedPaidBy: 'member',
+      sharedDueDate: '2026-12-09',
+      sharedMemberId: 'old-member',
+      amount: 160,
+    },
     { id: 'tx-personal', amount: 20 },
     { id: 'tx-mirror-incoming', amount: 30 },
   ], false);
@@ -145,6 +153,7 @@ test('restoring a portable backup in another account strips family-share linkage
   assert.deepEqual(result, [
     { id: 'tx-shared', amount: 10 },
     { id: 'tx-stale-shared-field', amount: 15 },
+    { id: 'tx-paid-by-member', isCompanionOnlyExpense: true, amount: 160 },
     { id: 'tx-personal', amount: 20 },
   ]);
 
@@ -154,6 +163,83 @@ test('restoring a portable backup in another account strips family-share linkage
   assert.deepEqual(sameAccount, [
     { id: 'tx-shared', isShared: true, sharedMemberId: 'member-1' },
   ]);
+});
+
+test('malformed receivable history fails backup validation before restoring any collection', () => {
+  const backup = { ...validBackup(), version: 6, ownerUserId: 'owner' };
+  const receivable = {
+    id: 'loan',
+    kind: 'loan',
+    personName: 'Pessoa',
+    description: 'Empréstimo',
+    amount: 100,
+    createdDate: '2026-11-06',
+    payments: [],
+  };
+  assert.deepEqual(
+    parseFullFinanceBackup(JSON.stringify({ ...backup, receivables: [receivable] }))?.receivables,
+    [receivable]
+  );
+  for (const receivables of [null, [{ ...receivable, payments: null }], [receivable, receivable]]) {
+    assert.equal(parseFullFinanceBackup(JSON.stringify({ ...backup, receivables })), null);
+  }
+  const payments = [{ id: 'receipt', date: '2026-11-07', amount: 25, accountId: 'account' }];
+  const accounts = [{ id: 'account', type: 'checking', initialBalance: 100 }];
+  assert.equal(parseFullFinanceBackup(JSON.stringify({
+    ...backup, accounts, receivables: [{ ...receivable, payments }],
+  })), null);
+});
+
+test('version 6 rejects broken references before restoring ledger entries', () => {
+  const transaction = {
+    id: 'tx-expense',
+    description: 'Compra',
+    type: 'expense',
+    status: 'paid',
+    categoryId: 'cat-food',
+    accountId: 'missing-account',
+    amount: 12,
+    date: '2026-11-06',
+    competenceMonth: '2026-11',
+  };
+  const backup = { ...validBackup(), version: 6, ownerUserId: 'owner', transactions: [transaction] };
+  assert.equal(parseFullFinanceBackup(JSON.stringify(backup)), null);
+});
+
+test('version 6 rejects incomplete financial records before restore', () => {
+  const backup = { ...validBackup(), version: 6, ownerUserId: 'owner' };
+  for (const malformed of [
+    { accounts: [{ id: 'account' }] },
+    { accounts: [{ id: 'account', name: 'Conta', institution: '', type: 'checking', initialBalance: '100', color: '#fff', includeInTotal: true }] },
+    { cards: [{ id: 'card', name: 'Cartão', closingDay: 10, dueDay: 20 }] },
+    { goals: [{ id: 'goal', name: 'Reserva' }] },
+    { investments: [{ id: 'asset', ticker: 'ABCD3', name: 'Ativo', assetClass: 'acoes_br' }] },
+  ]) {
+    assert.equal(parseFullFinanceBackup(JSON.stringify({ ...backup, ...malformed })), null);
+  }
+});
+
+test('backup rejects malformed trip participants before the restored trip can render', () => {
+  const trip = {
+    id: 'trip',
+    name: 'Viagem',
+    destination: 'Portugal',
+    startDate: '2026-11-01',
+    endDate: '2026-11-07',
+    currency: 'EUR',
+    defaultExchangeRate: 6,
+    budgetForeign: 200,
+    participants: [],
+    exchangeLots: [],
+    settlements: [],
+  };
+  const backup = { ...validBackup(), trips: [trip] };
+  assert.ok(parseFullFinanceBackup(JSON.stringify(backup)));
+  for (const participants of [null, [{ id: 'traveler', name: {} }]]) {
+    assert.equal(parseFullFinanceBackup(JSON.stringify({
+      ...backup, trips: [{ ...trip, participants }],
+    })), null);
+  }
 });
 
 test('accepts earlier supported backup versions with optional fields omitted', () => {

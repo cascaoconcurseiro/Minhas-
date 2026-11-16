@@ -1,5 +1,5 @@
 import type { Transaction } from '../../types/finance';
-import { addMonthsToYearMonth, formatMonthYearPT, getConsumptionMonth, getEffectiveExpenseAmountForUser, isOutsidePersonalResult } from '../finance/financeRules';
+import { addMonthsToYearMonth, formatMonthYearPT, getConsumptionMonth, isOutsidePersonalResult } from '../finance/financeRules';
 
 /**
  * Quanto da renda de cada mês está comprometido com o cartão de crédito.
@@ -13,8 +13,7 @@ export type CardCommitmentStatus = 'no_limit' | 'no_income' | 'ok' | 'warning' |
 
 /**
  * Só a parte do dono no mês: as compras e parcelas dele no cartão (nos compartilhados que ele pagou, só a metade
- * dele) mais o que ele deve em despesas compartilhadas pagas por outra pessoa. O que é de terceiros (A Receber,
- * cartão adicional) fica de fora.
+ * dele).
  */
 export interface CardCommitmentMine {
   /** Minha parte das compras no cartão. */
@@ -23,9 +22,7 @@ export interface CardCommitmentMine {
   installmentTotal: number;
   /** Minha parte das compras à vista e fixas. */
   otherTotal: number;
-  /** O que devo em despesas compartilhadas pagas por outra pessoa (fora do cartão). */
-  sharedByOthersTotal: number;
-  /** Total meu no mês: cartão (minha parte) + compartilhados que devo. */
+  /** Total meu no cartão no mês. */
   total: number;
   percent: number | null;
   status: CardCommitmentStatus;
@@ -56,8 +53,6 @@ export interface CardCommitmentItem {
   isInstallment: boolean;
   /** Ex.: "2/10" quando for parcela. */
   installmentLabel: string;
-  /** Compartilhado pago por outra pessoa (a parte que eu devo); fica fora do cartão. */
-  isSharedOwed?: boolean;
 }
 
 export type CardCommitmentView = 'all' | 'mine';
@@ -90,13 +85,6 @@ export function getMyCardPurchaseAmount(tx: Transaction): number {
   return round2(tx.amount);
 }
 
-/** Quanto devo de uma despesa compartilhada paga por outra pessoa (não é compra no meu cartão). */
-function getSharedOwedAmount(tx: Transaction): number {
-  if (tx.creditCardId || tx.sharedPaidBy !== 'member' || tx.type !== 'expense') return 0;
-  const effective = getEffectiveExpenseAmountForUser(tx);
-  return effective ? round2(effective.amount) : 0;
-}
-
 function isIncomeEntry(tx: Transaction): boolean {
   return tx.type === 'income' && !tx.isInvoicePayment && !isOutsidePersonalResult(tx) && tx.sharedPaidBy !== 'member';
 }
@@ -125,14 +113,7 @@ export function calculateCardCommitmentByMonth(input: {
 
   const incomeByMonth = new Map<string, number>();
   const cardByMonth = new Map<string, { total: number; installments: number }>();
-  const mineByMonth = new Map<string, { total: number; installments: number; sharedByOthers: number }>();
-  const addMine = (month: string, patch: { total?: number; installments?: number; sharedByOthers?: number }) => {
-    const entry = mineByMonth.get(month) ?? { total: 0, installments: 0, sharedByOthers: 0 };
-    entry.total += patch.total ?? 0;
-    entry.installments += patch.installments ?? 0;
-    entry.sharedByOthers += patch.sharedByOthers ?? 0;
-    mineByMonth.set(month, entry);
-  };
+  const mineByMonth = new Map<string, { total: number; installments: number }>();
 
   for (const tx of transactions) {
     if (isIncomeEntry(tx)) {
@@ -145,10 +126,10 @@ export function calculateCardCommitmentByMonth(input: {
       if (tx.recurrence === 'installment') entry.installments += tx.amount;
       cardByMonth.set(month, entry);
       const mineAmount = getMyCardPurchaseAmount(tx);
-      addMine(month, { total: mineAmount, installments: tx.recurrence === 'installment' ? mineAmount : 0 });
-    } else {
-      const owed = getSharedOwedAmount(tx);
-      if (owed > 0) addMine(tx.competenceMonth, { sharedByOthers: owed });
+      const mine = mineByMonth.get(month) ?? { total: 0, installments: 0 };
+      mine.total += mineAmount;
+      if (tx.recurrence === 'installment') mine.installments += mineAmount;
+      mineByMonth.set(month, mine);
     }
   }
 
@@ -171,12 +152,10 @@ export function calculateCardCommitmentByMonth(input: {
       return 'ok';
     };
     const status = statusFor(cardPercent);
-    const mineRaw = mineByMonth.get(month) ?? { total: 0, installments: 0, sharedByOthers: 0 };
+    const mineRaw = mineByMonth.get(month) ?? { total: 0, installments: 0 };
     const mineCard = round2(mineRaw.total);
     const mineInstallments = round2(mineRaw.installments);
-    const mineShared = round2(mineRaw.sharedByOthers);
-    const mineTotal = round2(mineCard + mineShared);
-    const minePercent = hasIncome ? round1((mineTotal / income) * 100) : null;
+    const minePercent = hasIncome ? round1((mineCard / income) * 100) : null;
 
     rows.push({
       month,
@@ -191,8 +170,7 @@ export function calculateCardCommitmentByMonth(input: {
         cardTotal: mineCard,
         installmentTotal: mineInstallments,
         otherTotal: round2(mineCard - mineInstallments),
-        sharedByOthersTotal: mineShared,
-        total: mineTotal,
+        total: mineCard,
         percent: minePercent,
         status: statusFor(minePercent),
       },
@@ -203,7 +181,7 @@ export function calculateCardCommitmentByMonth(input: {
 
 /**
  * Compras e parcelas que formam o total do mês, da maior para a menor. Em `mine`, mostra só a minha parte
- * (compartilhados pela metade) e inclui o que devo em compartilhados pagos por outra pessoa.
+ * das compras no meu cartão.
  */
 export function listCardCommitmentItems(
   transactions: Transaction[],
@@ -225,11 +203,6 @@ export function listCardCommitmentItems(
             ? `${tx.installmentNumber}/${tx.installmentTotal}`
             : '',
       });
-    } else if (view === 'mine' && tx.competenceMonth === month) {
-      const owed = getSharedOwedAmount(tx);
-      if (owed > 0) {
-        items.push({ id: tx.id, description: tx.description, amount: owed, isInstallment: false, installmentLabel: '', isSharedOwed: true });
-      }
     }
   }
   return items.sort((a, b) => b.amount - a.amount);

@@ -12,7 +12,7 @@
 
 1. Entre na conta correta e abra Configurações → backup.
 2. Exporte o JSON e guarde uma cópia fora do dispositivo. Antes de substituir dados, exporte também o estado atual.
-3. Para restaurar, selecione o arquivo JSON e confirme a substituição. O app valida versão, coleções e categorias antes de alterar o estado da sessão.
+3. Para restaurar, selecione o arquivo JSON e confirme a substituição. O app valida versão, coleções, categorias e pagamentos de valores a receber antes de alterar o estado da sessão.
 4. Mantenha a tela aberta até o status da nuvem confirmar a gravação no Neon. Em caso de erro, não considere a restauração concluída: os dados podem estar apenas nesta sessão/localStorage; reconecte e sincronize antes de sair.
 5. Reabra o app e confira contas, lançamentos e totais. A exportação/restauração não recria convites nem linhas de compartilhamento familiar.
 
@@ -38,6 +38,22 @@ O identity local de backup foi criado em `C:\Users\Wesley\Documents\Minhas Econo
 
 Em 2026-11-07 foi validado o dump integral de production pelo workflow manual GitHub Actions `42320784685`: conexão direta Neon, `pg_dump` PostgreSQL 18.6, artifact `.age` cifrado e retenção de 30 dias. A role `minhas_backup_reader` em production tem `BYPASSRLS` para incluir todas as linhas sob RLS forçado, mas continua sem superuser, criação de roles/databases ou escrita; recebeu SELECT nas sequências públicas. O artifact foi baixado e descriptografado localmente e `pg_restore --list` leu o catálogo. Restaurei-o com `--single-transaction` numa branch QA descartável; contagens agregadas coincidiram antes/depois (4 workspaces, 0 convites, 0 transações compartilhadas, 5 objetos públicos). A branch QA e o dump descriptografado temporário foram removidos. O segredo `NEON_BACKUP_DATABASE_URL` do GitHub agora aponta para a credencial direta de production. O artifact cifrado anterior de QA foi apagado do repositório público; o artifact de produção permanece. A cópia privada da chave ainda precisa ser guardada pelo titular em cofre/offline e validada em outro dispositivo.
 
-Uma execução manual posterior, `42413305298`, também concluiu com sucesso em 2026-11-07 e publicou o artifact cifrado `neon-backup-42413305298` (20.893 bytes; expira em 2026-12-07). Esse evento foi `workflow_dispatch`, não `schedule`; portanto, a agenda diária de backup ainda não tem execução agendada comprovada. O workflow separado de atividade diária executou por `schedule` em `42397967500` e concluiu `SELECT 1` no Neon. O cron Vercel agora aponta para `/api/readiness`, protegido por `CRON_SECRET`; a próxima execução agendada ainda precisa ser comprovada.
+Uma execução manual posterior, `42413305298`, concluiu com sucesso em 2026-11-07. Em 2026-11-15, a execução [43752047582](https://github.com/cascaoconcurseiro/Minhas-/actions/runs/43752047582) teve evento `schedule`, concluiu com sucesso e publicou o artefato cifrado ativo de 34.741 bytes. O workflow separado de atividade diária executou por `schedule` em `42397967500` e concluiu `SELECT 1` no Neon. O cron da Vercel aponta para `/api/readiness`, protegido por `CRON_SECRET`, e sua execução agendada segue pendente de comprovação.
 
-Para restaurar: baixe o artifact e descriptografe localmente com `age --decrypt --identity neon-backup.agekey backup.dump.age > backup.dump`. Confira o catálogo com `pg_restore --list backup.dump`; restaure somente em uma branch ou database isolado com `pg_restore --no-owner --no-privileges --dbname="$DATABASE_URL" backup.dump`, depois compare esquema, constraints, RLS e totais agregados das tabelas `finance_workspaces`, `finance_family_invitations` e `finance_shared_transactions`. Nunca restaure o dump diretamente sobre production.
+### Restaurar o arquivo cifrado em banco isolado
+
+Use um banco isolado com o schema `public` vazio e uma conexão administrativa dedicada em `RESTORE_ADMIN_URL`. Os comandos abaixo podem ser executados no Git Bash. O primeiro grava o dump local descriptografado em um diretório de acesso restrito. A edição do catálogo reaproveita o schema vazio existente e mantém os objetos e as políticas do arquivo.
+
+```bash
+umask 077
+age --decrypt --identity neon-backup.agekey --output backup.dump backup.dump.age
+pg_restore --list backup.dump > backup.list
+sed -E '/^[0-9]+; [0-9]+ [0-9]+ SCHEMA - public([[:space:]]|$)/s/^/;/' backup.list > restore.list
+pg_restore --single-transaction --exit-on-error --no-owner --no-privileges \
+  --use-list=restore.list --dbname="$RESTORE_ADMIN_URL" backup.dump
+psql --dbname="$RESTORE_ADMIN_URL" --file=scripts/restore-postgres-runtime.sql
+```
+
+O SQL reaplica os privilégios mínimos que o dump omite e preserva as políticas de isolamento entre titulares. Se o papel `minhas_app_runtime` foi criado nesta recuperação, habilite o login com uma credencial dedicada ao destino e configure a instância de teste com essa credencial. Preserve `AUTH_SESSION_SECRET` se a continuidade das sessões originais fizer parte da recuperação. Compare esquema, restrições, RLS e contagens de `app_users`, `finance_workspaces`, `finance_family_invitations`, `finance_shared_transactions`, `finance_workspace_migrations` e `app_user_passkeys`. Na instância de teste, confirme login, leitura do próprio workspace e isolamento de dados de outro titular.
+
+As etapas de restauração e permissões foram exercitadas com um dump de dados fictícios no PostgreSQL 17 local. As contagens das seis tabelas coincidiram. O papel restrito fez login e leu o workspace próprio pela API, com isolamento entre titulares. Para um dump mais antigo cujo esquema antecede a migração de Face ID, prepare os objetos exigidos pelas migrações aplicáveis no destino antes de reaplicar as permissões e executar a prova. [Achado M07](../AUDITORIA_SISTEMA_2026-11-15.md#achados)

@@ -20,6 +20,12 @@ export function getLocalDateISO(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export function isValidISODate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export function parseBRLInput(raw: string): number {
   if (!raw || typeof raw !== 'string') return 0;
   const cleaned = raw.trim().replace(/[R$\s]/g, '');

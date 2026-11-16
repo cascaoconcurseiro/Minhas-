@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { Pool } from 'pg';
 import { collectSharedSettlementReceipts, restoreSharedSettlementReceipts, settleSharedExpenses, reopenSharedSettlement } from '../src/domain/family/sharedFinanceRules';
+import { createReceivable, registerReceivablePayment } from '../src/domain/receivables/receivables';
 import type { BankAccount, Transaction } from '../src/types/finance';
 
 const connection = process.env.QA_POSTGRES_URL;
@@ -181,6 +182,109 @@ await request(legitRespond,legitAccount.token,'POST',{action:'accepted'});
 await request('/api/family/shared',owner.token,'PUT',{partnerEmail:'legit@qa.example',transactions:[sharedItem('legit-1',{sharedMemberId:'qa-legit-member'})]});
 assert.equal((await request('/api/family/shared',legitAccount.token)).transactions.length,1);
 console.log('PASS: the invited person with the right code (any case, with or without the dash) accepts, repeating is harmless, and sharing starts');
+
+const canonicalItem = sharedItem('legit-1', { sharedMemberId: 'qa-legit-member', amount: 120, sharedAmount: 60 });
+const canonicalPayload = {
+  ...payload,
+  transactionsJson: JSON.stringify([canonicalItem]),
+  sharedSettlementReceiptsJson: '[]',
+};
+const canonical = await request('/api/workspace', owner.token, 'POST', { payload: canonicalPayload }, 201);
+const projectFamily = (workspaceRevision: number, expected = 200) =>
+  request('/api/family/shared', owner.token, 'PUT', { partnerEmail: 'legit@qa.example', workspaceRevision }, expected);
+await projectFamily(canonical.revision);
+assert.equal((await request('/api/family/shared', legitAccount.token)).transactions[0].payload.amount, 120);
+const currentFamilyPayload = {
+  ...canonicalPayload,
+  transactionsJson: JSON.stringify([{ ...canonicalItem, amount: 200, sharedAmount: 100 }]),
+};
+const newerCanonical = await request('/api/workspace', owner.token, 'PUT', {
+  payload: currentFamilyPayload,
+  expectedRevision: canonical.revision,
+});
+assert.equal((await request('/api/family/shared', legitAccount.token)).transactions[0].payload.amount, 200,
+  'a saved workspace from an older browser updates mirrors after opt-in');
+await projectFamily(newerCanonical.revision);
+await projectFamily(canonical.revision, 409);
+await request('/api/family/shared', owner.token, 'PUT', {
+  partnerEmail: 'legit@qa.example',
+  transactions: [canonicalItem],
+}, 409);
+assert.equal((await request('/api/family/shared', legitAccount.token)).transactions[0].payload.amount, 200);
+
+const recipientCanonical = await request('/api/workspace', legitAccount.token, 'POST', {
+  payload: {
+    ...canonicalPayload,
+    transactionsJson: '[]',
+    sharedSettlementReceiptsJson: JSON.stringify([
+      { id: 'tx-mirror-legit-1', status: 'received', date: '2026-12-03' },
+    ]),
+  },
+}, 201);
+const projectRecipient = (deletedSharedIds: string[] = []) => request('/api/family/shared', legitAccount.token, 'PUT', {
+  partnerEmail: 'owner@qa.example',
+  workspaceRevision: recipientCanonical.revision,
+  deletedSharedIds,
+});
+await projectRecipient();
+await projectFamily(newerCanonical.revision);
+assert.deepEqual((await request('/api/family/shared', owner.token)).outgoingSettlements.find(
+  (row: { shared_sync_id: string }) => row.shared_sync_id === 'legit-1'
+), { shared_sync_id: 'legit-1', status: 'received', date: '2026-12-03' });
+await projectRecipient(['legit-1']);
+await projectFamily(newerCanonical.revision);
+assert.equal((await request('/api/family/shared', legitAccount.token)).transactions.length, 0);
+assert.ok((await request('/api/family/shared', owner.token)).outgoingSharedIds.includes('legit-1'));
+
+const restoreWithoutShare = await request('/api/workspace', owner.token, 'PUT', {
+  payload: { ...currentFamilyPayload, transactionsJson: '[]' },
+  expectedRevision: newerCanonical.revision,
+});
+assert.equal((await request('/api/family/shared', owner.token)).outgoingSharedIds.includes('legit-1'), false,
+  'restoring and saving removes the missing mirror immediately');
+await projectFamily(restoreWithoutShare.revision);
+await projectFamily(newerCanonical.revision, 409);
+assert.equal((await request('/api/family/shared', owner.token)).outgoingSharedIds.includes('legit-1'), false);
+console.log('PASS: family projection checks revisions, preserves incoming receipts and hides, rejects legacy writes and removes shares absent after restore');
+
+const loan = createReceivable({ id: 'qa-loan', kind: 'loan', personName: 'QA', amount: 100, date: '2026-11-15' });
+assert.equal(loan.error, undefined);
+const receipt = registerReceivablePayment(loan.receivable, { id: 'qa-loan-payment', date: '2026-11-15', amount: 25, accountId: bank.id });
+assert.equal(receipt.error, undefined);
+const loanPayload = {
+  ...payload,
+  receivablesJson: JSON.stringify([receipt.receivable]),
+  transactionsJson: JSON.stringify([receipt.transaction]),
+  sharedSettlementReceiptsJson: '[]',
+};
+const orphanPayload = { ...loanPayload, transactionsJson: '[]' };
+await request('/api/workspace', outsider.token, 'POST', { payload: orphanPayload }, 400);
+await request('/api/workspace', outsider.token, 'POST', { payload: loanPayload }, 201);
+const readLoan = await request('/api/workspace', outsider.token);
+await request('/api/workspace', outsider.token, 'PUT', { payload: orphanPayload, expectedRevision: readLoan.revision }, 400);
+await request('/api/workspace', outsider.token, 'PUT', {
+  payload: { ...loanPayload, transactionsJson: JSON.stringify([receipt.transaction, { ...receipt.transaction, id: 'duplicate' }]) },
+  expectedRevision: readLoan.revision,
+}, 400);
+
+await admin.query(
+  'UPDATE public.finance_workspaces SET payload = $1::jsonb WHERE owner_email = $2',
+  [JSON.stringify({ ...readLoan.payload, transactionsJson: '[]' }), 'outsider@qa.example']
+);
+const readLegacyLoan = await request('/api/workspace', outsider.token);
+const updatedLegacy = await request('/api/workspace', outsider.token, 'PUT', {
+  payload: { ...readLegacyLoan.payload, displayName: 'QA Saved With Old Issue' },
+  expectedRevision: readLegacyLoan.revision,
+});
+await request('/api/workspace', outsider.token, 'PUT', {
+  payload: {
+    ...orphanPayload,
+    receivablesJson: JSON.stringify([{ ...receipt.receivable, payments: [{ ...receipt.receivable.payments[0], amount: 30 }] }]),
+  },
+  expectedRevision: updatedLegacy.revision,
+}, 400);
+await request('/api/workspace', outsider.token, 'PUT', { payload: loanPayload, expectedRevision: updatedLegacy.revision });
+console.log('PASS: receivables require linked cash movements, reject new damage, and support saving unrelated edits in a legacy workspace');
 await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
 await admin.end();
 console.log('QA PostgreSQL completed successfully; disposable service only');

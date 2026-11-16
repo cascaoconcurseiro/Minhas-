@@ -1,3 +1,6 @@
+import { isValidISODate } from '../../domain/finance/formatting.ts';
+import type { BankAccount, Receivable, Transaction } from '../../types/finance.ts';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
@@ -12,12 +15,6 @@ function isSafeMoneyValue(
   const cents = Math.round(value * 100);
   if (!Number.isSafeInteger(cents)) return false;
   return !requireExactCents || Math.abs(value - cents / 100) < 1e-7;
-}
-
-function isValidISODate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function isValidYearMonth(value: unknown): value is string {
@@ -315,4 +312,73 @@ export function validateWorkspaceConsistency(input: {
     }
   }
   return null;
+}
+
+export function getReceivableLinkIssues(
+  receivables: Receivable[],
+  transactions: Transaction[],
+  accounts: BankAccount[]
+): Map<string, string> {
+  const issues = new Map<string, string>();
+  const knownAccounts = new Set(accounts.map((account) => account.id));
+  const byId = new Map(transactions.map((tx) => [tx.id, tx]));
+  const byReceivable = new Map<string, Transaction[]>();
+  for (const tx of transactions) {
+    if (!tx.receivableId) continue;
+    const linked = byReceivable.get(tx.receivableId) ?? [];
+    linked.push(tx);
+    byReceivable.set(tx.receivableId, linked);
+  }
+
+  const movement = (tx: Transaction) => [
+    tx.id, tx.receivableId, tx.type, tx.status, tx.amount, tx.date, tx.accountId,
+    tx.creditCardId, tx.competenceMonth, tx.isInvoicePayment === true,
+    tx.partialSplitOriginalId, tx.invoicePaymentId,
+  ];
+  const cents = (amount: number) => Math.round(amount * 100);
+  for (const item of receivables) {
+    const linked = byReceivable.get(item.id) ?? [];
+    byReceivable.delete(item.id);
+    const paymentIds = item.payments.map((payment) => `tx-recv-pay-${payment.id}`);
+    const trusted = new Set(paymentIds);
+    const root = item.linkedTransactionId ? byId.get(item.linkedTransactionId) : undefined;
+    const fragments = linked.filter((tx) => !trusted.has(tx.id));
+    const validPayments = item.payments.every((payment, index) => {
+      const tx = byId.get(paymentIds[index]);
+      return tx?.receivableId === item.id && tx.type === 'income' && tx.status === 'paid' &&
+        !tx.creditCardId && !tx.isInvoicePayment && tx.date === payment.date &&
+        knownAccounts.has(payment.accountId) && tx.accountId === payment.accountId && cents(tx.amount) === cents(payment.amount);
+    });
+    const validOrigin = item.kind === 'card_invoice'
+      ? Boolean(root?.receivableId === item.id && root.creditCardId === item.cardId && item.cardId && item.invoiceMonth &&
+          fragments.reduce((total, tx) => total + cents(tx.amount), 0) === cents(item.amount) &&
+          fragments.every((tx) => tx.type === 'expense' && tx.creditCardId === item.cardId &&
+            !tx.isInvoicePayment && tx.competenceMonth === item.invoiceMonth && cents(tx.amount) > 0 &&
+            (tx.id === root.id || (tx.partialSplitOriginalId && tx.id.startsWith(`${root.id}-paid-`))) &&
+            (tx.status === 'pending' ? !tx.invoicePaymentId : Boolean(
+              tx.invoicePaymentId && byId.get(tx.invoicePaymentId)?.isInvoicePayment
+            ))))
+      : !item.linkedTransactionId
+        ? fragments.length === 0
+        : fragments.length === 1 && root?.receivableId === item.id && root.type === 'expense' &&
+          root.status === 'paid' && !root.creditCardId && !root.isInvoicePayment &&
+          root.date === item.createdDate && Boolean(root.accountId && knownAccounts.has(root.accountId)) &&
+          cents(root.amount) === cents(item.amount);
+
+    if (!validPayments || !validOrigin) {
+      const associated = new Set([...linked, ...paymentIds.map((id) => byId.get(id)), root]);
+      associated.delete(undefined);
+      issues.set(item.id, JSON.stringify([
+        item.kind, item.amount, item.createdDate, item.cardId, item.invoiceMonth, item.linkedTransactionId,
+        [...item.payments].sort((a, b) => a.id.localeCompare(b.id)).map((payment) => [
+          payment.id, payment.amount, payment.date, payment.accountId, knownAccounts.has(payment.accountId),
+        ]),
+        [...associated].filter((tx) => tx !== undefined).sort((a, b) => a.id.localeCompare(b.id)).map(movement),
+      ]));
+    }
+  }
+  for (const [id, linked] of byReceivable) {
+    issues.set(id, JSON.stringify(linked.sort((a, b) => a.id.localeCompare(b.id)).map(movement)));
+  }
+  return issues;
 }
