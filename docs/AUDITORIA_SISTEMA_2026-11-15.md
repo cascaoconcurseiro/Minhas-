@@ -2,7 +2,7 @@
 
 **15/11/2026 · Base auditada:** `main`, commit `4edf4b95b58227ca29111f548ea41454b6afb979`.
 
-**Status em 16/11/2026:** os 13 achados abaixo foram corrigidos no checkout local, com cobertura automatizada e QA PostgreSQL descartável registrados no HANDOFF. Ainda não publicados nem verificados na conta da Fran. A evidência e a recomendação abaixo descrevem a condição original antes das correções.
+**Status em 16/11/2026:** os 13 achados abaixo foram corrigidos e publicados no commit `e41b89a` de `main`; CI passou e o deploy da Vercel ficou `Ready`. A tela da conta da Fran ainda depende de atualização e conferência. A evidência e a recomendação abaixo descrevem a condição original antes das correções.
 
 ## Parecer
 

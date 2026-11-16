@@ -6,23 +6,23 @@
 - **Atualizado em:** 2026-11-16
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-16):** correções desta sessão passaram `bun run check` no Windows (tipagem, testes, build e HANDOFF); testes específicos do backup v6 passaram 21/21. A projeção compartilhada passou QA PostgreSQL 17 descartável, incluindo cliente legado, revisão antiga, restauração que remove item e leitura do recibo. Alterações ainda locais e não publicadas.
+- **Verificação mais recente (2026-11-16):** correções passaram `bun run check` no Windows (809 testes, tipagem, build e HANDOFF); backup v6 21/21; projeção compartilhada em PostgreSQL 17 descartável. Commit `e41b89a` enviado a `main`, CI verde e deploy Vercel de produção `dpl_7og7ndEKa2QC5EaNoy6fMs5LtA3V` em `Ready`.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
 | Item | Situação |
 |---|---|
-| [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos localmente e verificados; dono autorizou publicação em 2026-11-16. Conferência posterior com a Fran pendente. |
+| [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos e publicados em `e41b89a`; conferência posterior com a Fran pendente. |
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
-1. Publicar as alterações validadas em `main` e acompanhar CI e implantação Vercel.
-2. Após implantação, Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
+1. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
+2. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
 3. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
 4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
 
 ## 4. Pendências do dono (dependem do Wesley)
-- Após publicar, atualizar o app instalado em Conta, Login & Nuvem → **Buscar atualização agora** e pedir à Fran que confira os compartilhados.
+- Atualizar o app instalado em Conta, Login & Nuvem → **Buscar atualização agora** e pedir à Fran que confira os compartilhados.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
 - Decidir: leitura de fatura por IA externa ou só no aparelho (item 1).
@@ -31,7 +31,7 @@
 - iPhone/Safari reais (campo de data, instalação do PWA), Face ID real, envio real de e-mail (SMTP).
 - A execução agendada do backup cifrado foi comprovada no GitHub. A execução agendada do cron `/api/readiness` da Vercel segue pendente.
 - A restauração JSON pela interface e o roteiro SQL passaram em PostgreSQL 17 local descartável. A prova contra Neon de teste e o isolamento com RLS em produção seguem pendentes.
-- A tela real da conta da Fran com a nova classificação da academia ainda não foi verificada; nenhuma alteração foi feita no Neon nesta sessão.
+- A tela real da conta da Fran com a nova classificação da academia ainda não foi verificada; nenhuma alteração foi feita no Neon nesta sessão. O endpoint público de teste recebeu a tela de autenticação da Vercel, não uma resposta da API do app.
 - Backup do Neon: plano Free tem janela de 6 h; exportação JSON do app não cobre convites familiares.
 - Recursos de câmbio ao vivo (Gemini) estão desligados na Vercel se `GEMINI_API_KEY` não estiver configurada.
 
@@ -49,11 +49,11 @@
 - **O que mudou:** corrigidos os 13 achados M01–M13: proteções de operações ligadas a A Receber; posição atual cortada por data; projeção familiar baseada na revisão confirmada, com reconciliação de exclusões e bloqueio de reenvio atrasado; validação completa de backup v6 antes de aplicar; SQL de recuperação e permissões restritas; ordem cronológica de pagamento parcial; datas/valores válidos; vínculos de recebimentos protegidos ao excluir conta; import de backend portável no Windows; backup v6 portátil entre titulares; cópia offline em modo de leitura. Despesa paga por familiar fica em Compartilhado → Eu devo e sai das despesas e do calendário pessoais.
 - **Por quê:** pedido do dono para corrigir tudo da auditoria e a cobrança de R$ 160 da academia mostrada incorretamente como despesa pessoal/valor a receber.
 - **Arquivos/áreas:** domínio financeiro, A Receber, cartões, Visão Geral, Relatórios, `src/App.tsx`, workspace/backup, API familiar, scripts QA/recuperação SQL; testes de domínio, API, App, import e backup.
-- **Como foi verificado:** `bun run check` no Windows; backup v6 21/21; QA PostgreSQL 17 descartável para revisão cliente antigo/novo, conflito de revisão, reconciliação de remoções e recibos. Build concluiu com aviso existente sobre bundle principal acima de 500 kB.
-- **Não verificado:** implantação na Vercel; a conta/tela da Fran com este código; dados financeiros reais; iPhone/Safari físico e restauração em Neon de teste.
-- **Impacto em dados/Neon:** nenhum nesta sessão. As gravações QA foram feitas apenas no PostgreSQL descartável. As alterações de código ainda não foram publicadas.
+- **Como foi verificado:** `bun run check` no Windows (809 testes); backup v6 21/21; QA PostgreSQL 17 descartável para revisão cliente antigo/novo, conflito de revisão, reconciliação de remoções e recibos; commit `e41b89a` no GitHub; check Vercel verde e deploy de produção `dpl_7og7ndEKa2QC5EaNoy6fMs5LtA3V` em `Ready`. Build avisa que o bundle principal passa 500 kB.
+- **Não verificado:** tela da Fran após atualização; CRUD autenticado na produção; dados financeiros reais; iPhone/Safari físico e restauração em Neon de teste. A tentativa sem sessão recebeu a tela de autenticação Vercel.
+- **Impacto em dados/Neon:** nenhum dado financeiro alterado nesta sessão. As gravações QA foram feitas apenas no PostgreSQL descartável.
 - **Documentação atualizada:** `CHECKLIST.md`, este HANDOFF, `MASTER_BLUEPRINT.md`, regras de negócio, fluxos, índice, manual de backup e relatório da auditoria.
-- **Próximo passo:** acompanhar o CI e a implantação Vercel do commit enviado para `main`; pedir atualização dos dois apps e verificar a tela da Fran.
+- **Próximo passo:** pedir atualização dos dois apps e confirmar com a Fran que a academia aparece em Compartilhado → Eu devo e não aparece nas despesas pessoais antes do acerto.
 
 ### 2026-11-15 — Auditoria funcional e financeira do sistema
 - **O que mudou:** registrado o diagnóstico do commit `4edf4b9`, com 13 achados, cenários e cobertura por área. Código e configuração do app sem alterações.
