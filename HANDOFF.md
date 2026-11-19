@@ -3,35 +3,39 @@
 > **Documento obrigatório.** Toda entrega (commit que muda `src/`, `backend/`, `api/`, `db/`, `shared/` ou `package.json`) **precisa** de uma nova entrada na seção 7 e da atualização das seções 1–6 quando mudarem. O CI barra a entrega se isso não for feito (`bun run check:handoff`). Regras completas: [docs/processo/handoff-e-checklist.md](./docs/processo/handoff-e-checklist.md). Histórico antigo: [docs/arquivo/handoff/](./docs/arquivo/handoff/).
 
 ## 1. Estado atual
-- **Atualizado em:** 2026-11-16
+- **Atualizado em:** 2026-11-19
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-16):** correções passaram `bun run check` no Windows (809 testes, tipagem, build e HANDOFF); backup v6 21/21; projeção compartilhada em PostgreSQL 17 descartável. Commit `e41b89a` enviado a `main`, CI verde e deploy Vercel de produção `dpl_7og7ndEKa2QC5EaNoy6fMs5LtA3V` em `Ready`.
+- **Verificação mais recente (2026-11-19):** auditoria técnica e limpeza na branch `claude/ecstatic-lamport-d99zv9` (ainda **não** em `main`): `bun run check` no Linux (785 testes, tipagem, build sem aviso de tamanho), QA PostgreSQL 16 descartável com as 11 migrações e navegador em 375 px. Produção continua no commit `e41b89a`.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
 | Item | Situação |
 |---|---|
 | [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos e publicados em `e41b89a`; conferência posterior com a Fran pendente. |
+| [Auditoria técnica e limpeza](docs/AUDITORIA_TECNICA_2026-11-19.md) | Correções na branch `claude/ecstatic-lamport-d99zv9`; falta o dono aprovar a ida para `main` e a migração 011 no Neon. |
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
-1. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
-2. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
-3. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
-4. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
+1. Revisar e levar para `main` a branch da auditoria técnica de 19/11; depois, com autorização, aplicar `db/migrations/011_app_users_foreign_keys.sql` no Neon (dados já conferidos: nenhum órfão).
+2. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
+3. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
+4. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
+5. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
 
 ## 4. Pendências do dono (dependem do Wesley)
 - Atualizar o app instalado em Conta, Login & Nuvem → **Buscar atualização agora** e pedir à Fran que confira os compartilhados.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
-- Decidir: leitura de fatura por IA externa ou só no aparelho (item 1).
+- Decidir: leitura de fatura por IA externa ou só no aparelho.
+- Autorizar a migração 011 (chaves estrangeiras) no Neon e o desligamento do Neon Auth antigo (schema `neon_auth`, sem uso).
 
 ## 5. Nunca verificado / riscos conhecidos
 - iPhone/Safari reais (campo de data, instalação do PWA), Face ID real, envio real de e-mail (SMTP).
 - A execução agendada do backup cifrado foi comprovada no GitHub. A execução agendada do cron `/api/readiness` da Vercel segue pendente.
 - A restauração JSON pela interface e o roteiro SQL passaram em PostgreSQL 17 local descartável. A prova contra Neon de teste e o isolamento com RLS em produção seguem pendentes.
 - A tela real da conta da Fran com a nova classificação da academia ainda não foi verificada; nenhuma alteração foi feita no Neon nesta sessão. O endpoint público de teste recebeu a tela de autenticação da Vercel, não uma resposta da API do app.
+- Migração 011 nunca rodou no Neon real (só em PostgreSQL 16 descartável).
 - Backup do Neon: plano Free tem janela de 6 h; exportação JSON do app não cobre convites familiares.
 - Recursos de câmbio ao vivo (Gemini) estão desligados na Vercel se `GEMINI_API_KEY` não estiver configurada.
 
@@ -44,6 +48,16 @@
 - Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-19 — Auditoria técnica, banco Neon e limpeza do código
+- **O que mudou:** (1) **Servidor:** rotas curinga corrigidas para o Express 4 (`'*all'` só casava com caminhos terminados em "all": no modo produção local qualquer página além de `/` dava 404); `/api/reminders/send-email` ganhou limite de 20 envios/hora por conta, assunto em uma linha (até 200 caracteres) e corpo limitado; erros de câmbio/cotações/e-mail não devolvem mais a mensagem técnica nem o texto bruto da IA; `/api/...` inexistente responde 404 em JSON; removido o `User-Agent: aistudio-build`. (2) **Banco:** nova migração `011_app_users_foreign_keys.sql` (workspace, convites e compartilhados passam a exigir conta existente em `app_users`, sem cascata) e prova no `scripts/qa-postgres.ts`. (3) **Limpeza:** apagados 7 arquivos sem uso e seus testes (`MonthlyInsightsCard`, `CardInsightsCard`, `monthlyNarrative`, `cardIntelligence`, `ExpertSystemReviewModal`, `UpdateAvailableBanner`, `skeletonRules`) e a função `subscribeUpdatePending`; 8 cópias da validação de data trocadas por `isValidISODate`; removidos `financialMonthStartDay` e `ReceivablesIntent`; títulos de testes sem Firebase. (4) **Build:** React em pacote próprio (`react-vendor`): principal caiu de 514 kB para 294 kB, sem aviso.
+- **Por quê:** pedido do dono de auditoria longa (código e Neon) e de deixar o projeto limpo e profissional.
+- **Arquivos/áreas:** `backend/app.ts`, `backend/familyApi.test.ts`, `db/migrations/011_app_users_foreign_keys.sql`, `scripts/qa-postgres.ts`, `vite.config.ts`, `src/App.tsx`, `src/components/{family/SharedExpensesTab,budgets/GoalsAndSimulatorTab,investments/InvestmentsTab,receivables/ReceivablesTab}.tsx`, `src/domain/{family/sharedFinanceRules,family/sharedSettlementReceipts,investments/investmentRules}.ts`, `src/services/workspace/fullBackup.ts`, `src/pwa/pwaControl.ts`, `src/types/finance.ts`, testes renomeados e arquivos apagados listados acima; relatório [docs/AUDITORIA_TECNICA_2026-11-19.md](docs/AUDITORIA_TECNICA_2026-11-19.md).
+- **Como foi verificado:** `bun run check` (785 testes: saíram 26 dos arquivos mortos, entraram 2); os 4 testes novos/alterados do servidor falham no código antigo e passam no novo; `scripts/qa-postgres.ts` completo em PostgreSQL 16 local descartável com 11 migrações (inclui recusa de workspace/compartilhado de conta inexistente); servidor real em modo produção (`/despesas` 200, `/api/nada` 404 JSON); Chromium em 375 px sem erros nem rolagem horizontal. Neon de produção auditado só com leitura: esquema = migrações 001–010, 0 duplicados/órfãos/valores ou datas inválidos em 367 lançamentos e 131 compartilhados.
+- **Não verificado:** esta versão na Vercel (não foi para `main`); migração 011 no Neon real; envio real de e-mail; iPhone/Safari.
+- **Impacto em dados/Neon:** nenhuma escrita no Neon (só consultas de leitura). A migração 011 está pronta mas **não foi aplicada**; quando aplicada, não muda dados, só passa a recusar registros órfãos. Nenhum workspace tinha `financialMonthStartDay`.
+- **Documentação atualizada:** relatório novo, `docs/README.md`, `docs/tecnico/api.md`, `docs/tecnico/seguranca.md`, `docs/tecnico/banco-de-dados.md`, `docs/produto/regras-de-negocio.md` (3.6), `docs/operacao/deploy-e-ambientes.md`, `docs/tecnico/estrutura-do-codigo.md`, `MASTER_BLUEPRINT.md`, `CHECKLIST.md`.
+- **Próximo passo:** o dono aprovar a branch para `main`; depois aplicar a migração 011 no Neon (de preferência antes num branch de teste) e decidir sobre desligar o Neon Auth antigo.
 
 ### 2026-11-16 — Correções da auditoria e classificação de compartilhados
 - **O que mudou:** corrigidos os 13 achados M01–M13: proteções de operações ligadas a A Receber; posição atual cortada por data; projeção familiar baseada na revisão confirmada, com reconciliação de exclusões e bloqueio de reenvio atrasado; validação completa de backup v6 antes de aplicar; SQL de recuperação e permissões restritas; ordem cronológica de pagamento parcial; datas/valores válidos; vínculos de recebimentos protegidos ao excluir conta; import de backend portável no Windows; backup v6 portátil entre titulares; cópia offline em modo de leitura. Despesa paga por familiar fica em Compartilhado → Eu devo e sai das despesas e do calendário pessoais.

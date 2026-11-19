@@ -1,3 +1,4 @@
+import { isValidISODate } from '../../domain/finance/formatting';
 import { getAccountLabelWithBank } from '../../domain/finance/accountLabels';
 import { getAccountCurrency } from '../../domain/finance/transferRules';
 import { MissingSetupNotice } from '../layout/MissingSetupNotice';
@@ -333,8 +334,7 @@ export const SharedExpensesTab: React.FC<SharedExpensesTabProps> = ({
       setSettlementError('Cadastre ou selecione uma conta bancária em reais antes de liquidar.');
       return;
     }
-    const parsedDate = new Date(`${settleDate}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(settleDate) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== settleDate) {
+    if (!isValidISODate(settleDate)) {
       setSettlementError('Informe uma data válida para o acerto.');
       return;
     }

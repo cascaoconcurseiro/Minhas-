@@ -1,6 +1,6 @@
 # Banco de dados e persistência — Minhas Economias
 
-> Atualizado em 2026-11-15. Migrações em `db/migrations/001…010`.
+> Atualizado em 2026-11-19. Migrações em `db/migrations/001…011`.
 
 ## Fonte de verdade
 
@@ -26,6 +26,10 @@ As migrations em `db/migrations/` são a referência do schema:
 | `finance_workspace_migrations` | Hash SHA-256, origem histórica, data e contagens da importação inicial | RLS pelo UID do proprietário; não armazena outro workspace |
 | `finance_family_invitations` | Convites, participantes e estado de aceite/recusa/revogação | RLS para proprietário e e-mail convidado autenticado |
 | `finance_shared_transactions` | Apenas despesas explicitamente compartilhadas entre participantes | RLS pelos IDs de remetente/destinatário |
+
+**Chaves estrangeiras (migração 011):** `finance_workspaces.owner_user_id`, `finance_family_invitations.owner_user_id`/`invited_user_id` e `finance_shared_transactions.sender_user_id`/`recipient_user_id` apontam para `app_users(id)`, sem exclusão em cascata (apagar uma conta não apaga dados financeiros em silêncio). `finance_workspace_migrations` fica de fora porque guarda os IDs antigos do Firebase. **Situação em produção:** a migração 011 foi escrita e testada em PostgreSQL 16 descartável em 2026-11-19 e a produção foi conferida sem nenhum registro órfão, mas **só é aplicada no Neon com autorização do dono**.
+
+**Restos no Neon (fora do código):** o schema `neon_auth` (1 usuário e 4 sessões antigas) é do Neon Auth usado antes do login próprio (migração 008); o app não o lê. Pode ser desligado no painel do Neon quando o dono autorizar.
 
 `finance_workspaces.payload` mantém o contrato atual da interface como JSONB para reduzir risco de migração. Os lançamentos ainda não são linhas individualizadas em uma tabela relacional.
 
@@ -58,4 +62,4 @@ Todos são strings JSON validadas pelo servidor como arrays/objetos antes de gra
 
 O Cron da Vercel chama `GET /api/readiness` diariamente às 12:15 UTC com o bearer secret `CRON_SECRET`. A rota consulta `finance_workspaces` e retorna 200/503 conforme o Neon responde; isso acorda o compute durante a consulta, mas não o mantém ligado continuamente. O workflow `.github/workflows/neon-daily-activity.yml` executou automaticamente por `schedule` em `42397967500`. O workflow `.github/workflows/neon-backup.yml` tem schedule diário separado às 13:17 UTC; a execução mais recente `42413305298` foi manual (`workflow_dispatch`), logo o agendamento de backup ainda precisa de comprovação.
 
-O projeto está no plano Neon Free; a configuração atual informa janela de histórico de 21.600 segundos (6 horas), suficiente para recuperação pontual recente. No início da auditoria não havia snapshots nem agenda de backup configurados. A agenda automática de snapshots do Neon exige plano pago; por isso, o PITR disponível no plano atual não equivale a backup independente de longo prazo. Nesta sessão, um snapshot da branch raiz foi restaurado em uma nova branch de QA, sem substituir a produção; o schema restaurado coincidiu com a origem e as quatro tabelas operacionais estavam presentes. As branches de teste foram excluídas após o ensaio autorizado; a produção continua a única branch. A exportação JSON do app cobre apenas o workspace pessoal. Veja `docs/BACKUP_AND_RESTORE.md` para cobertura das tabelas familiares.
+O projeto está no plano Neon Free; a configuração atual informa janela de histórico de 21.600 segundos (6 horas), suficiente para recuperação pontual recente. No início da auditoria não havia snapshots nem agenda de backup configurados. A agenda automática de snapshots do Neon exige plano pago; por isso, o PITR disponível no plano atual não equivale a backup independente de longo prazo. Nesta sessão, um snapshot da branch raiz foi restaurado em uma nova branch de QA, sem substituir a produção; o schema restaurado coincidiu com a origem e as quatro tabelas operacionais estavam presentes. As branches de teste foram excluídas após o ensaio autorizado; a produção continua a única branch. A exportação JSON do app cobre apenas o workspace pessoal. Veja [../operacao/backup-e-restauracao.md](../operacao/backup-e-restauracao.md) para cobertura das tabelas familiares.

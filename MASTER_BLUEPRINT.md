@@ -17,7 +17,7 @@ Aplicativo web de finanças pessoais e familiares; login próprio (e-mail e senh
 /
 ├── api/                    # Entrada das funções da Vercel
 ├── backend/                # Rotas Express e integração PostgreSQL
-├── db/migrations/          # Migrações SQL do Neon (001–010)
+├── db/migrations/          # Migrações SQL do Neon (001–011)
 ├── shared/                 # Código usado por front e servidor
 ├── src/
 │   ├── components/         # Telas, uma pasta por área (layout, ui, overview, transactions, accounts, cards, budgets, receivables, family, trips, investments, reports, settings, auth)

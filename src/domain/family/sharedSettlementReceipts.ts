@@ -1,3 +1,4 @@
+import { isValidISODate } from '../finance/formatting.ts';
 export interface SharedSettlementReceipt {
   id: string;
   status: 'pending' | 'received';
@@ -18,8 +19,7 @@ export function parseSharedSettlementReceipts(raw: unknown): SharedSettlementRec
       throw new Error('Recibo de acerto inválido.');
     }
     if (row.date) {
-      const date = new Date(`${row.date}T00:00:00.000Z`);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== row.date) {
+      if (!isValidISODate(row.date)) {
         throw new Error('Data do acerto inválida.');
       }
     }

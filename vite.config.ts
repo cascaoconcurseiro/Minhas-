@@ -116,6 +116,16 @@ export default defineConfig(() => {
         },
       }),
     ],
+    build: {
+      rolldownOptions: {
+        output: {
+          // React em pacote próprio: muda pouco entre versões, então o aparelho reaproveita o que já baixou.
+          codeSplitting: {
+            groups: [{ name: 'react-vendor', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ }],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(configDirectory, '.'),

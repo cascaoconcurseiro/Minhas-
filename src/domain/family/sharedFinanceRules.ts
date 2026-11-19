@@ -1,3 +1,4 @@
+import { isValidISODate } from '../finance/formatting.ts';
 import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../types/finance';
 import { formatBRL, formatMonthYearPT, getClampedMonthDate, getSharedSettlementLinks } from '../finance/financeRules';
 import { getAccountCurrency } from '../finance/transferRules';
@@ -11,11 +12,7 @@ export function getDomesticSharedTransactions(transactions: Transaction[]) {
     (!tx.isCompanionOnlyExpense || tx.id.startsWith('tx-mirror-')));
 }
 
-function isRealISODate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
+const isRealISODate = isValidISODate;
 
 /**
  * Dia em que a parte de um compartilhado deve ser cobrada (ou paga).
@@ -155,12 +152,11 @@ export function calculateSharedMemberSummary(transactions: Transaction[], member
 export function settleSharedExpenses(transactions: Transaction[], accounts: BankAccount[], input: {
   txId?: string; memberId?: string; month?: string; memberName: string; accountId: string; date: string; settlementId: string;
 }) {
-  const parsed = new Date(`${input.date}T00:00:00.000Z`);
   const settlementAccount = accounts.find((account) => account.id === input.accountId);
   if (settlementAccount && getAccountCurrency(settlementAccount) !== 'BRL') {
     return { transactions, affectedCount: 0, netAmount: 0, error: 'O acerto é em reais: escolha uma conta em reais.' };
   }
-  if (!settlementAccount || !/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== input.date) {
+  if (!settlementAccount || !isValidISODate(input.date)) {
     return { transactions, affectedCount: 0, netAmount: 0, error: 'Selecione uma conta e uma data válidas para o acerto.' };
   }
   const target = getDomesticSharedTransactions(transactions).filter((tx) => tx.sharedStatus !== 'received' && (tx.sharedAmount || 0) > 0 &&

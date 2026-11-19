@@ -48,3 +48,5 @@
 ## Limites de payload e abuso
 
 O corpo JSON do servidor aceita até 4 MB; consultas de câmbio (20/h) e cotações (60/h) têm limite de uso por conta.
+
+Envio de lembrete por e-mail: 20 envios/hora por conta, assunto em uma linha (até 200 caracteres) e corpo limitado (texto 100 mil, HTML 200 mil caracteres), para a rota não virar um disparador de e-mails. Erros inesperados das rotas de câmbio, cotações e e-mail devolvem mensagem genérica em português; o detalhe técnico (mensagem do provedor de IA ou do SMTP) fica só no log do servidor. Caminho `/api/...` inexistente responde `404` em JSON.

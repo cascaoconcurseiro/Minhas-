@@ -1,3 +1,4 @@
+import { isValidISODate } from '../finance/formatting.ts';
 import {
   InvestmentAsset,
   InvestmentAssetClass,
@@ -70,9 +71,8 @@ export function createGoalInvestmentContribution(goal: SavingsGoal, asset: Inves
 }
 
 export function createInvestmentCashMovement(asset: InvestmentAsset, mode: 'buy' | 'sell', quantity: number, price: number, accountId: string, date: string, id: string): Transaction {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
   const cents = Math.round(quantity * price * 100);
-  if (!accountId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== date ||
+  if (!accountId || !isValidISODate(date) ||
     !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(cents) || cents <= 0 || (mode === 'sell' && quantity > asset.quantity)) {
     throw new RangeError('Confira data, conta, quantidade e valor da operação de investimento.');
   }

@@ -297,7 +297,7 @@ function createGeminiClient(): GoogleGenAI {
     apiKey,
     httpOptions: {
       headers: {
-        'User-Agent': 'aistudio-build',
+        'User-Agent': 'minhas-economias',
       },
     },
   });
@@ -537,6 +537,8 @@ async function startServer() {
   app.use('/api/workspace', verifyAuthUser);
   app.use('/api/family', verifyAuthUser);
   app.use('/api/reminders/send-email', verifyAuthUser);
+  // Cada envio usa o SMTP do próprio usuário, mas sem limite a rota viraria um disparador de e-mails.
+  const reminderEmailLimit = createAttemptLimiter(20, 60 * 60 * 1000);
   // Rotas que chamam IA/Google gastam cota: limite por usuário (cada chamada conta), por instância do servidor.
   const createUsageLimit = (
     maxCalls: number,
@@ -1232,7 +1234,6 @@ async function startServer() {
         res.status(502).json({
           error:
             'Não foi possível extrair um valor numérico de cotação da busca em tempo real. Tente consultar novamente em instantes.',
-          rawResponse: responseText,
         });
         return;
       }
@@ -1278,12 +1279,13 @@ async function startServer() {
         sources,
       });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
+      console.error('Erro em /api/fx/live-rate:', err instanceof Error ? err.message : err);
+      // Detalhes técnicos do provedor ficam só no log do servidor.
+      res.status(err instanceof GeminiNotConfiguredError ? 503 : 500).json({
+        error: err instanceof GeminiNotConfiguredError
           ? err.message
-          : 'Erro ao consultar cotação em tempo real via Google Search.';
-      console.error('Erro em /api/fx/live-rate:', message);
-      res.status(err instanceof GeminiNotConfiguredError ? 503 : 500).json({ error: message });
+          : 'Não foi possível consultar a cotação agora. Informe a cotação manualmente ou tente de novo.',
+      });
     }
   });
 
@@ -1408,24 +1410,29 @@ async function startServer() {
         sources,
       });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Erro ao sincronizar cotações com o Google Finance.';
-      console.error('Erro em /api/investments/sync-quotes:', message);
-      res.status(500).json({ error: message });
+      console.error('Erro em /api/investments/sync-quotes:', err instanceof Error ? err.message : err);
+      res.status(500).json({ error: 'Não foi possível atualizar as cotações agora. Tente de novo em instantes.' });
     }
   });
 
   // Email Reminder Dispatch Endpoint (Custom User SMTP Credentials)
   app.post('/api/reminders/send-email', async (req, res) => {
     try {
+      const user = res.locals.authUser as AuthUserIdentity;
+      if (reminderEmailLimit.isBlocked(user.uid)) {
+        res.status(429).json({ error: 'Muitos e-mails enviados em pouco tempo. Aguarde uma hora e tente de novo.' });
+        return;
+      }
       const rawTo = String(req.body?.to || '').trim().toLowerCase();
       const subject = String(
         req.body?.subject || '[Minhas Economias BR] Lembrete Financeiro'
-      ).trim();
+      ).replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
       const textBody = String(req.body?.textBody || '').trim();
       const htmlBody = String(req.body?.htmlBody || '').trim();
+      if (textBody.length > 100_000 || htmlBody.length > 200_000) {
+        res.status(413).json({ error: 'O resumo do e-mail ficou grande demais.' });
+        return;
+      }
       const recurrence = String(req.body?.recurrence || 'daily');
       const preferredTime = String(req.body?.preferredTime || '08:00');
 
@@ -1468,6 +1475,7 @@ async function startServer() {
 
       const sentAt = new Date().toISOString();
       const deliveryMode = 'custom_smtp' as const;
+      reminderEmailLimit.recordFailure(user.uid);
 
       const transporter = smtpDependencies.createTransport({
         host: smtpTarget.address,
@@ -1526,12 +1534,14 @@ async function startServer() {
         message: `Resumo financeiro enviado via SMTP (${smtpHost}:${smtpPort}) para ${rawTo} (Horário: ${preferredTime} • Recorrência: ${recurrenceLabel}).`,
       });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Erro ao processar envio de lembrete por e-mail via SMTP.';
-      res.status(500).json({ error: message });
+      console.error('Erro em /api/reminders/send-email:', err instanceof Error ? err.message : err);
+      res.status(500).json({ error: 'Não foi possível enviar o lembrete agora. Tente de novo.' });
     }
+  });
+
+  // Rota da API que não existe: resposta JSON curta (o app lê toda resposta da API como JSON).
+  app.all('/api/*', (_req, res) => {
+    res.status(404).json({ error: 'Rota da API não encontrada.' });
   });
 
   if (!process.env.VERCEL) {
@@ -1549,7 +1559,7 @@ async function startServer() {
     } else {
       const distPath = path.resolve(__dirname, '..', 'dist');
       app.use(express.static(distPath));
-      app.get('*all', (_req, res) => {
+      app.get('*', (_req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
       });
     }

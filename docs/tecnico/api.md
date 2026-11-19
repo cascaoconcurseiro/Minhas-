@@ -133,8 +133,13 @@ Sem verificação de e-mail: o convite familiar dentro do sistema é o vínculo 
 
 ---
 
+### 2.2.3. Rota inexistente
+Qualquer caminho `/api/...` que não existe responde `404` em JSON (`{"error":"Rota da API não encontrada."}`), nunca uma página HTML.
+
+---
+
 ### 2.3. `POST /api/fx/live-rate`
-Consulta a cotação comercial em tempo real de uma moeda estrangeira (`USD`, `EUR`, `GBP`, `CAD`, `CHF`, `ARS`, `CLP`, `JPY`) frente ao Real Brasileiro (`BRL`) usando **Gemini Google Search Grounding**.
+Consulta a cotação comercial em tempo real de uma moeda estrangeira (`USD`, `EUR`, `GBP`, `CAD`, `CHF`, `ARS`, `CLP`, `JPY`) frente ao Real Brasileiro (`BRL`) usando **Gemini Google Search Grounding**. Erros: `503` sem `GEMINI_API_KEY`; `502` quando a resposta não traz taxa válida (o texto bruto do provedor **não** é devolvido); `500` com mensagem genérica em português quando o provedor falha (o detalhe técnico fica só no log do servidor).
 
 - **Payload de Requisição**:
 ```json
@@ -162,7 +167,7 @@ Consulta a cotação comercial em tempo real de uma moeda estrangeira (`USD`, `E
 ---
 
 ### 2.4. `POST /api/investments/sync-quotes`
-Sincroniza em lote (até 20 tickers por requisição) os preços atuais de mercado e a variação diária (`%`) de Ações B3, FIIs e ETFs diretamente do **Google Finance (`:BVMF`)**, com fallback via **Google Search Grounding** para ativos internacionais.
+Sincroniza em lote (até 20 tickers por requisição) os preços atuais de mercado e a variação diária (`%`) de Ações B3, FIIs e ETFs diretamente do **Google Finance (`:BVMF`)**, com fallback via **Google Search Grounding** para ativos internacionais. Falha inesperada devolve `500` com mensagem genérica (detalhe só no log).
 
 - **Payload de Requisição**:
 ```json
@@ -190,7 +195,7 @@ Sincroniza em lote (até 20 tickers por requisição) os preços atuais de merca
 ---
 
 ### 2.5. `POST /api/reminders/send-email`
-Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige sessão (`Authorization: Bearer <token de sessão>`), restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. As credenciais podem estar incluídas nas configurações persistidas no Neon. Responde `502` se o servidor SMTP recusar a entrega.
+Dispara o resumo diário/semanal/mensal de pendências financeiras e vencimentos de faturas utilizando as credenciais SMTP fornecidas pelo usuário (`nodemailer`). Exige sessão (`Authorization: Bearer <token de sessão>`), restringe destinos a hostnames públicos e portas SMTP compatíveis, e exige TLS. A senha SMTP **não** é guardada no Neon (fica só na memória da sessão; ver backup). Responde `502` se o servidor SMTP recusar a entrega. Limites: **20 envios por hora por conta** (`429` depois disso), assunto em uma linha com até 200 caracteres (quebras de linha viram espaço) e corpo de até 100 mil caracteres em texto / 200 mil em HTML (`413` acima disso).
 
 - **Payload de Requisição**:
 ```json
@@ -220,7 +225,7 @@ As regras vivem em `src/domain/` (puras, sem React) e estão descritas em [../pr
 | Assunto | Arquivos |
 |---|---|
 | Lançamentos, contas, faturas, resultado, patrimônio, DRE, busca global, simulador de renda fixa | `src/domain/finance/financeRules.ts` (+ `transferRules`, `spendingGuards`, `categoryCatalog`, `categoryMatching`, `accountLabels`, `transactionDeletion`) |
-| Cartões | `src/domain/cards/cardCommitment.ts`, `cardIntelligence.ts` |
+| Cartões | `src/domain/cards/cardCommitment.ts` |
 | Orçamentos, previsão de caixa, aprendizado, recorrência, saúde dos dados, antecipação de parcelas | `src/domain/budgets/*` |
 | A Receber | `src/domain/receivables/receivables.ts` |
 | Compartilhado | `src/domain/family/sharedFinanceRules.ts`, `sharedSettlementReceipts.ts` |

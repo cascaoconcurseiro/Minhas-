@@ -1,3 +1,4 @@
+import { isValidISODate } from '../../domain/finance/formatting';
 import { getAccountCurrency } from '../../domain/finance/transferRules';
 import { MissingSetupNotice } from '../layout/MissingSetupNotice';
 import React, { useMemo, useState } from 'react';
@@ -164,8 +165,7 @@ export const GoalsAndSimulatorTab: React.FC<GoalsAndSimulatorTabProps> = ({
   };
 
   const handleConfirmContribution = (goalId: string) => {
-    const parsedDate = new Date(`${contributeDate}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(contributeDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== contributeDate) {
+    if (!isValidISODate(contributeDate)) {
       setContributeError('Informe uma data válida para o aporte.');
       return;
     }

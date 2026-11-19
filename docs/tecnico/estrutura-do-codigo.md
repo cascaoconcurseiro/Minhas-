@@ -12,7 +12,7 @@ Mapa de pastas e regras de onde cada coisa deve ficar. Atualizado em 2026-11-15,
 ├── backend/                 # servidor Express (rotas, sessão, banco)
 ├── api/                     # adaptadores finos que expõem o servidor como funções da Vercel
 ├── shared/                  # código usado pelo front e pelo servidor (identidade do workspace)
-├── db/migrations/           # migrações SQL do Neon (001…010), em ordem
+├── db/migrations/           # migrações SQL do Neon (001…011), em ordem
 ├── scripts/                 # utilitários de QA (qa-postgres.ts)
 ├── public/                  # ícones e arquivos estáticos do PWA
 ├── .github/workflows/       # CI, backup diário e atividade diária do Neon

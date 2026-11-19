@@ -1,3 +1,4 @@
+import { isValidISODate } from '../../domain/finance/formatting';
 import { getAccountCurrency } from '../../domain/finance/transferRules';
 import { MissingSetupNotice } from '../layout/MissingSetupNotice';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -482,8 +483,7 @@ export const InvestmentsTab: React.FC<InvestmentsTabProps> = ({
     if (!activeOperation) return;
     const { asset, mode } = activeOperation;
 
-    const parsedDate = new Date(`${operationDate}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(operationDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== operationDate) { setOperationError('Informe uma data válida.'); return; }
+    if (!isValidISODate(operationDate)) { setOperationError('Informe uma data válida.'); return; }
     if (mode === 'dividend') {
       const divAmount = parseBRLInput(opPriceStr);
       if (!Number.isFinite(divAmount) || divAmount <= 0) {

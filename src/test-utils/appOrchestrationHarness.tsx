@@ -274,7 +274,7 @@ async function submitCredentials(page: HTMLDivElement, fields: Array<[string, st
   });
 }
 
-test('email login through the app transitions from Firebase auth screen to Neon workspace', async () => {
+test('email login through the app transitions from the login screen to the Neon workspace', async () => {
   authStateUser = null;
   const page = renderApp();
   await waitFor(() => assert.match(page.textContent ?? '', /Acesse sua conta/));
@@ -293,7 +293,7 @@ test('email login through the app transitions from Firebase auth screen to Neon 
   assert.equal(page.querySelector('[data-cloud-sync-status]')?.getAttribute('data-cloud-sync-status'), 'synced');
 });
 
-test('email registration through the app uses Firebase and then hydrates the Neon workspace', async () => {
+test('email registration through the app uses the own login API and then hydrates the Neon workspace', async () => {
   authStateUser = null;
   const page = renderApp();
   await waitFor(() => assert.match(page.textContent ?? '', /Acesse sua conta/));

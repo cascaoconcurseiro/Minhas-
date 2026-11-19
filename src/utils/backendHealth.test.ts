@@ -41,7 +41,7 @@ describe('backend health summary', () => {
     );
   });
 
-  it('reports an unavailable Firebase Auth configuration as unhealthy', () => {
+  it('reports an unavailable login (auth) configuration as unhealthy', () => {
     assert.deepEqual(
       summarizeBackendHealth(true, {
         status: 'degraded',

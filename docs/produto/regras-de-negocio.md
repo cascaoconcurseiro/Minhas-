@@ -73,7 +73,7 @@ Ao editar ou apagar um lançamento de série, o modo de cascata decide o alcance
 
 ---
 
-## 3. Cartão de crédito e faturas (`financeRules.ts`, `cardIntelligence.ts`)
+## 3. Cartão de crédito e faturas (`financeRules.ts`)
 
 ### 3.1 Em qual fatura entra uma compra — `resolveCreditCardInvoiceMonth`
 O mês da fatura (competência) é o mês do **vencimento**. A regra:
@@ -114,8 +114,8 @@ Antecipar parcelas futuras para a fatura atual com desconto: guarda o mês e val
 
 **Chave "Geral / Só a minha parte"** (decisão do dono, 2026-11-15): o *Geral* mostra tudo o que está na fatura (como antes, sem A Receber). *Só a minha parte* soma, por mês, suas compras e parcelas no cartão (nos compartilhados que você pagou, desconta a parte da outra pessoa: `valor − sharedAmount`). Compras pagas por outra pessoa, inclusive as recebidas pelo compartilhamento familiar, ficam em **Compartilhado → Eu devo** e não são despesa pessoal nem entram no comprometimento do seu cartão. O acerto entra no extrato quando você paga sua parte. O que é de terceiros (A Receber, cartão adicional) não entra em nenhuma das duas. A porcentagem da renda e o limite valem para a visão escolhida (`getMyCardPurchaseAmount`, `CardCommitmentMonth.mine`).
 
-### 3.6 Melhor dia de compra — `bestPurchaseDayFor`
-É o dia em que começa o ciclo novo: dia seguinte ao fechamento (ou o próprio dia de fechamento quando a opção do cartão está marcada); fechamento a partir do dia 28 → dia 1.
+### 3.6 Melhor dia de compra — removido
+O cartão "Cartões" com o melhor dia de compra saiu da Visão Geral a pedido do dono e o código sem uso (`cardIntelligence.ts`) foi apagado na limpeza de 2026-11-19. Se voltar, recuperar do histórico do Git (commit anterior a essa limpeza).
 
 ---
 

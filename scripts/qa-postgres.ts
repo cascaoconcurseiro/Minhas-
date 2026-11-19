@@ -285,6 +285,17 @@ await request('/api/workspace', outsider.token, 'PUT', {
 }, 400);
 await request('/api/workspace', outsider.token, 'PUT', { payload: loanPayload, expectedRevision: updatedLegacy.revision });
 console.log('PASS: receivables require linked cash movements, reject new damage, and support saving unrelated edits in a legacy workspace');
+const orphanAttempts = [
+  [`INSERT INTO public.finance_workspaces (vault_id, owner_user_id, owner_email, payload) VALUES ('vault_qa_orphan', 'usr_does_not_exist', 'ghost@qa.example', jsonb_build_object('uid', 'vault_qa_orphan', 'updatedAt', '2026-11-19', 'accountsJson', '[]', 'cardsJson', '[]', 'categoriesJson', '[]', 'transactionsJson', '[]', 'goalsJson', '[]', 'investmentsJson', '[]'))`, 'finance_workspaces_owner_user_fk'],
+  [`INSERT INTO public.finance_shared_transactions (sender_user_id, recipient_user_id, shared_sync_id, payload) VALUES ('usr_does_not_exist', '${owner.user.uid}', 'qa-orphan', '{}'::jsonb)`, 'finance_shared_transactions_sender_user_fk'],
+] as const;
+for (const [sql, constraint] of orphanAttempts) {
+  await assert.rejects(admin.query(sql), (error: { constraint?: string; code?: string }) =>
+    error.code === '23503' && error.constraint === constraint);
+}
+const fkCount = (await admin.query(`SELECT count(*)::int AS count FROM pg_constraint WHERE contype = 'f' AND conname LIKE '%_user_fk'`)).rows[0].count;
+assert.equal(fkCount, 5, 'migration 011 must create the five app_users foreign keys');
+console.log('PASS: workspaces, invitations and shared rows cannot point to an account that does not exist (migration 011)');
 await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
 await admin.end();
 console.log('QA PostgreSQL completed successfully; disposable service only');

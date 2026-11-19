@@ -7,6 +7,9 @@
 Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento · **[Decidir]** precisa de decisão do dono.
 
 ## A. Próximas entregas
+- [ ] **[Dono]** Revisar e levar para `main` a branch `claude/ecstatic-lamport-d99zv9` (auditoria técnica de 19/11, [relatório](docs/AUDITORIA_TECNICA_2026-11-19.md)).
+- [ ] **[Decidir]** Aplicar no Neon a migração `011_app_users_foreign_keys.sql` (produção conferida sem órfãos; testada em PostgreSQL descartável).
+- [ ] **[Decidir]** Desligar o Neon Auth antigo (schema `neon_auth`, 1 usuário e 4 sessões, sem uso desde a migração 008).
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).
 - [ ] **[Decidir]** O servidor deve enviar os compartilhados sozinho no momento em que o convite é aceito (hoje depende do app de quem convidou abrir)?
 - [ ] **[Decidir]** Enviar o convite por e-mail de verdade (SMTP) em vez de depender de copiar/WhatsApp (o código do convite já impede aceite por estranhos; ver `docs/tecnico/seguranca.md`).
@@ -45,7 +48,7 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 [Relatório da auditoria](docs/AUDITORIA_SISTEMA_2026-11-15.md)
 - [ ] **[Decidir]** Saldo insuficiente e limite do cartão estourado devem **bloquear** ou só **avisar** (hoje só avisam).
 - [ ] **[Decidir]** `Trip.linkedAccountId` precisa de tela própria?
-- [ ] **[Dev]** Compartilhado, Viagens e contagens de pendência do menu ainda usam a competência da fatura em vez do mês da compra.
+- [ ] **[Decidir]** Compartilhado, Viagens e contagens de pendência do menu usam a competência da fatura em vez do mês da compra. **Atenção:** para o Compartilhado isso segue a decisão de 15/11 (cobrado no vencimento da fatura); confirmar se o item ainda vale.
 - [ ] **[Dev]** Revisar transferências antigas sinalizadas em Saúde dos dados (`transfer_unconverted`).
 - [ ] **[Dev]** Investimentos: quantidade fracionária, preço zero/sem cotação, rendimento inválido; possível dupla contagem do mesmo ativo em metas.
 - [ ] **[Dev]** Aplicar metadados históricos de parcelamento de alta confiança (com backup JSON antes).
@@ -65,6 +68,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** Extrair de `src/App.tsx` (~4.600 linhas) hooks por área (valores a receber, cartões, sincronização).
 - [ ] **[Dev]** Dividir `src/domain/finance/financeRules.ts` (~3.300 linhas; a formatação de R$ e datas já foi extraída para `formatting.ts`) por assunto mantendo um índice que reexporta.
 - [ ] **[Dev]** Dividir `backend/app.ts` (~1.500 linhas) em uma rota por arquivo.
-- [ ] **[Dev]** Renomear rótulos e testes antigos que ainda citam Firebase (`firebaseAuthConfigured`, títulos em `src/test-utils/appOrchestrationHarness.tsx`).
-- [ ] **[Dev]** Remover campo sem uso `AppSettings.financialMonthStartDay` e o mecanismo `ReceivablesIntent` (hoje sem uso).
+- [x] **[Dev]** Renomear rótulos e testes antigos que ainda citam Firebase (feito em 2026-11-19).
+- [x] **[Dev]** Remover campo sem uso `AppSettings.financialMonthStartDay` e o mecanismo `ReceivablesIntent` (feito em 2026-11-19).
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

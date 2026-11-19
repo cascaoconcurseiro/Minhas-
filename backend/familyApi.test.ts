@@ -940,9 +940,10 @@ test('FX não-BRL retorna 502 quando Gemini não fornece taxa numérica', async 
       body: JSON.stringify({ currency: 'EUR' }),
     });
     assert.equal(response.status, 502);
-    const result = await response.json() as { error: string; rawResponse: string };
+    const result = await response.json() as { error: string; rawResponse?: string };
     assert.match(result.error, /Não foi possível extrair um valor numérico/);
-    assert.equal(result.rawResponse, 'A busca sintética não encontrou uma taxa válida.');
+    // O texto bruto do provedor de IA fica só no servidor.
+    assert.equal(result.rawResponse, undefined);
     assert.equal(geminiRequests.length, 1);
   } finally {
     geminiResponsePayload = null;
@@ -967,7 +968,8 @@ test('FX não-BRL retorna 500 se a chamada ao SDK Gemini falha', async () => {
     });
     assert.equal(response.status, 500);
     const result = await response.json() as { error: string };
-    assert.match(result.error, /Gemini blocked by test mock/);
+    assert.match(result.error, /Não foi possível consultar a cotação agora/);
+    assert.doesNotMatch(result.error, /Gemini blocked by test mock/);
     assert.ok(geminiRequests.length >= 1);
     assert.ok(geminiRequests.every(({ url }) => url.startsWith('https://generativelanguage.googleapis.com/')));
   } finally {
@@ -1184,6 +1186,54 @@ test('lembrete autenticado retorna sucesso com transporte SMTP sintético', asyn
       text: 'Sem entrega externa',
       html: undefined,
     });
+  } finally {
+    appLocals.reminderSmtpRouteDependencies = previousDependencies;
+  }
+});
+
+test('rota inexistente da API responde JSON 404 (nunca página HTML)', async () => {
+  const response = await originalFetch(`${baseUrl}/api/rota-que-nao-existe`, {
+    headers: { Authorization: `Bearer ${authTokens.owner}` },
+  });
+  assert.equal(response.status, 404);
+  assert.match(response.headers.get('content-type') || '', /application\/json/);
+  assert.deepEqual(await response.json(), { error: 'Rota da API não encontrada.' });
+});
+
+test('lembrete por e-mail limita o assunto a uma linha e o volume de envios por hora', async () => {
+  assert.ok(appLocals);
+  const previousDependencies = appLocals.reminderSmtpRouteDependencies;
+  const subjects: string[] = [];
+  appLocals.reminderSmtpRouteDependencies = {
+    resolveTarget: async (host: string) => ({ address: '203.0.113.11', servername: host }),
+    createTransport: () => ({
+      sendMail: async (message: { subject: string }) => {
+        subjects.push(message.subject);
+        return { messageId: 'synthetic-message-id' };
+      },
+    }),
+  };
+  const send = (token: string, subject = 'Resumo') => originalFetch(`${baseUrl}/api/reminders/send-email`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: 'owner@example.com',
+      subject,
+      textBody: 'Sem entrega externa',
+      smtp: { host: 'smtp.example.test', port: 587, user: 'owner@example.com', pass: 'synthetic-only' },
+    }),
+  });
+  try {
+    const first = await send(authTokens.brute, `Linha 1\r\nBcc: alguem@example.com${'x'.repeat(400)}`);
+    assert.equal(first.status, 200, await first.clone().text());
+    assert.equal(subjects[0].includes('\n'), false);
+    assert.equal(subjects[0].length, 200);
+    const statuses: number[] = [];
+    for (let index = 0; index < 20; index += 1) statuses.push((await send(authTokens.brute)).status);
+    assert.equal(statuses.filter((status) => status === 200).length, 19);
+    assert.equal(statuses.at(-1), 429);
+    // O limite é por conta: outra pessoa continua enviando.
+    assert.equal((await send(authTokens.other)).status, 200);
   } finally {
     appLocals.reminderSmtpRouteDependencies = previousDependencies;
   }

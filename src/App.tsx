@@ -1,3 +1,4 @@
+import { isValidISODate } from './domain/finance/formatting';
 import { getAccountCurrency, resolveBankTransfer } from './domain/finance/transferRules';
 import { newEntityId } from './utils/ids';
 import { getFamilyInviteCreatedNotice } from './domain/family/familyInvite';
@@ -485,7 +486,6 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [goals, setGoals] = useState<SavingsGoal[]>(INITIAL_SAVINGS_GOALS);
   const [receivables, setReceivables] = useState<Receivable[]>([]);
-  const [receivablesIntent, setReceivablesIntent] = useState<import('./components/receivables/ReceivablesTab').ReceivablesIntent | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY_MEMBERS);
   // E-mail (minúsculo) → a pessoa convidada já tem conta? Só convites pendentes que eu enviei; vem do servidor.
   const [inviteeHasAccount, setInviteeHasAccount] = useState<Record<string, boolean>>({});
@@ -2715,8 +2715,7 @@ export default function App() {
     if (!requireWorkspaceWrite()) return;
     const targetGoal = goals.find((g) => g.id === goalId);
     if (!targetGoal || !Number.isFinite(amount) || !Number.isSafeInteger(Math.round(amount * 100)) || Math.round(amount * 100) <= 0) return;
-    const parsedDate = new Date(`${contributionDate}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(contributionDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== contributionDate) { showNotice('Informe uma data válida para o aporte.', undefined, true); return; }
+    if (!isValidISODate(contributionDate)) { showNotice('Informe uma data válida para o aporte.', undefined, true); return; }
     if (debitAccountId && !accounts.some(account => account.id === debitAccountId && getAccountCurrency(account) === 'BRL')) { showNotice('Selecione uma conta em reais para debitar o aporte.', undefined, true); return; }
     if (targetGoal?.linkedAssetId) {
       const linkedAsset = investments.find((a) => a.id === targetGoal.linkedAssetId);
@@ -3214,8 +3213,7 @@ export default function App() {
     dividendDate: string = getLocalDateISO()
   ) => {
     if (!requireWorkspaceWrite()) return;
-    const parsedDate = new Date(`${dividendDate}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dividendDate) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dividendDate || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId && getAccountCurrency(account) === 'BRL')) return;
+    if (!isValidISODate(dividendDate) || !Number.isFinite(dividendAmount) || Math.round(dividendAmount * 100) <= 0 || !Number.isSafeInteger(Math.round(dividendAmount * 100)) || !accounts.some(account => account.id === receivingAccountId && getAccountCurrency(account) === 'BRL')) return;
     const dividendTx: Transaction = {
       id: newEntityId('tx-div'),
       description: `Proventos / Dividendos — ${asset.ticker} (${asset.name})`,
@@ -4639,8 +4637,6 @@ export default function App() {
                   onRegisterPayment={handleRegisterReceivablePayment}
                   onRemovePayment={handleRemoveReceivablePayment}
                   onDelete={handleDeleteReceivable}
-                  intent={receivablesIntent}
-                  onIntentHandled={() => setReceivablesIntent(null)}
                 />
               )}
 

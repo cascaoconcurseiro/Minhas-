@@ -415,7 +415,6 @@ export interface AppSettings {
   categorySharingRules?: Record<string, CategorySharingRule>;
   userName: string;
   userPixKey: string;
-  financialMonthStartDay?: number; // 1 to 28
   defaultCascadeMode?: 'single' | 'this_and_future' | 'all_series';
   defaultForeignCurrency?: CurrencyCode;
   autoConvertTripExpenses?: boolean;

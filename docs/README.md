@@ -2,7 +2,7 @@
 
 Esta pasta é a documentação oficial do sistema. Ela descreve **como o sistema está hoje** (não como foi no passado). Quando algo muda no código, o documento correspondente muda no mesmo trabalho (veja `processo/handoff-e-checklist.md`).
 
-Atualizado em: 2026-11-16.
+Atualizado em: 2026-11-19.
 
 ## Por onde começar
 
@@ -14,6 +14,7 @@ Atualizado em: 2026-11-16.
 | Saber o significado de um termo (competência, fatura, a receber…) | [produto/glossario.md](./produto/glossario.md) |
 | Saber como o código está organizado | [tecnico/estrutura-do-codigo.md](./tecnico/estrutura-do-codigo.md) |
 | Ver os achados e a cobertura da auditoria de 15/11/2026 | [Auditoria funcional e financeira](./AUDITORIA_SISTEMA_2026-11-15.md) |
+| Ver a auditoria técnica, do banco Neon e a limpeza de 19/11/2026 | [Auditoria técnica e limpeza](./AUDITORIA_TECNICA_2026-11-19.md) |
 | Ver a arquitetura (telas, servidor, banco) | [tecnico/arquitetura.md](./tecnico/arquitetura.md) |
 | Consultar as rotas da API | [tecnico/api.md](./tecnico/api.md) |
 | Entender o banco de dados Neon | [tecnico/banco-de-dados.md](./tecnico/banco-de-dados.md) |

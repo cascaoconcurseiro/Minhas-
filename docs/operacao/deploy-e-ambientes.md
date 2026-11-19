@@ -41,7 +41,7 @@ Cabeçalhos de segurança e cache estão em `vercel.json` (CSP, `sw.js` sem cach
 Agendar não prova que rodou: a prova é um evento automático registrado. Ver `CHECKLIST.md`, seção C.
 
 ## Migrações do banco
-Arquivos `db/migrations/001…010` aplicados em ordem. Nova alteração = nova migração com o próximo número; aplicar primeiro em um branch de teste do Neon, conferir schema e só então em produção. Detalhes em [../tecnico/banco-de-dados.md](../tecnico/banco-de-dados.md).
+Arquivos `db/migrations/001…011` aplicados em ordem. Nova alteração = nova migração com o próximo número; aplicar primeiro em um branch de teste do Neon, conferir schema e só então em produção. Detalhes em [../tecnico/banco-de-dados.md](../tecnico/banco-de-dados.md).
 
 ## Em caso de problema
 - API fora do ar: `GET /api/status` (público, não consulta o banco) e `GET /api/readiness` (com `Authorization: Bearer <CRON_SECRET>`) dizem o que falhou; erros de produção: logs da Vercel.
