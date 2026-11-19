@@ -99,6 +99,45 @@ try {
   await page.locator('text=Mercado E2E >> visible=true').first().waitFor();
   console.log('PASS: a despesa aparece no extrato');
 
+  // Cartão: cadastra, lança compra parcelada (3x) e confere a fatura de cada parcela.
+  await page.getByRole('button', { name: 'Cartões de Crédito', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Cadastrar Primeiro Cartão' }).click();
+  await page.fill('#card-name-input', 'Cartão Teste');
+  await page.fill('#card-limit-input', '500000');
+  await page.selectOption('#card-closing-input', '10');
+  await page.selectOption('#card-due-input', '20');
+  await page.getByRole('button', { name: 'Salvar Cartão' }).click();
+  await page.getByText('Cartão Teste').first().waitFor();
+  console.log('PASS: cadastrou cartão com limite de R$ 5.000,00 (fecha dia 10, vence dia 20)');
+
+  await page.getByRole('button', { name: 'Novo lançamento' }).first().click();
+  const cardDialog = page.getByRole('dialog');
+  await cardDialog.locator('#tx-amount').waitFor();
+  await cardDialog.getByRole('button', { name: 'Despesa', exact: true }).click();
+  await cardDialog.getByRole('button', { name: 'Cartão de crédito' }).click();
+  await cardDialog.locator('#tx-amount').fill('30000');
+  await cardDialog.locator('#tx-description').fill('Geladeira E2E');
+  await cardDialog.locator('#tx-category-select').selectOption('cat-casa-decoracao');
+  await cardDialog.getByRole('button', { name: /^Parcelado/ }).click();
+  await cardDialog.locator('select').filter({ has: page.locator('option[value="3"]') }).last().selectOption('3');
+  await cardDialog.getByRole('button', { name: 'Lançar 3x no Cartão' }).click();
+  await cardDialog.waitFor({ state: 'detached' });
+  console.log('PASS: lançou compra de R$ 300,00 no cartão, parcelada');
+  await page.waitForTimeout(2500);
+  // Confere na API (o que o servidor guardou): 3 parcelas de R$ 100,00, uma por fatura, mesmo cartão.
+  const saved = await page.evaluate(async () => {
+    const token = localStorage.getItem('minhas_economias_auth_token_v1');
+    const response = await fetch('/api/workspace', { headers: { Authorization: `Bearer ${token}` } });
+    const { payload } = await response.json();
+    return JSON.parse(payload.transactionsJson).filter((tx) => tx.description.startsWith('Geladeira E2E'));
+  });
+  assert.equal(saved.length, 3, 'a compra parcelada vira 3 lançamentos');
+  assert.deepEqual(saved.map((tx) => tx.amount), [100, 100, 100]);
+  assert.equal(new Set(saved.map((tx) => tx.creditCardId)).size, 1);
+  assert.equal(new Set(saved.map((tx) => tx.competenceMonth)).size, 3, 'cada parcela cai numa fatura diferente');
+  assert.ok(saved.every((tx) => tx.status === 'pending' && tx.paymentMethod === 'credit_card'));
+  console.log('PASS: o servidor guardou 3 parcelas de R$ 100,00 em 3 faturas diferentes');
+
   await page.getByRole('button', { name: 'Sair da conta' }).first().click();
   await page.getByRole('button', { name: /Entrar na Conta/i }).first().waitFor();
   await page.fill('input[name=email]', email);

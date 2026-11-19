@@ -98,6 +98,7 @@ Convenções:
 - **Teste ao lado do arquivo**: `foo.ts` ↔ `foo.test.ts`.
 - **Imports relativos** (`../../types/finance`). Regra de dependência: `components` pode importar `domain`, `services`, `lib`, `hooks`, `utils`; `domain` **não** importa `components` nem `lib`; `domain` pode importar outro `domain`.
 - **Regra de dinheiro mora em `src/domain/`**, no arquivo do assunto (ver a árvore acima). Código novo importa do arquivo do assunto; `financeRules.ts` continua reexportando tudo para os imports antigos. Tela nunca recalcula regra por conta própria.
+- **Formulário de lançamento (`src/components/transactions/transaction-modal/`)**: `TransactionModal.tsx` (~250 linhas) só junta as partes. A lógica fica em 4 hooks (`useTransactionFormState` campos, `useTransactionFormEffects` abrir/editar e câmbio, `useTransactionFormHandlers` ações de viagem/moeda/familiar/modo, `useTransactionFormInsights` sugestões, avisos e impacto no orçamento) e numa função sem hooks (`buildTransactionFormActions`, roda depois do retorno antecipado de janela fechada). A tela fica em componentes: `TransactionModalHeader`, `TransactionFormNotices`, `TransactionAmountSection`, `TransactionCoreFields` (+ `TransactionTransferFields`, `TransactionCategoryAccountFields`, `TransactionRecurrenceFields`), `TransactionTagsSection`, `TransactionExtrasSection` (+ `TransactionTripCard`, `TransactionSharedCard`, `TransactionNotesCard`) e `TransactionModalFooter`. Mesma regra do App: hook novo só depois dos que ele usa, e nenhum hook depois do retorno antecipado.
 - **Hooks do App (`src/app/`)**: cada hook recebe tudo o que os anteriores devolveram e devolve só o que os seguintes ou a tela usam. Não chamar um hook dentro de `if`; não mudar a ordem das chamadas em `App.tsx` sem conferir a ordem dos efeitos (gravação no Neon depende dela). Ação nova vai para o hook da área; se precisar de algo de um hook posterior, mova a declaração para antes.
 - Nome de arquivo em inglês técnico (`financeRules.ts`), textos de tela em português do Brasil.
 
@@ -105,7 +106,6 @@ Convenções:
 
 | Arquivo | Linhas | Observação |
 |---|---|---|
-| `src/components/transactions/TransactionModal.tsx` | ~4.600 | Modal único de lançamento; candidato a ser dividido por tipo (despesa/receita/transferência) |
 | `src/app/useWorkspaceSync.ts` | ~1.170 | Sincronização com o Neon; pode ser dividido de novo (login × gravação × convites) |
 | `src/components/trips/TripsTab.tsx` | ~3.000 | Tela de viagens |
 | `backend/app.ts` | ~1.500 | Rotas Express; candidato a dividir por rota |

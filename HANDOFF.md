@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-19 — TransactionModal.tsx dividido (4.666 → 250 linhas) e e2e com cartão parcelado
+- **O que mudou:** o formulário de lançamento foi dividido em `src/components/transactions/transaction-modal/`: 4 hooks de lógica, 1 função de ações sem hooks, 12 componentes de tela e arquivos de configuração e contexto (maior arquivo: 617 linhas). Código movido sem alteração por gerador que conferiu a ordem de declaração e dos 10 efeitos. O teste `scripts/e2e-browser.mjs` agora cadastra cartão e lança compra de R$ 300 em 3x, e confere pela API do app que o servidor guardou 3 parcelas de R$ 100 em 3 faturas diferentes.
+- **Por quê:** pedido do dono de refatoração completa dos arquivos grandes.
+- **Arquivos/áreas:** `src/components/transactions/TransactionModal.tsx` e pasta `transaction-modal/` (nova), `scripts/e2e-browser.mjs`.
+- **Como foi verificado:** tipagem, 791 testes (38 do formulário), build e e2e em Chromium com PostgreSQL local descartável (despesa em conta, recarga, extrato, cartão parcelado, sair/entrar, celular 390 px), sem erro de JavaScript.
+- **Não verificado:** transferência, investimento, viagem e divisão com familiar no navegador real (só testes de componente); produção depois desta versão.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, este HANDOFF.
+- **Próximo passo:** dividir `TripsTab.tsx` e `backend/app.ts`; implementar L5–L7.
+
 ### 2026-11-19 — App.tsx dividido em hooks por área e teste de ponta a ponta no navegador
 - **O que mudou:** (1) `src/App.tsx` (4.941 linhas) virou uma raiz de ~280 linhas que chama, sempre na mesma ordem, 14 hooks por área em `src/app/` (estado, sincronização Neon, A Receber, cálculos do mês, compartilhados, lançamentos, cartões, viagens, categorias/metas, família, contas/investimentos, importação/backup, avisos, notificações) e 4 partes da tela (`AppHeader`, `AppBanners`, `AppTabContent`, `AppModals`). O código foi **movido sem alteração** por um gerador que conferiu: nenhum bloco usa algo antes de declarado, os 18 efeitos ficaram na ordem original e só `rememberInviteeAccounts`, `todayDateStr`/`currentMonth` mudaram de lugar (para antes de quem os usa). (2) Novo `scripts/e2e-browser.mjs`: teste em Chromium real contra servidor local e PostgreSQL descartável.
 - **Por quê:** pedido do dono de refatoração completa dos arquivos grandes, com liberdade de decisão.
