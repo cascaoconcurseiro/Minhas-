@@ -39,30 +39,3 @@ export function computeModalScrollState(
     scrollProgressPercent,
   };
 }
-
-/**
- * Calculates the target scrollTop to ensure an expanded section inside the modal
- * is fully visible above the pinned footer.
- */
-export function calculateTargetScrollTopForExpansion(
-  currentScrollTop: number,
-  containerClientHeight: number,
-  sectionOffsetTop: number,
-  sectionOffsetHeight: number,
-  bottomPaddingBuffer = 24
-): number {
-  if (containerClientHeight <= 0) return Math.max(0, currentScrollTop);
-
-  const sectionBottom = sectionOffsetTop + sectionOffsetHeight + bottomPaddingBuffer;
-  const visibleBottom = currentScrollTop + containerClientHeight;
-
-  if (sectionBottom > visibleBottom) {
-    return Math.max(0, sectionBottom - containerClientHeight);
-  }
-
-  if (sectionOffsetTop < currentScrollTop) {
-    return Math.max(0, sectionOffsetTop - 16);
-  }
-
-  return Math.max(0, currentScrollTop);
-}

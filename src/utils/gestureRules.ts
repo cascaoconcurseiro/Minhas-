@@ -2,12 +2,6 @@
  * Pure helper functions for swipe thresholds, drag state, and press-and-hold math.
  */
 
-export interface SwipeState {
-  offset: number; // in pixels (negative = left, positive = right)
-  isOpenLeft: boolean;
-  isOpenRight: boolean;
-}
-
 export const SWIPE_THRESHOLDS = {
   ACTIONS_WIDTH_LEFT: 180, // width needed to display [Edit, Duplicate, Delete]
   ACTIONS_WIDTH_RIGHT: 90, // width needed to display [Toggle Status]
@@ -93,19 +87,4 @@ export function resolveSnapOffset(currentOffset: number, velocityX = 0): {
     isOpenRight: false,
     autoTriggerRight: false,
   };
-}
-
-/**
- * Checks if a movement exceeds touch slop (canceling press-and-hold).
- */
-export function shouldCancelLongPress(
-  startX: number,
-  startY: number,
-  currentX: number,
-  currentY: number,
-  touchSlop = 10
-): boolean {
-  const dx = currentX - startX;
-  const dy = currentY - startY;
-  return Math.sqrt(dx * dx + dy * dy) > touchSlop;
 }

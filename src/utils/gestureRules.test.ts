@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   calculateDragOffset,
   resolveSnapOffset,
-  shouldCancelLongPress,
   SWIPE_THRESHOLDS,
 } from './gestureRules';
 
@@ -40,13 +39,4 @@ test('resolveSnapOffset snaps open or resets depending on swipe threshold', () =
   assert.equal(openRight.targetOffset, SWIPE_THRESHOLDS.ACTIONS_WIDTH_RIGHT);
   assert.equal(openRight.isOpenRight, true);
   assert.equal(openRight.autoTriggerRight, true);
-});
-
-test('shouldCancelLongPress detects movement outside touch slop', () => {
-  // Stationary touch
-  assert.equal(shouldCancelLongPress(100, 100, 103, 104, 10), false);
-
-  // Scrolling finger exceeds 10px slop
-  assert.equal(shouldCancelLongPress(100, 100, 120, 105, 10), true);
-  assert.equal(shouldCancelLongPress(100, 100, 102, 130, 10), true);
 });

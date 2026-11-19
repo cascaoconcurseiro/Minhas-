@@ -106,12 +106,6 @@ export function getPasskeyErrorMessage(error: unknown): string {
   return 'Não foi possível usar o Face ID agora. Tente de novo.';
 }
 
-export function isPasskeyCancellation(error: unknown): boolean {
-  if (error instanceof PasskeyError) return error.cancelled;
-  const name = (error as { name?: string } | null)?.name;
-  return name === 'NotAllowedError' || name === 'AbortError';
-}
-
 async function authorizedJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const user = auth.currentUser;
   if (!user) throw new PasskeyError('Entre na sua conta para configurar o Face ID.');

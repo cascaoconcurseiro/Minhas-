@@ -1,6 +1,6 @@
 # API REST — Minhas Economias
 
-> Descreve as rotas do servidor (`backend/app.ts` e `backend/routes/`). Para visão geral de arquitetura veja [arquitetura.md](./arquitetura.md); para as regras de cálculo, [../produto/regras-de-negocio.md](../produto/regras-de-negocio.md). Atualizado em 2026-11-15.
+> Descreve as rotas do servidor (`backend/app.ts` e `backend/routes/`). Para visão geral de arquitetura veja [arquitetura.md](./arquitetura.md); para as regras de cálculo, [../produto/regras-de-negocio.md](../produto/regras-de-negocio.md). Atualizado em 2026-11-19.
 
 ## 1. Visão geral (diagrama)
 
@@ -23,7 +23,7 @@ flowchart TD
         Workspace["finance_workspaces (snapshot JSONB, revisão otimista, RLS)"]
     end
 
-    subgraph Backend ["Servidor Express 4 (backend/app.ts - Porta 3000 ou Function Vercel)"]
+    subgraph Backend ["Servidor Express 4 (backend/app.ts + routes/ - Porta 3000 ou Function Vercel)"]
         Status["GET /api/status (público, leve)"]
         Readiness["GET /api/readiness (Bearer CRON_SECRET)"]
         WorkspaceAPI["GET/POST/PUT /api/workspace (token de sessão)"]
@@ -53,7 +53,7 @@ flowchart TD
 
 ---
 
-## 2. Especificação da API REST (`backend/app.ts`)
+## 2. Especificação da API REST (`backend/routes/`)
 
 ### 2.0. Comportamento comum (auditado em 2026-11-15)
 - **Respostas sempre em JSON.** Erros não tratados, JSON malformado (`400 {"error":"Requisição inválida."}`) e corpo acima de 4 MB (`413`) viram JSON curto; nunca HTML com detalhes técnicos.
@@ -224,7 +224,7 @@ As regras vivem em `src/domain/` (puras, sem React) e estão descritas em [../pr
 
 | Assunto | Arquivos |
 |---|---|
-| Lançamentos, contas, faturas, resultado, patrimônio, DRE, busca global, simulador de renda fixa | `src/domain/finance/financeRules.ts` (+ `transferRules`, `spendingGuards`, `categoryCatalog`, `categoryMatching`, `accountLabels`, `transactionDeletion`) |
+| Lançamentos, contas, faturas, resultado, patrimônio, DRE, busca global, simulador de renda fixa | `src/domain/finance/*` (arquivos por assunto; `financeRules.ts` só reexporta; + `transferRules`, `spendingGuards`, `categoryCatalog`, `categoryMatching`, `accountLabels`, `transactionDeletion`) |
 | Cartões | `src/domain/cards/cardCommitment.ts` |
 | Orçamentos, previsão de caixa, aprendizado, recorrência, saúde dos dados, antecipação de parcelas | `src/domain/budgets/*` |
 | A Receber | `src/domain/receivables/receivables.ts` |

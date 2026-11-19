@@ -13,6 +13,7 @@
 | `DATABASE_URL` | Sim | Conexão Neon (role de runtime restrita). Nunca no frontend |
 | `AUTH_SESSION_SECRET` | Recomendada | Assina sessões (mín. 32 caracteres). Se ausente, é derivada de `DATABASE_URL` |
 | `CRON_SECRET` | Sim | Protege `GET /api/readiness` (a Vercel Cron envia como Bearer) |
+| `PASSKEY_RP_ID` e `PASSKEY_ORIGIN` | Não | Domínio e endereço em que o Face ID vale. Sem elas o servidor usa o endereço do próprio pedido; defina as duas se o site responder por mais de um endereço (a passkey fica presa ao domínio) |
 | `GEMINI_API_KEY` | Opcional | Câmbio ao vivo e fallback de cotações internacionais |
 
 Segredos do GitHub Actions: `NEON_DATABASE_URL` (atividade diária), `NEON_BACKUP_DATABASE_URL` e variável `NEON_BACKUP_AGE_RECIPIENT` (backup cifrado).

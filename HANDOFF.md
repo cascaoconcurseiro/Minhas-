@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-19 — Verificação completa e limpeza final
+- **O que mudou:** removido código morto que a divisão dos arquivos deixou à vista: `isPasskeyCancellation`, `isUpdatePending`, `refreshAuthUser`, `loadNeonSharedTransactions`, o tipo `SwipeState`, `shouldCancelLongPress` e `calculateTargetScrollTopForExpansion` (os dois últimos com seus testes). Documentação alinhada ao código novo (arquitetura, API, estrutura, segurança, testes). `PASSKEY_RP_ID` e `PASSKEY_ORIGIN`, lidas pelo servidor, agora constam em `.env.example` e em `docs/operacao/deploy-e-ambientes.md`. Nota de segurança sobre a auditoria de dependências.
+- **Por quê:** pedido do dono de verificação completa e correção de tudo o que aparecesse.
+- **Arquivos/áreas:** `src/lib/{passkeyClient,authClient,neonWorkspace}.ts`, `src/pwa/pwaControl.ts`, `src/utils/{gestureRules,modalScrollRules}(.test).ts`, `src/test-utils/appOrchestrationHarness.tsx`, `.env.example`, `docs/`.
+- **Como foi verificado:** `bun run check` (803 testes, tipagem, build, HANDOFF); CI do `main` verde no commit `0c3ea78`; produção respondendo (`/api/status` 200, `/api/nada` 404 JSON); Neon lido: 2 contas, 2 workspaces, 131 compartilhados, 1 convite, 5 chaves estrangeiras validadas, RLS forçado em 4 tabelas, nenhum `neon_auth`, 0 duplicados/negativos/órfãos em 367 lançamentos; varredura de segredos no repositório (nenhum); varredura de arquivos e exportações sem uso (só restam `calculateSharedMonthTotals` e `summarizePendingBankMovements`, usadas só por testes de propriedade, mantidas); `bun audit`: 2 moderadas em ferramenta de build (`workbox-build > glob/minimatch`), risco aceito e registrado em `docs/tecnico/seguranca.md`.
+- **Não verificado:** a Vercel com os commits desta tarde além do que o site público mostra; iPhone/Safari; painel de pagamento parcial e campo de data do saldo inicial no navegador real.
+- **Impacto em dados/Neon:** nenhum (só leituras).
+- **Documentação atualizada:** `docs/tecnico/{arquitetura,api,estrutura-do-codigo,seguranca,testes-e-qualidade}.md`, `docs/operacao/deploy-e-ambientes.md`, `.env.example`, este HANDOFF.
+- **Próximo passo:** L5 (estorno no cartão).
+
 ### 2026-11-19 — Decisões do dono delegadas: saldo inicial com data (L7) e restante da fatura para a próxima (L6)
 - **O que mudou:** (1) **L7:** `BankAccount.initialBalanceDate` opcional: lançamentos anteriores à data são histórico e não entram no saldo, no extrato corrido nem nos totais do mês da conta; campo "Saldo inicial vale desde" no cadastro/edição da conta; validado no servidor e no backup. Sem data, nada muda. (2) **L6:** `src/domain/finance/invoiceCarryOver.ts`: depois de um pagamento parcial, "Levar para a próxima fatura" move o restante (compras mantêm a data original; o gasto não muda de mês), com encargos opcionais como despesa em Tarifas; "Desfazer" devolve tudo enquanto nada do que foi levado foi pago. Painel novo `InvoiceCarryOverPanel` na fatura e ações em `useCardActions`.
 - **Por quê:** o dono deixou as três decisões (L5–L7) a cargo do assistente, seguindo a prática dos apps profissionais e dos bancos.

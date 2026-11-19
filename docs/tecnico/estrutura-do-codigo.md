@@ -1,6 +1,6 @@
 # Estrutura do código
 
-Mapa de pastas e regras de onde cada coisa deve ficar. Atualizado em 2026-11-15, depois da reorganização por áreas.
+Mapa de pastas e regras de onde cada coisa deve ficar. Atualizado em 2026-11-19, depois de dividir os arquivos grandes (App, formulário de lançamento, viagens, servidor e regras financeiras).
 
 ## Visão da raiz
 

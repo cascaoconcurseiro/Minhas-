@@ -18,7 +18,7 @@ Antes de qualquer entrega: **lint + testes + build** verdes **e** HANDOFF atuali
 |---|---|---|
 | Regras de negócio | `src/domain/**/*.test.ts` | competência da fatura, a receber, patrimônio |
 | Telas | `src/components/**/*.test.tsx` | formulários, validações, textos |
-| Orquestração do App | `src/App.test.tsx` | carga, sincronização, conflito, desfazer |
+| Orquestração do App | `src/App.test.tsx`, `src/services/workspace/workspaceSession.test.ts` | carga, sincronização, conflito, desfazer (alguns testes leem o texto de `src/App.tsx` e de `src/app/`) |
 | Servidor/API | `backend/*.test.ts` | auth, família, saúde, SMTP, passkeys |
 | PostgreSQL real | `scripts/qa-postgres.ts` (CI) | RLS, acertos, concorrência |
 | Propriedades (fuzz) | `src/domain/finance/propertyFuzz.test.ts` | rateio de viagem, dívidas, saldos |

@@ -189,10 +189,6 @@ export function revokeNeonFamilyInvitation(invitationId: string): Promise<{ ok: 
   );
 }
 
-export async function loadNeonSharedTransactions(): Promise<Record<string, unknown>[]> {
-  return (await loadNeonSharedSnapshot()).transactions;
-}
-
 export interface OutgoingSharedSettlement {
   shared_sync_id: string;
   status: 'pending' | 'received';

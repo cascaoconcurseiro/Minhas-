@@ -108,7 +108,6 @@ mock.module('../lib/authClient', () => ({
     authStateListener?.(authStateUser);
     return authStateUser;
   },
-  refreshAuthUser: async (user: SyntheticUser) => user,
   signInWithEmail: async (email: string, pass: string) => {
     signInCalls.push([email, pass]);
     authStateUser = { ...syntheticUser, email };
@@ -135,7 +134,6 @@ mock.module('../lib/neonWorkspace', () => ({
   },
   createNeonFamilyInvitation: async () => ({ invitationId: 'qa-invite' }),
   loadNeonFamilyInvitations: () => loadInvitations(),
-  loadNeonSharedTransactions: async () => [],
   loadNeonSharedSnapshot: () => loadSharedSnapshot(),
   loadNeonWorkspace: async () => {
     loadCalls += 1;

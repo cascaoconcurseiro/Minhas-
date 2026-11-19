@@ -38,10 +38,6 @@ export function markUpdatePending(): void {
   state.listeners.forEach((listener) => listener());
 }
 
-export function isUpdatePending(): boolean {
-  return state.updatePending;
-}
-
 /** Resolve quando uma versão nova ficar pronta (true) ou o tempo acabar (false). */
 function waitForPending(timeoutMs: number): Promise<boolean> {
   if (state.updatePending) return Promise.resolve(true);

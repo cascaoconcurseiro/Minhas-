@@ -259,14 +259,6 @@ export async function registerWithEmail(displayName: string, email: string, pass
   return user;
 }
 
-export async function refreshAuthUser(user: User): Promise<User> {
-  const token = await user.getIdToken();
-  const session = await requestJson<SessionResponse>('/api/auth/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return applySession(session.token) ?? user;
-}
-
 export async function signOutUser(): Promise<void> {
   const token = readStoredToken();
   // Always end the local session; the server call revokes the token everywhere.

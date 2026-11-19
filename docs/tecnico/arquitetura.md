@@ -16,7 +16,7 @@ flowchart TD
     end
     subgraph Vercel["Vercel (hospedagem)"]
         STATIC["Arquivos estáticos do site"]
-        FN["Função /api/* → backend/app.ts (Express)"]
+        FN["Função /api/* → backend/app.ts e backend/routes/ (Express)"]
     end
     subgraph Neon["Neon PostgreSQL"]
         U[(app_users, app_user_passkeys)]
@@ -35,7 +35,7 @@ flowchart TD
 | Camada | Responsabilidade | Código |
 |---|---|---|
 | Interface | Telas, formulários, navegação, acessibilidade | `src/components`, `src/hooks`, `src/index.css` |
-| Orquestração | Estado do workspace, handlers, sincronização, desfazer | `src/App.tsx`, `src/services/workspace` |
+| Orquestração | Estado do workspace, handlers, sincronização, desfazer | `src/App.tsx` e hooks em `src/app/`, `src/services/workspace` |
 | Regras de negócio | Cálculos e decisões puras, testáveis sem tela | `src/domain` |
 | Acesso a dados (cliente) | Chamadas à API, cópia local somente leitura | `src/lib`, `src/services` |
 | API | Autenticação, workspace, família, câmbio, cotações, e-mail | `backend/app.ts` e `backend/routes/` (+ `api/` na Vercel) |

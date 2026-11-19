@@ -1,6 +1,6 @@
 # Especificação de Segurança — Minhas Economias
 
-> Atualizado em 2026-11-15. Complementa [banco-de-dados.md](./banco-de-dados.md) e [api.md](./api.md).
+> Atualizado em 2026-11-19. Complementa [banco-de-dados.md](./banco-de-dados.md) e [api.md](./api.md).
 
 ## Identidade e banco operacional
 
@@ -50,3 +50,6 @@
 O corpo JSON do servidor aceita até 4 MB; consultas de câmbio (20/h) e cotações (60/h) têm limite de uso por conta.
 
 Envio de lembrete por e-mail: 20 envios/hora por conta, assunto em uma linha (até 200 caracteres) e corpo limitado (texto 100 mil, HTML 200 mil caracteres), para a rota não virar um disparador de e-mails. Erros inesperados das rotas de câmbio, cotações e e-mail devolvem mensagem genérica em português; o detalhe técnico (mensagem do provedor de IA ou do SMTP) fica só no log do servidor. Caminho `/api/...` inexistente responde `404` em JSON.
+
+## Auditoria de dependências (`bun audit`, 2026-11-19)
+Duas vulnerabilidades **moderadas**, ambas em `workbox-build > glob > minimatch` (ferramenta que só roda na hora do build do PWA, nunca no app publicado nem com dado de usuário): `glob` (cancelamento por AbortSignal) e `minimatch` (lentidão com padrões maliciosos). Não há correção dentro das versões que o `workbox-build` aceita; forçar versões novas poderia quebrar o build do PWA. **Risco aceito**; rever quando o `workbox-build`/`vite-plugin-pwa` publicar versão com `glob` ≥ 14.
