@@ -170,6 +170,9 @@ function validateFinancialItem(item: Record<string, unknown>, field: string): bo
   if (field === 'accountsJson' && 'type' in item && !isSafeMoneyValue(item.initialBalance, true)) {
     return false;
   }
+  if (field === 'accountsJson' && 'initialBalanceDate' in item && item.initialBalanceDate !== undefined && !isValidISODate(item.initialBalanceDate)) {
+    return false;
+  }
   if (field === 'cardsJson' && 'name' in item && !isSafeMoneyValue(item.limit, false)) {
     return false;
   }

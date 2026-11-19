@@ -916,12 +916,16 @@ export function calculateAccountStatementWithRunningBalance(
   accountId: string,
   initialBalance: number,
   transactions: Transaction[],
-  selectedMonth: string
+  selectedMonth: string,
+  initialBalanceDate?: string
 ): AccountStatementSummary {
   let openingBalance = Math.round(initialBalance * 100) / 100;
+  // Lançamentos anteriores à data do saldo inicial são histórico: não entram no saldo nem no extrato.
+  const isBeforeOpening = (tx: Transaction) => Boolean(initialBalanceDate) && tx.date < (initialBalanceDate as string);
 
   // 1. Accumulate all paid transactions prior to selectedMonth
   for (const tx of transactions) {
+    if (isBeforeOpening(tx)) continue;
     if (tx.creditCardId) continue;
     if (tx.isCompanionOnlyExpense || tx.sharedPaidBy === 'member') continue;
     if (getCashMovementMonth(tx) >= selectedMonth) continue;
@@ -944,6 +948,7 @@ export function calculateAccountStatementWithRunningBalance(
   const monthTxs = transactions
     .filter((tx) => {
       if (tx.creditCardId) return false;
+      if (isBeforeOpening(tx)) return false;
       if (tx.isCompanionOnlyExpense || tx.sharedPaidBy === 'member') return false;
       if (getCashMovementMonth(tx) !== selectedMonth) return false;
       return tx.accountId === accountId || tx.destinationAccountId === accountId;

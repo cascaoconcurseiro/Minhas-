@@ -7,9 +7,9 @@
 Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento · **[Decidir]** precisa de decisão do dono.
 
 ## A. Próximas entregas
-- [ ] **[Decidir]** L5 Estorno/crédito no cartão: reduzir a despesa da categoria (recomendado) ou contar como receita? ([avaliação](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md))
-- [ ] **[Decidir]** L6 Pagamento parcial de fatura: levar o restante para a próxima fatura com juros/encargos opcionais?
-- [ ] **[Decidir]** L7 Saldo inicial da conta com data de abertura?
+- [ ] **[Dev]** L5 Estorno/crédito no cartão (decidido: reduz a fatura, libera o limite e reduz a despesa da categoria; ainda não implementado). Exige liberar valor de crédito na fatura sem a rotina de reparo tratá-lo como dado corrompido. ([avaliação](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md))
+- [x] **[Decidir]** L6 e L7 decididos e implementados em 19/11 (restante para a próxima fatura; saldo inicial com data).
+- [ ] **[Dev]** Conferir no navegador real o painel "Levar para a próxima fatura" e o campo "Saldo inicial vale desde".
 - [ ] **[Dev]** Levar `scripts/e2e-browser.mjs` para o CI (precisa autorizar o Playwright como dependência de desenvolvimento) e ampliar para cartão, viagem, família e backup.
 - [ ] **[Dono]** Abrir o app e salvar/apagar um lançamento para confirmar a gravação após a migração 011.
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).

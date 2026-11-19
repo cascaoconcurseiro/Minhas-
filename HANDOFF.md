@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-19 — Decisões do dono delegadas: saldo inicial com data (L7) e restante da fatura para a próxima (L6)
+- **O que mudou:** (1) **L7:** `BankAccount.initialBalanceDate` opcional: lançamentos anteriores à data são histórico e não entram no saldo, no extrato corrido nem nos totais do mês da conta; campo "Saldo inicial vale desde" no cadastro/edição da conta; validado no servidor e no backup. Sem data, nada muda. (2) **L6:** `src/domain/finance/invoiceCarryOver.ts`: depois de um pagamento parcial, "Levar para a próxima fatura" move o restante (compras mantêm a data original; o gasto não muda de mês), com encargos opcionais como despesa em Tarifas; "Desfazer" devolve tudo enquanto nada do que foi levado foi pago. Painel novo `InvoiceCarryOverPanel` na fatura e ações em `useCardActions`.
+- **Por quê:** o dono deixou as três decisões (L5–L7) a cargo do assistente, seguindo a prática dos apps profissionais e dos bancos.
+- **Arquivos/áreas:** `src/domain/finance/accountBalances.ts`, `invoiceCarryOver.ts` (novo), `src/domain/budgets/uxEnhancementRules.ts`, `src/types/finance.ts`, `src/services/workspace/{workspacePayload,fullBackup}.ts`, `src/components/accounts/AccountsTab.tsx`, `src/components/cards/{CreditCardsTab,InvoiceCarryOverPanel}.tsx`, `src/app/{useCardActions,AppTabContent}`; testes novos `accountOpening.test.ts`, `invoiceCarryOver.test.ts`, `InvoiceCarryOverPanel.test.tsx` e um teste de conta com data.
+- **Como foi verificado:** tipagem, 804+ testes e build. Cenário de L6: compra de R$ 400 e R$ 200, pagamento parcial de R$ 300, levar com R$ 25,90 de encargos: dezembro fecha em R$ 300, janeiro fica com R$ 325,90, limite continua ocupado, as compras seguem em novembro e só os encargos entram como despesa de dezembro; desfazer reproduz exatamente o estado anterior.
+- **Não verificado:** as duas telas novas no navegador real (só testes de componente); nenhum dado de produção usa a data de abertura nem tem pagamento parcial pendente.
+- **Impacto em dados/Neon:** nenhum. Campos novos são opcionais e aceitos sem migração SQL.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3.3, 4), avaliação da lógica financeira, este HANDOFF.
+- **Próximo passo:** L5 (estorno no cartão), que exige permitir crédito na fatura sem tratar valor negativo como dado corrompido.
+
 ### 2026-11-19 — TripsTab.tsx (3.063 → 337 linhas) e backend/app.ts (1.595 → 170 linhas) divididos
 - **O que mudou:** (1) Aba Viagens em `src/components/trips/trips-tab/`: 4 hooks de lógica e 12 componentes de tela; as subtelas recebem um contexto em que viagem ativa e resumo nunca são nulos. (2) Servidor: `backend/app.ts` virou o índice que registra, em ordem, 7 arquivos de rotas em `backend/routes/` e 5 módulos de apoio (`database`, `authUser`, `workspaceRequest`, `familyHelpers`, `marketData`, mais o tipo SMTP). Comentários e código movidos sem alteração; o teste da saúde do pool passou a ler `backend/database.ts`. (3) O e2e agora também cria uma viagem e abre a página dela.
 - **Por quê:** pedido do dono de refatoração completa dos arquivos grandes.

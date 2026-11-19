@@ -122,10 +122,28 @@ test('AccountsTab validates and creates a checking account with a parsed synthet
     type: 'checking',
     currency: 'BRL',
     initialBalance: 1234.56,
+    initialBalanceDate: undefined,
     initialBalanceForeign: undefined,
     color: '#059669',
     includeInTotal: true,
   });
+});
+
+test('conta nova guarda a data em que o saldo inicial vale (opcional)', async () => {
+  let createdAccount: Omit<BankAccount, 'id'> | null = null;
+  const page = renderAccountsTab({ onAddAccount: (account) => { createdAccount = account; } });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="open-new-account-btn"]')?.click(); });
+  const form = page.querySelector<HTMLFormElement>('[data-testid="account-create-edit-form"]');
+  assert.ok(form);
+  const nameInput = page.querySelector<HTMLInputElement>('[data-testid="account-form-name-input"]');
+  const dateInput = page.querySelector<HTMLInputElement>('#account-form-initial-date-input');
+  assert.ok(nameInput && dateInput, 'o campo de data do saldo inicial existe');
+  await act(async () => {
+    setInputValue(nameInput, 'Conta com data');
+    setInputValue(dateInput, '2026-11-05');
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.equal(createdAccount?.initialBalanceDate, '2026-11-05');
 });
 
 test('international account separates paid foreign expenses from pending balance impact', async () => {

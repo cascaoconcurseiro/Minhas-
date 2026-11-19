@@ -28,8 +28,8 @@ Pedido do dono: o que falta na **lógica financeira e nas regras de negócio** (
 
 ### Precisa de decisão do dono
 - **L5 — Estorno/crédito no cartão** (devolução de compra, cashback, IOF devolvido). Hoje não existe. Recomendação: lançar como "Estorno" no cartão, que **reduz a fatura e libera limite**, e **reduz a despesa da categoria** no mês do estorno (assim uma compra devolvida não aparece como gasto + receita). A alternativa (contar como receita) é mais simples, mas infla receitas e despesas no DRE e no 50/30/20.
-- **L6 — Pagamento parcial de fatura.** Hoje o que sobra fica na fatura antiga e aparece como atrasado. No banco, o saldo vai para a **próxima fatura** com juros do rotativo e IOF. Recomendação: ao pagar parcial, oferecer "levar o restante para a próxima fatura" com campo opcional de juros/encargos (despesa financeira).
-- **L7 — Saldo inicial com data.** O saldo inicial não tem data; conciliar hoje muda todo o passado. Apps profissionais guardam "saldo em DD/MM/AAAA". Recomendação: data de abertura por conta; lançamentos anteriores não mexem no saldo.
+- **L6 — Pagamento parcial de fatura. ✅ Feito em 19/11 (decisão: seguir o banco).** Hoje o que sobra fica na fatura antiga e aparece como atrasado. No banco, o saldo vai para a **próxima fatura** com juros do rotativo e IOF. Recomendação: ao pagar parcial, oferecer "levar o restante para a próxima fatura" com campo opcional de juros/encargos (despesa financeira).
+- **L7 — Saldo inicial com data. ✅ Feito em 19/11.** O saldo inicial não tem data; conciliar hoje muda todo o passado. Apps profissionais guardam "saldo em DD/MM/AAAA". Recomendação: data de abertura por conta; lançamentos anteriores não mexem no saldo.
 
 ### Trabalho técnico já decidido (no CHECKLIST)
 - **A19 — Câmbio sem conta internacional** ainda vira despesa; falta a operação única de câmbio com duas pernas.

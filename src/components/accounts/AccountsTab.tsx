@@ -1,3 +1,4 @@
+import { isValidISODate } from '../../domain/finance/formatting';
 import { confirmTransactionDeletion } from '../../domain/finance/transactionDeletion';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -212,6 +213,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   const [accType, setAccType] = useState<AccountType>('checking');
   const [accCurrency, setAccCurrency] = useState<CurrencyCode>('EUR');
   const [accInitialStr, setAccInitialStr] = useState('0,00');
+  const [accInitialDate, setAccInitialDate] = useState('');
   const [accInitialForeignStr, setAccInitialForeignStr] = useState('0,00');
   const [accColor, setAccColor] = useState('#059669');
   const [accIncludeInTotal, setAccIncludeInTotal] = useState(true);
@@ -259,7 +261,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       activeAccount.id,
       activeAccount.initialBalance,
       transactions,
-      selectedMonth
+      selectedMonth,
+      activeAccount.initialBalanceDate
     );
   }, [activeAccount, transactions, selectedMonth]);
 
@@ -295,6 +298,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     setAccType(initialType);
     setAccCurrency('EUR');
     setAccInitialStr('0,00');
+    setAccInitialDate('');
     setAccInitialForeignStr('0,00');
     setAccColor('#059669');
     setAccIncludeInTotal(initialType !== 'international');
@@ -310,6 +314,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     const curr = acc.currency && acc.currency !== 'BRL' ? acc.currency : 'EUR';
     setAccCurrency(curr);
     setAccInitialStr(acc.initialBalance.toFixed(2).replace('.', ','));
+    setAccInitialDate(acc.initialBalanceDate ?? '');
     setAccInitialForeignStr(
       (acc.initialBalanceForeign ?? 0).toFixed(2).replace('.', ',')
     );
@@ -459,6 +464,10 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       setFormError(`Informe um saldo na moeda estrangeira válido, com até ${CURRENCY_CATALOG[accCurrency].decimals} casa(s) decimal(is).`);
       return;
     }
+    if (accInitialDate && !isValidISODate(accInitialDate)) {
+      setFormError('Informe uma data válida para o saldo inicial (ou deixe em branco).');
+      return;
+    }
     const effectiveCurrency: CurrencyCode = isIntl ? accCurrency : 'BRL';
     const fallbackRate =
       CURRENCY_CATALOG[effectiveCurrency]?.defaultCommercialRateBrl || 1;
@@ -476,6 +485,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
           type: accType,
           currency: effectiveCurrency,
           initialBalance: finalInitialBrl,
+          initialBalanceDate: accInitialDate || undefined,
           initialBalanceForeign: isIntl ? parsedInitialForeign : undefined,
           color: accColor,
           includeInTotal: isIntl ? false : accIncludeInTotal,
@@ -490,6 +500,7 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
         type: accType,
         currency: effectiveCurrency,
         initialBalance: finalInitialBrl,
+        initialBalanceDate: accInitialDate || undefined,
         initialBalanceForeign: isIntl ? parsedInitialForeign : undefined,
         color: accColor,
         includeInTotal: isIntl ? false : accIncludeInTotal,
@@ -841,6 +852,22 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
                       />
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <label htmlFor="account-form-initial-date-input" className="block text-xs font-semibold text-slate-700 mb-1">
+                    Saldo inicial vale desde (opcional)
+                  </label>
+                  <input
+                    id="account-form-initial-date-input"
+                    type="date"
+                    value={accInitialDate}
+                    onChange={(event) => setAccInitialDate(event.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-mono text-slate-900"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    É o saldo no começo desse dia. Lançamentos de antes dessa data ficam só no histórico e não mexem no saldo. Em branco, todos os lançamentos contam.
+                  </p>
                 </div>
 
                 {accType === 'international' && (

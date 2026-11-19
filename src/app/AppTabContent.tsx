@@ -63,7 +63,9 @@ export function AppTabContent({ app }: { app: AppContext }) {
     handleOpenNewTransaction,
     handleOpenReconciliation,
     handleOperateInvestmentAsset,
+    handleCarryOverInvoice,
     handlePayCardInvoice,
+    handleUndoInvoiceCarryOver,
     handleRecordDividendIncome,
     handleRecordTripSettlement,
     handleRegisterEmail,
@@ -285,6 +287,8 @@ export function AppTabContent({ app }: { app: AppContext }) {
                   onAutoOpenHandled={() => setPendingCreateRequest(null)}
                   onRequestCreateAccount={() => handleRequestCreateFromTransaction('account')}
                   onPayInvoice={handlePayCardInvoice}
+                  onCarryOverInvoice={handleCarryOverInvoice}
+                  onUndoInvoiceCarryOver={handleUndoInvoiceCarryOver}
                   onAnticipateInstallments={handleAnticipateInstallments}
                   onReverseAnticipation={handleReverseAnticipation}
                   onAddCard={handleAddCard}

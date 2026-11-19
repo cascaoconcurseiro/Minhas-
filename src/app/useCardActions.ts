@@ -1,6 +1,6 @@
 /** Ações de cartão: pagar fatura, cadastrar, editar, apagar. Parte do App (ver src/App.tsx). */
 import { getAccountCurrency } from '../domain/finance/transferRules';
-import { formatBRL, getLocalDateISO, getTransactionsLinkedToCreditCard, payCreditCardInvoice, reclassifyClosingDayPurchases } from '../domain/finance/financeRules';
+import { carryOverInvoiceBalance, formatBRL, getLocalDateISO, getTransactionsLinkedToCreditCard, payCreditCardInvoice, reclassifyClosingDayPurchases, undoInvoiceCarryOver } from '../domain/finance/financeRules';
 import { CreditCard } from '../types/finance';
 import { newEntityId } from '../utils/ids';
 import type { AppStateApi } from './useAppState';
@@ -111,10 +111,44 @@ export function useCardActions(app: AppStateApi) {
     return true;
   };
 
+  /** Pagamento parcial feito: leva o restante da fatura aberta para a próxima (com encargos opcionais). */
+  const handleCarryOverInvoice = (cardId: string, feeAmount?: number) => {
+    if (!requireWorkspaceWrite()) return;
+    const card = cards.find((c) => c.id === cardId);
+    if (!card) return;
+    const result = carryOverInvoiceBalance(card, transactions, selectedMonth, { feeAmount, feeId: newEntityId('tx-fee') });
+    if ('error' in result) {
+      showNotice(result.error, undefined, true);
+      return;
+    }
+    const prevSnapshot = [...transactions];
+    setTransactions(result.transactions);
+    showNotice(
+      `${formatBRL(result.carriedAmount)} da fatura de ${card.name} foram levados para a próxima fatura${feeAmount ? ` (mais ${formatBRL(feeAmount)} de encargos)` : ''}.`,
+      prevSnapshot
+    );
+  };
+
+  const handleUndoInvoiceCarryOver = (cardId: string) => {
+    if (!requireWorkspaceWrite()) return;
+    const card = cards.find((c) => c.id === cardId);
+    if (!card) return;
+    const result = undoInvoiceCarryOver(card, transactions, selectedMonth);
+    if ('error' in result) {
+      showNotice(result.error, undefined, true);
+      return;
+    }
+    const prevSnapshot = [...transactions];
+    setTransactions(result.transactions);
+    showNotice(`Saldo devolvido para a fatura de ${card.name}.`, prevSnapshot);
+  };
+
   return {
     handleAddCard,
+    handleCarryOverInvoice,
     handleDeleteCard,
     handlePayCardInvoice,
+    handleUndoInvoiceCarryOver,
     handleUpdateCard,
   };
 }

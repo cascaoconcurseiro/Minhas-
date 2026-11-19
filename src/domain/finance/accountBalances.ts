@@ -7,6 +7,11 @@ import {
   getCashMovementMonth,
 } from './transactionClassification.ts';
 
+/** O lançamento é anterior à data de abertura do saldo da conta (histórico que não entra no saldo). */
+export function isBeforeAccountOpening(account: Pick<BankAccount, 'initialBalanceDate'>, txDate: string): boolean {
+  return Boolean(account.initialBalanceDate) && txDate < (account.initialBalanceDate as string);
+}
+
 export function calculateAccountBalances(
   accounts: BankAccount[],
   transactions: Transaction[],
@@ -35,6 +40,9 @@ export function calculateAccountBalances(
 
       if (throughDate && tx.date > throughDate) continue;
       const isSelectedMonth = cashMovementMonth === selectedMonth;
+
+      const touchesAccount = tx.accountId === acc.id || tx.destinationAccountId === acc.id;
+      if (touchesAccount && isBeforeAccountOpening(acc, tx.date)) continue;
 
       if (tx.type === 'income' && tx.accountId === acc.id) {
         if (tx.status === 'paid') {

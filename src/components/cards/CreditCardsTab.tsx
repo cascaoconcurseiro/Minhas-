@@ -1,6 +1,8 @@
 import { getAccountCurrency } from '../../domain/finance/transferRules';
 import { MissingSetupNotice } from '../layout/MissingSetupNotice';
 import { DayOfMonthSelect } from './DayOfMonthSelect';
+import { InvoiceCarryOverPanel } from './InvoiceCarryOverPanel';
+import { getInvoiceCarryOverState } from '../../domain/finance/invoiceCarryOver.ts';
 import { confirmTransactionDeletion } from '../../domain/finance/transactionDeletion';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -52,6 +54,9 @@ interface CreditCardsTabProps {
   /** Leva ao cadastro de conta quando falta uma conta em reais. */
   onRequestCreateAccount?: () => void;
   onPayInvoice: (cardId: string, accountId: string, customAmount?: number) => void;
+  /** Leva o restante da fatura (depois de um pagamento parcial) para a próxima, com encargos opcionais. */
+  onCarryOverInvoice?: (cardId: string, feeAmount?: number) => void;
+  onUndoInvoiceCarryOver?: (cardId: string) => void;
   onAnticipateInstallments?: (
     installmentGroupId: string,
     discountAmount: number,
@@ -81,6 +86,8 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
   onAutoOpenHandled,
   onRequestCreateAccount,
   onPayInvoice,
+  onCarryOverInvoice,
+  onUndoInvoiceCarryOver,
   onAnticipateInstallments,
   onReverseAnticipation,
   onAddCard,
@@ -1320,6 +1327,17 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Pagamento parcial feito: levar o restante para a próxima fatura (com encargos) */}
+            {onCarryOverInvoice && onUndoInvoiceCarryOver && (
+              <InvoiceCarryOverPanel
+                card={activeCard}
+                invoiceMonth={selectedMonth}
+                state={getInvoiceCarryOverState(activeCard, transactions, selectedMonth)}
+                onCarryOver={(fee) => onCarryOverInvoice(activeCard.id, fee)}
+                onUndo={() => onUndoInvoiceCarryOver(activeCard.id)}
+              />
             )}
 
             {/* Central de Antecipação de Parcelas com Desconto */}

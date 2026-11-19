@@ -132,6 +132,7 @@ export function validateRestoredBackupCollections(state: Pick<FullFinanceBackup,
     typeof account.initialBalance !== 'number' || !Number.isFinite(account.initialBalance) ||
     typeof account.institution !== 'string' || typeof account.color !== 'string' ||
     typeof account.includeInTotal !== 'boolean' ||
+    (account.initialBalanceDate !== undefined && !isValidISODate(account.initialBalanceDate)) ||
     (account.initialBalanceForeign !== undefined &&
       (typeof account.initialBalanceForeign !== 'number' || !Number.isFinite(account.initialBalanceForeign))) ||
     (account.currency !== undefined && !['BRL', 'USD', 'EUR', 'GBP', 'ARS', 'CLP', 'JPY', 'CAD', 'CHF'].includes(account.currency))

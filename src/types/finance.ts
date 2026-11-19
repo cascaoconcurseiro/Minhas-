@@ -63,6 +63,11 @@ export interface BankAccount {
   includeInTotal: boolean;
   currency?: CurrencyCode; // 'BRL' for domestic accounts; 'USD' | 'EUR' | 'GBP' | etc. for international accounts (Wise, Nomad, Avenue, C6 Global, Inter Global)
   initialBalanceForeign?: number; // Initial balance in foreign currency when type === 'international'
+  /**
+   * Data (AAAA-MM-DD) em que o saldo inicial vale: é o saldo no começo desse dia. Lançamentos anteriores a essa
+   * data são histórico e não mexem no saldo da conta. Sem data (contas antigas), todos os lançamentos contam.
+   */
+  initialBalanceDate?: string;
 }
 
 export interface CreditCard {
@@ -130,6 +135,10 @@ export interface Transaction {
   settledInvoiceMonth?: string; // Invoice month settled; competenceMonth remains the bank cash-out month
   invoicePaymentId?: string; // Invoice payment that settled this card purchase row
   partialSplitOriginalId?: string; // Original card transaction ID when split by partial invoice payment
+  /** Fatura (AAAA-MM) de onde este lançamento foi levado para a fatura seguinte depois de um pagamento parcial. */
+  carriedFromInvoiceMonth?: string;
+  /** Encargo (juros, IOF) cobrado por levar o saldo da fatura desse mês (AAAA-MM) para a próxima. */
+  carryOverFeeForInvoiceMonth?: string;
   // Installment anticipation metadata (allows 1-click reversal of anticipated installments)
   isAnticipated?: boolean;
   originalCompetenceMonth?: string;
