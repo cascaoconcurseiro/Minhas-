@@ -20,8 +20,8 @@ Projeto `minhas-economias-br` (PostgreSQL 18, São Paulo), branch única `produc
 
 **Achados do banco**
 
-- **N1 — Sem chave estrangeira para `app_users`.** Workspace, convites e compartilhados guardam o id da conta, mas o banco não impede um id inexistente. Hoje não há nenhum órfão. **Correção preparada:** migração `011_app_users_foreign_keys.sql` (sem exclusão em cascata), testada em PostgreSQL 16 descartável com o roteiro de QA completo. **Não aplicada em produção**: depende de autorização do dono.
-- **N2 — Resto do Neon Auth.** O schema `neon_auth` (1 usuário, 4 sessões) é do login antigo, anterior à migração 008. O app não o usa. Desligar no painel do Neon depende do dono.
+- **N1 — Sem chave estrangeira para `app_users`.** Workspace, convites e compartilhados guardam o id da conta, mas o banco não impede um id inexistente. Hoje não há nenhum órfão. **Correção preparada:** migração `011_app_users_foreign_keys.sql` (sem exclusão em cascata), testada em PostgreSQL 16 descartável com o roteiro de QA completo. **Aplicada em produção em 2026-11-19** com autorização do dono (5 chaves validadas, contagens intactas).
+- **N2 — Resto do Neon Auth.** O schema `neon_auth` (1 usuário, 4 sessões) é do login antigo, anterior à migração 008. O app não o usa. **Desligado e schema apagado em 2026-11-19** com autorização do dono; nada dependia dele.
 - **N3 — Histórico de importação do Firebase.** `finance_workspace_migrations` tem 3 linhas com ids antigos que não existem mais. Inofensivo; mantido como histórico.
 - **N4 — Não há tabela que registre quais migrações rodaram.** A conferência foi feita comparando o esquema. Recomendado manter o hábito de anotar no HANDOFF cada migração aplicada.
 
@@ -56,8 +56,8 @@ Varreduras: somas de dinheiro sem centavos, datas em UTC, `console.log`, `any`, 
 
 ## 4. Itens que precisam de decisão do dono (não alterados)
 
-- **D1** — Aplicar a migração 011 no Neon de produção (recomendado; dados já conferidos).
-- **D2** — Desligar o Neon Auth antigo (`neon_auth`).
+- **D1** — ~~Aplicar a migração 011 no Neon~~: feito em 2026-11-19.
+- **D2** — ~~Desligar o Neon Auth antigo~~: feito em 2026-11-19.
 - **D3** — O item do CHECKLIST "Compartilhado usa a competência da fatura em vez do mês da compra" conflita com a decisão de 15/11 ("compartilhado só é cobrado no vencimento da fatura"). Precisa ser confirmado antes de qualquer mudança.
 
 ## 5. Verificação
@@ -68,4 +68,6 @@ Varreduras: somas de dinheiro sem centavos, datas em UTC, `console.log`, `any`, 
 - Servidor real em modo produção local: `/`, `/despesas`, `/cartoes/install` → 200 HTML; `/api/nada` → 404 JSON.
 - Navegador (Chromium, 375 px): tela de login abre, sem erros no console, sem rolagem horizontal.
 
-**Não verificado:** produção na Vercel com esta versão; migração 011 no Neon real; iPhone/Safari.
+**Publicação (2026-11-19):** commit `2d2822d` em `main`, CI verde ([execução 44529897696](https://github.com/cascaoconcurseiro/Minhas-/actions/runs/44529897696)); produção responde `/api/rota-inexistente` com 404 JSON e serve o pacote `react-vendor`.
+
+**Não verificado:** uso autenticado do app em produção depois das chaves novas (salvar lançamento); iPhone/Safari.

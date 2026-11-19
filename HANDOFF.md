@@ -6,18 +6,18 @@
 - **Atualizado em:** 2026-11-19
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
-- **Verificação mais recente (2026-11-19):** auditoria técnica e limpeza na branch `claude/ecstatic-lamport-d99zv9` (ainda **não** em `main`): `bun run check` no Linux (785 testes, tipagem, build sem aviso de tamanho), QA PostgreSQL 16 descartável com as 11 migrações e navegador em 375 px. Produção continua no commit `e41b89a`.
+- **Verificação mais recente (2026-11-19):** auditoria técnica e limpeza publicadas em `main` (`2d2822d`, CI verde; produção já serve a versão nova). Migração 011 aplicada no Neon e Neon Auth antigo removido, com autorização do dono.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
 ## 2. Em andamento
 | Item | Situação |
 |---|---|
 | [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos e publicados em `e41b89a`; conferência posterior com a Fran pendente. |
-| [Auditoria técnica e limpeza](docs/AUDITORIA_TECNICA_2026-11-19.md) | Correções na branch `claude/ecstatic-lamport-d99zv9`; falta o dono aprovar a ida para `main` e a migração 011 no Neon. |
+| [Auditoria técnica e limpeza](docs/AUDITORIA_TECNICA_2026-11-19.md) | Publicada em `main` e aplicada no Neon; falta só um uso autenticado em produção para confirmar que salvar continua normal. |
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
-1. Revisar e levar para `main` a branch da auditoria técnica de 19/11; depois, com autorização, aplicar `db/migrations/011_app_users_foreign_keys.sql` no Neon (dados já conferidos: nenhum órfão).
+1. Abrir o app, salvar e apagar um lançamento de teste para confirmar que a gravação segue normal com as chaves estrangeiras novas (migração 011).
 2. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
 3. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
 4. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
@@ -28,14 +28,13 @@
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
 - Decidir: leitura de fatura por IA externa ou só no aparelho.
-- Autorizar a migração 011 (chaves estrangeiras) no Neon e o desligamento do Neon Auth antigo (schema `neon_auth`, sem uso).
 
 ## 5. Nunca verificado / riscos conhecidos
 - iPhone/Safari reais (campo de data, instalação do PWA), Face ID real, envio real de e-mail (SMTP).
 - A execução agendada do backup cifrado foi comprovada no GitHub. A execução agendada do cron `/api/readiness` da Vercel segue pendente.
 - A restauração JSON pela interface e o roteiro SQL passaram em PostgreSQL 17 local descartável. A prova contra Neon de teste e o isolamento com RLS em produção seguem pendentes.
 - A tela real da conta da Fran com a nova classificação da academia ainda não foi verificada; nenhuma alteração foi feita no Neon nesta sessão. O endpoint público de teste recebeu a tela de autenticação da Vercel, não uma resposta da API do app.
-- Migração 011 nunca rodou no Neon real (só em PostgreSQL 16 descartável).
+- Depois da migração 011 no Neon, a gravação autenticada em produção ainda não foi exercitada (só no PostgreSQL descartável, com o papel restrito do app).
 - Backup do Neon: plano Free tem janela de 6 h; exportação JSON do app não cobre convites familiares.
 - Recursos de câmbio ao vivo (Gemini) estão desligados na Vercel se `GEMINI_API_KEY` não estiver configurada.
 
@@ -45,9 +44,20 @@
 - Compra no cartão: nada pré-selecionado (forma, categoria, conta); com uma só opção ela já vem marcada.
 - Dia de fechamento: padrão "compra no dia do fechamento fica na fatura atual"; opção por cartão para ir à próxima.
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
+- Entregas verificadas vão direto para `main` (decisão do dono, 2026-11-19); mudanças no Neon com autorização do dono, conferidas antes e depois.
 - Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-19 — Auditoria técnica publicada e aplicada no Neon
+- **O que mudou:** (1) Commit `2d2822d` publicado em `main` (decisão do dono: entregas vão sempre para `main`). (2) Migração `011_app_users_foreign_keys.sql` aplicada no Neon de produção: 5 chaves estrangeiras para `app_users`, todas validadas. (3) Neon Auth antigo desligado e schema `neon_auth` apagado (1 usuário e 4 sessões de antes do login próprio; última atividade 08/11).
+- **Por quê:** o dono aprovou levar a auditoria para `main` e aplicar as mudanças no Neon.
+- **Arquivos/áreas:** Neon (`public` e `neon_auth`), `docs/tecnico/banco-de-dados.md`, relatório da auditoria, este HANDOFF, `CHECKLIST.md`. Nenhum código mudou.
+- **Como foi verificado:** antes de aplicar, 0 órfãos em workspaces, convites e compartilhados; depois, 5 chaves com `convalidated = true` e contagens iguais (2 contas, 2 workspaces, 131 compartilhados, 1 convite). Antes de apagar o `neon_auth`: nenhum código usa, nenhuma chave ou view de fora depende dele; depois, schema ausente. CI do `main` verde ([44529897696](https://github.com/cascaoconcurseiro/Minhas-/actions/runs/44529897696)); produção responde `/api/status` 200 e `/api/rota-inexistente` 404 JSON e serve `react-vendor-*.js`.
+- **Não verificado:** salvar/apagar lançamento autenticado em produção depois das chaves novas (sem acesso à sua sessão); iPhone/Safari.
+- **Impacto em dados/Neon:** só estrutura: nenhuma linha financeira mudou. **Para reverter:** chaves — `ALTER TABLE ... DROP CONSTRAINT <nome>_user_fk` nas três tabelas; `neon_auth` — restauração pelo histórico de 6 h do Neon (até ~19:10 UTC de 19/11), ou reativar o Neon Auth vazio.
+- **Documentação atualizada:** `docs/tecnico/banco-de-dados.md`, `docs/AUDITORIA_TECNICA_2026-11-19.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** o dono abrir o app e salvar algo normalmente; se der erro de gravação, avisar (a reversão das chaves é um comando).
 
 ### 2026-11-19 — Auditoria técnica, banco Neon e limpeza do código
 - **O que mudou:** (1) **Servidor:** rotas curinga corrigidas para o Express 4 (`'*all'` só casava com caminhos terminados em "all": no modo produção local qualquer página além de `/` dava 404); `/api/reminders/send-email` ganhou limite de 20 envios/hora por conta, assunto em uma linha (até 200 caracteres) e corpo limitado; erros de câmbio/cotações/e-mail não devolvem mais a mensagem técnica nem o texto bruto da IA; `/api/...` inexistente responde 404 em JSON; removido o `User-Agent: aistudio-build`. (2) **Banco:** nova migração `011_app_users_foreign_keys.sql` (workspace, convites e compartilhados passam a exigir conta existente em `app_users`, sem cascata) e prova no `scripts/qa-postgres.ts`. (3) **Limpeza:** apagados 7 arquivos sem uso e seus testes (`MonthlyInsightsCard`, `CardInsightsCard`, `monthlyNarrative`, `cardIntelligence`, `ExpertSystemReviewModal`, `UpdateAvailableBanner`, `skeletonRules`) e a função `subscribeUpdatePending`; 8 cópias da validação de data trocadas por `isValidISODate`; removidos `financialMonthStartDay` e `ReceivablesIntent`; títulos de testes sem Firebase. (4) **Build:** React em pacote próprio (`react-vendor`): principal caiu de 514 kB para 294 kB, sem aviso.

@@ -27,9 +27,9 @@ As migrations em `db/migrations/` são a referência do schema:
 | `finance_family_invitations` | Convites, participantes e estado de aceite/recusa/revogação | RLS para proprietário e e-mail convidado autenticado |
 | `finance_shared_transactions` | Apenas despesas explicitamente compartilhadas entre participantes | RLS pelos IDs de remetente/destinatário |
 
-**Chaves estrangeiras (migração 011):** `finance_workspaces.owner_user_id`, `finance_family_invitations.owner_user_id`/`invited_user_id` e `finance_shared_transactions.sender_user_id`/`recipient_user_id` apontam para `app_users(id)`, sem exclusão em cascata (apagar uma conta não apaga dados financeiros em silêncio). `finance_workspace_migrations` fica de fora porque guarda os IDs antigos do Firebase. **Situação em produção:** a migração 011 foi escrita e testada em PostgreSQL 16 descartável em 2026-11-19 e a produção foi conferida sem nenhum registro órfão, mas **só é aplicada no Neon com autorização do dono**.
+**Chaves estrangeiras (migração 011):** `finance_workspaces.owner_user_id`, `finance_family_invitations.owner_user_id`/`invited_user_id` e `finance_shared_transactions.sender_user_id`/`recipient_user_id` apontam para `app_users(id)`, sem exclusão em cascata (apagar uma conta não apaga dados financeiros em silêncio). `finance_workspace_migrations` fica de fora porque guarda os IDs antigos do Firebase. **Situação em produção:** aplicada no Neon em 2026-11-19 com autorização do dono, depois de conferir zero registros órfãos; as 5 chaves estão validadas.
 
-**Restos no Neon (fora do código):** o schema `neon_auth` (1 usuário e 4 sessões antigas) é do Neon Auth usado antes do login próprio (migração 008); o app não o lê. Pode ser desligado no painel do Neon quando o dono autorizar.
+**Neon Auth removido:** o Neon Auth usado antes do login próprio (migração 008) foi desligado em 2026-11-19 com autorização do dono, e o schema `neon_auth` (1 usuário e 4 sessões antigas, última atividade em 08/11) foi apagado. Nenhuma tabela do app dependia dele.
 
 `finance_workspaces.payload` mantém o contrato atual da interface como JSONB para reduzir risco de migração. Os lançamentos ainda não são linhas individualizadas em uma tabela relacional.
 
