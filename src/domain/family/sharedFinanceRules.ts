@@ -1,3 +1,4 @@
+import { getNextBankBusinessDay } from '../finance/businessDays.ts';
 import { isValidISODate } from '../finance/formatting.ts';
 import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../types/finance';
 import { formatBRL, formatMonthYearPT, getClampedMonthDate, getSharedSettlementLinks } from '../finance/financeRules';
@@ -24,10 +25,11 @@ const isRealISODate = isValidISODate;
  */
 export function getSharedChargeDate(tx: Transaction, cards: CreditCard[]): string {
   const card = tx.creditCardId ? cards.find((item) => item.id === tx.creditCardId) : undefined;
-  if (card && tx.competenceMonth) return getClampedMonthDate(tx.competenceMonth, card.dueDay);
-  if (isRealISODate(tx.sharedDueDate)) return tx.sharedDueDate;
+  // Datas ligadas à fatura seguem o dia útil bancário (vencimento no fim de semana/feriado vai para o próximo dia útil).
+  if (card && tx.competenceMonth) return getNextBankBusinessDay(getClampedMonthDate(tx.competenceMonth, card.dueDay));
+  if (isRealISODate(tx.sharedDueDate)) return getNextBankBusinessDay(tx.sharedDueDate);
   if (tx.id.startsWith('tx-mirror-') && tx.paymentMethod === 'credit_card' && /^\d{4}-\d{2}$/.test(tx.competenceMonth || '')) {
-    return getClampedMonthDate(tx.competenceMonth, 31);
+    return getNextBankBusinessDay(getClampedMonthDate(tx.competenceMonth, 31));
   }
   return tx.date;
 }

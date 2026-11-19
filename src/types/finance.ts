@@ -152,6 +152,8 @@ export interface Transaction {
   sharedDueDate?: string; // Vencimento da fatura do cartão de quem lançou (YYYY-MM-DD); só vem nos espelhos recebidos
   sharedTargetEmail?: string; // Email of the linked family member
   targetInvestmentAssetId?: string; // Optional link when a transfer/expense is a direct investment contribution
+  /** Só na venda de ativo: ganho (positivo) ou perda (negativo) realizado = (preço de venda − preço médio) × quantidade, em reais. */
+  realizedGain?: number;
   // Transferência com conta em moeda estrangeira: `amount` segue em reais; estes campos guardam a perna estrangeira
   transferFromAmount?: number; // Valor que saiu da conta de origem, na moeda da origem (só quando a origem é internacional)
   transferToAmount?: number; // Valor que entrou na conta de destino, na moeda do destino (só quando o destino é internacional)

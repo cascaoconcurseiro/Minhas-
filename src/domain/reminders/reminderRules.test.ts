@@ -89,7 +89,8 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     // Overdue should be first
     assert.strictEqual(reminders[0].cardId, 'card-itau');
     assert.strictEqual(reminders[0].urgency, 'overdue');
-    assert.strictEqual(reminders[0].daysRemaining, -4);
+    // Venceu domingo 25/10: podia pagar até segunda 26/10, então está atrasada há 3 dias (não 4).
+    assert.strictEqual(reminders[0].daysRemaining, -3);
     assert.strictEqual(reminders[0].amount, 200.0);
 
     // Due today should be second
@@ -116,9 +117,11 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
       referenceDate: '2026-02-28',
     });
 
-    assert.equal(reminders[0].dueDate, '2026-02-28');
-    assert.equal(reminders[0].daysRemaining, 0);
-    assert.match(reminders[0].description, /Dia 28/);
+    // Dia 31 em fevereiro vira 28/02 (último dia), que em 2026 é sábado: paga até segunda, 02/03.
+    assert.equal(reminders[0].dueDate, '2026-03-02');
+    assert.equal(reminders[0].daysRemaining, 2);
+    assert.match(reminders[0].description, /o dia 28 cai em fim de semana ou feriado/);
+    assert.match(reminders[0].description, /Dia 02\/03/);
   });
 
   test('calculateDailyReminders identifies pending bills and recurring fixed entries', () => {
@@ -216,7 +219,7 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
     const reminders = calculateDailyReminders({ transactions, cards: [card], referenceDate: '2026-11-12' });
     assert.equal(reminders.length, 1);
     assert.equal(reminders[0].urgency, 'overdue');
-    assert.equal(reminders[0].dueDate, '2026-09-20');
+    assert.equal(reminders[0].dueDate, '2026-09-21', 'dia 20/09/2026 é domingo: vence no próximo dia útil');
   });
 
   test('shared reimbursement is charged on the invoice due date, not on the purchase date', () => {
@@ -234,11 +237,13 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
 
     assert.equal(at('2026-11-12').filter((r) => r.type === 'shared_pending').length, 0, 'compra de hoje não cobra ainda');
     assert.equal(at('2026-12-01').filter((r) => r.type === 'shared_pending').length, 0, 'ainda longe do vencimento');
-    const soon = at('2026-12-03').filter((r) => r.type === 'shared_pending');
+    // Vencimento dia 5: 05/12/2026 é sábado, então a cobrança vai para segunda, 07/12.
+    const soon = at('2026-12-05').filter((r) => r.type === 'shared_pending');
     assert.equal(soon.length, 1);
     assert.equal(soon[0].urgency, 'due_soon');
-    assert.equal(soon[0].dueDate, '2026-12-05');
-    assert.equal(at('2026-12-06').find((r) => r.type === 'shared_pending')?.urgency, 'overdue');
+    assert.equal(soon[0].dueDate, '2026-12-07');
+    assert.notEqual(at('2026-12-06').find((r) => r.type === 'shared_pending')?.urgency, 'overdue', 'domingo ainda não está atrasado');
+    assert.equal(at('2026-12-08').find((r) => r.type === 'shared_pending')?.urgency, 'overdue');
   });
 
   const mirrorOf = (extra: Partial<Transaction> = {}): Transaction => ({
@@ -254,12 +259,13 @@ describe('reminderRules — Daily Reminders & Scheduled Notifications', () => {
 
     assert.equal(at('2026-11-15').length, 0, 'a compra foi em 30/10, mas a fatura só vence em dezembro: nada a cobrar nem atrasado');
     assert.equal(at('2026-12-01').length, 0, 'ainda longe do vencimento');
-    const soon = at('2026-12-03');
+    // O vencimento enviado (05/12, sábado) segue o dia útil: cobra na segunda, 07/12.
+    const soon = at('2026-12-05');
     assert.equal(soon.length, 1);
     assert.equal(soon[0].urgency, 'due_soon');
-    assert.equal(soon[0].dueDate, '2026-12-05');
-    assert.equal(at('2026-12-06')[0].urgency, 'overdue');
-    assert.equal(at('2026-12-06')[0].daysRemaining, -1);
+    assert.equal(soon[0].dueDate, '2026-12-07');
+    assert.equal(at('2026-12-08')[0].urgency, 'overdue');
+    assert.equal(at('2026-12-08')[0].daysRemaining, -1);
   });
 
   test('received card expense without the sender due date is never overdue before its invoice month ends', () => {

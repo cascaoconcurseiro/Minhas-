@@ -14,20 +14,23 @@
 |---|---|
 | [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos e publicados em `e41b89a`; conferência posterior com a Fran pendente. |
 | [Auditoria técnica e limpeza](docs/AUDITORIA_TECNICA_2026-11-19.md) | Publicada em `main` e aplicada no Neon; falta só um uso autenticado em produção para confirmar que salvar continua normal. |
+| [Avaliação da lógica financeira](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md) | L1–L4 corrigidos e `financeRules.ts` dividido; L5–L7 aguardam decisão do dono. |
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
 1. Abrir o app, salvar e apagar um lançamento de teste para confirmar que a gravação segue normal com as chaves estrangeiras novas (migração 011).
-2. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
-3. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
-4. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
-5. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
+2. Decidir L5 (estorno no cartão), L6 (pagamento parcial vai para a próxima fatura) e L7 (saldo inicial com data) da [avaliação da lógica financeira](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md) e implementar.
+3. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
+4. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
+5. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
+6. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
 
 ## 4. Pendências do dono (dependem do Wesley)
 - Atualizar o app instalado em Conta, Login & Nuvem → **Buscar atualização agora** e pedir à Fran que confira os compartilhados.
 - Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - Confirmar na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` estão definidos em produção.
 - Decidir: leitura de fatura por IA externa ou só no aparelho.
+- Decidir L5, L6 e L7 da avaliação da lógica financeira (estorno no cartão, pagamento parcial, saldo inicial com data).
 
 ## 5. Nunca verificado / riscos conhecidos
 - iPhone/Safari reais (campo de data, instalação do PWA), Face ID real, envio real de e-mail (SMTP).
@@ -44,10 +47,21 @@
 - Compra no cartão: nada pré-selecionado (forma, categoria, conta); com uma só opção ela já vem marcada.
 - Dia de fechamento: padrão "compra no dia do fechamento fica na fatura atual"; opção por cartão para ir à próxima.
 - Sincronização silenciosa; primeiro a gravar vence; Neon é a única fonte de verdade.
+- Vencimento de fatura e boleto em fim de semana/feriado nacional vai para o próximo dia útil (não é atraso).
 - Entregas verificadas vão direto para `main` (decisão do dono, 2026-11-19); mudanças no Neon com autorização do dono, conferidas antes e depois.
 - Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-19 — Lógica financeira: estorno no cartão, DRE de investimentos, dia útil e divisão de financeRules
+- **O que mudou:** (1) **Cartão:** fatura e limite só somam despesas; servidor e app recusam entrada/transferência ligada a cartão (um estorno somava como dívida a mais). (2) **Investimentos:** a venda grava o lucro/prejuízo realizado (`realizedGain`, preço de venda − preço médio) e usa o mesmo arredondamento de preço da compra; o DRE passa a somar **resgates** no caixa retido do mês e mostra o lucro/prejuízo realizado. (3) **Dia útil bancário** (`businessDays.ts`): fatura, boleto e compartilhado no cartão que vencem em fim de semana/feriado nacional (inclui Carnaval, Sexta Santa, Corpus Christi) só ficam atrasados depois do próximo dia útil; o aviso explica o adiamento. (4) **Refatoração:** `financeRules.ts` (3.542 linhas) dividido em 14 arquivos por assunto, conteúdo idêntico; `financeRules.ts` virou índice e nenhum import mudou. (5) Diagnóstico do que falta: [docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md).
+- **Por quê:** pedido do dono de deixar a lógica financeira e as regras de negócio em nível de app profissional, com autorização para refatorar.
+- **Arquivos/áreas:** `src/domain/finance/` (14 módulos novos, `businessDays.ts`, `financeRules.ts` índice), `src/domain/investments/investmentRules.ts`, `src/domain/reminders/reminderRules.ts`, `src/domain/family/sharedFinanceRules.ts`, `src/services/workspace/workspacePayload.ts`, `src/types/finance.ts`, `src/components/reports/ReportsAndDataTab.tsx` (linha de resgates no DRE); testes: `businessDays.test.ts` (novo), `financeRules.test.ts`, `investmentRules.test.ts`, `workspacePayload.test.ts`, `reminderRules.test.ts`, `sharedChargeDate.test.ts`.
+- **Como foi verificado:** `bun run check` (791 testes). Os 5 testes novos de L1–L3 falham no código antigo e passam no novo. A divisão foi conferida linha a linha contra o arquivo original (0 linhas a mais/a menos) com os mesmos 785 testes passando antes da mudança de lógica. 7 testes antigos tiveram a data esperada ajustada porque as datas de teste caem em sábado/domingo (ex.: 05/12/2026); cada ajuste está comentado.
+- **Não verificado:** a linha nova do DRE na tela (só build e tipagem; não há venda registrada nos dados reais); feriados estaduais/municipais não são considerados; celular real.
+- **Impacto em dados/Neon:** nenhuma escrita. Leitura: 0 entradas ligadas a cartão e 0 lançamentos de investimento nos dados reais, então nada existente é recusado ou muda de valor. Efeito visível: faturas do dia 5 de dezembro (sábado) passam a vencer em 07/12 nos avisos.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3.2, 5.4, 9), `docs/tecnico/estrutura-do-codigo.md`, `docs/README.md`, avaliação nova, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** o dono decidir L5–L7; depois, testes de ponta a ponta e só então dividir `App.tsx` e `TransactionModal.tsx`.
 
 ### 2026-11-19 — Auditoria técnica publicada e aplicada no Neon
 - **O que mudou:** (1) Commit `2d2822d` publicado em `main` (decisão do dono: entregas vão sempre para `main`). (2) Migração `011_app_users_foreign_keys.sql` aplicada no Neon de produção: 5 chaves estrangeiras para `app_users`, todas validadas. (3) Neon Auth antigo desligado e schema `neon_auth` apagado (1 usuário e 4 sessões de antes do login próprio; última atividade 08/11).

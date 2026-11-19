@@ -76,7 +76,12 @@ export function createInvestmentCashMovement(asset: InvestmentAsset, mode: 'buy'
     !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(cents) || cents <= 0 || (mode === 'sell' && quantity > asset.quantity)) {
     throw new RangeError('Confira data, conta, quantidade e valor da operação de investimento.');
   }
+  // Venda: o lucro/prejuízo realizado usa o preço médio da posição (regra da Receita Federal), em centavos.
+  const realizedGainCents = mode === 'sell' && asset.averagePrice > 0
+    ? Math.round(quantity * price * 100) - Math.round(quantity * asset.averagePrice * 100)
+    : undefined;
   return { id, description:`${mode === 'buy' ? 'Aporte' : 'Resgate'} Investimento — ${asset.ticker} (${quantity} un.)`,
+    ...(realizedGainCents !== undefined ? { realizedGain: realizedGainCents / 100 } : {}),
     amount:cents/100, date, competenceMonth:date.slice(0,7), type:'transfer', status:'paid', categoryId:'cat-aportes',
     ...(mode === 'buy' ? {accountId} : {destinationAccountId:accountId}), targetInvestmentAssetId:asset.id,
     paymentMethod:'transfer',recurrence:'single',notes:`${mode === 'buy' ? 'Compra' : 'Venda'} de ${asset.name} na corretora ${asset.institution}` };
@@ -478,7 +483,8 @@ export function applyAssetOperation(
   return {
     ...asset,
     quantity: remainingQty,
-    currentPrice: Math.round(safeUnit * 100) / 100,
+    // Mesmo arredondamento da compra: ativo abaixo de R$ 1 mantém até 6 casas.
+    currentPrice: roundAssetPrice(safeUnit),
   };
 }
 

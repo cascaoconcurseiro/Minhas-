@@ -73,7 +73,7 @@ Ao editar ou apagar um lançamento de série, o modo de cascata decide o alcance
 
 ---
 
-## 3. Cartão de crédito e faturas (`financeRules.ts`)
+## 3. Cartão de crédito e faturas (`creditCardInvoices.ts`)
 
 ### 3.1 Em qual fatura entra uma compra — `resolveCreditCardInvoiceMonth`
 O mês da fatura (competência) é o mês do **vencimento**. A regra:
@@ -91,6 +91,8 @@ Ao **mudar o dia de fechamento ou a opção** de um cartão, as compras **penden
 - **Pendente** = total menos o que já foi pago. A fatura está paga quando há compras e o pendente é zero.
 - **Limite usado** = tudo que está em aberto (faturas atuais e futuras). **Limite livre** = limite − usado.
 - Os valores a receber de cartão adicional (seção 7) **entram na fatura e no limite**, porque o banco cobra o total.
+- **Só despesa entra na fatura** (`isCreditCardInvoicePurchase`). Crédito/estorno no cartão ainda **não existe** como operação: o servidor e o app recusam entrada ou transferência ligada a cartão (`validateWorkspaceConsistency`), porque somada como compra ela aumentaria a dívida em vez de reduzir (corrigido em 2026-11-19; nenhum dado real tinha esse caso).
+- **Vencimento em fim de semana ou feriado** (`businessDays.ts`, 2026-11-19): a fatura pode ser paga sem atraso no **próximo dia útil bancário**. Contas a pagar, o sino e a cobrança de compartilhado no cartão usam essa data; o aviso explica quando o dia foi adiado (ex.: "Dia 07/12; o dia 5 cai em fim de semana ou feriado"). Contam como não úteis: sábado, domingo, feriados nacionais (1/1, 21/4, 1/5, 7/9, 12/10, 2/11, 15/11, 20/11, 25/12) e os dias sem expediente bancário que dependem da Páscoa (segunda e terça de Carnaval, Sexta-feira Santa, Corpus Christi). Feriados estaduais e municipais não entram. **Boleto** segue a mesma regra; Pix, débito e transferência não.
 
 **Regra geral (decisão do dono): toda lista de cartão, conta e lançamentos é sempre em ordem cronológica** (do dia 1 para o fim do mês). Vale para as compras da fatura, o extrato da conta (sem opção de inverter) e a lista de Lançamentos.
 
@@ -148,8 +150,8 @@ Esses movimentos **continuam** afetando saldo de conta, fatura e limite do cart�
 - Regra **50/30/20**: Essenciais 50%, Estilo de vida 30%, Futuro e quitações 20% — calculada sobre a renda do mês (`calculate503020Rule`).
 - **Ritmo do mês (burn rate)**: compara % do orçamento consumido com % de dias corridos do mês (`calculateMonthBurnRateMarker`).
 
-### 5.4 DRE pessoal (`calculatePersonalDre`)
-Receita operacional + dividendos − despesas de consumo = resultado; aportes em investimento são mostrados à parte (não são despesa). Mostra também o patrimônio consolidado (seção 6).
+### 5.4 DRE pessoal (`personalDre.ts`, `calculatePersonalDre`)
+Receita operacional + dividendos − despesas de consumo = geração livre de caixa; − aportes em investimento + **resgates/vendas de investimento** = caixa retido no mês. Aporte e resgate não são despesa nem receita (o principal já era seu), mas mexem no caixa: antes de 2026-11-19 o resgate não aparecia e comprar e vender o mesmo valor no mês mostrava caixa retido negativo. A linha de resgates mostra também o **lucro ou prejuízo realizado** nas vendas (preço de venda − preço médio, gravado na venda em `realizedGain`), só informativo, porque já está dentro do valor resgatado. Mostra também o patrimônio consolidado (seção 6).
 
 ### 5.5 Previsão de caixa (`cashForecast.ts`)
 Parte do saldo de hoje e soma o que está agendado: contas a pagar e a receber, lançamentos fixos, parcelas e **faturas de cartão no dia do vencimento**. Mostra o ponto mais baixo e o primeiro dia negativo, considerando só contas incluídas no total. O **fluxo diário** (`calculateDailyCashFlow`) abre com o saldo **projetado** do mês anterior, ou seja, já inclui o que ficou pendente (a pagar/receber) de meses anteriores; assim o último dia da curva fecha com o saldo projetado do mês.
@@ -236,6 +238,7 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 ## 9. Investimentos (`investmentRules.ts`)
 - Classes: renda fixa pós-fixada, renda fixa IPCA+, FIIs, ações B3, exterior/ETFs, etc.
 - **Aporte** e **resgate** são **transferência** entre conta e ativo (não despesa nem receita); só o rendimento/provento é receita (`isInvestmentIncome`).
+- **Venda**: reduz a quantidade e mantém o preço médio (regra da Receita Federal); o lançamento da venda guarda o lucro/prejuízo realizado (`realizedGain`, em centavos exatos). O preço da venda usa o mesmo arredondamento da compra (abaixo de R$ 1, até 6 casas).
 - Aporte vinculado a meta atualiza a meta; ativo com saldo, histórico ou meta **não pode ser apagado** (`getInvestmentDeletionRestriction`).
 - Cotações: Google Finance/B3 (`/api/investments/sync-quotes`); preço arredondado a 2 casas (abaixo de R$ 1, até 6 casas).
 - **Rebalanceamento**: compara a alocação atual com o percentual-alvo por classe.

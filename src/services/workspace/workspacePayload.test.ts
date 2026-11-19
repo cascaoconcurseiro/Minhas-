@@ -180,4 +180,7 @@ test('servidor: recusa lançamento incompleto, conta/cartão inexistente e cota 
   assert.ok(run({ ...okTx, sharedAmount: 999 }));
   assert.ok(run({ ...okTx, status: 'xyz' }));
   assert.equal(run({ ...okTx, type: 'transfer', accountId: 'a1', destinationAccountId: 'inv:asset' }), null);
+  // Entrada no cartão (estorno) ainda não é operação suportada: somada como compra, aumentaria a dívida.
+  assert.match(String(run({ ...okTx, type: 'income', accountId: undefined, creditCardId: 'c1' })), /estorno no cartão/);
+  assert.equal(run({ ...okTx, accountId: undefined, creditCardId: 'c1', paymentMethod: 'credit_card' }), null);
 });

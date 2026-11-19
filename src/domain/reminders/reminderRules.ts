@@ -17,6 +17,7 @@ import {
   isPendingBankObligation,
 } from '../finance/financeRules';
 import { getSharedChargeDate } from '../family/sharedFinanceRules';
+import { getNextBankBusinessDay } from '../finance/businessDays.ts';
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
@@ -218,22 +219,29 @@ export function calculateDailyReminders({
         const invoice = calculateCreditCardSummary(card, transactions, invoiceMonth, referenceDate);
         if (invoice.invoicePendingAmount <= 0) continue;
 
-        const dueDate = getClampedMonthDate(invoiceMonth, card.dueDay);
+        // Vencimento em fim de semana/feriado pode ser pago no próximo dia útil sem atraso.
+        const officialDueDate = getClampedMonthDate(invoiceMonth, card.dueDay);
+        const dueDate = getNextBankBusinessDay(officialDueDate);
         const daysRemaining = getDaysDifference(referenceDate, dueDate);
         const urgency = classifyUrgency(daysRemaining, invoiceWarningDays);
         if (!urgency) continue;
 
-        const actualDueDay = Number(dueDate.slice(-2));
+        const actualDueDay = dueDate !== officialDueDate
+          ? dueDate.split('-').reverse().slice(0, 2).join('/')
+          : String(Number(dueDate.slice(-2)));
+        const postponedNote = dueDate !== officialDueDate
+          ? `; o dia ${Number(officialDueDate.slice(-2))} cai em fim de semana ou feriado`
+          : '';
         reminders.push({
           id: `card-due-${card.id}-${invoiceMonth}`,
           type: 'invoice_due',
           title: `Fatura ${card.name}`,
           description:
             daysRemaining < 0
-              ? `Fatura vencida há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'} (Venceu dia ${actualDueDay})`
+              ? `Fatura vencida há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'} (Venceu dia ${actualDueDay}${postponedNote})`
               : daysRemaining === 0
-              ? `Fatura vence hoje! (Dia ${actualDueDay})`
-              : `Vencimento em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (Dia ${actualDueDay})`,
+              ? `Fatura vence hoje! (Dia ${actualDueDay}${postponedNote})`
+              : `Vencimento em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (Dia ${actualDueDay}${postponedNote})`,
           amount: invoice.invoicePendingAmount,
           dueDate,
           urgency,
@@ -254,7 +262,9 @@ export function calculateDailyReminders({
       const isFixed = tx.recurrence === 'fixed';
       if (isFixed && settings.notifyRecurringEntries === false) continue;
 
-      const daysRemaining = getDaysDifference(referenceDate, tx.date);
+      // Boleto que vence em fim de semana/feriado pode ser pago no próximo dia útil.
+      const billDueDate = tx.paymentMethod === 'boleto' ? getNextBankBusinessDay(tx.date) : tx.date;
+      const daysRemaining = getDaysDifference(referenceDate, billDueDate);
       const urgency = classifyUrgency(daysRemaining, BILL_WARNING_DAYS);
       if (!urgency) continue;
 
@@ -267,12 +277,12 @@ export function calculateDailyReminders({
         title: tx.description,
         description:
           daysRemaining < 0
-            ? `Pendente e atrasado há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'} (${tx.date.split('-').reverse().slice(0, 2).join('/')})`
+            ? `Pendente e atrasado há ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'dia' : 'dias'} (${billDueDate.split('-').reverse().slice(0, 2).join('/')})`
             : daysRemaining === 0
             ? `Vencimento agendado para hoje!`
-            : `Vencimento em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (${tx.date.split('-').reverse().slice(0, 2).join('/')})`,
+            : `Vencimento em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} (${billDueDate.split('-').reverse().slice(0, 2).join('/')})`,
         amount: tx.amount,
-        dueDate: tx.date,
+        dueDate: billDueDate,
         urgency,
         daysRemaining,
         transactionId: tx.id,

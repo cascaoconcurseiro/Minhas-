@@ -7,8 +7,10 @@
 Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento · **[Decidir]** precisa de decisão do dono.
 
 ## A. Próximas entregas
-- [x] **[Dono]** Auditoria técnica de 19/11 publicada em `main` ([relatório](docs/AUDITORIA_TECNICA_2026-11-19.md)).
-- [x] **[Decidir]** Migração 011 aplicada no Neon e Neon Auth antigo removido (19/11).
+- [ ] **[Decidir]** L5 Estorno/crédito no cartão: reduzir a despesa da categoria (recomendado) ou contar como receita? ([avaliação](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md))
+- [ ] **[Decidir]** L6 Pagamento parcial de fatura: levar o restante para a próxima fatura com juros/encargos opcionais?
+- [ ] **[Decidir]** L7 Saldo inicial da conta com data de abertura?
+- [ ] **[Dev]** Testes de ponta a ponta (navegador) dos fluxos principais antes de dividir `App.tsx` e `TransactionModal.tsx`.
 - [ ] **[Dono]** Abrir o app e salvar/apagar um lançamento para confirmar a gravação após a migração 011.
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).
 - [ ] **[Decidir]** O servidor deve enviar os compartilhados sozinho no momento em que o convite é aceito (hoje depende do app de quem convidou abrir)?
@@ -61,11 +63,10 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 ### Auditoria financeira de 2026-11-15 — o que ficou aberto (ver `HANDOFF.md`)
 - [ ] **[Dev]** A19 (resto): compra de câmbio sem conta internacional vinculada ainda vira despesa; falta um comando único de câmbio com duas pernas. (Apagar a viagem já não apaga mais o débito bancário.)
 - [ ] **[Decidir]** A14 (IOF): a fonte oficial (Decretos 12.466 e 12.499/2025) fala em 3,5% no cartão, mas há trechos suspensos por decreto legislativo e notícia de restabelecimento pelo STF; confirmar a norma vigente e a cobrança real do banco antes de trocar os percentuais (o campo de IOF do formulário já é editável).
-- [ ] **[Dev]** A18, A21, A22, A23, A24: simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
+- [ ] **[Dev]** A18, A21, A22, A23, A24 (A24 = L5 da avaliação de 19/11): simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
 
 ## E. Dívida técnica (sem mudar comportamento)
 - [ ] **[Dev]** Dividir `src/components/transactions/TransactionModal.tsx` (~4.600 linhas) por tipo de lançamento.
 - [ ] **[Dev]** Extrair de `src/App.tsx` (~4.600 linhas) hooks por área (valores a receber, cartões, sincronização).
-- [ ] **[Dev]** Dividir `src/domain/finance/financeRules.ts` (~3.300 linhas; a formatação de R$ e datas já foi extraída para `formatting.ts`) por assunto mantendo um índice que reexporta.
 - [ ] **[Dev]** Dividir `backend/app.ts` (~1.500 linhas) em uma rota por arquivo.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

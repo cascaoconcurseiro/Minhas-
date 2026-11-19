@@ -307,6 +307,10 @@ export function validateWorkspaceConsistency(input: {
     if (typeof raw.creditCardId === 'string' && raw.creditCardId && !cardIds.has(raw.creditCardId)) {
       return `${label} aponta para um cartão que não existe.`;
     }
+    // Crédito/estorno no cartão ainda não existe como operação: somado como compra, viraria dívida a mais.
+    if (typeof raw.creditCardId === 'string' && raw.creditCardId && raw.type !== 'expense') {
+      return `${label} é uma entrada ou transferência ligada a um cartão (estorno no cartão ainda não é suportado).`;
+    }
     if (typeof raw.sharedAmount === 'number' && raw.sharedAmount > (raw.amount as number) + 0.005) {
       return `${label} tem cota compartilhada maior que o valor.`;
     }

@@ -15,7 +15,7 @@ test('quem tem o cartão cobra no vencimento da fatura (dia do cartão no mês d
 });
 
 test('dia de vencimento maior que o mês é ajustado para o último dia', () => {
-  assert.equal(getSharedChargeDate(tx({ creditCardId: 'card-1', competenceMonth: '2027-02' }), [{ ...card, dueDay: 31 }]), '2027-02-28');
+  assert.equal(getSharedChargeDate(tx({ creditCardId: 'card-1', competenceMonth: '2027-02' }), [{ ...card, dueDay: 31 }]), '2027-03-01', '28/02/2027 é domingo: próximo dia útil');
 });
 
 test('quem recebe usa a data de vencimento enviada por quem lançou', () => {

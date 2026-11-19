@@ -2487,7 +2487,8 @@ test('contas a pagar mostram a fatura do cartão com vencimento e valor em abert
   ];
   assert.deepEqual(
     getPendingCardInvoices([card], purchases, '2026-12', '2026-11-12').map((i) => [i.cardName, i.dueDate, i.amount, i.isOverdue]),
-    [['Itaú azul', '2026-12-05', 599.59, false]]
+    // 05/12/2026 é sábado: a fatura pode ser paga sem atraso na segunda, 07/12.
+    [['Itaú azul', '2026-12-07', 599.59, false]]
   );
   assert.deepEqual(getPendingCardInvoices([card], purchases, '2026-11', '2026-11-12'), []);
   const late = getPendingCardInvoices([card], purchases, '2027-01', '2027-01-10');
@@ -2577,4 +2578,17 @@ test('DRE: só a categoria define aporte, não a palavra na descrição', async 
   ] as never, '2026-11', [], [], []);
   assert.equal(dre.consumptionExpenses, 100);
   assert.equal(dre.investmentContributions, 100);
+});
+
+test('fatura e limite somam só despesas: uma entrada ligada ao cartão nunca vira dívida a mais', () => {
+  const card = { id: 'c1', name: 'Nu', limit: 1000, closingDay: 28, dueDay: 5 } as CreditCard;
+  const base = { categoryId: 'x', status: 'pending', recurrence: 'single', creditCardId: 'c1', paymentMethod: 'credit_card', competenceMonth: '2026-12' } as const;
+  const txs = [
+    { ...base, id: 'a', type: 'expense', description: 'Compra', amount: 300, date: '2026-11-10' },
+    { ...base, id: 'b', type: 'income', description: 'Crédito', amount: 100, date: '2026-11-12' },
+  ] as Transaction[];
+  const summary = calculateCreditCardSummary(card, txs, '2026-12', '2026-11-19');
+  assert.equal(summary.invoiceTotal, 300);
+  assert.equal(summary.usedLimit, 300);
+  assert.equal(summary.availableLimit, 700);
 });

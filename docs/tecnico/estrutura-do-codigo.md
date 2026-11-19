@@ -30,8 +30,24 @@ src/
 ├── types/finance.ts         # contratos TypeScript de todas as entidades
 │
 ├── domain/                  # REGRAS DE NEGÓCIO PURAS (sem React, sem rede). Cada .test.ts fica ao lado.
-│   ├── finance/             # lançamentos, contas, faturas, resultado, patrimônio (financeRules.ts), formatação de R$ e datas (formatting.ts) e afins
-│   ├── cards/               # comprometimento do cartão, inteligência de cartão
+│   ├── finance/             # regras financeiras, um arquivo por assunto (financeRules.ts só reexporta tudo):
+│   │   ├── transactionClassification.ts  # o que é gasto pessoal, mês de consumo × mês de caixa
+│   │   ├── transactionBatch.ts           # criar lançamentos, parcelas e fixos (centavos)
+│   │   ├── transactionTags.ts            # etiquetas
+│   │   ├── transactionOperations.ts      # pago/pendente, bloqueios, edição/exclusão em cascata, séries
+│   │   ├── transactionSearch.ts          # busca global
+│   │   ├── accountBalances.ts            # saldo de contas
+│   │   ├── pendingMovements.ts           # contas a pagar/receber e faturas em aberto
+│   │   ├── creditCardInvoices.ts         # fatura, limite, mês da fatura, pagar e estornar fatura
+│   │   ├── bankReconciliation.ts         # aplicar extrato importado
+│   │   ├── monthlyReports.ts             # resumo do mês, categorias, orçamento, 50/30/20, períodos
+│   │   ├── cashFlowCalendar.ts           # fluxo diário e calendário
+│   │   ├── wealthAndHealth.ts            # posição de hoje, patrimônio, score 360
+│   │   ├── personalDre.ts                # DRE pessoal e rendimentos de investimento
+│   │   ├── fixedIncomeSimulator.ts       # simulador de renda fixa e IR regressivo
+│   │   ├── businessDays.ts               # dia útil bancário (fim de semana e feriados)
+│   │   └── formatting.ts                 # R$, datas e meses
+│   ├── cards/               # comprometimento do cartão
 │   ├── budgets/             # orçamentos, previsão de caixa, aprendizado, recorrência, saúde dos dados
 │   ├── receivables/         # A Receber (fatura de cartão adicional, empréstimos)
 │   ├── family/              # compartilhamento e acertos
@@ -72,7 +88,7 @@ src/
 Convenções:
 - **Teste ao lado do arquivo**: `foo.ts` ↔ `foo.test.ts`.
 - **Imports relativos** (`../../types/finance`). Regra de dependência: `components` pode importar `domain`, `services`, `lib`, `hooks`, `utils`; `domain` **não** importa `components` nem `lib`; `domain` pode importar outro `domain`.
-- **Regra de dinheiro mora em `financeRules.ts`** (ou no módulo de domínio do assunto). Tela nunca recalcula regra por conta própria.
+- **Regra de dinheiro mora em `src/domain/`**, no arquivo do assunto (ver a árvore acima). Código novo importa do arquivo do assunto; `financeRules.ts` continua reexportando tudo para os imports antigos. Tela nunca recalcula regra por conta própria.
 - Nome de arquivo em inglês técnico (`financeRules.ts`), textos de tela em português do Brasil.
 
 ## Arquivos grandes (dívida técnica conhecida)
@@ -81,7 +97,6 @@ Convenções:
 |---|---|---|
 | `src/components/transactions/TransactionModal.tsx` | ~4.600 | Modal único de lançamento; candidato a ser dividido por tipo (despesa/receita/transferência) |
 | `src/App.tsx` | ~4.600 | Estado e handlers; candidato a extrair hooks por área (ex.: valores a receber, cartões) |
-| `src/domain/finance/financeRules.ts` | ~3.300 | Regras centrais; candidato a dividir por assunto mantendo um índice de reexportação |
 | `src/components/trips/TripsTab.tsx` | ~3.000 | Tela de viagens |
 | `backend/app.ts` | ~1.500 | Rotas Express; candidato a dividir por rota |
 

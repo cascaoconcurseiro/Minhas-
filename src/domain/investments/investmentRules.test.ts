@@ -75,6 +75,10 @@ test('investment principal moves between bank and asset without becoming revenue
   assert.equal(finalBalances[0].currentBalance, 2000);
   assert.equal(finalDre.totalIncome, 0);
   assert.equal(finalDre.investmentContributions, 200);
+  // Comprou e vendeu o mesmo valor no mês: o caixa do banco não mudou, então o caixa retido também não.
+  assert.equal(finalDre.investmentWithdrawals, 200);
+  assert.equal(finalDre.netSurplusAfterInvestments, 0);
+  assert.equal(finalDre.realizedCapitalGain, 0);
   assert.equal(finalDre.totalNetWorth, 3000);
   assert.equal(sell.date, '2026-11-12');
   assert.equal(sell.competenceMonth, '2026-11');
@@ -350,4 +354,25 @@ test('synced quotes that jump more than 2x or fall under half are ignored and re
   assert.equal(normal.updatedCount, 1);
   assert.equal(normal.updatedAssets[0].currentPrice, 33.5);
   assert.equal(normal.rejectedQuotes.length, 0);
+});
+
+test('venda registra lucro ou prejuízo sobre o preço médio e o DRE mostra o resgate', () => {
+  const asset = { ...SAMPLE_ASSETS[1], quantity: 10, averagePrice: 100, currentPrice: 100 };
+  const gain = createInvestmentCashMovement(asset, 'sell', 3, 120.5, 'bank', '2026-11-20', 'sell-gain');
+  assert.equal(gain.amount, 361.5);
+  assert.equal(gain.realizedGain, 61.5);
+  const loss = createInvestmentCashMovement(asset, 'sell', 2, 80.33, 'bank', '2026-11-21', 'sell-loss');
+  assert.equal(loss.realizedGain, -39.34);
+  assert.equal(createInvestmentCashMovement(asset, 'buy', 1, 100, 'bank', '2026-11-20', 'buy').realizedGain, undefined);
+  const dre = calculatePersonalDre([gain, loss], '2026-11', [], [], []);
+  assert.equal(dre.investmentWithdrawals, 522.16);
+  assert.equal(dre.realizedCapitalGain, 22.16);
+  assert.equal(dre.totalIncome, 0, 'o principal devolvido não é receita');
+  assert.equal(dre.netSurplusAfterInvestments, 522.16);
+});
+
+test('venda usa o mesmo arredondamento de preço da compra (ativo abaixo de R$ 1 mantém 6 casas)', () => {
+  const asset = { ...SAMPLE_ASSETS[1], quantity: 1000, averagePrice: 0.5, currentPrice: 0.5 };
+  assert.equal(applyAssetOperation(asset, 'buy', 10, 0.123456).currentPrice, 0.123456);
+  assert.equal(applyAssetOperation(asset, 'sell', 10, 0.123456).currentPrice, 0.123456);
 });

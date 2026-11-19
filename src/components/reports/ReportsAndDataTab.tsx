@@ -1075,6 +1075,19 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = ({
                   {formatBRL(personalDre.investmentContributions)}
                 </span>
               </div>
+              {personalDre.investmentWithdrawals > 0 && (
+                <div className="flex items-center justify-between py-2.5">
+                  <span className="font-semibold text-indigo-800">
+                    (+) Resgates e Vendas de Investimentos
+                    <span className="block text-[11px] font-normal text-slate-500">
+                      {personalDre.realizedCapitalGain >= 0 ? 'Lucro' : 'Prejuízo'} na venda (sobre o preço médio): {formatBRL(Math.abs(personalDre.realizedCapitalGain))}
+                    </span>
+                  </span>
+                  <span className="whitespace-nowrap shrink-0 pl-3 font-mono tabular-nums font-bold text-indigo-700">
+                    +{formatBRL(personalDre.investmentWithdrawals)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between py-2.5 border-t border-slate-200">
                 <span className="font-bold text-slate-900">
                   (=) Superávit / Caixa Retido no Giro do Mês
