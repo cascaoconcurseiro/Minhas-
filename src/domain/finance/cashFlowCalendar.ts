@@ -71,8 +71,8 @@ export function calculateDailyCashFlow(
       tx.competenceMonth > selectedMonth ||
       !/^\d{4}-(0[1-9]|1[0-2])$/.test(tx.competenceMonth) ||
       !Number.isFinite(tx.amount) ||
-      tx.amount <= 0
-    ) continue;
+      tx.amount === 0
+    ) continue; // estorno no cartão (valor negativo) reduz a fatura que vence
 
     // Older unpaid invoices are overdue at the start of this month's cash forecast.
     const dueDate = tx.competenceMonth < selectedMonth

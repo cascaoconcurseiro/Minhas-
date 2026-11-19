@@ -62,6 +62,7 @@ export function useTransactionFormEffects(ctx: TransactionModalPropsApi & Transa
     setIsInvoiceMonthOverrideOpen,
     setIsMultiCurrencyOpen,
     setIsNotesOpen,
+    setIsCardRefund,
     setIsShared,
     setIsTripLinked,
     setLegacyInstallmentTotalUnknown,
@@ -202,6 +203,7 @@ export function useTransactionFormEffects(ctx: TransactionModalPropsApi & Transa
       setIsNotesOpen(Boolean(editingTransaction.notes));
 
       setIsShared(Boolean(editingTransaction.isShared && !editingTransaction.tripId));
+      setIsCardRefund(false);
       setSharedMemberId(
         editingTransaction.sharedMemberId || familyMembers[0]?.id || ''
       );
@@ -314,6 +316,7 @@ export function useTransactionFormEffects(ctx: TransactionModalPropsApi & Transa
     setTagInput('');
     setIsNotesOpen(false);
     setIsShared(false);
+    setIsCardRefund(false);
     setSharedMemberId(familyMembers[0]?.id || '');
     setSharedPaidBy('me');
     setSharedSplitMode('half');

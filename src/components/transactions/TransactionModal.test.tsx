@@ -1116,3 +1116,33 @@ test('ao editar compra parcelada no cartão, a forma de pagamento também pode s
   assert.ok(page.querySelector('[data-testid="payment-method-account"]'), 'Conta / débito disponível na edição');
   assert.ok(page.querySelector('[data-testid="payment-method-card"]'), 'Cartão disponível na edição');
 });
+
+test('card refund toggle sends a positive amount flagged as refund, forces single and hides installments', async () => {
+  const saved: CreateTransactionBatchInput[] = [];
+  const page = renderTransactionModal((input) => saved.push(input), () => {}, { cards: [testCard] });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="payment-method-card"]')?.click(); });
+  assert.ok(page.querySelector('[data-testid="main-recurrence-selector"]'), 'sem estorno a frequência aparece');
+  const toggle = page.querySelector<HTMLInputElement>('[data-testid="card-refund-toggle"] input');
+  assert.ok(toggle, 'o interruptor de estorno aparece no lançamento de cartão');
+  await act(async () => { toggle.click(); });
+  assert.equal(page.querySelector('[data-testid="main-recurrence-selector"]'), null, 'estorno é sempre à vista');
+  await act(async () => { chooseCategory(page, 'category-test'); });
+  await act(async () => {
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-description-input"]')!, 'Estorno sintético');
+    setInputValue(page.querySelector<HTMLInputElement>('[data-testid="tx-amount-input"]')!, '120,00');
+  });
+  await act(async () => { page.querySelector<HTMLButtonElement>('[data-testid="tx-submit-btn"]')?.click(); });
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].isCardRefund, true);
+  assert.equal(saved[0].amount, 120, 'o valor digitado segue positivo; o domínio grava o negativo');
+  assert.equal(saved[0].creditCardId, testCard.id);
+  assert.equal(saved[0].recurrence, 'single');
+  assert.equal(saved[0].isShared, false);
+  const [stored] = createTransactionBatch(saved[0]);
+  assert.equal(stored.amount, -120);
+});
+
+test('the refund toggle is not offered for a normal account expense nor when editing', async () => {
+  const page = renderTransactionModal(() => {}, () => {}, { cards: [testCard] });
+  assert.equal(page.querySelector('[data-testid="card-refund-toggle"]'), null, 'despesa em conta não tem estorno');
+});

@@ -162,6 +162,7 @@ export function getLinkedOperationRestriction(tx: Transaction, action: 'editar' 
 
 export function getTransactionEditRestriction(tx: Transaction): string | null {
   if (tx.isInvoicePayment) return 'Estorne o pagamento da fatura antes de corrigir seus dados.';
+  if (tx.isCardRefund) return 'Estorno no cartão não pode ser editado: apague e lance de novo com o valor certo.';
   const linked = getLinkedOperationRestriction(tx, 'editar');
   if (linked) return linked;
   if (tx.id.startsWith('tx-reimb-') || (tx.isShared && tx.sharedStatus === 'received')) {
@@ -183,6 +184,7 @@ export function duplicateFinancialTransaction(tx: Transaction, id: string): Tran
   if (tx.isInvoicePayment || tx.id.startsWith('tx-reimb-') || tx.id.startsWith('tx-mirror-')) return null;
   if (tx.type === 'transfer' && tx.targetInvestmentAssetId) return null;
   if (tx.id.startsWith('tx-fxlot-')) return null;
+  if (tx.isCardRefund) return null;
   const copy: Transaction = { ...tx, id, description: `${tx.description} (Cópia)`,
     status: tx.creditCardId ? 'pending' : 'paid', recurrence: 'single' };
   for (const field of ['installmentGroupId', 'installmentNumber', 'installmentTotal', 'installmentPurchaseTotal',

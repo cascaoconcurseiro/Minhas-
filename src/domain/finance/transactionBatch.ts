@@ -62,6 +62,8 @@ export interface CreateTransactionBatchInput {
   myPersonalShareBrl?: number;
   myPersonalShareForeign?: number;
   isCompanionOnlyExpense?: boolean;
+  /** Estorno no cartão: `amount` vem positivo e o lançamento é gravado negativo (ver `Transaction.isCardRefund`). */
+  isCardRefund?: boolean;
 }
 
 /**
@@ -130,6 +132,32 @@ export function createTransactionBatch(
     myPersonalShareForeign: input.myPersonalShareForeign,
     isCompanionOnlyExpense: input.isCompanionOnlyExpense,
   };
+
+  if (input.isCardRefund) {
+    const refundCents = Math.round(input.amount * 100);
+    if (
+      !input.creditCardId || input.type !== 'expense' || input.isShared || input.tripId ||
+      !Number.isSafeInteger(refundCents) || refundCents <= 0
+    ) {
+      throw new RangeError('Confira o cartão e o valor do estorno (um valor maior que zero, no cartão, sem divisão nem viagem).');
+    }
+    return [{
+      id: `${idPrefix}-${Date.now()}-refund-${Math.random().toString(36).slice(2, 6)}`,
+      description: input.description.trim(),
+      amount: -refundCents / 100,
+      date: input.date,
+      competenceMonth: baseMonth,
+      type: 'expense',
+      status: 'pending',
+      categoryId: input.categoryId,
+      creditCardId: input.creditCardId,
+      paymentMethod: 'credit_card',
+      recurrence: 'single',
+      notes: input.notes,
+      tags: cleanTags,
+      isCardRefund: true,
+    }];
+  }
 
   if (input.recurrence === 'installment' && (input.installmentTotal || 1) > 1) {
     const totalCount = Math.max(2, Math.min(48, Math.floor(input.installmentTotal || 2)));

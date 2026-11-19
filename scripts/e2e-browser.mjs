@@ -138,6 +138,33 @@ try {
   assert.ok(saved.every((tx) => tx.status === 'pending' && tx.paymentMethod === 'credit_card'));
   console.log('PASS: o servidor guardou 3 parcelas de R$ 100,00 em 3 faturas diferentes');
 
+  // Estorno no cartão: lança uma devolução de R$ 40 e confere que ela reduz a fatura (valor negativo no servidor).
+  await page.getByRole('button', { name: 'Novo lançamento' }).first().click();
+  const refundDialog = page.getByRole('dialog');
+  await refundDialog.locator('#tx-amount').waitFor();
+  await refundDialog.getByRole('button', { name: 'Despesa', exact: true }).click();
+  await refundDialog.getByRole('button', { name: 'Cartão de crédito' }).click();
+  await refundDialog.getByTestId('card-refund-toggle').locator('input').check();
+  await refundDialog.locator('#tx-amount').fill('4000');
+  await refundDialog.locator('#tx-description').fill('Estorno Geladeira E2E');
+  await refundDialog.locator('#tx-category-select').selectOption('cat-casa-decoracao');
+  await refundDialog.getByTestId('tx-submit-btn').click();
+  await refundDialog.waitFor({ state: 'detached' });
+  await page.waitForTimeout(2500);
+  const afterRefund = await page.evaluate(async () => {
+    const token = localStorage.getItem('minhas_economias_auth_token_v1');
+    const response = await fetch('/api/workspace', { headers: { Authorization: `Bearer ${token}` } });
+    const { payload } = await response.json();
+    return JSON.parse(payload.transactionsJson).filter((tx) => tx.creditCardId);
+  });
+  const refunds = afterRefund.filter((tx) => tx.isCardRefund);
+  assert.equal(refunds.length, 1, 'um estorno gravado');
+  assert.equal(refunds[0].amount, -40);
+  assert.equal(refunds[0].status, 'pending');
+  const netTotal = Math.round(afterRefund.reduce((sum, tx) => sum + tx.amount * 100, 0)) / 100;
+  assert.equal(netTotal, 260, 'compras de R$ 300 menos o estorno de R$ 40');
+  console.log('PASS: o estorno de R$ 40 foi guardado como valor negativo e a fatura líquida ficou em R$ 260,00');
+
   // Viagens: cria uma viagem e abre a página dela (lista -> viagem -> subtelas).
   await page.getByRole('button', { name: 'Viagens & Câmbio', exact: true }).first().click();
   await page.getByRole('button', { name: 'Criar Primeira Viagem' }).click();

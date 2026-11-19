@@ -5,21 +5,53 @@ import type { TransactionFormContext } from './transactionFormContext';
 export function TransactionRecurrenceFields({ form }: { form: TransactionFormContext }) {
   const {
     amountMode,
+    editingTransaction,
     entryMode,
     fixedMonthsCount,
     installmentTotal,
+    isCardRefund,
     recurrence,
     setAmountMode,
     setFixedMonthsCount,
     setInstallmentTotal,
+    setIsCardRefund,
+    setIsShared,
+    setIsTripLinked,
     setRecurrence,
     status,
   } = form;
   return (
     <>
+{entryMode === 'credit_card' && !editingTransaction && (
+                  <label
+                    data-testid="card-refund-toggle"
+                    className="flex items-start gap-2.5 rounded-xl border border-sky-200 dark:border-sky-900/60 bg-sky-50/70 dark:bg-sky-950/30 p-3 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isCardRefund}
+                      onChange={(event) => {
+                        setIsCardRefund(event.target.checked);
+                        if (event.target.checked) {
+                          // Estorno é à vista, sem divisão e fora de viagem.
+                          setRecurrence('single');
+                          setIsShared(false);
+                          setIsTripLinked(false);
+                        }
+                      }}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-sky-900 dark:text-sky-200">Estorno / devolução de compra</span>
+                      <span className="block text-[11px] text-sky-800 dark:text-sky-300">
+                        Reduz a fatura, libera o limite e diminui o gasto da categoria. Informe o valor devolvido (sempre positivo).
+                      </span>
+                    </span>
+                  </label>
+                )}
 {/* Frequency / Recurrence Selector
                     CRITICAL RULE: "Parcelado (2x a 48x)" ONLY appears when entryMode === 'credit_card'! */}
-                {(
+                {!isCardRefund && (
                   <div
                     data-testid="main-recurrence-selector"
                     className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3 space-y-2.5"

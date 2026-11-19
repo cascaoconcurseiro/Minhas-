@@ -39,6 +39,7 @@ export function buildTransactionFormActions(ctx: TransactionModalPropsApi & Tran
     iofPercentStr,
     isMultiCurrencyOpen,
     isPaidByCompanion,
+    isCardRefund,
     isShared,
     isTripLinked,
     legacyInstallmentTotalUnknown,
@@ -300,6 +301,7 @@ export function buildTransactionFormActions(ctx: TransactionModalPropsApi & Tran
           ? 'income'
           : 'expense',
       status: entryMode === 'credit_card' ? 'pending' : status,
+      isCardRefund: entryMode === 'credit_card' && isCardRefund && !editingTransaction ? true : undefined,
       categoryId:
         entryMode === 'transfer'
           ? isCardBillSettlement
@@ -338,7 +340,7 @@ export function buildTransactionFormActions(ctx: TransactionModalPropsApi & Tran
       notes: notes.trim() || undefined,
       tags: finalTags.length > 0 ? finalTags : undefined,
       isShared:
-        !activeMultiCurrency && entryMode !== 'income' && entryMode !== 'transfer'
+        !activeMultiCurrency && entryMode !== 'income' && entryMode !== 'transfer' && !isCardRefund
           ? isShared
           : false,
       sharedMemberId:

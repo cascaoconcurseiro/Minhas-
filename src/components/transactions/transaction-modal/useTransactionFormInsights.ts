@@ -43,6 +43,7 @@ export function useTransactionFormInsights(ctx: TransactionModalPropsApi & Trans
     isMultiCurrencyOpen,
     isOpen,
     isPaidByCompanion,
+    isCardRefund,
     isShared,
     isTripLinked,
     legacyInstallmentTotalUnknown,
@@ -408,11 +409,12 @@ export function useTransactionFormInsights(ctx: TransactionModalPropsApi & Trans
   ]);
 
   const amountWarning = useMemo(() => {
-    if (editingTransaction || entryMode === 'income' || entryMode === 'transfer') return null;
+    if (editingTransaction || entryMode === 'income' || entryMode === 'transfer' || isCardRefund) return null;
     return assessAmount(deferredDescription, deferredNumericPreview, transactions);
-  }, [deferredDescription, deferredNumericPreview, transactions, entryMode, editingTransaction]);
+  }, [deferredDescription, deferredNumericPreview, transactions, entryMode, editingTransaction, isCardRefund]);
 
   const duplicateWarning = useMemo(() => {
+    if (isCardRefund) return null;
     if (transferSubMode === 'card_bill_payment' && entryMode === 'transfer') return null;
     return findProbableDuplicate(
       {
@@ -426,11 +428,11 @@ export function useTransactionFormInsights(ctx: TransactionModalPropsApi & Trans
       transactions,
       editingTransaction?.id
     );
-  }, [deferredDescription, deferredNumericPreview, date, transactions, entryMode, transferSubMode, accountId, destinationAccountId, editingTransaction]);
+  }, [deferredDescription, deferredNumericPreview, date, transactions, entryMode, transferSubMode, accountId, destinationAccountId, editingTransaction, isCardRefund]);
 
   // Avisos (não bloqueiam): saldo da conta que ficaria negativo e compra acima do limite do cartão.
   const spendingWarning = useMemo(() => {
-    if (!(numericPreview > 0) || (selectedTrip && isPaidByCompanion)) return null;
+    if (!(numericPreview > 0) || isCardRefund || (selectedTrip && isPaidByCompanion)) return null;
     if (isShared && sharedPaidBy === 'member' && entryMode !== 'transfer') return null;
     if (entryMode === 'credit_card') {
       const card = cards.find((c) => c.id === creditCardId);
@@ -463,7 +465,7 @@ export function useTransactionFormInsights(ctx: TransactionModalPropsApi & Trans
     numericPreview, entryMode, cards, creditCardId, recurrence, installmentTotal, amountMode,
     transactions, date, editingTransaction, selectedTrip, isPaidByCompanion, selectedPaymentAccount,
     accounts, status, isShared, sharedPaidBy,
-  ]);
+  , isCardRefund]);
 
   const dateWarning = useMemo(
     () =>
@@ -546,7 +548,7 @@ export function useTransactionFormInsights(ctx: TransactionModalPropsApi & Trans
   };
 
   const liveBudgetImpact = useMemo(() => {
-    if (entryMode === 'income' || entryMode === 'transfer' || !categoryId || numericPreview <= 0 || (selectedTrip && isPaidByCompanion)) {
+    if (entryMode === 'income' || entryMode === 'transfer' || isCardRefund || !categoryId || numericPreview <= 0 || (selectedTrip && isPaidByCompanion)) {
       return null;
     }
     const domesticSharing = isShared && !((isTripLinked || isMultiCurrencyOpen) && (originalCurrency !== 'BRL' || Boolean(tripId)));
@@ -581,7 +583,7 @@ export function useTransactionFormInsights(ctx: TransactionModalPropsApi & Trans
     editingTransaction,
     selectedMonth,
     budgetWarningPercent,
-  ]);
+  , isCardRefund]);
 
   const availableTagSuggestions = useMemo(() => {
     const allSuggested = extractAvailableTransactionTags(transactions, true);

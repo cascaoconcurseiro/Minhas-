@@ -22,7 +22,7 @@ Antes de qualquer entrega: **lint + testes + build** verdes **e** HANDOFF atuali
 | Servidor/API | `backend/*.test.ts` | auth, família, saúde, SMTP, passkeys |
 | PostgreSQL real | `scripts/qa-postgres.ts` (CI) | RLS, acertos, concorrência |
 | Propriedades (fuzz) | `src/domain/finance/propertyFuzz.test.ts` | rateio de viagem, dívidas, saldos |
-| Navegador real (ponta a ponta) | `scripts/e2e-browser.mjs` (manual, ainda fora do CI) | criar conta, conta bancária, despesa, recarregar do banco, extrato, sair/entrar, celular 390 px |
+| Navegador real (ponta a ponta) | `scripts/e2e-browser.mjs` (manual, ainda fora do CI) | criar conta, conta bancária, despesa, recarregar do banco, extrato, cartão com compra parcelada e estorno (conferidos pela API), viagem, sair/entrar, celular 390 px |
 
 Ambiente de teste: `node:test` via `bun test`, DOM simulado com happy-dom (`src/test-utils`).
 

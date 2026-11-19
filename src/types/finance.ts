@@ -135,6 +135,11 @@ export interface Transaction {
   settledInvoiceMonth?: string; // Invoice month settled; competenceMonth remains the bank cash-out month
   invoicePaymentId?: string; // Invoice payment that settled this card purchase row
   partialSplitOriginalId?: string; // Original card transaction ID when split by partial invoice payment
+  /**
+   * Estorno/devolução no cartão: despesa com valor NEGATIVO que reduz a fatura, libera o limite e reduz o gasto da
+   * categoria. Só existe no cartão, à vista, sem divisão nem viagem. Criado por `createTransactionBatch`.
+   */
+  isCardRefund?: boolean;
   /** Fatura (AAAA-MM) de onde este lançamento foi levado para a fatura seguinte depois de um pagamento parcial. */
   carriedFromInvoiceMonth?: string;
   /** Encargo (juros, IOF) cobrado por levar o saldo da fatura desse mês (AAAA-MM) para a próxima. */

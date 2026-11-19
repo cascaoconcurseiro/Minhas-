@@ -53,6 +53,8 @@ export function useTransactionFormState(ctx: TransactionModalPropsApi) {
   // Progressive disclosure toggle switch states (Liga/Desliga)
   const [isTripLinked, setIsTripLinked] = useState<boolean>(false);
   const [isShared, setIsShared] = useState<boolean>(false);
+  // Estorno/devolução no cartão (reduz a fatura). Só em lançamento novo de cartão, à vista.
+  const [isCardRefund, setIsCardRefund] = useState<boolean>(false);
   const [sharedMemberId, setSharedMemberId] = useState<string>('');
   const [sharedPaidBy, setSharedPaidBy] = useState<'me' | 'member'>('me');
   const [sharedSplitMode, setSharedSplitMode] =
@@ -219,6 +221,7 @@ export function useTransactionFormState(ctx: TransactionModalPropsApi) {
     isMultiCurrencyOpen,
     isNotesOpen,
     isPaidByCompanion,
+    isCardRefund,
     isShared,
     isTripLinked,
     legacyInstallmentTotalUnknown,
@@ -269,6 +272,7 @@ export function useTransactionFormState(ctx: TransactionModalPropsApi) {
     setIsInvoiceMonthOverrideOpen,
     setIsMultiCurrencyOpen,
     setIsNotesOpen,
+    setIsCardRefund,
     setIsShared,
     setIsTripLinked,
     setLegacyInstallmentTotalUnknown,

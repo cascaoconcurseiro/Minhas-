@@ -17,6 +17,13 @@ function isSafeMoneyValue(
   return !requireExactCents || Math.abs(value - cents / 100) < 1e-7;
 }
 
+/** Estorno no cartão: o único lançamento que pode ter valor negativo (e só se for despesa de cartão). */
+function isCardRefundItem(item: Record<string, unknown>): boolean {
+  return item.isCardRefund === true && item.type === 'expense' &&
+    typeof item.creditCardId === 'string' && item.creditCardId.length > 0 &&
+    typeof item.amount === 'number' && item.amount < 0;
+}
+
 function isValidYearMonth(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
@@ -149,7 +156,7 @@ function validateFinancialItem(item: Record<string, unknown>, field: string): bo
       moneyField in item &&
       !isSafeMoneyValue(
         item[moneyField],
-        moneyField === 'initialBalance',
+        moneyField === 'initialBalance' || (moneyField === 'amount' && isCardRefundItem(item)),
         centPrecisionFields.has(moneyField)
       )
     ) {
@@ -160,7 +167,7 @@ function validateFinancialItem(item: Record<string, unknown>, field: string): bo
   if (field === 'transactionsJson' && 'type' in item) {
     if (
       !['income', 'expense', 'transfer'].includes(String(item.type)) ||
-      !isSafeMoneyValue(item.amount, false) ||
+      !isSafeMoneyValue(item.amount, isCardRefundItem(item)) ||
       !isValidISODate(item.date) ||
       !isValidYearMonth(item.competenceMonth) ||
       !['paid', 'pending'].includes(String(item.status))
@@ -291,7 +298,7 @@ export function validateWorkspaceConsistency(input: {
       !['income', 'expense', 'transfer'].includes(String(raw.type)) ||
       typeof raw.description !== 'string' ||
       typeof raw.categoryId !== 'string' || !raw.categoryId ||
-      !isSafeMoneyValue(raw.amount, false) ||
+      !isSafeMoneyValue(raw.amount, isCardRefundItem(raw)) ||
       !isValidISODate(raw.date) ||
       !isValidYearMonth(raw.competenceMonth) ||
       !['paid', 'pending'].includes(String(raw.status))

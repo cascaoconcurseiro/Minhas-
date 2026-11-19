@@ -1344,7 +1344,7 @@ export function runFinancialIntegrityAudit(params: {
       !t.id ||
       typeof t.amount !== 'number' ||
       Number.isNaN(t.amount) ||
-      t.amount < 0 ||
+      (t.amount < 0 && !t.isCardRefund) ||
       !/^\d{4}-\d{2}-\d{2}$/.test(t.date || '') ||
       !/^\d{4}-\d{2}$/.test(t.competenceMonth || '')
   );
@@ -1715,7 +1715,7 @@ export function sanitizeAndRepairFinancialState(params: {
       }
 
       // Ensure non-negative amount
-      if (typeof nextTx.amount !== 'number' || Number.isNaN(nextTx.amount) || nextTx.amount < 0) {
+      if (typeof nextTx.amount !== 'number' || Number.isNaN(nextTx.amount) || (nextTx.amount < 0 && !nextTx.isCardRefund)) {
         nextTx.amount = Math.abs(Number(nextTx.amount) || 0);
         modified = true;
       }

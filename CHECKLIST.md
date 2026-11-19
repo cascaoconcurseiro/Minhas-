@@ -7,7 +7,9 @@
 Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento · **[Decidir]** precisa de decisão do dono.
 
 ## A. Próximas entregas
-- [ ] **[Dev]** L5 Estorno/crédito no cartão (decidido: reduz a fatura, libera o limite e reduz a despesa da categoria; ainda não implementado). Exige liberar valor de crédito na fatura sem a rotina de reparo tratá-lo como dado corrompido. ([avaliação](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md))
+- [x] **[Dev]** L5 Estorno no cartão implementado em 19/11.
+- [ ] **[Dev]** Estorno maior que a fatura (líquido ≤ 0): levar o crédito para a fatura seguinte.
+- [ ] **[Dev]** Conferir no navegador real o interruptor de estorno em celular (iPhone/Safari) e o painel "Levar para a próxima fatura".
 - [x] **[Decidir]** L6 e L7 decididos e implementados em 19/11 (restante para a próxima fatura; saldo inicial com data).
 - [ ] **[Dev]** Conferir no navegador real o painel "Levar para a próxima fatura" e o campo "Saldo inicial vale desde".
 - [ ] **[Dev]** Levar `scripts/e2e-browser.mjs` para o CI (precisa autorizar o Playwright como dependência de desenvolvimento) e ampliar para cartão, viagem, família e backup.

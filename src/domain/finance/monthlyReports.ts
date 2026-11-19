@@ -192,10 +192,11 @@ export function calculateCategoryBreakdown(
         .filter((item) => item.effectiveStatus === 'pending')
         .reduce((sum, item) => sum + item.effectiveAmount, 0);
       const spent = Math.round((realizedSpent + pendingSpent) * 100) / 100;
+      // Categoria com estorno maior que o gasto do mês fica com valor negativo (crédito); os percentuais não descem de 0.
       const percentOfBudget =
-        cat.monthlyBudget > 0 ? Math.round((spent / cat.monthlyBudget) * 1000) / 10 : 0;
+        cat.monthlyBudget > 0 ? Math.max(0, Math.round((spent / cat.monthlyBudget) * 1000) / 10) : 0;
       const percentOfTotalExpense =
-        totalMonthExpense > 0 ? Math.round((spent / totalMonthExpense) * 1000) / 10 : 0;
+        totalMonthExpense > 0 ? Math.max(0, Math.round((spent / totalMonthExpense) * 1000) / 10) : 0;
 
       let status: 'ok' | 'warning' | 'over' = 'ok';
       if (cat.monthlyBudget > 0) {
@@ -361,6 +362,8 @@ export function calculatePeriodReport(
         count: txs.length,
       };
     })
+    // Categoria cujo estorno superou o gasto no período fica fora das fatias (o total já considera o estorno).
+    .filter((slice) => slice.amount > 0)
     .sort((a, b) => b.amount - a.amount);
 
   // Group incomes by category/source

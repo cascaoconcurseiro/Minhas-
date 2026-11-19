@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-19 — Estorno no cartão (L5)
+- **O que mudou:** `Transaction.isCardRefund`: o estorno/devolução é uma despesa de cartão com **valor negativo**, criada pelo interruptor "Estorno / devolução de compra" no lançamento de cartão. Reduz a fatura, libera o limite, reduz a despesa da categoria e do DRE no mês do estorno, e o pagamento da fatura (total/parcial) e o desfazer passam a usar o valor líquido. O servidor, a validação de backup e a rotina de reparo aceitam valor negativo **só** com a marca, em despesa de cartão. Estorno não é editável nem duplicável. Gráficos e percentuais por categoria não mostram valor negativo. Os avisos de duplicado/valor alto/limite/orçamento não disparam para estorno.
+- **Por quê:** terceira das decisões delegadas pelo dono (L5), recomendada na avaliação da lógica financeira.
+- **Arquivos/áreas:** `src/types/finance.ts`, `src/domain/finance/{transactionBatch,transactionOperations,cashFlowCalendar,monthlyReports}.ts`, `src/domain/trips/travelRules.ts` (auditoria e reparo), `src/services/workspace/workspacePayload.ts`, formulário (`transaction-modal/` estado, efeitos, avisos, envio e `TransactionRecurrenceFields`), `scripts/e2e-browser.mjs`; testes `cardRefund.test.ts` (8) e 2 no `TransactionModal.test.tsx`.
+- **Como foi verificado:** `bun run check`; no Chromium real com servidor e PostgreSQL locais: estorno de R$ 40 numa fatura de R$ 300 guardado como −40 pelo servidor e fatura líquida de R$ 260; cenários de domínio: fatura, limite, categoria, DRE, resumo mensal, pagar total, pagar parcial, desfazer pagamento, validação do servidor e reparo.
+- **Não verificado:** estorno maior que a fatura (líquido ≤ 0: o crédito fica pendente e ainda não vai para a fatura seguinte; no CHECKLIST); o interruptor em iPhone/Safari; relatórios em PDF com estorno.
+- **Impacto em dados/Neon:** nenhum (campo opcional novo, sem migração; nenhum dado real tem estorno).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3.2), avaliação da lógica financeira, testes e qualidade, CHECKLIST e este HANDOFF.
+- **Próximo passo:** conferir o fluxo no celular real; tratar estorno maior que a fatura.
+
 ### 2026-11-19 — Verificação completa e limpeza final
 - **O que mudou:** removido código morto que a divisão dos arquivos deixou à vista: `isPasskeyCancellation`, `isUpdatePending`, `refreshAuthUser`, `loadNeonSharedTransactions`, o tipo `SwipeState`, `shouldCancelLongPress` e `calculateTargetScrollTopForExpansion` (os dois últimos com seus testes). Documentação alinhada ao código novo (arquitetura, API, estrutura, segurança, testes). `PASSKEY_RP_ID` e `PASSKEY_ORIGIN`, lidas pelo servidor, agora constam em `.env.example` e em `docs/operacao/deploy-e-ambientes.md`. Nota de segurança sobre a auditoria de dependências.
 - **Por quê:** pedido do dono de verificação completa e correção de tudo o que aparecesse.
