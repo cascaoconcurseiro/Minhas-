@@ -45,7 +45,7 @@ Todos são strings JSON validadas pelo servidor como arrays/objetos antes de gra
 | `tripsJson`, `familyMembersJson`, `settingsJson` | Viagens, contatos familiares e preferências |
 | `sharedSettlementReceiptsJson` | Recibos bancários locais de acertos compartilhados |
 
-**Regra**: acrescentar um campo opcional ao payload **não** exige migração SQL; o servidor só precisa aceitá-lo (`backend/app.ts`).
+**Regra**: acrescentar um campo opcional ao payload **não** exige migração SQL; o servidor só precisa aceitá-lo (`backend/workspaceRequest.ts`).
 
 ## Caminho de acesso
 

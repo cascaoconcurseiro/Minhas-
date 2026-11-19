@@ -66,7 +66,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** A18, A21, A22, A23, A24 (A24 = L5 da avaliação de 19/11): simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
 
 ## E. Dívida técnica (sem mudar comportamento)
-- [ ] **[Dev]** Dividir `src/components/transactions/TransactionModal.tsx` (~4.600 linhas) por tipo de lançamento.
+- [ ] **[Dev]** Dividir os demais arquivos grandes (1.400–1.900 linhas): `CreditCardsTab`, `InvestmentsTab`, `AccountsTab`, `SettingsModal`, `travelRules.ts`, `SharedExpensesTab`, `OverviewTab`, `ReportsAndDataTab`, `TransactionsTab`.
 - [ ] **[Dev]** Dividir de novo `src/app/useWorkspaceSync.ts` (~1.170 linhas): login × gravação × convites.
-- [ ] **[Dev]** Dividir `backend/app.ts` (~1.500 linhas) em uma rota por arquivo.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

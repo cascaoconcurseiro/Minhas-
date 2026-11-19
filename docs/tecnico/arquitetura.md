@@ -38,7 +38,7 @@ flowchart TD
 | Orquestração | Estado do workspace, handlers, sincronização, desfazer | `src/App.tsx`, `src/services/workspace` |
 | Regras de negócio | Cálculos e decisões puras, testáveis sem tela | `src/domain` |
 | Acesso a dados (cliente) | Chamadas à API, cópia local somente leitura | `src/lib`, `src/services` |
-| API | Autenticação, workspace, família, câmbio, cotações, e-mail | `backend/app.ts` (+ `api/` na Vercel) |
+| API | Autenticação, workspace, família, câmbio, cotações, e-mail | `backend/app.ts` e `backend/routes/` (+ `api/` na Vercel) |
 | Banco | Persistência e isolamento por usuário | Neon PostgreSQL + `db/migrations` |
 
 ## Decisões de arquitetura permanentes

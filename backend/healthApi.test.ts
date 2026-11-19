@@ -224,5 +224,5 @@ test('na Vercel o servidor confia no proxy para enxergar o IP real do cliente', 
 
 test('o pool do Neon trata erro de conexão ociosa (senão o processo cai)', async () => {
   const { readFileSync } = await import('node:fs');
-  assert.match(readFileSync('backend/app.ts', 'utf8'), /neonPool\.on\('error'/);
+  assert.match(readFileSync('backend/database.ts', 'utf8'), /neonPool\.on\('error'/);
 });

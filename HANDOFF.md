@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-19 — TripsTab.tsx (3.063 → 337 linhas) e backend/app.ts (1.595 → 170 linhas) divididos
+- **O que mudou:** (1) Aba Viagens em `src/components/trips/trips-tab/`: 4 hooks de lógica e 12 componentes de tela; as subtelas recebem um contexto em que viagem ativa e resumo nunca são nulos. (2) Servidor: `backend/app.ts` virou o índice que registra, em ordem, 7 arquivos de rotas em `backend/routes/` e 5 módulos de apoio (`database`, `authUser`, `workspaceRequest`, `familyHelpers`, `marketData`, mais o tipo SMTP). Comentários e código movidos sem alteração; o teste da saúde do pool passou a ler `backend/database.ts`. (3) O e2e agora também cria uma viagem e abre a página dela.
+- **Por quê:** pedido do dono de refatoração completa dos arquivos grandes.
+- **Arquivos/áreas:** `src/components/trips/`, `backend/` (app.ts, routes/, 6 módulos novos), `backend/healthApi.test.ts`, `scripts/e2e-browser.mjs`.
+- **Como foi verificado:** tipagem, 791 testes, build; `scripts/qa-postgres.ts` completo em PostgreSQL 16 descartável (RLS, convites, compartilhados, concorrência, chaves da migração 011); servidor empacotado com esbuild como na Vercel respondendo `/api/status` 200, `/api/nada` 404 JSON e `/api/workspace` 401; e2e no Chromium com cartão parcelado e viagem, sem erro de JavaScript.
+- **Não verificado:** a Vercel com esta versão; subtelas de câmbio e acerto de viagem no navegador real (só testes de componente); o modo cru do Node não serve de referência (o projeto já tinha imports de `src/domain` sem extensão que a Vercel resolve ao empacotar).
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, `api.md`, `arquitetura.md`, `banco-de-dados.md`, este HANDOFF.
+- **Próximo passo:** implementar L5–L7 (regras de estorno, pagamento parcial e saldo inicial); depois dividir os demais arquivos de 1.400–1.900 linhas.
+
 ### 2026-11-19 — TransactionModal.tsx dividido (4.666 → 250 linhas) e e2e com cartão parcelado
 - **O que mudou:** o formulário de lançamento foi dividido em `src/components/transactions/transaction-modal/`: 4 hooks de lógica, 1 função de ações sem hooks, 12 componentes de tela e arquivos de configuração e contexto (maior arquivo: 617 linhas). Código movido sem alteração por gerador que conferiu a ordem de declaração e dos 10 efeitos. O teste `scripts/e2e-browser.mjs` agora cadastra cartão e lança compra de R$ 300 em 3x, e confere pela API do app que o servidor guardou 3 parcelas de R$ 100 em 3 faturas diferentes.
 - **Por quê:** pedido do dono de refatoração completa dos arquivos grandes.

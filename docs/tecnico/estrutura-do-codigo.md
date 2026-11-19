@@ -10,6 +10,10 @@ Mapa de pastas e regras de onde cada coisa deve ficar. Atualizado em 2026-11-15,
 ├── docs/                    # documentação oficial (ver docs/README.md)
 ├── src/                     # aplicativo (React + TypeScript)
 ├── backend/                 # servidor Express (rotas, sessão, banco)
+│   ├── app.ts               # monta o servidor: registra as rotas em ordem, 404 da API, páginas e erros
+│   ├── routes/              # uma rota por assunto: authRoutes (login, passkeys), guards (proteção e limites),
+│   │                        #   workspaceRoutes, familyRoutes, healthRoutes, marketDataRoutes, reminderRoutes
+│   └── database.ts · authUser.ts · workspaceRequest.ts · familyHelpers.ts · marketData.ts   # apoio das rotas
 ├── api/                     # adaptadores finos que expõem o servidor como funções da Vercel
 ├── shared/                  # código usado pelo front e pelo servidor (identidade do workspace)
 ├── db/migrations/           # migrações SQL do Neon (001…011), em ordem
@@ -99,6 +103,8 @@ Convenções:
 - **Imports relativos** (`../../types/finance`). Regra de dependência: `components` pode importar `domain`, `services`, `lib`, `hooks`, `utils`; `domain` **não** importa `components` nem `lib`; `domain` pode importar outro `domain`.
 - **Regra de dinheiro mora em `src/domain/`**, no arquivo do assunto (ver a árvore acima). Código novo importa do arquivo do assunto; `financeRules.ts` continua reexportando tudo para os imports antigos. Tela nunca recalcula regra por conta própria.
 - **Formulário de lançamento (`src/components/transactions/transaction-modal/`)**: `TransactionModal.tsx` (~250 linhas) só junta as partes. A lógica fica em 4 hooks (`useTransactionFormState` campos, `useTransactionFormEffects` abrir/editar e câmbio, `useTransactionFormHandlers` ações de viagem/moeda/familiar/modo, `useTransactionFormInsights` sugestões, avisos e impacto no orçamento) e numa função sem hooks (`buildTransactionFormActions`, roda depois do retorno antecipado de janela fechada). A tela fica em componentes: `TransactionModalHeader`, `TransactionFormNotices`, `TransactionAmountSection`, `TransactionCoreFields` (+ `TransactionTransferFields`, `TransactionCategoryAccountFields`, `TransactionRecurrenceFields`), `TransactionTagsSection`, `TransactionExtrasSection` (+ `TransactionTripCard`, `TransactionSharedCard`, `TransactionNotesCard`) e `TransactionModalFooter`. Mesma regra do App: hook novo só depois dos que ele usa, e nenhum hook depois do retorno antecipado.
+- **Aba Viagens (`src/components/trips/trips-tab/`)**: `TripsTab.tsx` (~340 linhas) mantém as duas telas curtas (sem viagem e lista) e monta a página da viagem. Lógica em 4 hooks (`useTripsState`, `useTripsDerived`, `useTripsActions`, `useTripsModals`); tela em `TripTopBar`, `TripHeaderCard`, `TripConverterAndKpis`, `TripSubNav`, 4 subtelas (`TripSpendView`, `TripGroupSplitView`, `TripFxWalletView`, `TripHowItWorksView`) e duas partes de janelas. As subtelas recebem `TripPageContext`, onde viagem ativa e resumo nunca são nulos.
+- **Servidor (`backend/routes/`)**: cada arquivo exporta `registerXxx(app, ctx)`; `backend/app.ts` os chama **na ordem certa** (autenticação → proteções → workspace → família → saúde → câmbio/cotações → e-mail → 404 da API). Mudar a ordem muda quem protege quem. Todo import relativo mantém a extensão `.ts` (teste `runtimeImports`) e import de tipo usa `import type`.
 - **Hooks do App (`src/app/`)**: cada hook recebe tudo o que os anteriores devolveram e devolve só o que os seguintes ou a tela usam. Não chamar um hook dentro de `if`; não mudar a ordem das chamadas em `App.tsx` sem conferir a ordem dos efeitos (gravação no Neon depende dela). Ação nova vai para o hook da área; se precisar de algo de um hook posterior, mova a declaração para antes.
 - Nome de arquivo em inglês técnico (`financeRules.ts`), textos de tela em português do Brasil.
 
@@ -107,7 +113,5 @@ Convenções:
 | Arquivo | Linhas | Observação |
 |---|---|---|
 | `src/app/useWorkspaceSync.ts` | ~1.170 | Sincronização com o Neon; pode ser dividido de novo (login × gravação × convites) |
-| `src/components/trips/TripsTab.tsx` | ~3.000 | Tela de viagens |
-| `backend/app.ts` | ~1.500 | Rotas Express; candidato a dividir por rota |
 
 Itens registrados em `CHECKLIST.md` (seção Dívida técnica). Dividir só com testes passando antes e depois e **sem mudar comportamento**.

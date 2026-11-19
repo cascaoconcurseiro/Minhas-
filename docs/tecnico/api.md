@@ -1,6 +1,6 @@
 # API REST — Minhas Economias
 
-> Descreve as rotas do servidor (`backend/app.ts`). Para visão geral de arquitetura veja [arquitetura.md](./arquitetura.md); para as regras de cálculo, [../produto/regras-de-negocio.md](../produto/regras-de-negocio.md). Atualizado em 2026-11-15.
+> Descreve as rotas do servidor (`backend/app.ts` e `backend/routes/`). Para visão geral de arquitetura veja [arquitetura.md](./arquitetura.md); para as regras de cálculo, [../produto/regras-de-negocio.md](../produto/regras-de-negocio.md). Atualizado em 2026-11-15.
 
 ## 1. Visão geral (diagrama)
 

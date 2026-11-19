@@ -138,6 +138,22 @@ try {
   assert.ok(saved.every((tx) => tx.status === 'pending' && tx.paymentMethod === 'credit_card'));
   console.log('PASS: o servidor guardou 3 parcelas de R$ 100,00 em 3 faturas diferentes');
 
+  // Viagens: cria uma viagem e abre a página dela (lista -> viagem -> subtelas).
+  await page.getByRole('button', { name: 'Viagens & Câmbio', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Criar Primeira Viagem' }).click();
+  await page.fill('#trip-form-name', 'Lisboa E2E');
+  await page.fill('#trip-form-destination', 'Lisboa');
+  await page.selectOption('#trip-form-currency', 'EUR');
+  await page.fill('#trip-form-start-date', '2027-03-10');
+  await page.fill('#trip-form-end-date', '2027-03-20');
+  await page.fill('#trip-form-budget', '1500');
+  await page.getByRole('button', { name: 'Criar Viagem', exact: true }).click();
+  await page.locator('text=Lisboa E2E >> visible=true').first().waitFor();
+  console.log('PASS: criou a viagem Lisboa E2E (EUR)');
+  await page.locator('text=Lisboa E2E >> visible=true').first().click();
+  await page.getByTestId('trip-dedicated-page').waitFor();
+  console.log('PASS: abriu a página da viagem');
+
   await page.getByRole('button', { name: 'Sair da conta' }).first().click();
   await page.getByRole('button', { name: /Entrar na Conta/i }).first().waitFor();
   await page.fill('input[name=email]', email);
