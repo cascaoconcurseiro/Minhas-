@@ -10,7 +10,7 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Decidir]** L5 Estorno/crédito no cartão: reduzir a despesa da categoria (recomendado) ou contar como receita? ([avaliação](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md))
 - [ ] **[Decidir]** L6 Pagamento parcial de fatura: levar o restante para a próxima fatura com juros/encargos opcionais?
 - [ ] **[Decidir]** L7 Saldo inicial da conta com data de abertura?
-- [ ] **[Dev]** Testes de ponta a ponta (navegador) dos fluxos principais antes de dividir `App.tsx` e `TransactionModal.tsx`.
+- [ ] **[Dev]** Levar `scripts/e2e-browser.mjs` para o CI (precisa autorizar o Playwright como dependência de desenvolvimento) e ampliar para cartão, viagem, família e backup.
 - [ ] **[Dono]** Abrir o app e salvar/apagar um lançamento para confirmar a gravação após a migração 011.
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).
 - [ ] **[Decidir]** O servidor deve enviar os compartilhados sozinho no momento em que o convite é aceito (hoje depende do app de quem convidou abrir)?
@@ -67,6 +67,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 
 ## E. Dívida técnica (sem mudar comportamento)
 - [ ] **[Dev]** Dividir `src/components/transactions/TransactionModal.tsx` (~4.600 linhas) por tipo de lançamento.
-- [ ] **[Dev]** Extrair de `src/App.tsx` (~4.600 linhas) hooks por área (valores a receber, cartões, sincronização).
+- [ ] **[Dev]** Dividir de novo `src/app/useWorkspaceSync.ts` (~1.170 linhas): login × gravação × convites.
 - [ ] **[Dev]** Dividir `backend/app.ts` (~1.500 linhas) em uma rota por arquivo.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

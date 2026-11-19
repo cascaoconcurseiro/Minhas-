@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const appSource = readFileSync(new URL('../../App.tsx', import.meta.url), 'utf8');
+// O App foi dividido em hooks (src/app/): o texto conferido aqui é o App mais esses arquivos.
+const appSource = [new URL('../../App.tsx', import.meta.url), ...readdirSync(new URL('../../app/', import.meta.url))
+  .map((name) => new URL(`../../app/${name}`, import.meta.url))].map((file) => readFileSync(file, 'utf8')).join('\n');
 
 test('blocks workspace use and offers a retry until Neon has loaded successfully', () => {
   assert.match(appSource, /!isWorkspaceReadyForCurrentUser/);

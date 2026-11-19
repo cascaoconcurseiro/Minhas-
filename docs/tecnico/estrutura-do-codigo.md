@@ -24,7 +24,16 @@ Mapa de pastas e regras de onde cada coisa deve ficar. Atualizado em 2026-11-15,
 ```text
 src/
 ├── main.tsx                 # ponto de entrada do navegador
-├── App.tsx                  # orquestrador: estado do workspace, handlers, navegação entre telas
+├── App.tsx                  # raiz: chama os hooks de src/app/ em ordem e monta a moldura da tela
+├── app/                     # o App dividido por área (sem mudar comportamento, 2026-11-19)
+│   ├── appConfig.ts / lazyScreens.ts / appContext.ts   # constantes, telas sob demanda, tipo do contexto
+│   ├── useAppState.ts               # estado, navegação, avisos e desfazer
+│   ├── useWorkspaceSync.ts          # login, leitura/gravação no Neon, conflito, tempo real, convites
+│   ├── useReceivables.ts · useFinancialSnapshot.ts · useSharedSync.ts
+│   ├── useTransactionActions.ts · useCardActions.ts · useTripActions.ts
+│   ├── useCategoryAndGoalActions.ts · useFamilyActions.ts · useAccountAndInvestmentActions.ts
+│   ├── useImportAndBackupActions.ts · useNoticesAndInsights.ts · useOsNotifications.ts
+│   └── AppHeader.tsx · AppBanners.tsx · AppTabContent.tsx · AppModals.tsx   # partes da tela
 ├── App.test.tsx             # testes de orquestração do App (usa test-utils)
 ├── index.css                # estilos globais (Tailwind v4)
 ├── types/finance.ts         # contratos TypeScript de todas as entidades
@@ -89,6 +98,7 @@ Convenções:
 - **Teste ao lado do arquivo**: `foo.ts` ↔ `foo.test.ts`.
 - **Imports relativos** (`../../types/finance`). Regra de dependência: `components` pode importar `domain`, `services`, `lib`, `hooks`, `utils`; `domain` **não** importa `components` nem `lib`; `domain` pode importar outro `domain`.
 - **Regra de dinheiro mora em `src/domain/`**, no arquivo do assunto (ver a árvore acima). Código novo importa do arquivo do assunto; `financeRules.ts` continua reexportando tudo para os imports antigos. Tela nunca recalcula regra por conta própria.
+- **Hooks do App (`src/app/`)**: cada hook recebe tudo o que os anteriores devolveram e devolve só o que os seguintes ou a tela usam. Não chamar um hook dentro de `if`; não mudar a ordem das chamadas em `App.tsx` sem conferir a ordem dos efeitos (gravação no Neon depende dela). Ação nova vai para o hook da área; se precisar de algo de um hook posterior, mova a declaração para antes.
 - Nome de arquivo em inglês técnico (`financeRules.ts`), textos de tela em português do Brasil.
 
 ## Arquivos grandes (dívida técnica conhecida)
@@ -96,7 +106,7 @@ Convenções:
 | Arquivo | Linhas | Observação |
 |---|---|---|
 | `src/components/transactions/TransactionModal.tsx` | ~4.600 | Modal único de lançamento; candidato a ser dividido por tipo (despesa/receita/transferência) |
-| `src/App.tsx` | ~4.600 | Estado e handlers; candidato a extrair hooks por área (ex.: valores a receber, cartões) |
+| `src/app/useWorkspaceSync.ts` | ~1.170 | Sincronização com o Neon; pode ser dividido de novo (login × gravação × convites) |
 | `src/components/trips/TripsTab.tsx` | ~3.000 | Tela de viagens |
 | `backend/app.ts` | ~1.500 | Rotas Express; candidato a dividir por rota |
 
