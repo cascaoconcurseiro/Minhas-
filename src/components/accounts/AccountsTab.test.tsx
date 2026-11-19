@@ -143,7 +143,7 @@ test('conta nova guarda a data em que o saldo inicial vale (opcional)', async ()
     setInputValue(dateInput, '2026-11-05');
     form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
   });
-  assert.equal(createdAccount?.initialBalanceDate, '2026-11-05');
+  assert.equal((createdAccount as Omit<BankAccount, 'id'> | null)?.initialBalanceDate, '2026-11-05');
 });
 
 test('international account separates paid foreign expenses from pending balance impact', async () => {
