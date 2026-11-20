@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Seis arquivos médios divididos (regras de investimento, lembretes e extrato; três telas)
+- **O que mudou:** `investmentRules.ts` (987 linhas → 4 módulos), `reminderRules.ts` (933 → 5), `ofxParser.ts` (873 → 4), todos com índice que reexporta e sem ciclo de importação (pequenas funções auxiliares foram para o lado que as usa); `BankReconciliationModal` (902 → 53 linhas na tela), `AuthAndCloudTab` (821 → 64) e `GoalsAndSimulatorTab` (814 → 38) viraram pastas com hooks e blocos de tela. Conteúdo dos três domínios conferido linha a linha (0 linhas a mais ou a menos).
+- **Por quê:** o dono pediu para continuar com os itens que eu tinha deixado de fora.
+- **Arquivos/áreas:** `src/domain/{investments,reminders}/`, `src/services/import-export/`, `src/components/{transactions,auth,budgets}/`.
+- **Como foi verificado:** `bun run check` (817 testes, tipagem, build).
+- **Não verificado:** importar um extrato real no navegador (a janela só tem testes de componente), a aba Conta e Nuvem e a aba Metas por dentro.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** testes de sincronização entre dois aparelhos, depois `useWorkspaceSync`.
+
 ### 2026-11-20 — Regras de viagem e orçamento por assunto; calendário dividido
 - **O que mudou:** `domain/trips/travelRules.ts` (1.838 linhas) virou 7 arquivos por assunto e `domain/budgets/uxEnhancementRules.ts` (1.016) virou 6, ambos com índice que reexporta (nenhum import mudou); conteúdo conferido linha a linha (0 linhas a mais ou a menos). `MonthlyCalendarView.tsx` (1.083) virou pasta com hooks e 5 blocos de tela. `useWorkspaceSync.ts` **não foi dividido** de propósito (motivo em `docs/tecnico/estrutura-do-codigo.md`).
 - **Por quê:** continuação do pedido de dividir os arquivos grandes.

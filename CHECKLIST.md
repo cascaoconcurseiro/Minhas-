@@ -68,5 +68,4 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 
 ## E. Dívida técnica (sem mudar comportamento)
 - [ ] **[Dev]** `src/app/useWorkspaceSync.ts` (~1.170 linhas) segue inteiro de propósito (ver `docs/tecnico/estrutura-do-codigo.md`); só dividir depois de ter testes de ponta a ponta de sincronização (dois aparelhos, conflito, sessão expirada).
-- [ ] **[Dev]** Arquivos entre 700 e 1.000 linhas ainda existem (`investmentRules.ts`, `reminderRules.ts`, `BankReconciliationModal.tsx`, `ofxParser.ts`, `AuthAndCloudTab.tsx`, `GoalsAndSimulatorTab.tsx`): dividir se crescerem.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.
