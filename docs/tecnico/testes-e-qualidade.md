@@ -37,7 +37,7 @@ Roda o app de verdade (Chromium) contra um servidor **local** ligado a um Postgr
 2. `bun run build` e `NODE_ENV=production PORT=3920 DATABASE_URL=postgresql://minhas_app_runtime:<senha>@127.0.0.1:<porta>/neondb?sslmode=disable AUTH_SESSION_SECRET=<32+ caracteres> bun backend/app.ts`.
 3. `E2E_BASE_URL=http://localhost:3920 node scripts/e2e-browser.mjs` (usa o Playwright do projeto).
 
-Roda no CI (job `e2e` em `.github/workflows/ci.yml`: PostgreSQL de serviço, migrações, build, servidor local, os dois scripts). Localmente: `bun run e2e` com o servidor de pé. O Playwright é dependência de desenvolvimento (1.63.0, autorizado pelo dono em 20/11); o Chromium é instalado por `bunx playwright install chromium`.
+**Modo celular:** `E2E_PHONE=1` roda o mesmo roteiro com tela de 390 px, toque e navegador móvel (menu em gaveta) e confere que a página do cartão com o painel de saldo levado não passa da largura. É Chromium emulando celular, **não é o Safari**: WebKit não instala neste ambiente. Roda no CI (job `e2e` em `.github/workflows/ci.yml`: PostgreSQL de serviço, migrações, build, servidor local, os dois scripts). Localmente: `bun run e2e` com o servidor de pé. O Playwright é dependência de desenvolvimento (1.63.0, autorizado pelo dono em 20/11); o Chromium é instalado por `bunx playwright install chromium`.
 
 
 Telas novas são conferidas num navegador de teste (Chromium/Playwright) em 390 px (celular) e desktop. **Nunca verificado**: iPhone/Safari reais, Face ID real, envio real de SMTP, Neon de produção fora de leituras pontuais. Esses itens ficam listados em `HANDOFF.md`.

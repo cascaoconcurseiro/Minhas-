@@ -34,10 +34,21 @@ const password = 'senha-e2e-123';
 const browser = await chromium.launch();
 const errors = [];
 
+// E2E_PHONE=1 roda o roteiro inteiro como celular (390 px, toque, navegador móvel) — não é o Safari, mas pega erro de layout e de toque.
+const phoneMode = process.env.E2E_PHONE === '1';
 async function newPage(viewport) {
-  const page = await (await browser.newContext({ viewport })).newPage();
+  const options = phoneMode ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' } : { viewport };
+  const page = await (await browser.newContext(options)).newPage();
   page.on('pageerror', (error) => errors.push(error.message));
   return page;
+}
+
+// No celular o menu lateral é uma gaveta: abre antes de tocar na tela desejada.
+async function goTab(page, name, options = {}) {
+  // No celular o nome do item inclui a legenda ("Lançamentos Extrato diário…"): casa pelo início.
+  const locate = () => page.getByRole('button', { name: phoneMode ? new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) : name, exact: !phoneMode }).first();
+  if (phoneMode && !(await locate().isVisible().catch(() => false))) await page.getByRole('button', { name: 'Abrir menu lateral' }).first().click();
+  await locate().click(options);
 }
 
 async function waitVisibleText(page, text) {
@@ -93,14 +104,14 @@ try {
   await waitVisibleText(page, '876,55');
   console.log('PASS: depois de recarregar, o saldo é R$ 876,55 (veio do banco)');
 
-  await page.getByRole('button', { name: 'Lançamentos', exact: true }).first().click();
+  await goTab(page, 'Lançamentos');
   // A aba abre no calendário; a lista fica em "Extrato (n)".
   await page.getByRole('button', { name: /^Extrato \(1\)/ }).first().click();
   await page.locator('text=Mercado E2E >> visible=true').first().waitFor();
   console.log('PASS: a despesa aparece no extrato');
 
   // Cartão: cadastra, lança compra parcelada (3x) e confere a fatura de cada parcela.
-  await page.getByRole('button', { name: 'Cartões de Crédito', exact: true }).first().click();
+  await goTab(page, 'Cartões de Crédito');
   await page.getByRole('button', { name: 'Cadastrar Primeiro Cartão' }).click();
   await page.fill('#card-name-input', 'Cartão Teste');
   await page.fill('#card-limit-input', '500000');
@@ -166,7 +177,7 @@ try {
   console.log('PASS: o estorno de R$ 40 foi guardado como valor negativo e a fatura líquida ficou em R$ 260,00');
 
   // Viagens: cria uma viagem e abre a página dela (lista -> viagem -> subtelas).
-  await page.getByRole('button', { name: 'Viagens & Câmbio', exact: true }).first().click();
+  await goTab(page, 'Viagens & Câmbio');
   await page.getByRole('button', { name: 'Criar Primeira Viagem' }).click();
   await page.fill('#trip-form-name', 'Lisboa E2E');
   await page.fill('#trip-form-destination', 'Lisboa');
@@ -182,7 +193,7 @@ try {
   console.log('PASS: abriu a página da viagem');
 
   // Página do cartão: abre a fatura de dezembro (onde caíram as 3 parcelas), paga parte e leva o restante para a próxima.
-  await page.getByRole('button', { name: 'Cartões de Crédito', exact: true }).first().click();
+  await goTab(page, 'Cartões de Crédito');
   await page.getByRole('button', { name: 'Próximo mês' }).first().click();
   await page.getByText('Cartão Teste').first().click();
   await page.getByTestId('card-dedicated-page').waitFor();
@@ -203,6 +214,7 @@ try {
   });
   assert.ok(carried.length >= 1, 'o restante da fatura foi levado para a próxima (guardado no servidor)');
   console.log(`PASS: pagou R$ 50,00 da fatura e levou ${carried.length} lançamento(s) para a próxima fatura`);
+  if (phoneMode) { await noHorizontalScroll(page, "página do cartão com o painel de saldo levado (celular)"); console.log("PASS: no celular a página do cartão com o painel não passa da largura da tela"); }
   await page.getByTestId('carry-over-undo').click();
   await page.getByTestId('carry-over-confirm').waitFor();
   console.log('PASS: desfez o saldo levado e o painel voltou ao estado anterior');
@@ -210,7 +222,7 @@ try {
   // Passeio: abre cada tela do menu e cada aba das Configurações; qualquer erro de JavaScript derruba o teste no fim.
   const menuTabs = ['Visão Geral', 'Lançamentos', 'Contas & Carteiras', 'Cartões de Crédito', 'Orçamentos', 'Viagens & Câmbio', 'Compartilhado', 'A Receber', 'Investimentos', 'Metas & Reservas', 'Relatórios & DRE'];
   for (const name of menuTabs) {
-    await page.getByRole('button', { name, exact: true }).first().click();
+    await goTab(page, name);
     await page.locator('main').first().waitFor();
     await page.waitForTimeout(600);
     const text = (await page.locator('main').first().innerText()).trim();
@@ -229,12 +241,13 @@ try {
   await page.keyboard.press('Escape');
   console.log(`PASS: abriu ${settingsTabs} abas das Configurações sem erro`);
 
+  if (phoneMode) await page.getByRole('button', { name: 'Abrir menu lateral' }).first().click();
   await page.getByRole('button', { name: 'Sair da conta' }).first().click();
   await page.getByRole('button', { name: /Entrar na Conta/i }).first().waitFor();
   await page.fill('input[name=email]', email);
   await page.fill('input[name=password]', password);
   await page.getByRole('button', { name: /^Entrar/i }).last().click();
-  await page.getByRole('button', { name: 'Visão Geral', exact: true }).first().click({ timeout: 15000 });
+  await goTab(page, 'Visão Geral', { timeout: 15000 });
   await waitVisibleText(page, '826,55');
   console.log('PASS: saiu e entrou de novo; os dados continuam (saldo R$ 826,55 depois do pagamento parcial de R$ 50,00)');
 

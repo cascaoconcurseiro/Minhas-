@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Roteiro de navegador também como celular
+- **O que mudou:** `scripts/e2e-browser.mjs` aceita `E2E_PHONE=1` (390 px, toque, navegador móvel, menu em gaveta) e confere a largura da página do cartão com o painel "Levar para a próxima fatura". Roda no CI e em `bun run e2e`.
+- **Por quê:** o dono pediu para fazer a checagem de celular; o Safari real não está disponível aqui.
+- **Arquivos/áreas:** `scripts/e2e-browser.mjs`, `.github/workflows/ci.yml`, `package.json`, `docs/tecnico/testes-e-qualidade.md`.
+- **Como foi verificado:** roteiro completo (estorno, saldo levado e desfeito, 11 telas, configurações, login, sem estourar a largura) passou no modo celular e no modo desktop, contra PostgreSQL local descartável.
+- **Não verificado:** Safari/WebKit de verdade (interruptor de estorno, painel no modo crédito, campo "Saldo inicial vale desde" com o teclado do iPhone); resultado do CI deste commit.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/testes-e-qualidade.md`, este HANDOFF.
+- **Próximo passo:** o dono abrir no iPhone as três telas acima.
+
 ### 2026-11-20 — Remove o aviso de conflito de versões (código morto)
 - **O que mudou:** removidos `WorkspaceConflictModal` (+ teste), o hook `useWorkspaceConflict`, o estado/refs de conflito em `useAppState`, os usos em `useWorkspaceSaving`, `useWorkspaceRealtime`, `useWorkspaceEffects`, `useAuthListener`, `AppModals`, `App.tsx`, `lazyScreens`, e o tipo/função de conflito em `workspaceSyncRecovery`. `useWorkspaceSync` agora chama 9 sub-hooks, na mesma ordem relativa. Nada disso rodava: desde "quem chegou primeiro ao Neon prevalece", nenhum ponto criava o estado de conflito.
 - **Por quê:** o dono pediu para corrigir o achado da entrega anterior; o CI com o job `e2e` já estava verde no `e8137c9`.

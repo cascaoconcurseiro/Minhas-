@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js backend/server.js",
     "lint": "tsc --noEmit",
-    "e2e": "node scripts/e2e-browser.mjs && node scripts/e2e-sync.mjs",
+    "e2e": "node scripts/e2e-browser.mjs && E2E_PHONE=1 node scripts/e2e-browser.mjs && node scripts/e2e-sync.mjs",
     "check:handoff": "bun scripts/check-handoff.ts",
     "check": "bun run lint && bun run test && bun run build && bun run check:handoff",
     "prepare": "git config core.hooksPath .githooks || true"
