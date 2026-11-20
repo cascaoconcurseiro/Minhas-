@@ -124,7 +124,9 @@ export function useCardActions(app: AppStateApi) {
     const prevSnapshot = [...transactions];
     setTransactions(result.transactions);
     showNotice(
-      `${formatBRL(result.carriedAmount)} da fatura de ${card.name} foram levados para a próxima fatura${feeAmount ? ` (mais ${formatBRL(feeAmount)} de encargos)` : ''}.`,
+      result.carriedAmount < 0
+        ? `Crédito de ${formatBRL(Math.abs(result.carriedAmount))} da fatura de ${card.name} levado para a próxima fatura.`
+        : `${formatBRL(result.carriedAmount)} da fatura de ${card.name} foram levados para a próxima fatura${feeAmount ? ` (mais ${formatBRL(feeAmount)} de encargos)` : ''}.`,
       prevSnapshot
     );
   };

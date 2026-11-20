@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Estorno maior que a fatura: crédito levado para a próxima fatura
+- **O que mudou:** quando os estornos passam das compras, a fatura mostra "Com crédito" (nada a pagar) e o painel da fatura oferece "Levar crédito para a próxima" (`invoiceCarryOver.ts`: mesma mecânica do saldo devedor, sem pagamento prévio e sem encargos; desfazer disponível). Fatura zerada exatamente não oferece nada.
+- **Por quê:** item deixado aberto na entrega do estorno (L5).
+- **Arquivos/áreas:** `src/domain/finance/invoiceCarryOver.ts`, `src/components/cards/{InvoiceCarryOverPanel,CreditCardsTab}.tsx`, `src/app/useCardActions.ts`; testes em `invoiceCarryOver.test.ts` e `InvoiceCarryOverPanel.test.tsx`.
+- **Como foi verificado:** `bun run check` (817 testes): crédito de R$ 100 numa fatura de R$ 600 com estorno de R$ 700 vai para janeiro, dezembro zera, desfazer devolve o estado exato; encargos em crédito são recusados.
+- **Não verificado:** o painel de crédito no navegador real e no celular.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (3.2), CHECKLIST, este HANDOFF.
+- **Próximo passo:** dividir os arquivos grandes que restam.
+
 ### 2026-11-19 — Estorno no cartão (L5)
 - **O que mudou:** `Transaction.isCardRefund`: o estorno/devolução é uma despesa de cartão com **valor negativo**, criada pelo interruptor "Estorno / devolução de compra" no lançamento de cartão. Reduz a fatura, libera o limite, reduz a despesa da categoria e do DRE no mês do estorno, e o pagamento da fatura (total/parcial) e o desfazer passam a usar o valor líquido. O servidor, a validação de backup e a rotina de reparo aceitam valor negativo **só** com a marca, em despesa de cartão. Estorno não é editável nem duplicável. Gráficos e percentuais por categoria não mostram valor negativo. Os avisos de duplicado/valor alto/limite/orçamento não disparam para estorno.
 - **Por quê:** terceira das decisões delegadas pelo dono (L5), recomendada na avaliação da lógica financeira.

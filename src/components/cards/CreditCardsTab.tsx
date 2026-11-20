@@ -1116,6 +1116,8 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
               >
                 {activeSummary.isInvoicePaid
                   ? 'Fatura Quitada'
+                  : activeSummary.invoicePendingAmount < 0
+                  ? 'Com crédito'
                   : activeSummary.invoiceTotal === 0
                   ? 'Sem fatura no mês'
                   : 'Em Aberto'}
@@ -1214,7 +1216,7 @@ export const CreditCardsTab: React.FC<CreditCardsTabProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>Fatura Quitada</span>
+                    <span>{activeSummary.invoicePendingAmount < 0 ? 'Fatura com crédito (nada a pagar)' : 'Fatura Quitada'}</span>
                   </div>
                   {cardInvoicePaymentsInMonth.length > 0 && (
                     <button

@@ -19,7 +19,7 @@ interface InvoiceCarryOverPanelProps {
 export const InvoiceCarryOverPanel: React.FC<InvoiceCarryOverPanelProps> = ({ card, invoiceMonth, state, onCarryOver, onUndo }) => {
   const [feeStr, setFeeStr] = useState('');
   const [error, setError] = useState('');
-  if (!state.canCarry && !state.canUndo) return null;
+  if (!state.canCarry && !state.canCarryCredit && !state.canUndo) return null;
   const nextMonthLabel = formatMonthYearPT(addMonthsToYearMonth(invoiceMonth, 1));
 
   return (
@@ -59,10 +59,30 @@ export const InvoiceCarryOverPanel: React.FC<InvoiceCarryOverPanelProps> = ({ ca
           </div>
         </div>
       )}
+      {state.canCarryCredit && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xs font-bold text-amber-950">Esta fatura ficou com crédito — {card.name}</h3>
+            <p className="text-[11px] text-amber-900 mt-0.5">
+              Os estornos passaram das compras: sobraram {formatBRL(state.creditAmount)} a seu favor. Não há nada para pagar. Leve o crédito para a fatura de {nextMonthLabel} para ele abater as próximas compras.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="carry-over-credit-confirm"
+            onClick={() => onCarryOver()}
+            className="rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 whitespace-nowrap"
+          >
+            Levar crédito para a próxima
+          </button>
+        </div>
+      )}
       {state.canUndo && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] text-amber-900">
-            {formatBRL(state.carriedAmount)} desta fatura foram levados para a fatura de {nextMonthLabel}.
+            {state.carriedAmount < 0
+              ? `Crédito de ${formatBRL(Math.abs(state.carriedAmount))} desta fatura foi levado para a fatura de ${nextMonthLabel}.`
+              : `${formatBRL(state.carriedAmount)} desta fatura foram levados para a fatura de ${nextMonthLabel}.`}
           </p>
           <button
             type="button"

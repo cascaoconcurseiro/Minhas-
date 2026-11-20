@@ -43,8 +43,12 @@ function feeLines(card: CreditCard, transactions: Transaction[], invoiceMonth: s
 export interface InvoiceCarryOverState {
   /** Há saldo em aberto e parte da fatura já foi paga: dá para levar o restante. */
   canCarry: boolean;
-  /** Valor em aberto que seria levado. */
+  /** Valor em aberto que seria levado (negativo quando a fatura ficou com crédito). */
   pendingAmount: number;
+  /** A fatura fechou com crédito (estornos maiores que as compras): dá para levar o crédito para a próxima, sem pagar nada. */
+  canCarryCredit: boolean;
+  /** Valor do crédito (positivo), quando houver. */
+  creditAmount: number;
   /** Já existe saldo levado desta fatura e ainda sem pagamento: dá para desfazer. */
   canUndo: boolean;
   /** Valor ainda em aberto que já foi levado desta fatura. */
@@ -58,9 +62,12 @@ export function getInvoiceCarryOverState(card: CreditCard, transactions: Transac
   const carried = carriedLines(card, transactions, invoiceMonth);
   const fees = feeLines(card, transactions, invoiceMonth);
   const stillOpen = [...carried, ...fees].every((tx) => tx.status === 'pending');
+  const net = cents(pending);
   return {
-    canCarry: pending.length > 0 && hasPaymentOnInvoice(card, transactions, invoiceMonth),
-    pendingAmount: cents(pending),
+    canCarry: pending.length > 0 && net > 0 && hasPaymentOnInvoice(card, transactions, invoiceMonth),
+    canCarryCredit: pending.length > 0 && net < 0,
+    creditAmount: net < 0 ? -net : 0,
+    pendingAmount: net,
     canUndo: carried.length > 0 && stillOpen,
     carriedAmount: cents(carried.filter((tx) => tx.status === 'pending')),
   };
@@ -79,8 +86,14 @@ export function carryOverInvoiceBalance(
   if (!isRealYearMonth(invoiceMonth)) return { error: 'Fatura inválida.' };
   const pending = pendingInvoiceLines(card, transactions, invoiceMonth);
   if (pending.length === 0) return { error: 'Não há saldo em aberto nesta fatura.' };
-  if (!hasPaymentOnInvoice(card, transactions, invoiceMonth)) {
+  const netCents = Math.round(cents(pending) * 100);
+  if (netCents === 0) return { error: 'Esta fatura já está zerada: não há o que levar.' };
+  const isCredit = netCents < 0;
+  if (!isCredit && !hasPaymentOnInvoice(card, transactions, invoiceMonth)) {
     return { error: 'Pague uma parte da fatura antes de levar o restante para a próxima.' };
+  }
+  if (isCredit && options.feeAmount !== undefined && options.feeAmount !== 0) {
+    return { error: 'Crédito levado para a próxima fatura não tem encargos.' };
   }
   const feeCents = options.feeAmount === undefined ? 0 : Math.round(options.feeAmount * 100);
   if (options.feeAmount !== undefined && (!Number.isFinite(options.feeAmount) || feeCents < 0 || !Number.isSafeInteger(feeCents))) {

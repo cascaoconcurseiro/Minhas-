@@ -8,7 +8,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 
 ## A. Próximas entregas
 - [x] **[Dev]** L5 Estorno no cartão implementado em 19/11.
-- [ ] **[Dev]** Estorno maior que a fatura (líquido ≤ 0): levar o crédito para a fatura seguinte.
 - [ ] **[Dev]** Conferir no navegador real o interruptor de estorno em celular (iPhone/Safari) e o painel "Levar para a próxima fatura".
 - [x] **[Decidir]** L6 e L7 decididos e implementados em 19/11 (restante para a próxima fatura; saldo inicial com data).
 - [ ] **[Dev]** Conferir no navegador real o painel "Levar para a próxima fatura" e o campo "Saldo inicial vale desde".

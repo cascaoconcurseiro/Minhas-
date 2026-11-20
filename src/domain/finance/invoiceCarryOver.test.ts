@@ -69,3 +69,32 @@ test('depois de pagar a fatura de janeiro não dá para desfazer; precisa estorn
   assert.equal(getInvoiceCarryOverState(card, paidJan, '2026-12').canUndo, false);
   assert.deepEqual(undoInvoiceCarryOver(card, paidJan, '2026-12'), { error: 'Parte do saldo levado já foi paga: estorne esse pagamento antes de desfazer.' });
 });
+
+test('estorno maior que a fatura vira crédito e pode ser levado para a próxima fatura, sem pagar nada e sem encargos', () => {
+  const refund = createTransactionBatch({ ...base, description: 'Estorno grande', amount: 700, date: '2026-11-25', competenceMonth: '2026-12', status: 'pending', isCardRefund: true });
+  const rows = [...purchases(), ...refund];
+  const state = getInvoiceCarryOverState(card, rows, '2026-12');
+  assert.equal(state.pendingAmount, -100);
+  assert.equal(state.canCarryCredit, true);
+  assert.equal(state.creditAmount, 100);
+  assert.equal(state.canCarry, false, 'o botão de saldo devedor não aparece para crédito');
+  assert.ok('error' in carryOverInvoiceBalance(card, rows, '2026-12', { feeAmount: 5, feeId: 'fee' }), 'crédito não tem encargos');
+  const result = carryOverInvoiceBalance(card, rows, '2026-12', { feeId: 'fee' });
+  assert.ok(!('error' in result));
+  assert.equal(result.carriedAmount, -100);
+  const dec = calculateCreditCardSummary(card, result.transactions, '2026-12', '2026-12-10');
+  const jan = calculateCreditCardSummary(card, result.transactions, '2027-01', '2026-12-10');
+  assert.equal(dec.invoiceTotal, 0);
+  assert.equal(jan.invoiceTotal, -100, 'o crédito aparece na fatura de janeiro');
+  assert.equal(getInvoiceCarryOverState(card, result.transactions, '2026-12').canUndo, true);
+  const undone = undoInvoiceCarryOver(card, result.transactions, '2026-12');
+  assert.ok(!('error' in undone));
+  assert.deepEqual(undone.transactions, rows);
+});
+
+test('fatura zerada por estorno igual à compra não oferece levar nada', () => {
+  const refund = createTransactionBatch({ ...base, description: 'Estorno total', amount: 600, date: '2026-11-25', competenceMonth: '2026-12', status: 'pending', isCardRefund: true });
+  const rows = [...purchases(), ...refund];
+  assert.equal(getInvoiceCarryOverState(card, rows, '2026-12').canCarryCredit, false);
+  assert.deepEqual(carryOverInvoiceBalance(card, rows, '2026-12', { feeId: 'fee' }), { error: 'Esta fatura já está zerada: não há o que levar.' });
+});
