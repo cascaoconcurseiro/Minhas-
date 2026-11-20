@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Todas as listas de lançamentos em ordem cronológica
+- **O que mudou:** novo `sortChronologically` (`src/domain/finance/transactionOrdering.ts`). Estavam fora da regra do dono (dia 1 → fim do mês): lançamentos compartilhados por pessoa (sem ordem), gastos da viagem, últimos pagos da Visão Geral, busca, fluxo de caixa, rendimentos de investimento (todos do mais novo ao mais antigo), cascata de Lançamentos (dias do mais novo ao mais antigo), recebimentos de A Receber e lista de importação do extrato (ordem do arquivo). Todos agora do mais antigo ao mais novo; empate no mesmo dia mantém a ordem original.
+- **Por quê:** o dono mostrou a lista de compartilhados desordenada e pediu cronologia em todo lugar.
+- **Arquivos/áreas:** `src/domain/finance/transactionOrdering.ts` (+teste), `sharedFinanceRules.ts`, `personalDre.ts`, `transactionSearch.ts`, `cashFlowCalendar.ts`, `transactionGrouping.ts` (teste ajustado), `useOverviewData.ts`, `useTripsDerived.ts`, `ReceivablesTab.tsx`, `useReconciliationActions.ts`, `docs/produto/regras-de-negocio.md`.
+- **Como foi verificado:** `bun run check` (816 testes); testes novos para a regra, compartilhados e rendimentos. Navegador: não rodei o roteiro local; o CI roda.
+- **Não verificado:** a tela de Compartilhado com dados reais (só o teste de domínio); listas de PDF e lembretes (já ordenados por data, não revisados item a item).
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md`, este HANDOFF.
+- **Próximo passo:** o dono conferir a tela de Compartilhado depois do deploy.
+
 ### 2026-11-20 — Roteiro de navegador também como celular
 - **O que mudou:** `scripts/e2e-browser.mjs` aceita `E2E_PHONE=1` (390 px, toque, navegador móvel, menu em gaveta) e confere a largura da página do cartão com o painel "Levar para a próxima fatura". Roda no CI e em `bun run e2e`.
 - **Por quê:** o dono pediu para fazer a checagem de celular; o Safari real não está disponível aqui.

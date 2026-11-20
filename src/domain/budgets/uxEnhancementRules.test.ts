@@ -55,16 +55,17 @@ test('groupTransactionsByDate groups transactions chronologically and computes d
 
   const groups = groupTransactionsByDate(sampleTxs, '2026-10-15');
   assert.equal(groups.length, 2);
-  assert.equal(groups[0].date, '2026-10-15');
-  assert.ok(groups[0].dayHeaderLabel.startsWith('Hoje'));
-  assert.equal(groups[0].dayExpense, 200);
-  assert.equal(groups[0].dayNet, -200);
-  assert.equal(groups[0].transactions.length, 2);
+  // Regra do dono: sempre cronológico (dia mais antigo primeiro).
+  assert.equal(groups[0].date, '2026-10-14');
+  assert.ok(groups[0].dayHeaderLabel.startsWith('Ontem'));
+  assert.equal(groups[0].dayIncome, 900);
+  assert.equal(groups[0].dayNet, 900);
 
-  assert.equal(groups[1].date, '2026-10-14');
-  assert.ok(groups[1].dayHeaderLabel.startsWith('Ontem'));
-  assert.equal(groups[1].dayIncome, 900);
-  assert.equal(groups[1].dayNet, 900);
+  assert.equal(groups[1].date, '2026-10-15');
+  assert.ok(groups[1].dayHeaderLabel.startsWith('Hoje'));
+  assert.equal(groups[1].dayExpense, 200);
+  assert.equal(groups[1].dayNet, -200);
+  assert.equal(groups[1].transactions.length, 2);
 });
 
 test('getSmartTransactionSuggestions deduplicates history and strips installment suffixes', () => {

@@ -2,6 +2,7 @@
 import { parseExchangeRateInput } from '../../../utils/currencyInput';
 import React, { useMemo } from 'react';
 import { convertCandidatesToTransactions } from '../../../services/import-export/ofxParser';
+import { sortChronologically } from '../../../domain/finance/transactionOrdering';
 import type { BankReconciliationModalPropsApi } from './bankReconciliationConfig';
 import type { ReconciliationStateApi } from './useReconciliationState';
 import type { ReconciliationDerivedApi } from './useReconciliationDerived';
@@ -166,10 +167,8 @@ export function useReconciliationActions(ctx: BankReconciliationModalPropsApi & 
   };
 
   const filteredCandidates = useMemo(() => {
-    if (showOnlyNew) {
-      return candidates.filter((c) => !c.isDuplicate);
-    }
-    return candidates;
+    // Sempre cronológico, mesmo que o arquivo do banco venha do mais novo para o mais antigo.
+    return sortChronologically(showOnlyNew ? candidates.filter((c) => !c.isDuplicate) : candidates);
   }, [candidates, showOnlyNew]);
 
   const summary = useMemo(() => {

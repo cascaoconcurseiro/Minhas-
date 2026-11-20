@@ -54,7 +54,7 @@ export function useOverviewData(ctx: OverviewTabPropsApi) {
         !tx.isCompanionOnlyExpense &&
         tx.sharedPaidBy !== 'member'
     )
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => a.date.localeCompare(b.date));
 
 
   const health360 = useMemo(

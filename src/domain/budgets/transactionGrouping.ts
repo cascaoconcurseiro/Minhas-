@@ -105,7 +105,7 @@ export function groupTransactionsByDate(
     map.get(key)!.push(tx);
   }
 
-  const sortedDates = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
+  const sortedDates = Array.from(map.keys()).sort((a, b) => a.localeCompare(b));
 
   return sortedDates.map((dateStr) => {
     const dayTxs = map.get(dateStr) || [];

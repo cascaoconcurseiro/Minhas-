@@ -4,6 +4,7 @@ import type {
   InvestmentAsset,
   Transaction,
 } from '../../types/finance';
+import { sortChronologically } from './transactionOrdering.ts';
 import {
   getEffectiveExpenseAmountForUser,
 } from './monthlyReports.ts';
@@ -26,7 +27,7 @@ export function isInvestmentIncome(tx: Transaction): boolean {
 
 export function calculateInvestmentIncomeSummary(transactions: Transaction[], month: string) {
   const income = transactions.filter(isInvestmentIncome);
-  const monthTransactions = income.filter((tx) => tx.competenceMonth === month).sort((a, b) => b.date.localeCompare(a.date));
+  const monthTransactions = sortChronologically(income.filter((tx) => tx.competenceMonth === month));
   const sum = (rows: Transaction[]) => rows.reduce((total, tx) => total + Math.round(tx.amount * 100), 0) / 100;
   return { monthTransactions, monthTotal: sum(monthTransactions), registeredTotal: sum(income) };
 }

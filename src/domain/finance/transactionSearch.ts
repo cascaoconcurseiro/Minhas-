@@ -137,7 +137,7 @@ export function searchTransactionsGlobal(
     }
   }
 
-  return matches.sort((a, b) => b.transaction.date.localeCompare(a.transaction.date));
+  return [...matches].sort((a, b) => a.transaction.date.localeCompare(b.transaction.date));
 }
 
 export function summarizeGlobalSearchResults(

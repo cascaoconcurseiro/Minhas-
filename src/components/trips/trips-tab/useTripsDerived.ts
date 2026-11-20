@@ -71,7 +71,7 @@ export function useTripsDerived(ctx: TripsTabPropsApi & TripsStateApi) {
           tx.type === 'expense' &&
           !tx.isInvoicePayment
       )
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => a.date.localeCompare(b.date));
   }, [activeTrip, transactions]);
 
   const maskValue = (formatted: string) => (privacyMode ? '••••••' : formatted);

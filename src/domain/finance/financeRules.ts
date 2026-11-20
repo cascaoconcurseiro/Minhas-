@@ -18,6 +18,7 @@ export {
 export * from './transactionClassification.ts';
 export * from './transactionBatch.ts';
 export * from './transactionTags.ts';
+export * from './transactionOrdering.ts';
 export * from './accountBalances.ts';
 export * from './pendingMovements.ts';
 export * from './creditCardInvoices.ts';

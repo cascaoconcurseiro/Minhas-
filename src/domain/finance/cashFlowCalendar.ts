@@ -237,7 +237,7 @@ export function getLedgerTransactionsForMonth(transactions: Transaction[], month
   );
 
   return [...otherTransactions, ...cardPurchases, ...incompleteCardPurchases]
-    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 }
 
 /**

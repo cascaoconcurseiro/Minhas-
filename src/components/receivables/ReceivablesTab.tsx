@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CheckCircle2, CreditCard as CreditCardIcon, HandCoins, Plus, Trash2, Undo2 } from 'lucide-react';
 import type { BankAccount, CreditCard, FamilyMember, Receivable, Transaction } from '../../types/finance';
-import { formatBRL, formatMonthYearPT, formatShortDateBR, getLocalDateISO, parseBRLInput } from '../../domain/finance/financeRules';
+import { formatBRL, formatMonthYearPT, formatShortDateBR, getLocalDateISO, parseBRLInput, sortChronologically } from '../../domain/finance/financeRules';
 import { getInvoiceMonthOptions, getReceivableBalance, getReceivablePaid, getReceivableStatus, summarizeReceivables } from '../../domain/receivables/receivables';
 import { getAccountLabelWithBank } from '../../domain/finance/accountLabels';
 import { CurrencyInput } from '../ui/CurrencyInput';
@@ -147,7 +147,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
 
         {item.payments.length > 0 && (
           <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
-            {item.payments.map((payment) => (
+            {sortChronologically(item.payments).map((payment) => (
               <li key={payment.id} className="flex items-center justify-between gap-2">
                 <span>{formatShortDateBR(payment.date)} · {formatBRL(payment.amount)} · {getAccountLabelWithBank(accounts.find((a) => a.id === payment.accountId) ?? { id: '', name: 'Conta', institution: '', type: 'checking' }, accounts)}</span>
                 <button type="button" onClick={() => onRemovePayment(item.id, payment.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 underline" aria-label={`Desfazer recebimento de ${formatBRL(payment.amount)}`}>

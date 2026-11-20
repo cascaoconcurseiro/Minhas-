@@ -1,5 +1,6 @@
 import { getNextBankBusinessDay } from '../finance/businessDays.ts';
 import { isValidISODate } from '../finance/formatting.ts';
+import { sortChronologically } from '../finance/transactionOrdering.ts';
 import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../types/finance';
 import { formatBRL, formatMonthYearPT, getClampedMonthDate, getSharedSettlementLinks } from '../finance/financeRules';
 import { getAccountCurrency } from '../finance/transferRules';
@@ -134,7 +135,7 @@ const sumShares = (rows: Transaction[]) => rows.reduce((sum, tx) => sum + Math.r
 
 export function calculateSharedMemberSummary(transactions: Transaction[], memberId: string, month: string) {
   const all = getDomesticSharedTransactions(transactions).filter((tx) => tx.sharedMemberId === memberId);
-  const monthTxs = all.filter((tx) => tx.competenceMonth === month);
+  const monthTxs = sortChronologically(all.filter((tx) => tx.competenceMonth === month));
   const pending = monthTxs.filter((tx) => tx.sharedStatus !== 'received' && (tx.sharedAmount || 0) > 0);
   const owedToMeMonthAmount = sumShares(pending.filter((tx) => tx.sharedPaidBy !== 'member'));
   const iOweMemberMonthAmount = sumShares(pending.filter((tx) => tx.sharedPaidBy === 'member'));
