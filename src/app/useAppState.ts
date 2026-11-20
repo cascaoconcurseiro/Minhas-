@@ -4,7 +4,7 @@ import { DEFAULT_MONTH, INITIAL_ACCOUNTS, INITIAL_CATEGORIES, INITIAL_CREDIT_CAR
 import { getBrowserNotificationPermissionState } from '../domain/reminders/reminderRules';
 import { getOrCreateAutoCloudVaultId, getVaultIdForUid, type User } from '../lib/authClient';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
-import { type WorkspaceConflictState, workspaceContentSignature } from '../services/workspace/workspaceSyncRecovery';
+import { workspaceContentSignature } from '../services/workspace/workspaceSyncRecovery';
 import { setUpdateBlocker } from '../pwa/updateBlockers';
 import { isWorkspaceLoadedForUser } from '../services/workspace/workspaceSession';
 import { AppSettings, BankAccount, Category, CreditCard, FamilyMember, InvestmentAsset, InvestmentTargetMap, Receivable, SavingsGoal, Transaction, Trip } from '../types/finance';
@@ -64,15 +64,11 @@ export function useAppState() {
   };
   // Última versão salva neste aparelho, exibida na hora enquanto o Neon responde (somente leitura).
   const [isShowingCachedWorkspace, setIsShowingCachedWorkspace] = useState(false);
-  const [workspaceConflict, setWorkspaceConflict] = useState<WorkspaceConflictState | null>(null);
-  const [isWorkspaceConflictOpen, setIsWorkspaceConflictOpen] = useState(false);
-  const [isResolvingWorkspaceConflict, setIsResolvingWorkspaceConflict] = useState(false);
-  const [workspaceConflictError, setWorkspaceConflictError] = useState<string | null>(null);
-  // Atualização automática do sistema espera enquanto salva na nuvem ou há conflito para resolver.
+  // Atualização automática do sistema espera enquanto salva na nuvem.
   useEffect(() => {
-    setUpdateBlocker('cloud-sync', cloudSyncStatus === 'syncing' || workspaceConflict !== null);
+    setUpdateBlocker('cloud-sync', cloudSyncStatus === 'syncing');
     return () => setUpdateBlocker('cloud-sync', false);
-  }, [cloudSyncStatus, workspaceConflict]);
+  }, [cloudSyncStatus]);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isApplyingRemoteSnapshotRef = useRef<boolean>(false);
   const hasLoadedRemoteOnceRef = useRef<boolean>(false);
@@ -91,7 +87,6 @@ export function useAppState() {
     ].slice(-30);
   };
   const neonSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const workspaceConflictRef = useRef<WorkspaceConflictState | null>(null);
   const latestNeonPayloadRef = useRef<Record<string, unknown> | null>(null);
   const saveRetryTimerRef = useRef<number | null>(null);
   const saveRetryCountRef = useRef(0);
@@ -409,12 +404,10 @@ export function useAppState() {
     isModalOpen,
     isReconciliationModalOpen,
     isReminderModalOpen,
-    isResolvingWorkspaceConflict,
     isSettingsOpen,
     isShowingCachedWorkspace,
     isSidebarCollapsed,
     isUserAuthenticated,
-    isWorkspaceConflictOpen,
     isWorkspaceReadyForCurrentUser,
     knownRemoteSignaturesRef,
     lastConfirmedSignatureRef,
@@ -467,11 +460,9 @@ export function useAppState() {
     setIsModalOpen,
     setIsReconciliationModalOpen,
     setIsReminderModalOpen,
-    setIsResolvingWorkspaceConflict,
     setIsSettingsOpen,
     setIsShowingCachedWorkspace,
     setIsSidebarCollapsed,
-    setIsWorkspaceConflictOpen,
     setLastSyncedAt,
     setModalDefaultMode,
     setModalInitialDate,
@@ -490,8 +481,6 @@ export function useAppState() {
     setTodayDateStr,
     setTransactions,
     setTrips,
-    setWorkspaceConflict,
-    setWorkspaceConflictError,
     setWorkspaceLoadAttempt,
     setWorkspaceLoadState,
     settings,
@@ -508,9 +497,6 @@ export function useAppState() {
     triggerDataLoadingTransition,
     trips,
     undoStack,
-    workspaceConflict,
-    workspaceConflictError,
-    workspaceConflictRef,
     workspaceLoadAttempt,
     workspaceLoadState,
     workspaceReadOnlyMessage,

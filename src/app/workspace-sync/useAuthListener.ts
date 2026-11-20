@@ -16,14 +16,9 @@ export function useAuthListener(ctx: AppStateApi) {
     setCloudSyncStatus,
     setCurrentUser,
     setIsAuthReady,
-    setIsResolvingWorkspaceConflict,
     setIsShowingCachedWorkspace,
-    setIsWorkspaceConflictOpen,
     setSettings,
-    setWorkspaceConflict,
-    setWorkspaceConflictError,
     setWorkspaceLoadState,
-    workspaceConflictRef,
   } = ctx;
   // Auth session listener
   useEffect(() => {
@@ -46,17 +41,12 @@ export function useAuthListener(ctx: AppStateApi) {
         setWorkspaceLoadState(nextUid ? 'loading' : 'error');
         setIsShowingCachedWorkspace(false);
         setCloudSyncStatus(nextUid ? 'syncing' : 'local');
-        setIsResolvingWorkspaceConflict(false);
       }
       authenticatedUidRef.current = nextUid;
       setCurrentUser(user);
       setIsAuthReady(true);
       neonWorkspaceRevisionRef.current = null;
       hasLoadedRemoteOnceRef.current = false;
-      workspaceConflictRef.current = null;
-      setWorkspaceConflict(null);
-      setIsWorkspaceConflictOpen(false);
-      setWorkspaceConflictError(null);
       setAuthSession(
         user && !user.isAnonymous && user.email
           ? {

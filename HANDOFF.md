@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Remove o aviso de conflito de versões (código morto)
+- **O que mudou:** removidos `WorkspaceConflictModal` (+ teste), o hook `useWorkspaceConflict`, o estado/refs de conflito em `useAppState`, os usos em `useWorkspaceSaving`, `useWorkspaceRealtime`, `useWorkspaceEffects`, `useAuthListener`, `AppModals`, `App.tsx`, `lazyScreens`, e o tipo/função de conflito em `workspaceSyncRecovery`. `useWorkspaceSync` agora chama 9 sub-hooks, na mesma ordem relativa. Nada disso rodava: desde "quem chegou primeiro ao Neon prevalece", nenhum ponto criava o estado de conflito.
+- **Por quê:** o dono pediu para corrigir o achado da entrega anterior; o CI com o job `e2e` já estava verde no `e8137c9`.
+- **Arquivos/áreas:** `src/app/*`, `src/app/workspace-sync/*`, `src/services/workspace/workspaceSyncRecovery(.test).ts`, `src/test-utils/appOrchestrationHarness.tsx`, `src/components/settings/`, docs.
+- **Como foi verificado:** `bun run check`; `e2e-sync.mjs` e `e2e-browser.mjs` após a remoção: os dois passaram (17 etapas e dois aparelhos, incluindo servidor fora do ar); busca por "conflict" no código só mostra usos sem relação (409 de revisão, integridade financeira).
+- **Não verificado:** resultado do CI deste commit; iPhone/Safari.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, `docs/tecnico/testes-e-qualidade.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** dono testar no iPhone/Safari.
+
 ### 2026-11-20 — Testes de navegador no CI, servidor fora do ar coberto e achado sobre o aviso de conflito
 - **O que mudou:** (1) Playwright 1.63.0 como dependência de desenvolvimento (autorizado pelo dono) e script `bun run e2e`. (2) Novo job `e2e` no CI: PostgreSQL de serviço, migrações, build, servidor local, `e2e-browser.mjs` e `e2e-sync.mjs`. (3) `e2e-sync.mjs` ganhou o cenário "servidor fora do ar": gravações abortadas no navegador, dado continua na tela, nada chega ao banco, e a nova tentativa grava sozinha quando o servidor volta. (4) **Achado:** o aviso de conflito (`WorkspaceConflictModal`/`useWorkspaceConflict`) é código morto: nenhum ponto cria o estado de conflito desde a regra "quem chegou primeiro prevalece"; por isso não dá para testá-lo no navegador. Não removi (≈120 pontos na sincronização).
 - **Por quê:** o dono autorizou os itens "ainda não cobertos" da entrega anterior.

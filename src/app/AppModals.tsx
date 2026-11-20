@@ -1,7 +1,7 @@
-/** Janelas: lançamento, configurações, lembretes, conciliação e conflito de versões. Parte da tela do App (ver src/App.tsx). */
+/** Janelas: lançamento, configurações, lembretes, conciliação. Parte da tela do App (ver src/App.tsx). */
 import { ErrorBoundary } from '../components/layout/ErrorBoundary';
 import { Suspense } from 'react';
-import { BankReconciliationModal, ReminderCenterModal, SettingsModal, TransactionModal, WorkspaceConflictModal } from './lazyScreens';
+import { BankReconciliationModal, ReminderCenterModal, SettingsModal, TransactionModal } from './lazyScreens';
 import type { AppContext } from './appContext';
 
 export function AppModals({ app }: { app: AppContext }) {
@@ -24,7 +24,6 @@ export function AppModals({ app }: { app: AppContext }) {
     handleDismissNotice,
     handleExportFullBackupJson,
     handleImportFullBackupJson,
-    handleKeepLocalWorkspaceVersion,
     handleMarkTransactionPaid,
     handleNavigateToCard,
     handleNoticeAction,
@@ -35,16 +34,13 @@ export function AppModals({ app }: { app: AppContext }) {
     handleSignOut,
     handleUpdateCategoryBudget,
     handleUpdateSettings,
-    handleUseCloudWorkspaceVersion,
     incomingFamilyInvites,
     investments,
     isModalOpen,
     isReconciliationModalOpen,
     isReminderModalOpen,
-    isResolvingWorkspaceConflict,
     isSettingsOpen,
     isUserAuthenticated,
-    isWorkspaceConflictOpen,
     isWorkspaceReadyForCurrentUser,
     modalDefaultMode,
     modalInitialDate,
@@ -56,7 +52,6 @@ export function AppModals({ app }: { app: AppContext }) {
     setIsReconciliationModalOpen,
     setIsReminderModalOpen,
     setIsSettingsOpen,
-    setIsWorkspaceConflictOpen,
     setModalInitialDate,
     setModalInitialTripId,
     setSettingsInitialTab,
@@ -64,8 +59,6 @@ export function AppModals({ app }: { app: AppContext }) {
     settingsInitialTab,
     transactions,
     trips,
-    workspaceConflict,
-    workspaceConflictError,
   } = app;
   return (
     <>
@@ -179,19 +172,6 @@ export function AppModals({ app }: { app: AppContext }) {
         onAddAccount={handleAddAccount}
         />}
 
-        {workspaceConflict && (
-        <WorkspaceConflictModal
-          conflict={workspaceConflict}
-          isOpen={isWorkspaceConflictOpen}
-          isSaving={isResolvingWorkspaceConflict}
-          errorMessage={workspaceConflictError}
-          onDismiss={() => {
-            if (!isResolvingWorkspaceConflict) setIsWorkspaceConflictOpen(false);
-          }}
-          onKeepLocal={handleKeepLocalWorkspaceVersion}
-          onUseCloud={handleUseCloudWorkspaceVersion}
-        />
-        )}
       </Suspense>
       </ErrorBoundary>
     </>

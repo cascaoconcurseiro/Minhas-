@@ -172,24 +172,6 @@ mock.module('../components/layout/SidebarNav', () => ({
     React.createElement('nav', { 'aria-label': 'Navegação sintética', 'data-cloud-sync-status': cloudSyncStatus },
       `Estado da nuvem: ${cloudSyncStatus}`),
 }));
-mock.module('../components/settings/WorkspaceConflictModal', () => ({
-  WorkspaceConflictModal: ({
-    conflict,
-    isOpen,
-    onKeepLocal,
-    onUseCloud,
-  }: {
-    conflict: { remoteSnapshot: SyntheticSnapshot };
-    isOpen: boolean;
-    onKeepLocal: () => void;
-    onUseCloud: () => void;
-  }) => isOpen
-    ? React.createElement('section', { 'data-testid': 'workspace-conflict' },
-      `Conflito remoto: ${conflict.remoteSnapshot.revision}`,
-      React.createElement('button', { 'data-testid': 'keep-local-version', onClick: onKeepLocal }, 'Manter local'),
-      React.createElement('button', { 'data-testid': 'use-cloud-version', onClick: onUseCloud }, 'Usar nuvem'))
-    : null,
-}));
 mock.module('../components/layout/MobileBottomNav', () => ({
   MobileBottomNav: () => React.createElement('nav', { 'aria-label': 'Navegação móvel sintética' }),
 }));
@@ -639,7 +621,7 @@ test('a same-email UID switch cancels the prior user workspace load', async () =
   assert.doesNotMatch(page.textContent ?? '', /Workspace antigo do mesmo e-mail/);
 });
 
-test('a delayed 409 refresh from a prior user cannot open a conflict in the new account', async () => {
+test('a delayed 409 refresh from a prior user cannot overwrite the new account', async () => {
   let resolveConflictLoad!: (snapshot: SyntheticSnapshot) => void;
   let workspaceReads = 0;
   loadWorkspace = () => {
@@ -671,11 +653,10 @@ test('a delayed 409 refresh from a prior user cannot open a conflict in the new 
     resolveConflictLoad(makeSnapshot('Conflito antigo'));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  assert.equal(page.querySelector('[data-testid="workspace-conflict"]'), null);
   assert.match(page.textContent ?? '', /Workspace novo/);
 });
 
-test('a 409 with different Neon content adopts the Neon version (first to arrive wins) without a conflict modal', async () => {
+test('a 409 with different Neon content adopts the Neon version (first to arrive wins)', async () => {
   let workspaceReads = 0;
   loadWorkspace = () => {
     workspaceReads += 1;
@@ -695,7 +676,6 @@ test('a 409 with different Neon content adopts the Neon version (first to arrive
     page.querySelector<HTMLButtonElement>('[data-testid="toggle-synthetic-account"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 600));
   });
-  assert.equal(page.querySelector('[data-testid="workspace-conflict"]'), null);
   assert.ok(reloads <= 1);
   Object.defineProperty(window.location, 'reload', { configurable: true, value: originalReload });
 });

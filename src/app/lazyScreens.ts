@@ -37,4 +37,3 @@ export const ReminderCenterModal = lazy(() => import('../components/overview/Rem
 
 export const BankReconciliationModal = lazy(() => import('../components/transactions/BankReconciliationModal').then((m) => ({ default: m.BankReconciliationModal })));
 
-export const WorkspaceConflictModal = lazy(() => import('../components/settings/WorkspaceConflictModal').then((m) => ({ default: m.WorkspaceConflictModal })));

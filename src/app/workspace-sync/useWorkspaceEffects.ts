@@ -13,7 +13,6 @@ export function useWorkspaceEffects(ctx: AppStateApi & WorkspaceSavingApi) {
     saveRetryPendingRef,
     scheduleSaveRetryRef,
     setWorkspaceLoadAttempt,
-    workspaceConflictRef,
     workspaceLoadState,
   } = ctx;
   useEffect(() => {
@@ -31,7 +30,7 @@ export function useWorkspaceEffects(ctx: AppStateApi & WorkspaceSavingApi) {
   useEffect(() => {
     if (!isAuthReady || !isUserAuthenticated) return;
     const retryAfterReconnect = () => {
-      if (saveRetryPendingRef.current && !workspaceConflictRef.current) {
+      if (saveRetryPendingRef.current) {
         scheduleSaveRetryRef.current(0);
       }
     };

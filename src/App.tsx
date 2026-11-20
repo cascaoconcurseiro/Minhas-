@@ -65,7 +65,6 @@ export default function App() {
     isShowingCachedWorkspace,
     isSidebarCollapsed,
     isUserAuthenticated,
-    isWorkspaceConflictOpen,
     isWorkspaceReadyForCurrentUser,
     noticeCount,
     pendingSharedCount,
@@ -75,11 +74,9 @@ export default function App() {
     setIsReminderModalOpen,
     setIsSettingsOpen,
     setIsSidebarCollapsed,
-    setIsWorkspaceConflictOpen,
     setSettingsInitialTab,
     setWorkspaceLoadAttempt,
     settings,
-    workspaceConflict,
     workspaceLoadState,
   } = app14;
 
@@ -182,24 +179,6 @@ export default function App() {
         <div role="status" className="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-2">
           <span>Alguns lançamentos precisam de revisão. Confira os dados antes de continuar.</span>
           <button type="button" className="font-semibold underline" onClick={() => handleSelectTab('transactions')}>Conferir lançamentos</button>
-        </div>
-      )}
-      {workspaceConflict && !isWorkspaceConflictOpen && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed left-1/2 top-3 z-[70] w-[min(92vw,40rem)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-lg dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>Há duas versões diferentes dos seus dados financeiros aguardando decisão.</span>
-            <button
-              type="button"
-              onClick={() => setIsWorkspaceConflictOpen(true)}
-              className="min-h-10 rounded-lg bg-amber-800 px-3 py-1.5 font-semibold text-white hover:bg-amber-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700"
-            >
-              Resolver conflito
-            </button>
-          </div>
         </div>
       )}
 

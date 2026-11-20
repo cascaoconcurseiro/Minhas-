@@ -1,11 +1,3 @@
-import type { NeonWorkspaceSnapshot } from '../../lib/neonWorkspace';
-
-/** Conflito de gravação: o que está nesta tela contra o que já está no Neon. */
-export interface WorkspaceConflictState {
-  localPayload: Record<string, unknown>;
-  remoteSnapshot: NeonWorkspaceSnapshot;
-}
-
 export function isRetryableWorkspaceSaveError(error: unknown): boolean {
   if (error instanceof TypeError) return true;
   if (typeof error !== 'object' || error === null || !('status' in error)) {
@@ -14,13 +6,6 @@ export function isRetryableWorkspaceSaveError(error: unknown): boolean {
 
   const status = Number((error as { status?: unknown }).status);
   return status === 408 || status === 429 || (status >= 500 && status <= 599);
-}
-
-export function updateWorkspaceConflictLocalPayload(
-  conflict: WorkspaceConflictState,
-  payload: Record<string, unknown>
-): WorkspaceConflictState {
-  return { ...conflict, localPayload: payload };
 }
 
 const CONTENT_KEYS = [

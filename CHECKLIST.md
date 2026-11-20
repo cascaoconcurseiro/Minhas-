@@ -68,5 +68,5 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 
 ## E. Dívida técnica (sem mudar comportamento)
 - [x] **[Dev]** `scripts/e2e-sync.mjs` cobre servidor fora do ar com nova tentativa (20/11).
-- [ ] **[Decidir/Dev]** O aviso de conflito (`WorkspaceConflictModal` e o hook `useWorkspaceConflict`) **nunca aparece**: desde a regra "quem chegou primeiro ao Neon prevalece", nada cria o estado de conflito. Por isso não há como testá-lo no navegador. Remover esse caminho morto mexe em ~120 pontos da sincronização; só fazer com os testes de dois aparelhos rodando no CI.
+- [x] **[Dev]** Removido em 20/11: o aviso de conflito (`WorkspaceConflictModal` e o hook `useWorkspaceConflict`) **nunca aparece**: desde a regra "quem chegou primeiro ao Neon prevalece", nada cria o estado de conflito. Por isso não há como testá-lo no navegador. Remover esse caminho morto mexe em ~120 pontos da sincronização; só fazer com os testes de dois aparelhos rodando no CI.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

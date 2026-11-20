@@ -3,7 +3,7 @@ import { compactTransactionListForStorage } from '../../services/import-export/o
 import { collectSharedSettlementReceipts } from '../../domain/family/sharedFinanceRules';
 import { serializeSettingsWithoutSmtpSecrets } from '../../utils/secureSettings';
 import { NeonWorkspaceError, createNeonWorkspace, loadNeonWorkspace, saveNeonWorkspace, syncNeonSharedTransactions } from '../../lib/neonWorkspace';
-import { isRetryableWorkspaceSaveError, updateWorkspaceConflictLocalPayload, workspaceContentSignature } from '../../services/workspace/workspaceSyncRecovery';
+import { isRetryableWorkspaceSaveError, workspaceContentSignature } from '../../services/workspace/workspaceSyncRecovery';
 import type { AppStateApi } from '../useAppState';
 import type { SessionHelpersApi } from './useSessionHelpers';
 
@@ -39,8 +39,6 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
     scopedStorageKey,
     setCloudSyncStatus,
     setLastSyncedAt,
-    setWorkspaceConflict,
-    setWorkspaceConflictError,
     settings,
     sharedPendingHideRef,
     sharedProjectedRevisionsRef,
@@ -48,7 +46,6 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
     showNotice,
     transactions,
     trips,
-    workspaceConflictRef,
   } = ctx;
   // Build the authenticated workspace payload persisted by the Neon API.
   const buildCloudPayload = (targetId: string) => ({
@@ -120,12 +117,6 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
     const queuedSave = neonSaveQueueRef.current.then(async () => {
       if (currentUser?.uid !== authenticatedUser.uid) {
         throw new Error('A conta ativa mudou antes de salvar o workspace.');
-      }
-      if (workspaceConflictRef.current) {
-        throw new NeonWorkspaceError(
-          'Resolva o conflito entre esta aba e o Neon antes de sincronizar novamente.',
-          409
-        );
       }
 
       let revision = neonWorkspaceRevisionRef.current;
@@ -212,10 +203,6 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
               'Não foi possível carregar a versão atual do Neon para resolver o conflito.',
               refreshError instanceof Error ? refreshError.message : String(refreshError)
             );
-            setWorkspaceConflictError(
-              'O Neon recusou a revisão, mas não foi possível carregar a versão mais recente. Suas alterações locais foram mantidas; tente sincronizar novamente quando a conexão voltar.'
-            );
-
           }
           if (authenticatedUidRef.current !== authenticatedUser.uid) throw error;
           setCloudSyncStatus('error');
@@ -257,12 +244,6 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
       setCloudSyncStatus('synced');
       return;
     }
-    const activeConflict = workspaceConflictRef.current;
-    if (activeConflict) {
-      const updatedConflict = updateWorkspaceConflictLocalPayload(activeConflict, payload);
-      workspaceConflictRef.current = updatedConflict;
-      setWorkspaceConflict(updatedConflict);
-    }
     const authenticatedUid = currentUser?.uid;
     setCloudSyncStatus('syncing');
     try {
@@ -288,10 +269,7 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
         error instanceof Error ? error.message : String(error)
       );
 
-      const canRetry =
-        isRetryableWorkspaceSaveError(error) &&
-        authenticatedUid &&
-        !workspaceConflictRef.current;
+      const canRetry = isRetryableWorkspaceSaveError(error) && authenticatedUid;
       if (canRetry) {
         saveRetryPendingRef.current = true;
         saveRetryUidRef.current = authenticatedUid;
@@ -327,7 +305,6 @@ export function useWorkspaceSaving(ctx: AppStateApi & SessionHelpersApi) {
         !navigator.onLine ||
         !latestPayload ||
         !hasLoadedRemoteOnceRef.current ||
-        workspaceConflictRef.current ||
         !currentUid ||
         currentUid !== saveRetryUidRef.current
       ) {

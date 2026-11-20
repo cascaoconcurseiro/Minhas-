@@ -19,7 +19,6 @@ export function useWorkspaceRealtime(ctx: AppStateApi & SessionHelpersApi & Work
     persistNeonWorkspacePayload,
     requestSilentWorkspaceRefresh,
     saveRetryPendingRef,
-    workspaceConflictRef,
   } = ctx;
   // Tempo real: a cada poucos segundos (e ao voltar ao app) confere a revisão no Neon e, se outro aparelho
   // gravou, recarrega os dados no lugar, sem recarregar a página. Também reenvia o que ficou sem salvar.
@@ -30,7 +29,6 @@ export function useWorkspaceRealtime(ctx: AppStateApi & SessionHelpersApi & Work
     let checking = false;
     const check = async () => {
       if (document.hidden || checking || !navigator.onLine || !hasLoadedRemoteOnceRef.current) return;
-      if (workspaceConflictRef.current) return;
       checking = true;
       const uid = authenticatedUidRef.current;
       try {
@@ -42,7 +40,7 @@ export function useWorkspaceRealtime(ctx: AppStateApi & SessionHelpersApi & Work
         await neonSaveQueueRef.current;
         if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
         const remoteRevision = await loadNeonWorkspaceRevision();
-        if (authenticatedUidRef.current !== uid || workspaceConflictRef.current) return;
+        if (authenticatedUidRef.current !== uid) return;
         const known = neonWorkspaceRevisionRef.current;
         if (remoteRevision === null || known === null || remoteRevision <= known) return;
         if (cloudSyncStatusRef.current !== 'synced' || saveRetryPendingRef.current) return;
