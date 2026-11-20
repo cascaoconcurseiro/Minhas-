@@ -22,22 +22,22 @@ Antes de qualquer entrega: **lint + testes + build** verdes **e** HANDOFF atuali
 | Servidor/API | `backend/*.test.ts` | auth, família, saúde, SMTP, passkeys |
 | PostgreSQL real | `scripts/qa-postgres.ts` (CI) | RLS, acertos, concorrência |
 | Propriedades (fuzz) | `src/domain/finance/propertyFuzz.test.ts` | rateio de viagem, dívidas, saldos |
-| Navegador real (ponta a ponta) | `scripts/e2e-browser.mjs` (manual, ainda fora do CI) | criar conta, conta bancária, despesa, recarregar do banco, extrato, cartão com compra parcelada e estorno (conferidos pela API), viagem, sair/entrar, celular 390 px |
+| Navegador real (ponta a ponta) | `scripts/e2e-browser.mjs` (roda no CI, job `e2e`) | criar conta, conta bancária, despesa, recarregar do banco, extrato, cartão com compra parcelada e estorno (conferidos pela API), viagem, sair/entrar, celular 390 px |
 
 Ambiente de teste: `node:test` via `bun test`, DOM simulado com happy-dom (`src/test-utils`).
 
 ## Verificação além dos testes
 
 ### Teste de sincronização entre dois aparelhos (`scripts/e2e-sync.mjs`)
-Mesmo ambiente do teste abaixo, com **dois navegadores na mesma conta**: o que um aparelho grava aparece no outro sozinho (a cada ~4 s, sem recarregar); quem está digitando não perde o texto quando o outro grava; gravar depois do outro não perde dados de nenhum dos dois; sessão encerrada em um lugar derruba o outro de volta ao login. Rode sempre que mexer em `src/app/workspace-sync/`. Ainda não cobre: servidor fora do ar com nova tentativa, e o aviso de conflito com as duas opções (cobertos só por testes de unidade).
+Mesmo ambiente do teste abaixo, com **dois navegadores na mesma conta**: o que um aparelho grava aparece no outro sozinho (a cada ~4 s, sem recarregar); quem está digitando não perde o texto quando o outro grava; gravar depois do outro não perde dados de nenhum dos dois; sessão encerrada em um lugar derruba o outro de volta ao login. Rode sempre que mexer em `src/app/workspace-sync/`. Também derruba as gravações (`PUT /api/workspace`) no navegador: o dado fica na tela, nada chega ao banco e, quando o servidor volta, a nova tentativa grava sozinha. **Aviso de conflito:** o `WorkspaceConflictModal` não é mais alcançável (nada cria o estado de conflito; vale "quem chegou primeiro prevalece" e a cópia descartada fica guardada no aparelho), então só tem teste de unidade e está registrado no CHECKLIST como código morto.
 
 ### Teste de ponta a ponta no navegador (`scripts/e2e-browser.mjs`)
 Roda o app de verdade (Chromium) contra um servidor **local** ligado a um PostgreSQL descartável; recusa qualquer endereço que não seja `localhost`. Passos:
 1. PostgreSQL descartável vazio: `CREATE ROLE minhas_app NOLOGIN`, aplicar `db/migrations/*.sql` em ordem e `ALTER ROLE minhas_app_runtime LOGIN PASSWORD '<senha local>'`.
 2. `bun run build` e `NODE_ENV=production PORT=3920 DATABASE_URL=postgresql://minhas_app_runtime:<senha>@127.0.0.1:<porta>/neondb?sslmode=disable AUTH_SESSION_SECRET=<32+ caracteres> bun backend/app.ts`.
-3. `E2E_BASE_URL=http://localhost:3920 node scripts/e2e-browser.mjs` (usa o Playwright do projeto ou o instalado globalmente).
+3. `E2E_BASE_URL=http://localhost:3920 node scripts/e2e-browser.mjs` (usa o Playwright do projeto).
 
-Ainda não está no CI porque o Playwright não é dependência do projeto (adicionar exige autorização do dono).
+Roda no CI (job `e2e` em `.github/workflows/ci.yml`: PostgreSQL de serviço, migrações, build, servidor local, os dois scripts). Localmente: `bun run e2e` com o servidor de pé. O Playwright é dependência de desenvolvimento (1.63.0, autorizado pelo dono em 20/11); o Chromium é instalado por `bunx playwright install chromium`.
 
 
 Telas novas são conferidas num navegador de teste (Chromium/Playwright) em 390 px (celular) e desktop. **Nunca verificado**: iPhone/Safari reais, Face ID real, envio real de SMTP, Neon de produção fora de leituras pontuais. Esses itens ficam listados em `HANDOFF.md`.

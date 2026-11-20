@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Testes de navegador no CI, servidor fora do ar coberto e achado sobre o aviso de conflito
+- **O que mudou:** (1) Playwright 1.63.0 como dependência de desenvolvimento (autorizado pelo dono) e script `bun run e2e`. (2) Novo job `e2e` no CI: PostgreSQL de serviço, migrações, build, servidor local, `e2e-browser.mjs` e `e2e-sync.mjs`. (3) `e2e-sync.mjs` ganhou o cenário "servidor fora do ar": gravações abortadas no navegador, dado continua na tela, nada chega ao banco, e a nova tentativa grava sozinha quando o servidor volta. (4) **Achado:** o aviso de conflito (`WorkspaceConflictModal`/`useWorkspaceConflict`) é código morto: nenhum ponto cria o estado de conflito desde a regra "quem chegou primeiro prevalece"; por isso não dá para testá-lo no navegador. Não removi (≈120 pontos na sincronização).
+- **Por quê:** o dono autorizou os itens "ainda não cobertos" da entrega anterior.
+- **Arquivos/áreas:** `package.json`, `bun.lock`, `.github/workflows/ci.yml`, `scripts/e2e-sync.mjs`, `docs/tecnico/testes-e-qualidade.md`, `CHECKLIST.md`.
+- **Como foi verificado:** os dois scripts passando localmente contra PostgreSQL descartável, também via TCP como no CI (migrações com ON_ERROR_STOP não rodadas localmente: o local usou psql sem ele, sem erros). `bun run check` ao final.
+- **Não verificado:** o primeiro resultado do job `e2e` no GitHub; iPhone/Safari (WebKit não instala neste ambiente): interruptor de estorno, painel "Levar para a próxima fatura", campo "Saldo inicial vale desde".
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/testes-e-qualidade.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** conferir o job `e2e` no GitHub; dono testar no iPhone; decidir remover o aviso de conflito morto.
+
 ### 2026-11-20 — Sincronização entre dois aparelhos testada e `useWorkspaceSync` dividido
 - **O que mudou:** (1) Novo `scripts/e2e-sync.mjs`: dois navegadores na mesma conta contra servidor e PostgreSQL locais descartáveis. Verifica que a gravação de um aparelho aparece no outro sozinha, que quem digita não perde o texto, que gravar depois do outro não perde dados de nenhum lado e que sessão encerrada derruba o outro aparelho. Rodado **antes** (código inteiro) e **depois** da divisão, com o mesmo resultado. (2) `useWorkspaceSync.ts` (1.169 linhas) virou compositor de 48 linhas + 10 sub-hooks em `src/app/workspace-sync/`, chamados na ordem original; só dois blocos pequenos (renovar sessão, lembrar quem tem conta) subiram para o começo, o que eliminou as referências adiante; nenhum efeito mudou de posição.
 - **Por quê:** o dono pediu para continuar com o que eu tinha deixado de fora; a condição que eu mesmo coloquei era ter testes de dois aparelhos antes de dividir.

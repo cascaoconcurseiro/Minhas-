@@ -4,7 +4,7 @@
  *
  * Cobre: (1) o que um aparelho grava aparece no outro sozinho; (2) quem está digitando não perde o que digitou
  * quando o outro aparelho grava; (3) gravar com a versão desatualizada não perde dados em silêncio;
- * (4) sessão encerrada em um aparelho derruba o outro de volta ao login.
+ * (3b) servidor fora do ar com nova tentativa automática; (4) sessão encerrada em um aparelho derruba o outro de volta ao login.
  */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -97,6 +97,30 @@ try {
   assert.ok(accounts.includes('Conta do A') && accounts.includes('Segunda conta do A'), 'as contas criadas pelo A continuam no servidor');
   assert.ok(transactions.includes('Digitando no B'), 'o lançamento do B chegou ao servidor');
   console.log('PASS: gravação do B depois do A não perdeu dados de nenhum dos dois');
+
+  // (3b) Servidor fora do ar: a gravação falha, nada é perdido e uma nova tentativa grava sozinha quando volta.
+  let serverDown = true;
+  let blockedWrites = 0;
+  await deviceA.route('**/api/workspace', async (route) => {
+    if (serverDown && route.request().method() === 'PUT') { blockedWrites += 1; await route.abort('connectionrefused'); return; }
+    await route.continue();
+  });
+  await createAccount(deviceA, 'Conta feita sem servidor', '7700');
+  await deviceA.waitForTimeout(5000);
+  const whileDown = JSON.parse((await api('/api/workspace', token)).body.payload.accountsJson).map((account) => account.name);
+  assert.ok(blockedWrites >= 1, 'o aparelho tentou gravar enquanto o servidor estava fora');
+  assert.ok(!whileDown.includes('Conta feita sem servidor'), 'com o servidor fora, nada chegou ao banco');
+  assert.ok(await deviceA.locator('text=Conta feita sem servidor >> visible=true').first().isVisible(), 'a conta continua na tela do aparelho');
+  serverDown = false;
+  const retryDeadline = Date.now() + 45000;
+  let saved = false;
+  while (Date.now() < retryDeadline && !saved) {
+    await deviceA.waitForTimeout(2000);
+    saved = JSON.parse((await api('/api/workspace', token)).body.payload.accountsJson).some((account) => account.name === 'Conta feita sem servidor');
+  }
+  assert.ok(saved, 'quando o servidor voltou, a nova tentativa gravou sozinha');
+  await deviceA.unroute('**/api/workspace');
+  console.log(`PASS: servidor fora do ar (${blockedWrites} gravações recusadas): dado ficou na tela e foi gravado sozinho quando voltou`);
 
   // (4) Sessão encerrada: o aparelho que continua aberto volta ao login.
   const logout = await api('/api/auth/logout', token, 'POST');

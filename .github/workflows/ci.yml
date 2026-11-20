@@ -36,6 +36,54 @@ jobs:
         run: bun scripts/qa-postgres.ts
         env:
           QA_POSTGRES_URL: postgresql://postgres:qa-only-admin-password@127.0.0.1:5432/neondb
+  e2e:
+    name: Navegador real (Chromium) — fluxo completo e dois aparelhos
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: neondb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: qa-only-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d neondb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: qa-only-admin-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Instalar o Chromium do Playwright
+        run: bunx playwright install --with-deps chromium
+      - name: Aplicar as migrações no banco descartável
+        run: |
+          psql -h 127.0.0.1 -U postgres -d neondb -c "CREATE ROLE minhas_app LOGIN PASSWORD 'qa-only'"
+          for f in db/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -h 127.0.0.1 -U postgres -d neondb -f "$f"; done
+      - name: Gerar o build e subir o servidor local
+        run: |
+          bun run build
+          NODE_ENV=production PORT=3920 AUTH_SESSION_SECRET=qa-only-secret-with-more-than-32-letters \
+            DATABASE_URL=postgresql://postgres:qa-only-admin-password@127.0.0.1:5432/neondb \
+            nohup bun backend/app.ts > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3920/api/status && break; sleep 1; done
+      - name: Fluxo completo no navegador
+        run: node scripts/e2e-browser.mjs
+        env:
+          E2E_BASE_URL: http://localhost:3920
+      - name: Sincronização entre dois aparelhos
+        run: node scripts/e2e-sync.mjs
+        env:
+          E2E_BASE_URL: http://localhost:3920
+      - name: Log do servidor (se falhou)
+        if: failure()
+        run: tail -n 80 server.log
   verify:
     name: Testes Unitários, Typecheck & Build
     runs-on: ubuntu-latest
