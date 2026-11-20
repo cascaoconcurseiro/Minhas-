@@ -11,7 +11,7 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** Conferir no navegador real o interruptor de estorno em celular (iPhone/Safari) e o painel "Levar para a próxima fatura".
 - [x] **[Decidir]** L6 e L7 decididos e implementados em 19/11 (restante para a próxima fatura; saldo inicial com data).
 - [ ] **[Dev]** Conferir no navegador real o painel "Levar para a próxima fatura" e o campo "Saldo inicial vale desde".
-- [ ] **[Dev]** Levar `scripts/e2e-browser.mjs` para o CI (precisa autorizar o Playwright como dependência de desenvolvimento) e ampliar para cartão, viagem, família e backup.
+- [ ] **[Dev]** Levar `scripts/e2e-browser.mjs` e `scripts/e2e-sync.mjs` para o CI (precisa autorizar o Playwright como dependência de desenvolvimento) e ampliar para família e backup.
 - [ ] **[Dono]** Abrir o app e salvar/apagar um lançamento para confirmar a gravação após a migração 011.
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).
 - [ ] **[Decidir]** O servidor deve enviar os compartilhados sozinho no momento em que o convite é aceito (hoje depende do app de quem convidou abrir)?
@@ -67,5 +67,5 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** A18, A21, A22, A23, A24 (A24 = L5 da avaliação de 19/11): simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
 
 ## E. Dívida técnica (sem mudar comportamento)
-- [ ] **[Dev]** `src/app/useWorkspaceSync.ts` (~1.170 linhas) segue inteiro de propósito (ver `docs/tecnico/estrutura-do-codigo.md`); só dividir depois de ter testes de ponta a ponta de sincronização (dois aparelhos, conflito, sessão expirada).
+- [ ] **[Dev]** Ampliar `scripts/e2e-sync.mjs`: servidor fora do ar com nova tentativa e o aviso de conflito (manter esta aba × carregar do Neon).
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

@@ -28,6 +28,9 @@ Ambiente de teste: `node:test` via `bun test`, DOM simulado com happy-dom (`src/
 
 ## Verificação além dos testes
 
+### Teste de sincronização entre dois aparelhos (`scripts/e2e-sync.mjs`)
+Mesmo ambiente do teste abaixo, com **dois navegadores na mesma conta**: o que um aparelho grava aparece no outro sozinho (a cada ~4 s, sem recarregar); quem está digitando não perde o texto quando o outro grava; gravar depois do outro não perde dados de nenhum dos dois; sessão encerrada em um lugar derruba o outro de volta ao login. Rode sempre que mexer em `src/app/workspace-sync/`. Ainda não cobre: servidor fora do ar com nova tentativa, e o aviso de conflito com as duas opções (cobertos só por testes de unidade).
+
 ### Teste de ponta a ponta no navegador (`scripts/e2e-browser.mjs`)
 Roda o app de verdade (Chromium) contra um servidor **local** ligado a um PostgreSQL descartável; recusa qualquer endereço que não seja `localhost`. Passos:
 1. PostgreSQL descartável vazio: `CREATE ROLE minhas_app NOLOGIN`, aplicar `db/migrations/*.sql` em ordem e `ALTER ROLE minhas_app_runtime LOGIN PASSWORD '<senha local>'`.

@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Sincronização entre dois aparelhos testada e `useWorkspaceSync` dividido
+- **O que mudou:** (1) Novo `scripts/e2e-sync.mjs`: dois navegadores na mesma conta contra servidor e PostgreSQL locais descartáveis. Verifica que a gravação de um aparelho aparece no outro sozinha, que quem digita não perde o texto, que gravar depois do outro não perde dados de nenhum lado e que sessão encerrada derruba o outro aparelho. Rodado **antes** (código inteiro) e **depois** da divisão, com o mesmo resultado. (2) `useWorkspaceSync.ts` (1.169 linhas) virou compositor de 48 linhas + 10 sub-hooks em `src/app/workspace-sync/`, chamados na ordem original; só dois blocos pequenos (renovar sessão, lembrar quem tem conta) subiram para o começo, o que eliminou as referências adiante; nenhum efeito mudou de posição.
+- **Por quê:** o dono pediu para continuar com o que eu tinha deixado de fora; a condição que eu mesmo coloquei era ter testes de dois aparelhos antes de dividir.
+- **Arquivos/áreas:** `src/app/useWorkspaceSync.ts`, `src/app/workspace-sync/*` (novos), `scripts/e2e-sync.mjs` (novo), testes que leem o texto do código (`workspaceSession.test.ts`, `workspaceLoadRecovery.test.ts`: agora percorrem subpastas).
+- **Como foi verificado:** `bun run check` (817 testes); conferência de que nenhuma linha de lógica sumiu (só mudaram caminhos de `import()` e texto padrão); `e2e-sync.mjs` e `e2e-browser.mjs` (17 etapas) passando com a versão dividida.
+- **Não verificado:** servidor fora do ar com nova tentativa de gravação e o aviso de conflito com as duas opções no navegador real (só testes de unidade); iPhone/Safari; Vercel.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, `docs/tecnico/testes-e-qualidade.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** levar os dois testes de navegador para o CI (precisa autorizar o Playwright como dependência de desenvolvimento).
+
 ### 2026-11-20 — Seis arquivos médios divididos (regras de investimento, lembretes e extrato; três telas)
 - **O que mudou:** `investmentRules.ts` (987 linhas → 4 módulos), `reminderRules.ts` (933 → 5), `ofxParser.ts` (873 → 4), todos com índice que reexporta e sem ciclo de importação (pequenas funções auxiliares foram para o lado que as usa); `BankReconciliationModal` (902 → 53 linhas na tela), `AuthAndCloudTab` (821 → 64) e `GoalsAndSimulatorTab` (814 → 38) viraram pastas com hooks e blocos de tela. Conteúdo dos três domínios conferido linha a linha (0 linhas a mais ou a menos).
 - **Por quê:** o dono pediu para continuar com os itens que eu tinha deixado de fora.

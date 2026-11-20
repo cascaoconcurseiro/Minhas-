@@ -3,8 +3,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 // O App foi dividido em hooks (src/app/): o texto conferido aqui é o App mais esses arquivos.
-const appSource = [new URL('../../App.tsx', import.meta.url), ...readdirSync(new URL('../../app/', import.meta.url))
-  .map((name) => new URL(`../../app/${name}`, import.meta.url))].map((file) => readFileSync(file, 'utf8')).join('\n');
+const appFiles = (dir: string): URL[] => readdirSync(new URL(`../../${dir}/`, import.meta.url), { withFileTypes: true }).flatMap((entry) =>
+  entry.isDirectory() ? appFiles(`${dir}/${entry.name}`) : entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [new URL(`../../${dir}/${entry.name}`, import.meta.url)] : []);
+const appSource = [new URL('../../App.tsx', import.meta.url), ...appFiles('app')].map((file) => readFileSync(file, 'utf8')).join('\n');
 
 test('blocks workspace use and offers a retry until Neon has loaded successfully', () => {
   assert.match(appSource, /!isWorkspaceReadyForCurrentUser/);
@@ -18,7 +19,7 @@ test('blocks workspace use and offers a retry until Neon has loaded successfully
 
 test('the local copy is read-only until Neon loads: it is shown instantly but never written or saved before the cloud snapshot', () => {
   const saveEffectStart = appSource.indexOf('// Guarda a última versão neste aparelho');
-  const saveEffectEnd = appSource.indexOf('const handleForceCloudSync', saveEffectStart);
+  const saveEffectEnd = appSource.indexOf('export type WorkspaceCacheApi', saveEffectStart);
   assert.notEqual(saveEffectStart, -1, 'expected the cache and Neon save effect');
   assert.notEqual(saveEffectEnd, -1, 'expected the end of the save effect');
 

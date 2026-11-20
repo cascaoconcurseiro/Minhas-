@@ -8,8 +8,9 @@ import {
 } from './workspaceSession';
 
 // O App foi dividido em hooks (src/app/): o texto conferido aqui é o App mais esses arquivos.
-const appSource = [new URL('../../App.tsx', import.meta.url), ...readdirSync(new URL('../../app/', import.meta.url))
-  .map((name) => new URL(`../../app/${name}`, import.meta.url))].map((file) => readFileSync(file, 'utf8')).join('\n');
+const appFiles = (dir: string): URL[] => readdirSync(new URL(`../../${dir}/`, import.meta.url), { withFileTypes: true }).flatMap((entry) =>
+  entry.isDirectory() ? appFiles(`${dir}/${entry.name}`) : entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [new URL(`../../${dir}/${entry.name}`, import.meta.url)] : []);
+const appSource = [new URL('../../App.tsx', import.meta.url), ...appFiles('app')].map((file) => readFileSync(file, 'utf8')).join('\n');
 
 test('resets in-memory workspace at sign-out and when User changes account UID', () => {
   assert.equal(shouldResetWorkspaceForAuthChange('uid-a', null), true);
