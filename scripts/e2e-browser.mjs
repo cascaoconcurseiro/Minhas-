@@ -181,21 +181,69 @@ try {
   await page.getByTestId('trip-dedicated-page').waitFor();
   console.log('PASS: abriu a página da viagem');
 
+  // Página do cartão: abre a fatura de dezembro (onde caíram as 3 parcelas), paga parte e leva o restante para a próxima.
+  await page.getByRole('button', { name: 'Cartões de Crédito', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Próximo mês' }).first().click();
+  await page.getByText('Cartão Teste').first().click();
+  await page.getByTestId('card-dedicated-page').waitFor();
+  await page.getByTestId('pay-full-invoice-btn').waitFor({ timeout: 8000 }).catch(async (error) => { console.log('Tela do cartão:', (await page.locator('main').first().innerText()).replace(/\s+/g, ' ').slice(0, 900)); throw error; });
+  await page.getByRole('button', { name: 'Pagar Parcial' }).click();
+  const partialPanel = page.getByTestId('partial-invoice-payment-panel');
+  await partialPanel.locator('input').fill('5000');
+  await partialPanel.getByRole('button', { name: 'Confirmar Abatimento' }).click();
+  await page.getByTestId('invoice-carry-over-panel').waitFor();
+  await page.getByTestId('carry-over-confirm').click();
+  await page.getByTestId('carry-over-undo').waitFor();
+  await page.waitForTimeout(2500);
+  const carried = await page.evaluate(async () => {
+    const token = localStorage.getItem('minhas_economias_auth_token_v1');
+    const response = await fetch('/api/workspace', { headers: { Authorization: `Bearer ${token}` } });
+    const { payload } = await response.json();
+    return JSON.parse(payload.transactionsJson).filter((tx) => tx.creditCardId && tx.carriedFromInvoiceMonth);
+  });
+  assert.ok(carried.length >= 1, 'o restante da fatura foi levado para a próxima (guardado no servidor)');
+  console.log(`PASS: pagou R$ 50,00 da fatura e levou ${carried.length} lançamento(s) para a próxima fatura`);
+  await page.getByTestId('carry-over-undo').click();
+  await page.getByTestId('carry-over-confirm').waitFor();
+  console.log('PASS: desfez o saldo levado e o painel voltou ao estado anterior');
+
+  // Passeio: abre cada tela do menu e cada aba das Configurações; qualquer erro de JavaScript derruba o teste no fim.
+  const menuTabs = ['Visão Geral', 'Lançamentos', 'Contas & Carteiras', 'Cartões de Crédito', 'Orçamentos', 'Viagens & Câmbio', 'Compartilhado', 'A Receber', 'Investimentos', 'Metas & Reservas', 'Relatórios & DRE'];
+  for (const name of menuTabs) {
+    await page.getByRole('button', { name, exact: true }).first().click();
+    await page.locator('main').first().waitFor();
+    await page.waitForTimeout(600);
+    const text = (await page.locator('main').first().innerText()).trim();
+    assert.ok(text.length > 20, `a tela "${name}" abriu vazia`);
+  }
+  console.log(`PASS: abriu as ${menuTabs.length} telas do menu sem erro`);
+  await page.getByRole('button', { name: 'Abrir configurações do aplicativo' }).first().click();
+  const settings = page.getByRole('dialog');
+  await settings.waitFor();
+  let settingsTabs = 0;
+  for (const name of [/Apar[eê]ncia/i, /Categorias/i, /Regras/i, /Lembretes/i, /Perfil|Dados|Backup/i]) {
+    const tab = settings.getByRole('button', { name }).first();
+    if (await tab.count()) { await tab.click(); await page.waitForTimeout(300); settingsTabs += 1; }
+  }
+  assert.ok(settingsTabs >= 4, 'abas das configurações encontradas');
+  await page.keyboard.press('Escape');
+  console.log(`PASS: abriu ${settingsTabs} abas das Configurações sem erro`);
+
   await page.getByRole('button', { name: 'Sair da conta' }).first().click();
   await page.getByRole('button', { name: /Entrar na Conta/i }).first().waitFor();
   await page.fill('input[name=email]', email);
   await page.fill('input[name=password]', password);
   await page.getByRole('button', { name: /^Entrar/i }).last().click();
   await page.getByRole('button', { name: 'Visão Geral', exact: true }).first().click({ timeout: 15000 });
-  await waitVisibleText(page, '876,55');
-  console.log('PASS: saiu e entrou de novo; os dados continuam');
+  await waitVisibleText(page, '826,55');
+  console.log('PASS: saiu e entrou de novo; os dados continuam (saldo R$ 826,55 depois do pagamento parcial de R$ 50,00)');
 
   const phone = await newPage({ width: 390, height: 844 });
   await phone.goto(base, { waitUntil: 'networkidle' });
   await phone.fill('input[name=email]', email);
   await phone.fill('input[name=password]', password);
   await phone.getByRole('button', { name: /^Entrar/i }).last().click();
-  await waitVisibleText(phone, '876,55');
+  await waitVisibleText(phone, '826,55');
   await noHorizontalScroll(phone, 'Visão Geral no celular');
   console.log('PASS: no celular (390 px) a Visão Geral não passa da largura da tela');
 

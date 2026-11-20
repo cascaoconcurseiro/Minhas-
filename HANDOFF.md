@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Nove telas grandes divididas e teste de navegador ampliado
+- **O que mudou:** `CreditCardsTab` (1.837 → 259 linhas), `InvestmentsTab` (1.811 → 58), `AccountsTab` (1.791 → 83), `SettingsModal` (1.819 → 73), `SharedExpensesTab` (1.527 → 48), `OverviewTab` (1.394 → 46), `ReportsAndDataTab` (1.374 → 48), `TransactionsTab` (1.251 → 116) e `BudgetsTab` (1.159 → 171) viraram uma pasta cada, com hooks de lógica e um componente por bloco de tela (maior parte: 677 linhas). Código movido sem alteração por gerador que confere ordem de declaração e de efeitos; o único caso com retorno antecipado de janela fechada (`SettingsModal`) usa função comum, sem hooks, depois do retorno. O teste de navegador agora abre as 11 telas do menu e as 5 abas de Configurações, e na página do cartão paga parte da fatura, leva o restante para a próxima e desfaz.
+- **Por quê:** pedido do dono de continuar com o que estava aberto (arquivos grandes).
+- **Arquivos/áreas:** `src/components/{cards,investments,accounts,settings,family,overview,reports,transactions,budgets}/` (pastas novas ao lado de cada tela) e `scripts/e2e-browser.mjs`.
+- **Como foi verificado:** `bun run check` (817 testes, tipagem, build) a cada divisão; Chromium real com servidor e PostgreSQL locais: 11 telas, 5 abas de Configurações, pagamento parcial de R$ 50 (saldo 826,55 depois) com levar/desfazer conferidos pela API, saída/entrada e celular 390 px, sem erro de JavaScript.
+- **Não verificado:** a Vercel com estes commits; cada sub-tela por dentro (só abrem; os testes de componente cobrem o resto); iPhone/Safari.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** `travelRules.ts`, `MonthlyCalendarView.tsx` e `uxEnhancementRules.ts`; depois `useWorkspaceSync.ts`.
+
 ### 2026-11-20 — Estorno maior que a fatura: crédito levado para a próxima fatura
 - **O que mudou:** quando os estornos passam das compras, a fatura mostra "Com crédito" (nada a pagar) e o painel da fatura oferece "Levar crédito para a próxima" (`invoiceCarryOver.ts`: mesma mecânica do saldo devedor, sem pagamento prévio e sem encargos; desfazer disponível). Fatura zerada exatamente não oferece nada.
 - **Por quê:** item deixado aberto na entrega do estorno (L5).
