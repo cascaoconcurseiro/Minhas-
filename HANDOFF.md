@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Regras de viagem e orçamento por assunto; calendário dividido
+- **O que mudou:** `domain/trips/travelRules.ts` (1.838 linhas) virou 7 arquivos por assunto e `domain/budgets/uxEnhancementRules.ts` (1.016) virou 6, ambos com índice que reexporta (nenhum import mudou); conteúdo conferido linha a linha (0 linhas a mais ou a menos). `MonthlyCalendarView.tsx` (1.083) virou pasta com hooks e 5 blocos de tela. `useWorkspaceSync.ts` **não foi dividido** de propósito (motivo em `docs/tecnico/estrutura-do-codigo.md`).
+- **Por quê:** continuação do pedido de dividir os arquivos grandes.
+- **Arquivos/áreas:** `src/domain/trips/`, `src/domain/budgets/`, `src/components/overview/`.
+- **Como foi verificado:** `bun run check` (817 testes), conferência linha a linha dos dois domínios, servidor empacotado com esbuild (importa `travelRules`) respondendo `/api/status` 200.
+- **Não verificado:** o calendário mensal no navegador real (só abre dentro da tela de Lançamentos; coberto por testes de componente); Vercel.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/tecnico/estrutura-do-codigo.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** conferir no celular real as telas novas; testes de ponta a ponta de sincronização antes de mexer em `useWorkspaceSync`.
+
 ### 2026-11-20 — Nove telas grandes divididas e teste de navegador ampliado
 - **O que mudou:** `CreditCardsTab` (1.837 → 259 linhas), `InvestmentsTab` (1.811 → 58), `AccountsTab` (1.791 → 83), `SettingsModal` (1.819 → 73), `SharedExpensesTab` (1.527 → 48), `OverviewTab` (1.394 → 46), `ReportsAndDataTab` (1.374 → 48), `TransactionsTab` (1.251 → 116) e `BudgetsTab` (1.159 → 171) viraram uma pasta cada, com hooks de lógica e um componente por bloco de tela (maior parte: 677 linhas). Código movido sem alteração por gerador que confere ordem de declaração e de efeitos; o único caso com retorno antecipado de janela fechada (`SettingsModal`) usa função comum, sem hooks, depois do retorno. O teste de navegador agora abre as 11 telas do menu e as 5 abas de Configurações, e na página do cartão paga parte da fatura, leva o restante para a próxima e desfaz.
 - **Por quê:** pedido do dono de continuar com o que estava aberto (arquivos grandes).

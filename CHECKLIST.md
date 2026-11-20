@@ -67,6 +67,6 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** A18, A21, A22, A23, A24 (A24 = L5 da avaliação de 19/11): simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
 
 ## E. Dívida técnica (sem mudar comportamento)
-- [ ] **[Dev]** Dividir os arquivos que ainda passam de ~900 linhas: `src/domain/trips/travelRules.ts`, `src/components/overview/MonthlyCalendarView.tsx` e `src/domain/budgets/uxEnhancementRules.ts`.
-- [ ] **[Dev]** Dividir de novo `src/app/useWorkspaceSync.ts` (~1.170 linhas): login × gravação × convites.
+- [ ] **[Dev]** `src/app/useWorkspaceSync.ts` (~1.170 linhas) segue inteiro de propósito (ver `docs/tecnico/estrutura-do-codigo.md`); só dividir depois de ter testes de ponta a ponta de sincronização (dois aparelhos, conflito, sessão expirada).
+- [ ] **[Dev]** Arquivos entre 700 e 1.000 linhas ainda existem (`investmentRules.ts`, `reminderRules.ts`, `BankReconciliationModal.tsx`, `ofxParser.ts`, `AuthAndCloudTab.tsx`, `GoalsAndSimulatorTab.tsx`): dividir se crescerem.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.
