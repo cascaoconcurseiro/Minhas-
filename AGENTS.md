@@ -24,6 +24,7 @@ Stack: React 19 + TypeScript + Vite (front), Express na Vercel (API), **Neon Pos
 Isto é **imposto**: o CI falha, o gancho `pre-push` barra o push e, no Claude Code, um gancho de parada impede encerrar a tarefa com código alterado e HANDOFF desatualizado. Não tente contornar; preencha o HANDOFF.
 
 ## 3. Regras que não se quebram
+- Toda lista de lançamentos é **cronológica** (mais antigo → mais novo), em qualquer tela: use `sortChronologically` (`src/domain/finance/transactionOrdering.ts`); um teste barra ordem decrescente.
 - Dinheiro em **centavos** ao somar; regra de negócio só em `src/domain/` (telas não recalculam).
 - Gasto de cartão conta no mês da **compra**; caixa no pagamento da fatura. Dinheiro de terceiros (a receber, acompanhante) fica **fora** do resultado pessoal.
 - Forma de pagamento, categoria e conta **nada pré-selecionado** quando há mais de uma opção.

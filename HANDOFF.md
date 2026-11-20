@@ -53,6 +53,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-20 — Ordem cronológica vira padrão imposto por teste
+- **O que mudou:** novo `chronologicalOrderRule.test.ts` falha se qualquer arquivo de `src/` ordenar lista por data decrescente (exceções declaradas: 4 arquivos que só escolhem "o mais recente"). Removido `entriesNewestFirst` do extrato (não era usado). Regra escrita em `AGENTS.md` e em `docs/processo/guia-de-contribuicao.md`.
+- **Por quê:** o dono pediu que a ordem cronológica seja o padrão em todo o sistema, não um ajuste por tela (a correção das listas foi publicada antes em `2e3b0d6`).
+- **Arquivos/áreas:** `src/domain/finance/chronologicalOrderRule.test.ts`, `src/domain/budgets/accountStatement.ts`, `AGENTS.md`, `docs/processo/guia-de-contribuicao.md`.
+- **Como foi verificado:** teste novo passa e, de propósito, reintroduzi a ordem decrescente numa lista e ele falhou (arquivo restaurado depois); `bun run check`.
+- **Não verificado:** o teste só enxerga o padrão `b.date.localeCompare(a.date)`; ordenações feitas de outro jeito (ex.: `.reverse()` solto) não são pegas. Tela de Compartilhado com dados reais após o deploy.
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `AGENTS.md`, `docs/processo/guia-de-contribuicao.md`, este HANDOFF.
+- **Próximo passo:** o dono conferir a tela de Compartilhado depois do deploy.
+
 ### 2026-11-20 — Todas as listas de lançamentos em ordem cronológica
 - **O que mudou:** novo `sortChronologically` (`src/domain/finance/transactionOrdering.ts`). Estavam fora da regra do dono (dia 1 → fim do mês): lançamentos compartilhados por pessoa (sem ordem), gastos da viagem, últimos pagos da Visão Geral, busca, fluxo de caixa, rendimentos de investimento (todos do mais novo ao mais antigo), cascata de Lançamentos (dias do mais novo ao mais antigo), recebimentos de A Receber e lista de importação do extrato (ordem do arquivo). Todos agora do mais antigo ao mais novo; empate no mesmo dia mantém a ordem original.
 - **Por quê:** o dono mostrou a lista de compartilhados desordenada e pediu cronologia em todo lugar.

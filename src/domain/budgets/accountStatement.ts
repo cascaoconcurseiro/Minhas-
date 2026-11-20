@@ -25,7 +25,6 @@ export interface AccountStatementSummary {
   monthDebitsRealized: number;
   monthPendingNet: number;
   entriesChronological: AccountStatementEntry[];
-  entriesNewestFirst: AccountStatementEntry[];
 }
 
 /**
@@ -130,6 +129,5 @@ export function calculateAccountStatementWithRunningBalance(
     monthDebitsRealized,
     monthPendingNet,
     entriesChronological,
-    entriesNewestFirst: [...entriesChronological].reverse(),
   };
 }

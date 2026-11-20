@@ -11,6 +11,7 @@ Regras para mexer no código sem quebrar o que funciona. Vale para pessoas e par
 Veja a tabela em [../tecnico/estrutura-do-codigo.md](../tecnico/estrutura-do-codigo.md). Resumo: regra de negócio em `src/domain/`, tela em `src/components/<área>/`, dados em `src/services/`, rota em `backend/`, tabela nova em `db/migrations/`.
 
 ## Regras de ouro
+- **Ordem das listas**: toda lista de lançamentos é cronológica (do mais antigo ao mais novo, do dia 1 ao fim do mês), sem opção de inverter; use `sortChronologically` (`src/domain/finance/transactionOrdering.ts`). Um teste (`chronologicalOrderRule.test.ts`) falha se alguém ordenar uma lista por data decrescente.
 - **Dinheiro**: sempre em centavos inteiros ao somar; nunca recalcular regra dentro de tela.
 - **Competência**: gasto de cartão conta no mês da compra; caixa no pagamento da fatura (ver regras de negócio).
 - **Dinheiro de terceiros** (a receber, acompanhante) fica fora do resultado pessoal (`isOutsidePersonalResult`).
