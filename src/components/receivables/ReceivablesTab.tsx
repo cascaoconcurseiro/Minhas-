@@ -27,13 +27,15 @@ interface ReceivablesTabProps {
   onRegisterPayment: (receivableId: string, input: { date: string; amount: number; accountId: string; note?: string }) => string | null;
   onRemovePayment: (receivableId: string, paymentId: string) => void;
   onDelete: (receivableId: string) => string | null;
+  /** Leva uma fatura de cartão adicional antiga para Compartilhado. Devolve a mensagem de erro, ou null. */
+  onMoveToShared: (receivableId: string) => string | null;
 }
 
 const inputClass = 'w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-slate-900 dark:text-white';
 const labelClass = 'block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1';
 
 export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
-  receivables, cards, accounts, familyMembers, transactions, onCreate, onRegisterPayment, onRemovePayment, onDelete,
+  receivables, cards, accounts, familyMembers, transactions, onCreate, onRegisterPayment, onRemovePayment, onDelete, onMoveToShared,
 }) => {
   const [formOpen, setFormOpen] = useState(false);
   const [person, setPerson] = useState('');
@@ -179,6 +181,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
                 <CheckCircle2 className="h-3.5 w-3.5" /> Registrar recebimento
               </button>
             ) : <span />}
+            {item.kind === 'card_invoice' && item.payments.length === 0 && (
+              <button type="button" data-testid={`receivable-move-${item.id}`} onClick={() => setListError(onMoveToShared(item.id) ?? '')} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 underline">
+                Mover para Compartilhado
+              </button>
+            )}
             <button type="button" onClick={() => { if (window.confirm('Apagar este valor a receber e o que ele criou (linha na fatura e recebimentos)?')) setListError(onDelete(item.id) ?? ''); }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 underline" aria-label={`Apagar valor a receber de ${item.personName}`}>
               <Trash2 className="h-3 w-3" /> Apagar
             </button>

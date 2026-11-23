@@ -1,4 +1,5 @@
-import type { CreditCard, FamilyMember, Transaction } from '../../types/finance';
+import type { CreditCard, FamilyMember, Receivable, Transaction } from '../../types/finance';
+import { deleteReceivable } from '../receivables/receivables.ts';
 import { formatMonthYearPT, isValidISODate } from '../finance/formatting.ts';
 import { getSharedSyncId } from './sharedFinanceRules.ts';
 import { isSharedCardInvoiceId, SHARED_CARD_INVOICE_PREFIX } from './sharedCardInvoiceIds.ts';
@@ -113,24 +114,32 @@ export function deleteSharedCardInvoice(
 }
 
 /**
- * Faturas de cartão adicional ainda não acertadas, por pessoa: é dinheiro que a pessoa te deve e entra no
- * "a receber" do patrimônio (a fatura já está na dívida do seu cartão). `throughDate` ignora as lançadas depois dele.
+ * Leva uma fatura de cartão adicional que ainda está em A Receber (dado antigo) para Compartilhado.
+ * Só vale sem recebimentos registrados e com a pessoa cadastrada em Compartilhado (mesmo nome).
  */
-export function listOpenSharedCardInvoices(
-  transactions: Transaction[],
-  members: FamilyMember[],
-  throughDate?: string
-): Array<{ personName: string; balance: number }> {
-  const byMember = new Map<string, number>();
-  for (const tx of transactions) {
-    if (!isSharedCardInvoice(tx) || tx.sharedStatus === 'received') continue;
-    if (throughDate && tx.date > throughDate) continue;
-    const cents = Math.round((tx.sharedAmount || 0) * 100);
-    if (cents <= 0 || !tx.sharedMemberId) continue;
-    byMember.set(tx.sharedMemberId, (byMember.get(tx.sharedMemberId) ?? 0) + cents);
-  }
-  return [...byMember.entries()].map(([memberId, cents]) => ({
-    personName: members.find((member) => member.id === memberId)?.name || 'Familiar',
-    balance: cents / 100,
-  }));
+export function convertReceivableToSharedCardInvoice(input: {
+  receivables: Receivable[];
+  transactions: Transaction[];
+  members: FamilyMember[];
+  cards: CreditCard[];
+  receivableId: string;
+  newId: string;
+}): { receivables: Receivable[]; transactions: Transaction[]; error?: string } {
+  const { receivables, transactions } = input;
+  const fail = (error: string) => ({ receivables, transactions, error });
+  const item = receivables.find((entry) => entry.id === input.receivableId);
+  if (!item || item.kind !== 'card_invoice') return fail('Só faturas de cartão adicional podem ir para Compartilhado.');
+  if (item.payments.length > 0) return fail('Esta fatura já tem recebimentos registrados. Desfaça-os antes de mover.');
+  const name = item.personName.trim().toLowerCase();
+  const member = input.members.find((entry) => entry.name.trim().toLowerCase() === name);
+  if (!member) return fail(`Cadastre ${item.personName} em Compartilhado (Pessoas) com o mesmo nome antes de mover.`);
+  const created = createSharedCardInvoice({
+    id: input.newId, memberId: member.id, memberName: member.name,
+    card: input.cards.find((card) => card.id === item.cardId), invoiceMonth: item.invoiceMonth || '',
+    amount: item.amount, date: item.createdDate,
+  });
+  if (created.error !== undefined) return fail(created.error);
+  const removed = deleteReceivable(receivables, transactions, item.id);
+  if (removed.error) return fail(removed.error);
+  return { receivables: removed.receivables, transactions: [created.transaction, ...removed.transactions] };
 }

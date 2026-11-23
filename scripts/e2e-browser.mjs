@@ -219,6 +219,50 @@ try {
   await page.getByTestId('carry-over-confirm').waitFor();
   console.log('PASS: desfez o saldo levado e o painel voltou ao estado anterior');
 
+  // Fatura de cartão adicional em Compartilhado: registrar, corrigir o valor e apagar (confere o que o servidor guardou).
+  const savedTransactions = () => page.evaluate(async () => {
+    const token = localStorage.getItem('minhas_economias_auth_token_v1');
+    const response = await fetch('/api/workspace', { headers: { Authorization: `Bearer ${token}` } });
+    const { payload } = await response.json();
+    return JSON.parse(payload.transactionsJson).filter((tx) => tx.id.startsWith('tx-cardinv-'));
+  });
+  await goTab(page, 'Compartilhado');
+  await page.getByTestId('invite-family-member-btn').click();
+  const memberDialog = page.getByRole('dialog');
+  await memberDialog.locator('input[placeholder^="ex: Mariana"]').fill('Esposa E2E');
+  await memberDialog.locator('button[type=submit]').click();
+  await memberDialog.waitFor({ state: 'hidden' });
+  await page.getByTestId('shared-new-card-invoice').click();
+  await page.getByTestId('shared-card-invoice-amount').fill('800,00');
+  await page.getByTestId('shared-card-invoice-submit').click();
+  await page.getByText('Fatura de Esposa E2E').first().waitFor({ timeout: 15000 });
+  await page.waitForTimeout(2500);
+  let invoices = await savedTransactions();
+  assert.equal(invoices.length, 1, 'a fatura do cartão adicional vira um lançamento');
+  assert.equal(invoices[0].amount, 800);
+  assert.equal(invoices[0].sharedAmount, 800, 'é 100% da pessoa');
+  assert.equal(invoices[0].sharedPaidBy, 'me');
+  assert.equal(invoices[0].paymentMethod, 'credit_card');
+  assert.equal(invoices[0].receivableId, undefined, 'não nasce mais em A Receber');
+  console.log('PASS: registrou a fatura de R$ 800,00 do cartão adicional em Compartilhado (100% da pessoa, no cartão)');
+
+  await page.locator('[data-testid^="shared-card-invoice-edit-"]').first().click();
+  await page.getByTestId('shared-card-invoice-amount').fill('950,00');
+  await page.getByTestId('shared-card-invoice-submit').click();
+  await page.getByTestId('shared-card-invoice-form').waitFor({ state: 'hidden' });
+  await page.waitForTimeout(2500);
+  invoices = await savedTransactions();
+  assert.equal(invoices[0].amount, 950);
+  assert.equal(invoices[0].sharedAmount, 950, 'o que a pessoa deve acompanha o valor corrigido');
+  console.log('PASS: corrigiu o valor da fatura para R$ 950,00 e a parte da pessoa acompanhou');
+  if (phoneMode) { await noHorizontalScroll(page, 'Compartilhado com a fatura do cartão adicional (celular)'); console.log('PASS: no celular Compartilhado com a fatura não passa da largura da tela'); }
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: /^Apagar Fatura de/ }).first().click();
+  await page.waitForTimeout(2500);
+  assert.equal((await savedTransactions()).length, 0, 'apagar remove a fatura');
+  console.log('PASS: apagou a fatura do cartão adicional');
+
   // Passeio: abre cada tela do menu e cada aba das Configurações; qualquer erro de JavaScript derruba o teste no fim.
   const menuTabs = ['Visão Geral', 'Lançamentos', 'Contas & Carteiras', 'Cartões de Crédito', 'Orçamentos', 'Viagens & Câmbio', 'Compartilhado', 'A Receber', 'Investimentos', 'Metas & Reservas', 'Relatórios & DRE'];
   for (const name of menuTabs) {

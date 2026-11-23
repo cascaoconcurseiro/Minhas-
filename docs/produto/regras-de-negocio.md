@@ -146,7 +146,7 @@ Não contam como despesa, receita, categoria, 50/30/20, DRE, comprometimento de 
 - gastos **só de acompanhantes de viagem** (pagos por outro participante);
 - movimentos de **valores a receber** (saída de empréstimo e os recebimentos; no dado antigo, também a linha da fatura do cartão adicional);
 - a **fatura de cartão adicional de Compartilhado** (`tx-cardinv-*`) e o movimento que a recebe no acerto (`tx-reimb-*-cardinv`).
-- Despesa paga pelo familiar (`sharedPaidBy === 'member'`) e espelho recebido por convite (`tx-mirror-*`) não entram nas despesas nem no resultado pessoal. A cota devida aparece em **Compartilhado → Eu devo**; após o acerto, a saída real da conta aparece no extrato. Uma despesa compartilhada que você pagou continua contando como despesa sua, descontada a parte a receber.
+- Despesa paga pelo familiar (`sharedPaidBy === 'member'`) e espelho recebido por convite (`tx-mirror-*`) não entram nas despesas nem no resultado pessoal. A cota devida aparece em **Compartilhado → Eu devo**; após o acerto, a saída real da conta aparece no extrato. Uma despesa compartilhada que você pagou **conta pelo valor inteiro** como despesa sua (`getEffectiveExpenseAmountForUser` não desconta `sharedAmount`) e o reembolso recebido no acerto entra como receita. *(Texto corrigido em 2026-11-23: antes dizia "descontada a parte a receber", o que o código não faz. Mudar para "só a minha parte" é uma decisão pendente do dono; ver CHECKLIST.)*
 Esses movimentos **continuam** afetando saldo de conta, fatura e limite do cartão.
 
 ### 5.3 Orçamento e 50/30/20
@@ -168,7 +168,7 @@ Parte do saldo de hoje e soma o que está agendado: contas a pagar e a receber, 
 `patrimônio = saldo das contas + investimentos + A RECEBER de pessoas − dívida dos cartões`
 - **Investimentos** = quantidade × preço atual de cada ativo.
 - **Dívida dos cartões** = limite usado (faturas atuais e futuras).
-- **A receber** = saldo em aberto de todos os valores a receber (seção 7). Entra como ativo para compensar a fatura do cartão adicional, que já está na dívida do cartão. O patrimônio também soma, em "a receber", as **faturas de cartão adicional de Compartilhado ainda não acertadas** (`listOpenSharedCardInvoices`); elas não aparecem na tela A Receber.
+- **A receber** = saldo em aberto de todos os valores a receber (seção 7). Entra como ativo para compensar a fatura do cartão adicional, que já está na dívida do cartão. O patrimônio também soma, em "a receber", **tudo o que as pessoas ainda te devem em Compartilhado** (compartilhados que você pagou e não foram acertados, incluindo a fatura de cartão adicional; `listOpenSharedReceivables`). Isso não aparece na tela A Receber. O que **você** deve ("Eu devo") ainda não entra no patrimônio como dívida.
 
 ### 6.2 Score de saúde financeira 360 (0 a 1000) — `calculateFinancialHealthScore360`
 Soma de quatro blocos de até 250 pontos:
@@ -187,7 +187,7 @@ Faixas: ≥ 800 Excelente; ≥ 650 Saudável; ≥ 450 Atenção; abaixo disso Cr
 Para dinheiro que **é de outra pessoa**, mesmo passando pelas suas contas. Dois tipos:
 
 ### 7.1 Fatura de cartão adicional (`card_invoice`) — só dados antigos
-**Desde 2026-11-23 não nasce mais em A Receber**: a cobrança do cartão adicional fica em **Compartilhado** (seção 8, "Fatura de cartão adicional"). Os itens `card_invoice` que já existem continuam funcionando e podem ser recebidos ou apagados como antes.
+**Desde 2026-11-23 não nasce mais em A Receber**: a cobrança do cartão adicional fica em **Compartilhado** (seção 8, "Fatura de cartão adicional"). Os itens `card_invoice` que já existem continuam funcionando e podem ser recebidos ou apagados como antes. Os que ainda **não têm recebimento** ganham o botão **Mover para Compartilhado** (`convertReceivableToSharedCardInvoice`): a pessoa precisa estar cadastrada em Compartilhado com o mesmo nome; a linha antiga some e entra a fatura nova, com o mesmo cartão, mês e valor.
 Caso: sua esposa usa um cartão adicional e você cobra dela **o valor cheio da fatura**, não compra por compra.
 - Cria **uma linha na fatura do seu cartão** (pendente, no mês de fatura escolhido, categoria "Outros"), que ocupa limite e aparece na fatura.
 - **Não** é despesa sua (seção 5.2).

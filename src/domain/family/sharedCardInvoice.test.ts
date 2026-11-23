@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../types/finance';
-import { calculateSharedMemberSummary, reopenSharedSettlement, settleSharedExpenses } from './sharedFinanceRules';
+import type { BankAccount, CreditCard, FamilyMember, Receivable, Transaction } from '../../types/finance';
+import { calculateSharedMemberSummary, listOpenSharedReceivables, reopenSharedSettlement, settleSharedExpenses } from './sharedFinanceRules';
 import { isOutsidePersonalResult } from '../finance/transactionClassification';
 import { calculatePersonalDre } from '../finance/personalDre';
-import { createSharedCardInvoice, deleteSharedCardInvoice, isSharedCardInvoice, listOpenSharedCardInvoices, updateSharedCardInvoice } from './sharedCardInvoice';
+import { createReceivable } from '../receivables/receivables';
+import { convertReceivableToSharedCardInvoice, createSharedCardInvoice, deleteSharedCardInvoice, isSharedCardInvoice, updateSharedCardInvoice } from './sharedCardInvoice';
 import { summarizeReceivables } from '../receivables/receivables';
 
 const card: CreditCard = { id: 'card-1', name: 'Itaú azul', brand: 'Visa', limit: 5000, closingDay: 5, dueDay: 12, defaultAccountId: 'acc', color: '#000' };
@@ -116,12 +117,41 @@ test('reabrir o acerto remove os dois movimentos', () => {
   assert.ok(reopened.transactions.filter((item) => item.isShared).every((item) => item.sharedStatus === 'pending'));
 });
 
-test('fatura em aberto conta no a receber do patrimônio e sai quando é acertada', () => {
+test('todo compartilhado em aberto que a pessoa me deve conta no a receber do patrimônio', () => {
   const members: FamilyMember[] = [{ id: 'fran', name: 'Fran', relationship: 'cônjuge', color: '#000' }];
   const invoice = (create(800) as { transaction: Transaction }).transaction;
-  const open = listOpenSharedCardInvoices([ordinary, invoice], members, '2026-11-30');
-  assert.deepEqual(open, [{ personName: 'Fran', balance: 800 }]);
-  assert.equal(summarizeReceivables([], '2026-11-30', open).totalOpen, 800);
-  assert.deepEqual(listOpenSharedCardInvoices([invoice], members, '2026-11-01'), [], 'lançada depois da data não conta');
-  assert.deepEqual(listOpenSharedCardInvoices([{ ...invoice, sharedStatus: 'received' }], members), []);
+  const memberPaid = { ...ordinary, id: 'devo', sharedPaidBy: 'member' as const, sharedAmount: 30 };
+  const mirror = { ...ordinary, id: 'tx-mirror-x', sharedAmount: 70 };
+  const open = listOpenSharedReceivables([ordinary, invoice, memberPaid, mirror], members, '2026-12-31');
+  assert.deepEqual(open, [{ personName: 'Fran', balance: 850 }], 'fatura 800 + comum 50; "eu devo" e espelho ficam de fora');
+  assert.equal(summarizeReceivables([], '2026-12-31', open).totalOpen, 850);
+  assert.deepEqual(listOpenSharedReceivables([invoice], members, '2026-11-01'), [], 'lançado depois da data não conta');
+  assert.deepEqual(listOpenSharedReceivables([{ ...invoice, sharedStatus: 'received' }], members), []);
+});
+
+test('fatura antiga de A Receber vai para Compartilhado sem duplicar na fatura do cartão', () => {
+  const members: FamilyMember[] = [{ id: 'fran', name: 'Fran', relationship: 'cônjuge', color: '#000' }];
+  const legacy = createReceivable({ id: 'r1', kind: 'card_invoice', personName: 'fran', amount: 640, date: '2026-11-10', cardId: card.id, invoiceMonth: '2026-12', cardName: card.name });
+  assert.equal(legacy.error, undefined);
+  const { receivable, transactions } = legacy as { receivable: Receivable; transactions: Transaction[] };
+  const moved = convertReceivableToSharedCardInvoice({ receivables: [receivable], transactions, members, cards: [card], receivableId: 'r1', newId: 'novo' });
+  assert.equal(moved.error, undefined);
+  assert.deepEqual(moved.receivables, []);
+  assert.equal(moved.transactions.length, 1, 'a linha antiga some e entra uma só nova');
+  const tx = moved.transactions[0];
+  assert.equal(isSharedCardInvoice(tx), true);
+  assert.equal(tx.amount, 640);
+  assert.equal(tx.competenceMonth, '2026-12');
+  assert.equal(tx.sharedMemberId, 'fran');
+  assert.equal(tx.receivableId, undefined);
+});
+
+test('não move fatura com recebimento, sem a pessoa cadastrada ou que não seja de cartão', () => {
+  const members: FamilyMember[] = [{ id: 'fran', name: 'Fran', relationship: 'cônjuge', color: '#000' }];
+  const base = createReceivable({ id: 'r1', kind: 'card_invoice', personName: 'Fran', amount: 640, date: '2026-11-10', cardId: card.id, invoiceMonth: '2026-12', cardName: card.name }) as { receivable: Receivable; transactions: Transaction[] };
+  const attempt = (receivable: Receivable, people = members) =>
+    convertReceivableToSharedCardInvoice({ receivables: [receivable], transactions: base.transactions, members: people, cards: [card], receivableId: receivable.id, newId: 'n' });
+  assert.match(attempt({ ...base.receivable, payments: [{ id: 'p', date: '2026-11-12', amount: 10, accountId: 'bank' }] }).error ?? '', /recebimentos/);
+  assert.match(attempt(base.receivable, []).error ?? '', /Cadastre/);
+  assert.match(attempt({ ...base.receivable, kind: 'loan' }).error ?? '', /cartão adicional/);
 });
