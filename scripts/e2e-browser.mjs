@@ -73,7 +73,7 @@ try {
   await page.fill('input[name=email]', email);
   await page.fill('input[name=password]', password);
   await page.getByRole('button', { name: /Criar Conta e Acessar/i }).click();
-  await page.getByText('Boa', { exact: false }).first().waitFor({ timeout: 15000 });
+  await page.getByText(/Bom dia|Boa tarde|Boa noite/).first().waitFor({ timeout: 15000 });
   console.log('PASS: criou a conta de login e abriu a Visão Geral');
 
   await page.getByRole('button', { name: '+ Cadastrar Primeira Conta' }).click();
