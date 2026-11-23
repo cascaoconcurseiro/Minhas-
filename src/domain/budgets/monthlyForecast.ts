@@ -11,6 +11,8 @@ import { isCreditCardInvoicePurchase } from '../finance/transactionClassificatio
 export interface MonthlyForecastRow {
   month: string;
   income: number;
+  /** Entradas estimadas nos meses depois da última entrada lançada (0 quando a estimativa está desligada ou não se aplica). */
+  estimatedIncome: number;
   cardInvoices: number;
   bankExpenses: number;
   /** Compras novas estimadas no cartão (0 quando a estimativa está desligada ou não há histórico). */
@@ -30,6 +32,8 @@ export interface MonthlyForecast {
   rows: MonthlyForecastRow[];
   /** Base da estimativa de compras novas (null quando não há compras à vista para tirar a média). */
   estimate: { monthlyAverage: number; monthsUsed: number } | null;
+  /** Entrada mensal estimada (mediana dos últimos meses com entrada) para os meses depois da última entrada lançada. */
+  incomeEstimate: { monthlyAmount: number; monthsUsed: number } | null;
   firstNegativeMonth: string | null;
   /** Último mês com entrada, quando os meses seguintes ficam sem nenhuma (provável lançamento fixo que acabou). */
   incomeEndsAfter: string | null;
@@ -46,8 +50,9 @@ export function buildMonthlyForecast(input: {
   referenceDate: string;
   months?: number;
   includeEstimate?: boolean;
+  includeIncomeEstimate?: boolean;
 }): MonthlyForecast {
-  const { accounts, transactions, referenceDate, includeEstimate = true } = input;
+  const { accounts, transactions, referenceDate, includeEstimate = true, includeIncomeEstimate = true } = input;
   const horizon = input.months ?? 12;
   const currentMonth = referenceDate.slice(0, 7);
   const monthList = Array.from({ length: horizon }, (_, index) => addMonthsToYearMonth(currentMonth, index));
@@ -110,6 +115,16 @@ export function buildMonthlyForecast(input: {
   const averageSharedCents = used.length ? Math.round(used.reduce((sum, value) => sum + value.shared, 0) / used.length) : 0;
   const estimateActive = includeEstimate && averageCents > 0;
 
+  // Estimativa de entradas: depois do último mês com entrada lançada, usa a mediana dos últimos (até 3) meses com entrada,
+  // para uma entrada única grande (13º, bônus) não puxar a média para cima.
+  const incomeMonths = income.map((value, position) => (value > 0 ? position : -1)).filter((position) => position >= 0);
+  const lastIncomePosition = incomeMonths.length ? incomeMonths[incomeMonths.length - 1] : -1;
+  const incomeSample = incomeMonths.slice(-3).map((position) => income[position]).sort((a, b) => a - b);
+  const medianIncomeCents = incomeSample.length === 0 ? 0
+    : incomeSample.length % 2 === 1 ? incomeSample[(incomeSample.length - 1) / 2]
+      : Math.round((incomeSample[incomeSample.length / 2 - 1] + incomeSample[incomeSample.length / 2]) / 2);
+  const incomeEstimateActive = includeIncomeEstimate && medianIncomeCents > 0 && lastIncomePosition < horizon - 1;
+
   const rows: MonthlyForecastRow[] = [];
   let balanceCents = cents(input.startBalance);
   let owedCumulative = 0;
@@ -117,13 +132,15 @@ export function buildMonthlyForecast(input: {
     const estimated = estimateActive ? Math.max(0, averageCents - cardCashOnlyAVista[position]) : 0;
     const estimatedShared = estimateActive && averageCents > 0
       ? Math.round(averageSharedCents * (estimated / averageCents)) : 0;
-    const netCents = income[position] - cardInvoices[position] - bankExpenses[position] - estimated;
+    const estimatedIncomeCents = incomeEstimateActive && position > lastIncomePosition ? medianIncomeCents : 0;
+    const netCents = income[position] + estimatedIncomeCents - cardInvoices[position] - bankExpenses[position] - estimated;
     balanceCents += netCents;
     const owed = cashSharedOwed[position] + estimatedShared;
     owedCumulative += owed;
     rows.push({
       month,
       income: income[position] / 100,
+      estimatedIncome: estimatedIncomeCents / 100,
       cardInvoices: cardInvoices[position] / 100,
       bankExpenses: bankExpenses[position] / 100,
       estimatedPurchases: estimated / 100,
@@ -139,6 +156,7 @@ export function buildMonthlyForecast(input: {
     startBalance: input.startBalance,
     rows,
     estimate: used.length && averageCents > 0 ? { monthlyAverage: averageCents / 100, monthsUsed: used.length } : null,
+    incomeEstimate: incomeEstimateActive ? { monthlyAmount: medianIncomeCents / 100, monthsUsed: incomeSample.length } : null,
     firstNegativeMonth: rows.find((row) => row.balance < 0)?.month ?? null,
     incomeEndsAfter: lastIncome >= 0 && lastIncome < rows.length - 1 ? rows[lastIncome].month : null,
     overdueCount,

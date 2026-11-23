@@ -7,8 +7,8 @@ const account: BankAccount = { id: 'bank', name: 'Conta', institution: 'Teste', 
 const base: Transaction = { id: 'x', description: 'x', amount: 0, date: '2026-12-01', competenceMonth: '2026-12', type: 'expense',
   status: 'pending', categoryId: 'cat-outros', paymentMethod: 'cash', recurrence: 'single' };
 const tx = (over: Partial<Transaction>): Transaction => ({ ...base, ...over });
-const run = (transactions: Transaction[], includeEstimate = false, startBalance = 1000) =>
-  buildMonthlyForecast({ accounts: [account], transactions, startBalance, referenceDate: '2026-11-23', months: 6, includeEstimate });
+const run = (transactions: Transaction[], includeEstimate = false, startBalance = 1000, includeIncomeEstimate = false) =>
+  buildMonthlyForecast({ accounts: [account], transactions, startBalance, referenceDate: '2026-11-23', months: 6, includeEstimate, includeIncomeEstimate });
 
 test('soma entradas, faturas e contas do banco por mês e acumula o saldo a partir de hoje', () => {
   const forecast = run([
@@ -78,4 +78,27 @@ test('avisa o primeiro mês negativo e quando as entradas acabam', () => {
   assert.equal(forecast.incomeEndsAfter, '2026-12');
   assert.equal(forecast.firstNegativeMonth, '2027-02');
   assert.equal(run([], false, 100).firstNegativeMonth, null);
+});
+
+test('estimativa de entrada: depois da última entrada lançada usa a mediana dos últimos meses e ignora o 13º', () => {
+  const income = (id: string, amount: number, month: string) =>
+    tx({ id, type: 'income', amount, accountId: 'bank', competenceMonth: month, date: `${month}-01` });
+  const transactions = [income('a', 11000, '2026-12'), income('b', 8000, '2027-01'), income('c', 8200, '2027-02')];
+  const off = run(transactions, false, 0, false);
+  const on = run(transactions, false, 0, true);
+  assert.deepEqual(on.incomeEstimate, { monthlyAmount: 8200, monthsUsed: 3 }, 'mediana de 11000, 8000 e 8200');
+  assert.equal(on.rows[3].estimatedIncome, 0, 'fevereiro tem entrada lançada: não recebe estimativa');
+  assert.equal(on.rows[4].estimatedIncome, 8200, 'a estimativa começa em março, depois da última entrada');
+  assert.equal(on.rows[5].estimatedIncome, 8200);
+  assert.equal(on.rows[0].estimatedIncome, 0, 'mês atual, antes da última entrada, não recebe estimativa');
+  assert.equal(off.incomeEstimate, null);
+  assert.equal(off.rows[4].estimatedIncome, 0);
+  assert.equal(on.rows[5].balance - off.rows[5].balance, 8200 * 2);
+});
+
+test('sem entrada lançada, ou com entrada até o último mês, não há estimativa de entrada', () => {
+  assert.equal(run([], false, 0, true).incomeEstimate, null);
+  const all = ['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04'].map((month) =>
+    tx({ id: `i-${month}`, type: 'income', amount: 1000, accountId: 'bank', competenceMonth: month, date: `${month}-01` }));
+  assert.equal(run(all, false, 0, true).incomeEstimate, null);
 });

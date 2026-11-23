@@ -488,4 +488,7 @@ test('ReportsAndDataTab mostra a previsão mês a mês com 12 meses e liga/desli
   assert.match(section.textContent ?? '', /média de/);
   await act(async () => { toggle.click(); });
   assert.equal(toggle.checked, false);
+  const incomeToggle = section.querySelector<HTMLInputElement>('[data-testid="forecast-income-toggle"]');
+  assert.ok(incomeToggle, 'existe a caixa para estimar entradas');
+  assert.equal(incomeToggle.checked, true);
 });
