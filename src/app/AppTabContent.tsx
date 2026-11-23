@@ -53,6 +53,7 @@ export function AppTabContent({ app }: { app: AppContext }) {
     handleDeleteGoal,
     handleDeleteInvestmentAsset,
     handleDeleteReceivable,
+    handleMoveReceivableToShared,
     handleDeleteTransaction,
     handleDeleteTrip,
     handleDismissRecurring,
@@ -319,6 +320,7 @@ export function AppTabContent({ app }: { app: AppContext }) {
                   onRegisterPayment={handleRegisterReceivablePayment}
                   onRemovePayment={handleRemoveReceivablePayment}
                   onDelete={handleDeleteReceivable}
+                  onMoveToShared={handleMoveReceivableToShared}
                 />
               )}
 

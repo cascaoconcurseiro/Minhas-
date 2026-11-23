@@ -2,10 +2,13 @@
 import { useMemo } from 'react';
 import { createReceivable, deleteReceivable, getReceivableBalance, registerReceivablePayment, removeReceivablePayment, summarizeReceivables } from '../domain/receivables/receivables';
 import { formatBRL } from '../domain/finance/financeRules';
+import { convertReceivableToSharedCardInvoice } from '../domain/family/sharedCardInvoice';
 import type { AppStateApi } from './useAppState';
 
 export function useReceivables(app: AppStateApi) {
   const {
+    cards,
+    familyMembers,
     receivables,
     requireWorkspaceWrite,
     setReceivables,
@@ -68,8 +71,21 @@ export function useReceivables(app: AppStateApi) {
     return null;
   };
 
+  const handleMoveReceivableToShared = (receivableId: string): string | null => {
+    if (!requireWorkspaceWrite()) return workspaceReadOnlyMessage;
+    const result = convertReceivableToSharedCardInvoice({
+      receivables, transactions, members: familyMembers, cards, receivableId, newId: newReceivableId('mv'),
+    });
+    if (result.error) return result.error;
+    setReceivables(result.receivables);
+    setTransactions(result.transactions);
+    showNotice('Fatura movida para Compartilhado. Agora ela soma ao que a pessoa te deve no mês da fatura.');
+    return null;
+  };
+
   return {
     handleCreateReceivable,
+    handleMoveReceivableToShared,
     handleDeleteReceivable,
     handleRegisterReceivablePayment,
     handleRemoveReceivablePayment,

@@ -4,8 +4,10 @@ import { CreditCard as CreditCardIcon, Edit3, Trash2 } from 'lucide-react';
 import type { CreditCard, Transaction } from '../../../types/finance';
 import { SharedCardInvoiceModal } from './SharedCardInvoiceModal';
 
-export function NewSharedCardInvoiceButton({ memberId, memberName, cards, transactions, onCreate }: {
+export function NewSharedCardInvoiceButton({ memberId, memberName, cards, transactions, defaultMonth, onCreate }: {
   memberId: string;
+  /** Mês que a tela está mostrando: a fatura já abre nele (senão ela entraria num mês que você não está vendo). */
+  defaultMonth: string;
   memberName: string;
   cards: CreditCard[];
   transactions: Transaction[];
@@ -28,6 +30,7 @@ export function NewSharedCardInvoiceButton({ memberId, memberName, cards, transa
           memberName={memberName}
           cards={cards}
           transactions={transactions}
+          initialMonth={defaultMonth}
           onSubmit={(values) => onCreate({ memberId, ...values })}
           onClose={() => setOpen(false)}
         />

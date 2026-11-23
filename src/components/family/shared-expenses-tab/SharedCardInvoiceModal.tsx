@@ -34,8 +34,8 @@ export function SharedCardInvoiceModal({
   const monthOptions = useMemo(() => {
     const options = getInvoiceMonthOptions(transactions, cardId, getLocalDateISO());
     // Na edição o mês atual da fatura precisa continuar na lista, mesmo que já tenha ficado para trás.
-    return initialMonth && !options.includes(initialMonth) ? [initialMonth, ...options].sort() : options;
-  }, [transactions, cardId, initialMonth]);
+    return editing && initialMonth && !options.includes(initialMonth) ? [initialMonth, ...options].sort() : options;
+  }, [transactions, cardId, initialMonth, editing]);
   const effectiveMonth = monthOptions.includes(invoiceMonth) ? invoiceMonth : monthOptions[0];
 
   const submit = (event: React.FormEvent) => {

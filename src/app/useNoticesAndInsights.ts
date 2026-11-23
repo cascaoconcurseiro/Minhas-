@@ -4,7 +4,7 @@ import { runFinancialIntegrityAudit } from '../domain/trips/travelRules';
 import { Transaction } from '../types/finance';
 import { calculateCurrentPosition, calculateNetWorth, calculateSharedAmount, formatMonthYearPT, getLocalDateISO, isSharedOnlyExpense, resolveCreditCardInvoiceMonth } from '../domain/finance/financeRules';
 import { summarizeReceivables } from '../domain/receivables/receivables';
-import { listOpenSharedCardInvoices } from '../domain/family/sharedCardInvoice';
+import { listOpenSharedReceivables } from '../domain/family/sharedFinanceRules';
 import { forecastCashBalance } from '../domain/budgets/cashForecast';
 import { assessDataHealth } from '../domain/budgets/dataHealth';
 import { detectRecurringExpenses, type RecurringCandidate } from '../domain/budgets/recurrenceDetection';
@@ -165,7 +165,7 @@ export function useNoticesAndInsights(app: AppStateApi & FinancialSnapshotApi & 
     [accounts, cards, transactions, todayDateStr]
   );
   const currentReceivables = useMemo(
-    () => summarizeReceivables(receivables, todayDateStr, listOpenSharedCardInvoices(transactions, familyMembers, todayDateStr)),
+    () => summarizeReceivables(receivables, todayDateStr, listOpenSharedReceivables(transactions, familyMembers, todayDateStr)),
     [receivables, todayDateStr, transactions, familyMembers]
   );
   const netWorthSnapshot = useMemo(

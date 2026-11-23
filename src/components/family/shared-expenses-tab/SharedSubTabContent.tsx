@@ -496,6 +496,7 @@ export function SharedSubTabContent({ form }: { form: SharedExpensesTabContext }
                         memberName={activeSummary.member.name}
                         cards={cards}
                         transactions={transactions}
+                        defaultMonth={selectedMonth}
                         onCreate={onCreateSharedCardInvoice}
                       />
                     )}

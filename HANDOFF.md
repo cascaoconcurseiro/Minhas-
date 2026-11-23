@@ -54,6 +54,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-23 — Patrimônio soma todo compartilhado a receber, mover fatura antiga, e-mail de teste de navegador
+- **O que mudou:** (1) o patrimônio ("a receber") soma tudo o que as pessoas ainda te devem em Compartilhado, não só a fatura de cartão adicional (`listOpenSharedReceivables`); "Eu devo" continua fora. (2) A Receber ganhou **Mover para Compartilhado** nas faturas de cartão adicional antigas sem recebimento. (3) A janela da fatura abre no mês que a tela mostra (antes a fatura podia entrar num mês que a pessoa não estava vendo). (4) O roteiro de navegador cobre registrar, corrigir e apagar a fatura em Compartilhado (computador e 390 px). (5) Documentação corrigida: o texto dizia que o compartilhado "desconta a parte a receber" do resultado pessoal, mas o código conta o valor inteiro.
+- **Por quê:** pedido do dono de aplicar as melhorias gerais sugeridas. A mudança do resultado pessoal para "só a minha parte" **não foi feita**: depende de decisão (ver CHECKLIST).
+- **Arquivos/áreas:** `src/domain/family/sharedFinanceRules.ts`, `sharedCardInvoice.ts` (+teste), `src/app/useNoticesAndInsights.ts`, `useReceivables.ts`, `AppTabContent.tsx`, `ReceivablesTab.tsx`, `SharedCardInvoice*.tsx`, `scripts/e2e-browser.mjs`, docs.
+- **Como foi verificado:** `bun run check`; suíte inteira rodada com o relógio simulado em 5 datas/horas e dois fusos (única falha foi um teste de temporizador que não aceita relógio congelado, não dependência de data); roteiro de navegador real (Chromium) contra PostgreSQL 16 local descartável: computador e celular 390 px, mais sincronização entre aparelhos, todos passando.
+- **Não verificado:** iPhone/Safari reais; a conta da outra pessoa recebendo o espelho; o botão Mover para Compartilhado com dados reais (só teste de domínio); qual banco a versão de teste da Vercel usa.
+- **Impacto em dados/Neon:** nenhum no banco. O botão de mover altera o workspace do usuário só quando ele clica.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** o dono decidir o item de resultado pessoal "só a minha parte" e mover as faturas antigas.
+
 ### 2026-11-23 — Fatura de cartão adicional sai de A Receber e vai para Compartilhado
 - **O que mudou:** A Receber deixou de criar "Cobrar fatura de cartão adicional" (só empréstimo). Em Compartilhado → pessoa há o botão **Fatura de cartão adicional** (cartão, mês da fatura, valor cheio): cria uma compra no cartão, paga por você e 100% da pessoa, no mês da fatura, que **soma ao que ela me deve naquele mês** e entra na fatura/limite. Cada fatura tem **Corrigir valor** (valor e mês) e **Apagar** (bloqueado se já acertada ou com fatura paga). Segue **fora do resultado pessoal**: a linha (`tx-cardinv-*`) e o recebimento no acerto (movimento próprio `…-cardinv`, separado do movimento das despesas comuns) não contam como despesa nem receita; o patrimônio soma a fatura em aberto em "a receber". Itens antigos `card_invoice` de A Receber continuam funcionando.
 - **Por quê:** pedido do dono: o cartão adicional deve ficar em Compartilhado, somar ao que a pessoa deve no mês da fatura e poder ser corrigido.

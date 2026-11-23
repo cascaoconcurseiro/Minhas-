@@ -228,3 +228,26 @@ export function calculateSharedMonthTotals(transactions: Transaction[], month: s
   const iOwe = sumShares(pending.filter((tx) => tx.sharedPaidBy === 'member'));
   return { owedToMe, iOwe, net: Math.round((owedToMe - iOwe) * 100) / 100, openItems: pending.length };
 }
+
+/**
+ * Compartilhados que eu paguei e a pessoa ainda não acertou, por pessoa: dinheiro que ela me deve.
+ * Entra em "a receber" no patrimônio. Ignora espelhos recebidos, viagens e o que foi lançado depois de `throughDate`.
+ */
+export function listOpenSharedReceivables(
+  transactions: Transaction[],
+  members: FamilyMember[],
+  throughDate?: string
+): Array<{ personName: string; balance: number }> {
+  const byMember = new Map<string, number>();
+  for (const tx of getDomesticSharedTransactions(transactions)) {
+    if (tx.id.startsWith('tx-mirror-') || tx.sharedPaidBy === 'member' || tx.sharedStatus === 'received') continue;
+    if (throughDate && tx.date > throughDate) continue;
+    const cents = Math.round((tx.sharedAmount || 0) * 100);
+    if (cents <= 0 || !tx.sharedMemberId) continue;
+    byMember.set(tx.sharedMemberId, (byMember.get(tx.sharedMemberId) ?? 0) + cents);
+  }
+  return [...byMember.entries()].map(([memberId, cents]) => ({
+    personName: members.find((member) => member.id === memberId)?.name || 'Familiar',
+    balance: cents / 100,
+  }));
+}
