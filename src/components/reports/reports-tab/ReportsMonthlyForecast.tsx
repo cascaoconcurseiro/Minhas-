@@ -11,6 +11,7 @@ const money = (value: number) => (value === 0 ? '—' : formatBRL(value));
 export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContext }) {
   const { accounts, cards, transactions, currentPosition } = form;
   const [includeEstimate, setIncludeEstimate] = useState(true);
+  const [includeIncomeEstimate, setIncludeIncomeEstimate] = useState(true);
   const today = getLocalDateISO();
 
   const forecast = useMemo(() => {
@@ -19,8 +20,8 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
     const startBalance = Math.round(position.accountBalances
       .filter((balance) => included.has(balance.accountId))
       .reduce((sum, balance) => sum + Math.round(balance.currentBalance * 100), 0)) / 100;
-    return buildMonthlyForecast({ accounts, transactions, startBalance, referenceDate: today, includeEstimate });
-  }, [accounts, cards, transactions, currentPosition, includeEstimate, today]);
+    return buildMonthlyForecast({ accounts, transactions, startBalance, referenceDate: today, includeEstimate, includeIncomeEstimate });
+  }, [accounts, cards, transactions, currentPosition, includeEstimate, includeIncomeEstimate, today]);
 
   const hasAnyData = forecast.rows.some((row) => row.income || row.cardInvoices || row.bankExpenses);
 
@@ -46,6 +47,15 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
               : ' (ainda não há compras à vista lançadas para tirar a média)'}
           </span>
         </label>
+        <label className="flex items-start gap-2 text-xs text-slate-700">
+          <input type="checkbox" data-testid="forecast-income-toggle" checked={includeIncomeEstimate} onChange={(e) => setIncludeIncomeEstimate(e.target.checked)} className="mt-0.5 h-4 w-4" />
+          <span>
+            Estimar entradas depois da última lançada
+            {forecast.incomeEstimate
+              ? ` (${formatBRL(forecast.incomeEstimate.monthlyAmount)} por mês, mediana dos últimos ${forecast.incomeEstimate.monthsUsed} mês(es) com entrada)`
+              : forecast.incomeEndsAfter || !includeIncomeEstimate ? ' (usa a mediana dos últimos meses com entrada lançada)' : ' (não precisa: há entradas até o último mês, ou nenhuma lançada)'}
+          </span>
+        </label>
         {forecast.firstNegativeMonth && (
           <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -55,7 +65,9 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
         {forecast.incomeEndsAfter && (
           <p className="flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
             <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            Não há nenhuma entrada lançada depois de {formatMonthYearPT(forecast.incomeEndsAfter)}. Se o salário continua, a previsão desses meses está pior do que a realidade.
+            {forecast.incomeEstimate
+              ? `Não há entrada lançada depois de ${formatMonthYearPT(forecast.incomeEndsAfter)}. Esses meses usam a entrada estimada de ${formatBRL(forecast.incomeEstimate.monthlyAmount)}; lance o salário para a previsão ficar exata.`
+              : `Não há nenhuma entrada lançada depois de ${formatMonthYearPT(forecast.incomeEndsAfter)}. Se o salário continua, a previsão desses meses está pior do que a realidade.`}
           </p>
         )}
         {forecast.overdueCount > 0 && (
@@ -77,6 +89,7 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono tabular-nums">
                   <div><span className="block text-[10px] font-sans text-slate-400">Entradas</span><span className="font-semibold text-emerald-700">{money(row.income)}</span></div>
+                  <div><span className="block text-[10px] font-sans text-slate-400">Entradas (estim.)</span><span className="font-semibold text-slate-600">{money(row.estimatedIncome)}</span></div>
                   <div><span className="block text-[10px] font-sans text-slate-400">Faturas</span><span className="font-semibold text-rose-700">{money(row.cardInvoices)}</span></div>
                   <div><span className="block text-[10px] font-sans text-slate-400">Contas no banco</span><span className="font-semibold text-rose-700">{money(row.bankExpenses)}</span></div>
                   <div><span className="block text-[10px] font-sans text-slate-400">Compras novas (estim.)</span><span className="font-semibold text-slate-600">{money(row.estimatedPurchases)}</span></div>
@@ -95,6 +108,7 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
                 <tr className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-500">
                   <th scope="col" className="px-4 py-2.5 font-semibold">Mês</th>
                   <th scope="col" className="px-3 py-2.5 text-right font-semibold">Entradas</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-semibold">Entradas (estim.)</th>
                   <th scope="col" className="px-3 py-2.5 text-right font-semibold">Faturas</th>
                   <th scope="col" className="px-3 py-2.5 text-right font-semibold">Contas no banco</th>
                   <th scope="col" className="px-3 py-2.5 text-right font-semibold">Compras novas (estim.)</th>
@@ -109,6 +123,7 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
                   <tr key={row.month} data-testid={`forecast-row-${row.month}`}>
                     <th scope="row" className="px-4 py-2.5 text-left font-sans font-bold text-slate-900 whitespace-nowrap">{formatMonthYearPT(row.month)}</th>
                     <td className="px-3 py-2.5 text-right text-emerald-700">{money(row.income)}</td>
+                    <td className="px-3 py-2.5 text-right italic text-slate-500">{money(row.estimatedIncome)}</td>
                     <td className="px-3 py-2.5 text-right text-rose-700">{money(row.cardInvoices)}</td>
                     <td className="px-3 py-2.5 text-right text-rose-700">{money(row.bankExpenses)}</td>
                     <td className="px-3 py-2.5 text-right italic text-slate-500">{money(row.estimatedPurchases)}</td>
@@ -122,7 +137,7 @@ export function ReportsMonthlyForecast({ form }: { form: ReportsAndDataTabContex
             </table>
           </div>
           <p className="px-4 sm:px-6 py-3 text-[11px] text-slate-500 border-t border-slate-100">
-            É uma previsão do que já está lançado, não uma garantia. Compras novas só aparecem se a estimativa estiver ligada. O que as
+            É uma previsão do que já está lançado, não uma garantia. Compras novas e entradas depois da última lançada só aparecem se as estimativas estiverem ligadas. O que as
             pessoas te devem é a parte dos compartilhados que você pagou e elas ainda não acertaram.
           </p>
         </>

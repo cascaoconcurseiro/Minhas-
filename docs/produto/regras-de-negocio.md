@@ -165,8 +165,9 @@ Parte do saldo de hoje e soma o que está agendado: contas a pagar e a receber, 
 ### 5.5b Previsão mês a mês (`src/domain/budgets/monthlyForecast.ts`, Relatórios & DRE)
 Tabela dos **próximos 12 meses** (decisão do dono, 2026-11-23). Parte do **saldo de hoje** das contas incluídas no total e soma, por mês, só o que está **pendente**: **entradas**, **faturas dos cartões** (no mês da fatura, só compras que entram na fatura) e **contas no banco**. Fora da previsão: o que já foi pago, pagamento de fatura (a fatura já entra pelas compras), espelhos recebidos, "eu devo" e gastos só de acompanhantes. **Contas atrasadas** de meses passados entram no mês atual.
 - **Compras novas (estimativa, ligada por padrão, com caixa para desligar):** média das compras à vista no cartão (nem parcelas nem fixos) dos meses de fatura já lançados, até 3 meses a partir de 3 meses atrás. Nos meses futuros entra só o que **falta** para chegar à média. Sem compras à vista lançadas, não há estimativa.
+- **Entradas (estimativa, ligada por padrão, com caixa para desligar):** só nos meses **depois da última entrada lançada** (típico de salário fixo que acabou na série). Usa a **mediana** das entradas dos últimos (até 3) meses com entrada, para um 13º ou bônus isolado não puxar o valor para cima. Meses com entrada lançada, ou antes da última, não recebem estimativa. Coluna "Entradas (estim.)".
 - **Pessoas te devem:** parte dos compartilhados que você pagou e ainda não foi acertada, no mês; "Saldo se pagarem" soma isso, acumulado.
-- **Avisos:** primeiro mês com saldo negativo; último mês com entrada quando os seguintes ficam sem nenhuma (provável fixo que acabou); quantidade de contas atrasadas somadas.
+- **Avisos:** primeiro mês com saldo negativo; último mês com entrada quando os seguintes ficam sem nenhuma (provável fixo que acabou; com a estimativa ligada, o aviso diz qual entrada está sendo usada); quantidade de contas atrasadas somadas.
 - É previsão do que está lançado, não garantia. Diferente da previsão de 45 dias da Visão Geral (5.5), que é dia a dia.
 
 ## 6. Patrimônio e score de saúde

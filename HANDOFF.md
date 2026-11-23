@@ -54,6 +54,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-23 — Previsão mês a mês: estimativa de entradas
+- **O que mudou:** a Previsão mês a mês ganhou **Estimar entradas depois da última lançada** (caixa, ligada por padrão) e a coluna **Entradas (estim.)**. Nos meses depois da última entrada lançada usa a **mediana** das entradas dos últimos até 3 meses com entrada (13º/bônus isolado não puxa o valor). O aviso de "sem entrada depois de X" passa a dizer qual valor está sendo usado.
+- **Por quê:** pedido do dono: assim como as compras novas, a previsão precisa estimar o que costuma entrar (no caso dele, o salário fixo acaba em jul/2027 e os meses seguintes ficavam só com saída).
+- **Arquivos/áreas:** `src/domain/budgets/monthlyForecast.ts` (+teste), `ReportsMonthlyForecast.tsx`, `ReportsAndDataTab.test.tsx`, docs.
+- **Como foi verificado:** `bun run check`; 2 testes novos de domínio (mediana ignora o 13º, só depois da última entrada, sem estimativa quando não se aplica) e checagem da caixa na tela. Navegador real: não rodei localmente desta vez; o CI roda o roteiro completo.
+- **Não verificado:** a tela com os dados reais do dono; com os dados dele a estimativa deveria dar R$ 8.350,00 a partir de agosto/2027 (cálculo à mão, não pela tela).
+- **Impacto em dados/Neon:** nenhum.
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (5.5b), este HANDOFF.
+- **Próximo passo:** o dono conferir a tabela com os dados reais e dizer se a mediana serve ou se prefere outra regra.
+
 ### 2026-11-23 — Previsão mês a mês de 12 meses em Relatórios
 - **O que mudou:** nova seção **Previsão mês a mês (12 meses)** no topo de Relatórios & DRE: entradas, faturas dos cartões, contas no banco, compras novas estimadas (caixa liga/desliga), sobra do mês, saldo acumulado a partir do saldo de hoje, quanto as pessoas te devem e saldo se pagarem. Avisa o primeiro mês negativo e quando as entradas acabam. Tabela no computador; cartões por mês no celular.
 - **Por quê:** o dono pediu uma tabela assim para ver a previsão mês a mês; o app só tinha a previsão de 45 dias.
