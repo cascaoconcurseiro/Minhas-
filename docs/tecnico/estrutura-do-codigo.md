@@ -62,7 +62,7 @@ src/
 │   │   └── formatting.ts                 # R$, datas e meses
 │   ├── cards/               # comprometimento do cartão
 │   ├── budgets/             # orçamentos, previsão de caixa, aprendizado, recorrência, saúde dos dados
-│   ├── receivables/         # A Receber (fatura de cartão adicional, empréstimos)
+│   ├── receivables/         # A Receber (empréstimos; fatura de cartão adicional só como dado antigo)
 │   ├── family/              # compartilhamento e acertos
 │   ├── trips/               # viagens e câmbio
 │   ├── investments/         # carteira, aportes, cotações

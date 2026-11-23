@@ -4,13 +4,15 @@ import { createNeonFamilyInvitation, NeonWorkspaceError, respondToNeonFamilyInvi
 import { getFamilyInviteCreatedNotice } from '../domain/family/familyInvite';
 import { newEntityId } from '../utils/ids';
 import { reopenSharedSettlement, settleSharedExpenses } from '../domain/family/sharedFinanceRules';
-import { formatBRL } from '../domain/finance/financeRules';
+import { createSharedCardInvoice, deleteSharedCardInvoice, updateSharedCardInvoice } from '../domain/family/sharedCardInvoice';
+import { formatBRL, formatMonthYearPT, getLocalDateISO } from '../domain/finance/financeRules';
 import type { AppStateApi } from './useAppState';
 import type { SharedSyncApi } from './useSharedSync';
 
 export function useFamilyActions(app: AppStateApi & SharedSyncApi) {
   const {
     accounts,
+    cards,
     effectiveUserDisplayName,
     effectiveUserEmail,
     familyMembers,
@@ -308,16 +310,66 @@ export function useFamilyActions(app: AppStateApi & SharedSyncApi) {
     showNotice(`${result.affectedCount} despesa(s) compartilhada(s) reaberta(s) e acerto estornado.`);
   };
 
+  // Fatura de cartão adicional cobrada de uma pessoa: vive em Compartilhado (ver domain/family/sharedCardInvoice.ts)
+  const handleCreateSharedCardInvoice = (input: { memberId: string; cardId: string; invoiceMonth: string; amount: number }): string | null => {
+    if (!requireWorkspaceWrite()) return 'O app está em leitura. Aguarde a sincronização e tente de novo.';
+    const member = familyMembers.find((item) => item.id === input.memberId);
+    const result = createSharedCardInvoice({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      memberId: input.memberId,
+      memberName: member?.name || 'Familiar',
+      card: cards.find((card) => card.id === input.cardId),
+      invoiceMonth: input.invoiceMonth,
+      amount: input.amount,
+      date: getLocalDateISO(),
+    });
+    if (result.error !== undefined) return result.error;
+    const next = [result.transaction, ...transactions];
+    setTransactions(next);
+    triggerCrossAccountSharedTxSync(next);
+    showNotice(`Fatura de ${member?.name || 'Familiar'} (${formatMonthYearPT(input.invoiceMonth)}) registrada: entra na fatura do cartão e soma ao que ela te deve.`);
+    return null;
+  };
+
+  const handleUpdateSharedCardInvoice = (txId: string, input: { amount: number; invoiceMonth: string }): string | null => {
+    if (!requireWorkspaceWrite()) return 'O app está em leitura. Aguarde a sincronização e tente de novo.';
+    const current = transactions.find((tx) => tx.id === txId);
+    const member = familyMembers.find((item) => item.id === current?.sharedMemberId);
+    const result = updateSharedCardInvoice(transactions, txId, {
+      ...input,
+      memberName: member?.name || 'Familiar',
+      cardName: cards.find((card) => card.id === current?.creditCardId)?.name,
+    });
+    if (result.error) return result.error;
+    setTransactions(result.transactions);
+    triggerCrossAccountSharedTxSync(result.transactions);
+    showNotice(`Fatura atualizada para ${formatBRL(input.amount)}.`);
+    return null;
+  };
+
+  const handleDeleteSharedCardInvoice = (txId: string): string | null => {
+    if (!requireWorkspaceWrite()) return 'O app está em leitura. Aguarde a sincronização e tente de novo.';
+    const result = deleteSharedCardInvoice(transactions, txId);
+    if (result.error) return result.error;
+    setTransactions(result.transactions);
+    triggerCrossAccountSharedTxSync(result.transactions, familyMembers, result.removedSharedSyncId ? [result.removedSharedSyncId] : undefined);
+    showNotice('Fatura do cartão adicional apagada.');
+    return null;
+  };
+
   return {
     handleAcceptFamilyInvite,
     handleAddFamilyMember,
     handleAddFamilyMemberWithInvite,
+    handleCreateSharedCardInvoice,
     handleDeclineFamilyInvite,
+    handleDeleteSharedCardInvoice,
     handleDeleteFamilyMember,
     handleReopenSharedTransaction,
     handleSettleAllMemberInvoices,
     handleSettleSharedTransaction,
     handleUpdateFamilyMember,
+    handleUpdateSharedCardInvoice,
     triggerCrossAccountInviteSync,
   };
 }

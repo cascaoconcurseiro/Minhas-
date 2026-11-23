@@ -41,7 +41,10 @@ export function AppTabContent({ app }: { app: AppContext }) {
     handleBatchUpdateInvestmentAssets,
     handleContributeGoal,
     handleCreateReceivable,
+    handleCreateSharedCardInvoice,
     handleDeclineFamilyInvite,
+    handleDeleteSharedCardInvoice,
+    handleUpdateSharedCardInvoice,
     handleDeleteAccount,
     handleDeleteCard,
     handleDeleteCategory,
@@ -340,6 +343,9 @@ export function AppTabContent({ app }: { app: AppContext }) {
                   onSettleSharedTransaction={handleSettleSharedTransaction}
                   onSettleAllMemberInvoices={handleSettleAllMemberInvoices}
                   onReopenSharedTransaction={handleReopenSharedTransaction}
+                  onCreateSharedCardInvoice={handleCreateSharedCardInvoice}
+                  onUpdateSharedCardInvoice={handleUpdateSharedCardInvoice}
+                  onDeleteSharedCardInvoice={handleDeleteSharedCardInvoice}
                   onOpenNewSharedTransaction={() => {
                     handleOpenNewTransaction('expense');
                   }}

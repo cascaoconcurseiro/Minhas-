@@ -12,6 +12,8 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [x] **[Decidir]** L6 e L7 decididos e implementados em 19/11 (restante para a próxima fatura; saldo inicial com data).
 - [ ] **[Dev]** Conferir no navegador real o painel "Levar para a próxima fatura" e o campo "Saldo inicial vale desde".
 - [x] **[Dev]** Os dois testes de navegador rodam no CI (job `e2e`, Playwright autorizado pelo dono em 20/11). [ ] Falta confirmar o primeiro resultado no GitHub e ampliar para família e backup.
+- [ ] **[Dono]** Registrar uma fatura de cartão adicional em Compartilhado, conferir o total do mês, corrigir o valor e liquidar; conferir que não aparece em Despesas/Receitas.
+- [ ] **[Decidir]** Migrar as faturas de cartão adicional que já estão em A Receber para Compartilhado, ou deixar terminarem lá (hoje continuam funcionando, sem novas).
 - [ ] **[Dono]** Abrir o app e salvar/apagar um lançamento para confirmar a gravação após a migração 011.
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).
 - [ ] **[Decidir]** O servidor deve enviar os compartilhados sozinho no momento em que o convite é aceito (hoje depende do app de quem convidou abrir)?

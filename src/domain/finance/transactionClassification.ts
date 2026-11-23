@@ -1,13 +1,16 @@
 import type {
   Transaction,
 } from '../../types/finance';
+import { isSharedCardInvoiceId, isSharedCardInvoiceSettlementId } from '../family/sharedCardInvoiceIds.ts';
 
 /**
  * Lançamentos que não fazem parte do seu resultado pessoal (nem gasto, nem receita): gastos só de acompanhantes de
- * viagem e movimentos de valores a receber (fatura de cartão adicional cobrada de alguém, empréstimos e seus pagamentos).
+ * viagem, movimentos de valores a receber (empréstimos e seus pagamentos) e a fatura de cartão adicional cobrada de
+ * outra pessoa em Compartilhado (a linha na fatura e o recebimento dela).
  */
 export function isOutsidePersonalResult(tx: Transaction): boolean {
-  return Boolean(tx.isCompanionOnlyExpense || tx.receivableId || isSharedOnlyExpense(tx));
+  return Boolean(tx.isCompanionOnlyExpense || tx.receivableId || isSharedOnlyExpense(tx) ||
+    isSharedCardInvoiceId(tx.id) || isSharedCardInvoiceSettlementId(tx.id));
 }
 
 export function isSharedOnlyExpense(tx: Transaction): boolean {

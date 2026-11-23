@@ -74,14 +74,17 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[A Receber → Cobrar fatura de cartão adicional] --> B[Pessoa sugerida do Compartilhamento]
-    B --> C[Escolher o cartão]
+    A[Compartilhado → escolher a pessoa → Fatura de cartão adicional] --> C[Escolher o cartão]
     C --> D[Mês da fatura: do mês atual até o último mês com compras no cartão]
     D --> E[Valor cheio da fatura dela]
-    E --> F[Salvar]
-    F --> G[Cria linha na fatura do cartão + registro a receber]
-    G --> H[Não vira despesa sua, mas ocupa limite]
+    E --> F[Registrar fatura]
+    F --> G[Cria linha na fatura do cartão, 100% dela, no mês da fatura]
+    G --> H[Soma ao que ela me deve naquele mês; ocupa limite; não vira despesa sua]
+    H --> I[Corrigir valor / mês ou Apagar, enquanto não houver acerto nem pagamento da fatura]
+    H --> J[Liquidar no acerto do mês: entrada na conta, fora da sua receita]
 ```
+
+A Receber não cria mais esse tipo de cobrança (só empréstimos); os itens antigos continuam lá.
 
 ## 6. Receber (parcial ou total)
 

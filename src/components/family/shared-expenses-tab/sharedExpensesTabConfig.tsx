@@ -25,6 +25,10 @@ export interface SharedExpensesTabProps {
     settledDate: string
   ) => void;
   onReopenSharedTransaction: (txId: string) => void;
+  /** Fatura de cartão adicional cobrada de uma pessoa. Devolvem a mensagem de erro, ou null quando deu certo. */
+  onCreateSharedCardInvoice: (input: { memberId: string; cardId: string; invoiceMonth: string; amount: number }) => string | null;
+  onUpdateSharedCardInvoice: (txId: string, input: { amount: number; invoiceMonth: string }) => string | null;
+  onDeleteSharedCardInvoice: (txId: string) => string | null;
   onOpenNewSharedTransaction: (memberId?: string) => void;
   onAcceptFamilyInvite?: (member: FamilyMember, code: string) => void;
   onDeclineFamilyInvite?: (member: FamilyMember) => void;
@@ -62,6 +66,9 @@ export function resolveSharedExpensesTabProps({
   onSettleSharedTransaction,
   onSettleAllMemberInvoices,
   onReopenSharedTransaction,
+  onCreateSharedCardInvoice,
+  onUpdateSharedCardInvoice,
+  onDeleteSharedCardInvoice,
   onOpenNewSharedTransaction,
   onAcceptFamilyInvite,
   onDeclineFamilyInvite,
@@ -84,6 +91,9 @@ export function resolveSharedExpensesTabProps({
     onSettleSharedTransaction,
     onSettleAllMemberInvoices,
     onReopenSharedTransaction,
+    onCreateSharedCardInvoice,
+    onUpdateSharedCardInvoice,
+    onDeleteSharedCardInvoice,
     onOpenNewSharedTransaction,
     onAcceptFamilyInvite,
     onDeclineFamilyInvite,

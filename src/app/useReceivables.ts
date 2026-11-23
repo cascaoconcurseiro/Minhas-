@@ -6,7 +6,6 @@ import type { AppStateApi } from './useAppState';
 
 export function useReceivables(app: AppStateApi) {
   const {
-    cards,
     receivables,
     requireWorkspaceWrite,
     setReceivables,
@@ -23,7 +22,6 @@ export function useReceivables(app: AppStateApi) {
     const result = createReceivable({
       ...input,
       id: newReceivableId('rcv'),
-      cardName: cards.find((card) => card.id === input.cardId)?.name,
     });
     if (result.error !== undefined) return result.error;
     setReceivables((previous) => [result.receivable, ...previous]);

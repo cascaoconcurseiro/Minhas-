@@ -40,7 +40,7 @@ Todos são strings JSON validadas pelo servidor como arrays/objetos antes de gra
 |---|---|
 | `accountsJson`, `cardsJson`, `categoriesJson` | Contas, cartões (inclui `closingDayStartsNextInvoice`), categorias |
 | `transactionsJson` | Todos os lançamentos (inclusive faturas, parcelas, compartilhados e movimentos de A Receber com `receivableId`) |
-| `receivablesJson` | **Valores a receber** (fatura de cartão adicional e empréstimos, com pagamentos parciais) — opcional |
+| `receivablesJson` | **Valores a receber** (empréstimos, com pagamentos parciais; faturas de cartão adicional só como dado antigo — as novas são lançamentos compartilhados `tx-cardinv-*`) — opcional |
 | `goalsJson`, `investmentsJson`, `investmentTargetsJson` | Metas, ativos e alocação-alvo |
 | `tripsJson`, `familyMembersJson`, `settingsJson` | Viagens, contatos familiares e preferências |
 | `sharedSettlementReceiptsJson` | Recibos bancários locais de acertos compartilhados |

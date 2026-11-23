@@ -3,9 +3,9 @@
 > **Documento obrigatório.** Toda entrega (commit que muda `src/`, `backend/`, `api/`, `db/`, `shared/` ou `package.json`) **precisa** de uma nova entrada na seção 7 e da atualização das seções 1–6 quando mudarem. O CI barra a entrega se isso não for feito (`bun run check:handoff`). Regras completas: [docs/processo/handoff-e-checklist.md](./docs/processo/handoff-e-checklist.md). Histórico antigo: [docs/arquivo/handoff/](./docs/arquivo/handoff/).
 
 ## 1. Estado atual
-- **Atualizado em:** 2026-11-19
+- **Atualizado em:** 2026-11-23
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
-- **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
+- **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber** só para empréstimos; a fatura de cartão adicional agora fica em **Compartilhado**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
 - **Verificação mais recente (2026-11-19):** auditoria técnica e limpeza publicadas em `main` (`2d2822d`, CI verde; produção já serve a versão nova). Migração 011 aplicada no Neon e Neon Auth antigo removido, com autorização do dono.
 - **Estrutura do código:** ver [docs/tecnico/estrutura-do-codigo.md](./docs/tecnico/estrutura-do-codigo.md).
 
@@ -20,10 +20,11 @@
 ## 3. Próximos passos (ordem de prioridade)
 1. Abrir o app, salvar e apagar um lançamento de teste para confirmar que a gravação segue normal com as chaves estrangeiras novas (migração 011).
 2. Decidir L5 (estorno no cartão), L6 (pagamento parcial vai para a próxima fatura) e L7 (saldo inicial com data) da [avaliação da lógica financeira](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md) e implementar.
-3. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
-4. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
-5. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
-6. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
+3. Conferir em **Compartilhado → pessoa → Fatura de cartão adicional** (registrar, corrigir valor, apagar, liquidar) com um valor real e decidir o que fazer com as faturas antigas que ainda estão em A Receber (ver CHECKLIST).
+4. Wesley e Fran atualizam o app e conferem em **Compartilhado → Eu devo** o valor de academia; verificar também que não consta em Despesas nem no calendário pessoal até o acerto.
+5. Fazer uma verificação autenticada da tela da Fran após a atualização; a URL de deploy exigiu sessão da Vercel durante a tentativa de checagem externa.
+6. Decidir como ler fatura de cartão em **PDF/foto** (IA externa ou só no aparelho); importar fatura OFX/CSV quando estiver definido o arquivo de referência.
+7. Conferir em iPhone/Safari reais as telas novas (A Receber, cartões, campo de data); demais pendências de produto e dívida técnica estão em `CHECKLIST.md`.
 
 ## 4. Pendências do dono (dependem do Wesley)
 - Atualizar o app instalado em Conta, Login & Nuvem → **Buscar atualização agora** e pedir à Fran que confira os compartilhados.
@@ -52,6 +53,17 @@
 - Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-23 — Fatura de cartão adicional sai de A Receber e vai para Compartilhado
+- **O que mudou:** A Receber deixou de criar "Cobrar fatura de cartão adicional" (só empréstimo). Em Compartilhado → pessoa há o botão **Fatura de cartão adicional** (cartão, mês da fatura, valor cheio): cria uma compra no cartão, paga por você e 100% da pessoa, no mês da fatura, que **soma ao que ela me deve naquele mês** e entra na fatura/limite. Cada fatura tem **Corrigir valor** (valor e mês) e **Apagar** (bloqueado se já acertada ou com fatura paga). Segue **fora do resultado pessoal**: a linha (`tx-cardinv-*`) e o recebimento no acerto (movimento próprio `…-cardinv`, separado do movimento das despesas comuns) não contam como despesa nem receita; o patrimônio soma a fatura em aberto em "a receber". Itens antigos `card_invoice` de A Receber continuam funcionando.
+- **Por quê:** pedido do dono: o cartão adicional deve ficar em Compartilhado, somar ao que a pessoa deve no mês da fatura e poder ser corrigido.
+- **Arquivos/áreas:** `src/domain/family/sharedCardInvoice.ts`, `sharedCardInvoiceIds.ts` (+testes), `sharedFinanceRules.ts` (acerto em dois movimentos), `transactionClassification.ts`, `transactionOperations.ts`, `creditCardInvoices.ts`, `receivables.ts` (`extraOpen`), `src/app/useFamilyActions.ts`, `useNoticesAndInsights.ts`, `useReceivables.ts`, `AppTabContent.tsx`, `components/family/shared-expenses-tab/SharedCardInvoice*.tsx`, `ReceivablesTab.tsx`, docs.
+- **Como foi verificado:** `bun run check` (tipos, testes, build e HANDOFF); testes novos de domínio (criar, somar no mês, editar, apagar, bloqueios, acerto misto, reabrir, fora do resultado, patrimônio) e de tela (registrar, corrigir, apagar). Navegador: não rodei o roteiro.
+- **Também corrigido:** os roteiros de navegador (`e2e-browser.mjs`, `e2e-sync.mjs`) esperavam o texto "Boa" e falhavam de manhã, quando o app diz "Bom dia"; agora aceitam as três saudações.
+- **Não verificado:** a tela real no navegador/celular com dados reais; o espelho da fatura chegando à conta da pessoa (agora ela vê "Eu devo" a fatura); o acerto com dois movimentos no extrato real. As faturas antigas em A Receber não foram migradas.
+- **Impacto em dados/Neon:** nenhum no banco; novos lançamentos usam os campos de compartilhado já existentes (sem migração).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md`, `fluxos.md`, `visao-geral.md`, `glossario.md`, `docs/tecnico/estrutura-do-codigo.md`, `banco-de-dados.md`, este HANDOFF, `CHECKLIST.md`.
+- **Próximo passo:** o dono registrar uma fatura real em Compartilhado, conferir o total do mês e decidir se as faturas antigas de A Receber devem ser migradas.
 
 ### 2026-11-20 — Ordem cronológica vira padrão imposto por teste
 - **O que mudou:** novo `chronologicalOrderRule.test.ts` falha se qualquer arquivo de `src/` ordenar lista por data decrescente (exceções declaradas: 4 arquivos que só escolhem "o mais recente"). Removido `entriesNewestFirst` do extrato (não era usado). Regra escrita em `AGENTS.md` e em `docs/processo/guia-de-contribuicao.md`.

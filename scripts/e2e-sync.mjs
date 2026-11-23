@@ -43,7 +43,7 @@ async function openDevice(label) {
   const page = await context.newPage();
   page.on('pageerror', (error) => errors.push(`${label}: ${error.message}`));
   await page.goto(base, { waitUntil: 'networkidle' });
-  await page.getByText('Boa', { exact: false }).first().waitFor({ timeout: 20000 });
+  await page.getByText(/Bom dia|Boa tarde|Boa noite/).first().waitFor({ timeout: 20000 });
   return page;
 }
 async function createAccount(page, name, balanceDigits) {

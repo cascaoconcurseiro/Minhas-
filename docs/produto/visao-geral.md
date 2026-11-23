@@ -17,7 +17,7 @@ Uma pessoa ou casal que quer enxergar com clareza: quanto tem em cada conta, qua
 | **Orçamentos** | Teto por categoria, regra 50/30/20, ritmo do mês (burn rate), sugestões. |
 | **Viagens & Câmbio** | Viagens multi-moeda, lotes de câmbio (VET médio), divisão de gastos entre viajantes e quitação. |
 | **Compartilhado** | Despesas divididas com familiares, encontro de contas, convites entre contas. |
-| **A Receber** | Dinheiro que outras pessoas devem: fatura de cartão adicional cobrada por inteiro e empréstimos, com recebimentos parciais. |
+| **A Receber** | Dinheiro que outras pessoas devem: empréstimos, com recebimentos parciais. (A fatura de cartão adicional fica em Compartilhado.) |
 | **Investimentos** | Carteira (renda fixa, FIIs, ações B3, exterior), aportes e resgates ligados à conta, cotações, rebalanceamento. |
 | **Metas & Reservas** | Metas com simulador de renda fixa (CDI, Selic, LCI/LCA, poupança). |
 | **Relatórios & DRE** | DRE pessoal, gráficos por período, patrimônio consolidado, exportação PDF/CSV/JSON. |

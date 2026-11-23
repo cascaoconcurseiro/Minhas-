@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import type { BankAccount, FamilyMember, Transaction } from '../../types/finance';
+import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../types/finance';
 import { SharedExpensesTab } from './SharedExpensesTab';
 
 const { createRoot } = await import('react-dom/client');
@@ -20,6 +20,10 @@ function renderSharedExpensesTab(
     familyMembers?: FamilyMember[];
     transactions?: Transaction[];
     accounts?: BankAccount[];
+    cards?: CreditCard[];
+    onCreateSharedCardInvoice?: (input: { memberId: string; cardId: string; invoiceMonth: string; amount: number }) => string | null;
+    onUpdateSharedCardInvoice?: (txId: string, input: { amount: number; invoiceMonth: string }) => string | null;
+    onDeleteSharedCardInvoice?: (txId: string) => string | null;
     onDeleteFamilyMember?: (memberId: string) => void;
     onSettleSharedTransaction?: (txId: string, accountId: string, date: string) => void;
     onAcceptFamilyInvite?: (member: FamilyMember, code: string) => void;
@@ -44,8 +48,11 @@ function renderSharedExpensesTab(
         transactions: options.transactions ?? [],
         familyMembers: options.familyMembers ?? [],
         accounts: options.accounts ?? [],
-        cards: [],
+        cards: options.cards ?? [],
         categories: [],
+        onCreateSharedCardInvoice: options.onCreateSharedCardInvoice ?? (() => null),
+        onUpdateSharedCardInvoice: options.onUpdateSharedCardInvoice ?? (() => null),
+        onDeleteSharedCardInvoice: options.onDeleteSharedCardInvoice ?? (() => null),
         onAddFamilyMember,
         onUpdateFamilyMember: options.onUpdateFamilyMember ?? (() => {}),
         onDeleteFamilyMember: options.onDeleteFamilyMember ?? (() => {}),
@@ -826,4 +833,65 @@ test('shared invoice copy places synthetic summary and PIX key on clipboard with
   assert.match(copied, /Almoço sintético/);
   assert.match(copied, /Chave PIX: pix-sintetico@example\.test/);
   assert.equal(opens, 0, 'o fluxo copia o resumo e não abre WhatsApp');
+});
+
+test('fatura do cartão adicional: registrar, corrigir o valor e apagar em Compartilhado', async () => {
+  const member: FamilyMember = {
+    id: 'fam-card-invoice', name: 'Pessoa do cartão', relationship: 'cônjuge',
+    color: '#059669', inviteStatus: 'accepted', direction: 'outgoing',
+  };
+  const card: CreditCard = { id: 'card-1', name: 'Cartão sintético', brand: 'Visa', limit: 5000, closingDay: 5, dueDay: 12, defaultAccountId: 'acc', color: '#000' };
+  const invoice: Transaction = {
+    id: 'tx-cardinv-synthetic', description: 'Fatura de Pessoa do cartão — Cartão sintético (novembro de 2026)', amount: 800, date: '2026-11-10',
+    competenceMonth: '2026-11', type: 'expense', status: 'pending', categoryId: 'cat-outros', creditCardId: card.id,
+    paymentMethod: 'credit_card', recurrence: 'single', isShared: true, sharedMemberId: member.id, sharedAmount: 800,
+    sharedPaidBy: 'me', sharedSplitMode: 'full', sharedStatus: 'pending',
+  };
+  const created: Array<{ memberId: string; cardId: string; invoiceMonth: string; amount: number }> = [];
+  const updated: Array<{ txId: string; amount: number; invoiceMonth: string }> = [];
+  const deleted: string[] = [];
+  originalConfirm = window.confirm;
+  window.confirm = () => true;
+  const page = renderSharedExpensesTab(() => {}, {
+    familyMembers: [member], cards: [card], transactions: [invoice],
+    onCreateSharedCardInvoice: (input) => { created.push(input); return null; },
+    onUpdateSharedCardInvoice: (txId, input) => { updated.push({ txId, ...input }); return null; },
+    onDeleteSharedCardInvoice: (txId) => { deleted.push(txId); return null; },
+  });
+  const submitForm = async () => {
+    const form = page.querySelector<HTMLFormElement>('[data-testid="shared-card-invoice-form"]');
+    assert.ok(form);
+    await act(async () => { form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+  };
+
+  // Registrar
+  const open = page.querySelector<HTMLButtonElement>('[data-testid="shared-new-card-invoice"]');
+  assert.ok(open);
+  await act(async () => { open.click(); });
+  const amount = page.querySelector<HTMLInputElement>('[data-testid="shared-card-invoice-amount"]');
+  assert.ok(amount);
+  await act(async () => { setInputValue(amount, '1.234,56'); });
+  await submitForm();
+  assert.equal(created.length, 1);
+  assert.equal(created[0].memberId, member.id);
+  assert.equal(created[0].cardId, card.id);
+  assert.equal(created[0].amount, 1234.56);
+  assert.equal(page.querySelector('[data-testid="shared-card-invoice-form"]'), null, 'janela fecha ao salvar');
+
+  // Corrigir o valor
+  const edit = page.querySelector<HTMLButtonElement>(`[data-testid="shared-card-invoice-edit-${invoice.id}"]`);
+  assert.ok(edit);
+  await act(async () => { edit.click(); });
+  const editAmount = page.querySelector<HTMLInputElement>('[data-testid="shared-card-invoice-amount"]');
+  assert.ok(editAmount);
+  assert.equal(page.querySelector<HTMLSelectElement>('[data-testid="shared-card-invoice-card"]')?.disabled, true, 'cartão não muda na correção');
+  await act(async () => { setInputValue(editAmount, '950,00'); });
+  await submitForm();
+  assert.deepEqual(updated, [{ txId: invoice.id, amount: 950, invoiceMonth: '2026-11' }]);
+
+  // Apagar
+  const remove = [...page.querySelectorAll('button')].find((button) => button.getAttribute('aria-label')?.startsWith('Apagar Fatura de'));
+  assert.ok(remove);
+  await act(async () => { remove.click(); });
+  assert.deepEqual(deleted, [invoice.id]);
 });

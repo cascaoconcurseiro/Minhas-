@@ -255,6 +255,7 @@ export function reclassifyClosingDayPurchases(
       tx.status !== 'pending' ||
       tx.isInvoicePayment ||
       tx.receivableId ||
+      tx.id.startsWith('tx-cardinv-') ||
       tx.installmentGroupId ||
       tx.date.slice(8, 10) !== closing
     ) {

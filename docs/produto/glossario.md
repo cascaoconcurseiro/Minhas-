@@ -16,7 +16,7 @@
 | **Parcela antecipada** | Parcela futura trazida para a fatura atual com desconto; reversível. |
 | **Cascata** | Alcance de edição/exclusão numa série: só este, este e os próximos, ou toda a série. |
 | **Resultado pessoal** | Despesas e receitas que são suas de fato. Fora dele ficam dinheiro de terceiros (a receber) e gastos só de acompanhantes. |
-| **A Receber** | Dinheiro que outra pessoa deve: fatura de cartão adicional ou empréstimo. |
+| **A Receber** | Dinheiro que outra pessoa deve: empréstimo (a fatura de cartão adicional fica em Compartilhado). |
 | **Cartão adicional** | Cartão extra ligado ao seu, usado por outra pessoa, cuja fatura você cobra por inteiro. |
 | **Recebimento parcial** | Pagamento de parte do valor a receber, em qualquer data, para uma conta sua. |
 | **Compartilhado** | Despesa dividida com um familiar. **Acerto** é a compensação entre vocês. |

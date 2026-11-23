@@ -5,6 +5,7 @@ import type { BankAccount, CreditCard, FamilyMember, Transaction } from '../../t
 import { formatBRL, formatMonthYearPT, getClampedMonthDate, getSharedSettlementLinks } from '../finance/financeRules';
 import { getAccountCurrency } from '../finance/transferRules';
 import { parseSharedSettlementReceipts } from './sharedSettlementReceipts';
+import { isSharedCardInvoiceId, SHARED_CARD_INVOICE_SETTLEMENT_SUFFIX } from './sharedCardInvoiceIds.ts';
 import type { SharedSettlementReceipt } from './sharedSettlementReceipts';
 export { parseSharedSettlementReceipts } from './sharedSettlementReceipts';
 export type { SharedSettlementReceipt } from './sharedSettlementReceipts';
@@ -165,24 +166,44 @@ export function settleSharedExpenses(transactions: Transaction[], accounts: Bank
   const target = getDomesticSharedTransactions(transactions).filter((tx) => tx.sharedStatus !== 'received' && (tx.sharedAmount || 0) > 0 &&
     (input.txId ? tx.id === input.txId : tx.sharedMemberId === input.memberId && tx.competenceMonth === input.month));
   if (!target.length) return { transactions, affectedCount: 0, netAmount: 0 };
-  const netCents = target.reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100) * (tx.sharedPaidBy === 'member' ? -1 : 1), 0);
+  const signedCents = (rows: Transaction[]) =>
+    rows.reduce((sum, tx) => sum + Math.round((tx.sharedAmount || 0) * 100) * (tx.sharedPaidBy === 'member' ? -1 : 1), 0);
+  const netCents = signedCents(target);
   const netAmount = netCents / 100;
   const ids = new Set(target.map((tx) => tx.id));
   const settled = transactions.map((tx) => ids.has(tx.id) ? { ...tx, sharedStatus: 'received' as const,
     sharedSettledDate: input.date, sharedSettledAccountId: input.accountId, sharedSettlementId: input.settlementId } : tx);
-  if (netCents === 0) return { transactions: settled, affectedCount: ids.size, netAmount };
-  const receive = netCents > 0;
-  const reimbursement: Transaction = {
-    id: `${input.txId ? 'tx-reimb-' : 'tx-reimb-all-'}${input.settlementId}`,
-    description: input.txId
-      ? `${receive ? 'Reembolso Compartilhado' : 'Pagamento de Rateio Compartilhado'} — ${input.memberName} (${target[0].description})`
-      : `Acerto Compensado ${receive ? 'Recebido' : 'Pago'} (${formatMonthYearPT(input.month || input.date.slice(0, 7))}) — ${input.memberName}`,
-    amount: Math.abs(netAmount), date: input.date, competenceMonth: input.date.slice(0, 7),
-    type: receive ? 'income' : 'expense', status: 'paid', categoryId: receive ? 'cat-rendimentos' : input.txId ? target[0].categoryId : 'cat-outros',
-    accountId: input.accountId, paymentMethod: 'pix', recurrence: 'single', sharedSettlementId: input.settlementId,
-    notes: `Acerto de ${formatBRL(Math.abs(netAmount))} ${target.map((tx) => `[ref:${tx.id}]`).join(' ')}`,
-  };
-  return { transactions: [reimbursement, ...settled], affectedCount: ids.size, netAmount };
+  // Faturas de cartão adicional são dinheiro da outra pessoa: o recebimento vai num movimento próprio, fora da sua receita.
+  const invoices = target.filter((tx) => isSharedCardInvoiceId(tx.id));
+  const regular = target.filter((tx) => !isSharedCardInvoiceId(tx.id));
+  const regularCents = signedCents(regular);
+  const movements: Transaction[] = [];
+  if (regular.length > 0 && regularCents !== 0) {
+    const regularAmount = regularCents / 100;
+    const receive = regularCents > 0;
+    movements.push({
+      id: `${input.txId ? 'tx-reimb-' : 'tx-reimb-all-'}${input.settlementId}`,
+      description: input.txId
+        ? `${receive ? 'Reembolso Compartilhado' : 'Pagamento de Rateio Compartilhado'} — ${input.memberName} (${regular[0].description})`
+        : `Acerto Compensado ${receive ? 'Recebido' : 'Pago'} (${formatMonthYearPT(input.month || input.date.slice(0, 7))}) — ${input.memberName}`,
+      amount: Math.abs(regularAmount), date: input.date, competenceMonth: input.date.slice(0, 7),
+      type: receive ? 'income' : 'expense', status: 'paid', categoryId: receive ? 'cat-rendimentos' : input.txId ? regular[0].categoryId : 'cat-outros',
+      accountId: input.accountId, paymentMethod: 'pix', recurrence: 'single', sharedSettlementId: input.settlementId,
+      notes: `Acerto de ${formatBRL(Math.abs(regularAmount))} ${regular.map((tx) => `[ref:${tx.id}]`).join(' ')}`,
+    });
+  }
+  if (invoices.length > 0) {
+    const invoiceCents = signedCents(invoices);
+    movements.push({
+      id: `${input.txId ? 'tx-reimb-' : 'tx-reimb-all-'}${input.settlementId}${SHARED_CARD_INVOICE_SETTLEMENT_SUFFIX}`,
+      description: `Recebimento de fatura de cartão adicional — ${input.memberName}${input.txId ? ` (${invoices[0].description})` : ''}`,
+      amount: invoiceCents / 100, date: input.date, competenceMonth: input.date.slice(0, 7),
+      type: 'income', status: 'paid', categoryId: 'cat-outros',
+      accountId: input.accountId, paymentMethod: 'pix', recurrence: 'single', sharedSettlementId: input.settlementId,
+      notes: `Acerto de ${formatBRL(invoiceCents / 100)} ${invoices.map((tx) => `[ref:${tx.id}]`).join(' ')}`,
+    });
+  }
+  return { transactions: [...movements, ...settled], affectedCount: ids.size, netAmount };
 }
 
 export function reopenSharedSettlement(transactions: Transaction[], txId: string) {
