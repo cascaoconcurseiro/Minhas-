@@ -90,7 +90,7 @@ Ao **mudar o dia de fechamento ou a opção** de um cartão, as compras **penden
 - **Total da fatura** = soma das compras do cartão com aquela competência.
 - **Pendente** = total menos o que já foi pago. A fatura está paga quando há compras e o pendente é zero.
 - **Limite usado** = tudo que está em aberto (faturas atuais e futuras). **Limite livre** = limite − usado.
-- Os valores a receber de cartão adicional (seção 7) **entram na fatura e no limite**, porque o banco cobra o total.
+- A fatura do cartão adicional (Compartilhado, seção 8; ou o item antigo de A Receber, seção 7) **entra na fatura e no limite**, porque o banco cobra o total.
 - **Só despesa entra na fatura** (`isCreditCardInvoicePurchase`). Entrada ou transferência ligada a cartão é recusada pelo servidor e pelo app (`validateWorkspaceConsistency`), porque somada como compra aumentaria a dívida em vez de reduzir.
 - **Estorno / devolução no cartão** (decisão do dono, 2026-11-19): lançamento novo de cartão com o interruptor "Estorno / devolução de compra". É gravado como **despesa de valor negativo** com `isCardRefund: true`, pendente, à vista, sem divisão nem viagem (`createTransactionBatch`). Efeitos: **reduz o total da fatura e libera o limite**; **reduz o gasto da categoria no mês da data do estorno** (a compra original não é reescrita; se o estorno vier num mês sem compras, a categoria fica negativa, mas os gráficos e percentuais não mostram valor negativo); **reduz as despesas do DRE e dos resumos**; entra no **fluxo de caixa** como menos saída no vencimento da fatura. Ao **pagar a fatura** (total ou parcial) vale o valor **líquido** e a linha de estorno é quitada junto; estornar o pagamento reabre tudo. O estorno **não pode ser editado nem duplicado** (apagar e lançar de novo). É o único lançamento que pode ter valor negativo: o servidor só aceita negativo com a marca, em despesa de cartão, e a rotina de reparo de dados respeita isso. **Estorno maior que a fatura** (líquido negativo): a fatura aparece como "Com crédito", sem nada a pagar, e o painel oferece **"Levar crédito para a próxima"** (mesma mecânica de levar o restante, sem exigir pagamento e sem encargos); o crédito passa a abater a fatura seguinte e dá para desfazer. Fatura que zera exatamente (estorno igual às compras) não oferece nada para levar. Quando o dinheiro volta para a conta (fatura já paga), registre como entrada na categoria Reembolsos.
 - **Vencimento em fim de semana ou feriado** (`businessDays.ts`, 2026-11-19): a fatura pode ser paga sem atraso no **próximo dia útil bancário**. Contas a pagar, o sino e a cobrança de compartilhado no cartão usam essa data; o aviso explica quando o dia foi adiado (ex.: "Dia 07/12; o dia 5 cai em fim de semana ou feriado"). Contam como não úteis: sábado, domingo, feriados nacionais (1/1, 21/4, 1/5, 7/9, 12/10, 2/11, 15/11, 20/11, 25/12) e os dias sem expediente bancário que dependem da Páscoa (segunda e terça de Carnaval, Sexta-feira Santa, Corpus Christi). Feriados estaduais e municipais não entram. **Boleto** segue a mesma regra; Pix, débito e transferência não.
@@ -144,7 +144,8 @@ O cartão "Cartões" com o melhor dia de compra saiu da Visão Geral a pedido do
 ### 5.2 O que fica FORA do resultado pessoal — `isOutsidePersonalResult`
 Não contam como despesa, receita, categoria, 50/30/20, DRE, comprometimento de cartão, recorrência nem aprendizado de hábito:
 - gastos **só de acompanhantes de viagem** (pagos por outro participante);
-- movimentos de **valores a receber** (linha da fatura do cartão adicional, saída de empréstimo e os recebimentos).
+- movimentos de **valores a receber** (saída de empréstimo e os recebimentos; no dado antigo, também a linha da fatura do cartão adicional);
+- a **fatura de cartão adicional de Compartilhado** (`tx-cardinv-*`) e o movimento que a recebe no acerto (`tx-reimb-*-cardinv`).
 - Despesa paga pelo familiar (`sharedPaidBy === 'member'`) e espelho recebido por convite (`tx-mirror-*`) não entram nas despesas nem no resultado pessoal. A cota devida aparece em **Compartilhado → Eu devo**; após o acerto, a saída real da conta aparece no extrato. Uma despesa compartilhada que você pagou continua contando como despesa sua, descontada a parte a receber.
 Esses movimentos **continuam** afetando saldo de conta, fatura e limite do cartão.
 
@@ -167,7 +168,7 @@ Parte do saldo de hoje e soma o que está agendado: contas a pagar e a receber, 
 `patrimônio = saldo das contas + investimentos + A RECEBER de pessoas − dívida dos cartões`
 - **Investimentos** = quantidade × preço atual de cada ativo.
 - **Dívida dos cartões** = limite usado (faturas atuais e futuras).
-- **A receber** = saldo em aberto de todos os valores a receber (seção 7). Entra como ativo para compensar a fatura do cartão adicional, que já está na dívida do cartão.
+- **A receber** = saldo em aberto de todos os valores a receber (seção 7). Entra como ativo para compensar a fatura do cartão adicional, que já está na dívida do cartão. O patrimônio também soma, em "a receber", as **faturas de cartão adicional de Compartilhado ainda não acertadas** (`listOpenSharedCardInvoices`); elas não aparecem na tela A Receber.
 
 ### 6.2 Score de saúde financeira 360 (0 a 1000) — `calculateFinancialHealthScore360`
 Soma de quatro blocos de até 250 pontos:
@@ -185,7 +186,8 @@ Faixas: ≥ 800 Excelente; ≥ 650 Saudável; ≥ 450 Atenção; abaixo disso Cr
 
 Para dinheiro que **é de outra pessoa**, mesmo passando pelas suas contas. Dois tipos:
 
-### 7.1 Fatura de cartão adicional (`card_invoice`)
+### 7.1 Fatura de cartão adicional (`card_invoice`) — só dados antigos
+**Desde 2026-11-23 não nasce mais em A Receber**: a cobrança do cartão adicional fica em **Compartilhado** (seção 8, "Fatura de cartão adicional"). Os itens `card_invoice` que já existem continuam funcionando e podem ser recebidos ou apagados como antes.
 Caso: sua esposa usa um cartão adicional e você cobra dela **o valor cheio da fatura**, não compra por compra.
 - Cria **uma linha na fatura do seu cartão** (pendente, no mês de fatura escolhido, categoria "Outros"), que ocupa limite e aparece na fatura.
 - **Não** é despesa sua (seção 5.2).
@@ -233,7 +235,8 @@ Menu **A Receber** (lista, progresso, recebimentos), **patrimônio** (como ativo
 | Convite para si mesmo, e-mail inválido, sem login | Recusado (400/401). Outra pessoa não vê nem aceita um convite que não é dela (404). |
 
 - **Quando a parte do compartilhado é cobrada (e quando aparece como atrasada)** (decisão do dono, 2026-11-15): compra no **cartão** só é cobrada no **vencimento da fatura**, nunca no dia da compra (`getSharedChargeDate`). Quem tem o cartão calcula pelo dia de vencimento do cartão no mês da fatura. Quem **recebe** o espelho não tem o cartão; por isso o app de quem lançou envia o vencimento junto (`sharedDueDate`, validado pelo servidor como data real). Espelho antigo sem essa data só vence no **último dia do mês da fatura** (nunca atrasa antes da hora). Fora do cartão vale a data do lançamento. **Autocorreção**: o servidor informa quais compartilhados de cartão ele guarda sem o vencimento (`outgoingSharedStaleIds`, enviados por app antigo) e o app novo de quem lançou os reenvia, em silêncio, uma vez por sessão, quando consegue calcular a data. O lembrete diz **"Pagar a [pessoa]"** quando outra pessoa pagou e eu devo a minha parte, e **"Reembolso de [pessoa]"** quando eu paguei e ela me deve.
-- **A Receber não é compartilhado**: um item de A Receber (ex.: fatura do cartão adicional de outra pessoa) fica só na conta de quem o lançou; ele não aparece na conta da pessoa, mesmo com convite aceito.
+- **A Receber não é compartilhado**: um item de A Receber (empréstimo) fica só na conta de quem o lançou; ele não aparece na conta da pessoa, mesmo com convite aceito.
+- **Fatura de cartão adicional em Compartilhado** (decisão do dono, 2026-11-23; `src/domain/family/sharedCardInvoice.ts`): em Compartilhado → pessoa → **Fatura de cartão adicional**, informe cartão, mês da fatura e o **valor cheio da fatura dela**. Vira uma compra no seu cartão (pendente, categoria Outros, no mês da fatura escolhido), paga por você e **100% da pessoa**: ocupa o limite, entra na fatura e **soma ao que ela te deve naquele mês**, vencendo no vencimento da fatura (`getSharedChargeDate`). O valor e o mês podem ser **corrigidos** (**Corrigir valor**) e a fatura pode ser **apagada** enquanto não houver acerto nem pagamento da fatura (senão: reabrir o acerto / estornar o pagamento em Cartões). Como todo compartilhado com convite aceito, a pessoa recebe o espelho ("Eu devo"). **Fora do resultado pessoal**: nem a linha da fatura nem o recebimento contam como despesa ou receita sua (`isOutsidePersonalResult`). No acerto (`settleSharedExpenses`), a parte de fatura vai num **movimento bancário próprio** (id terminado em `-cardinv`, entrada sem categoria de receita), separado do movimento das demais despesas do mesmo acerto; reabrir o acerto remove os dois. A edição pela tela de Lançamentos fica bloqueada (mensagem leva a Compartilhado).
 - Compras do tipo "familiar pagou" não entram como seu gasto no cartão (`sharedPaidBy === 'member'`).
 
 ---

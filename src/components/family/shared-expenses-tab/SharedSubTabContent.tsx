@@ -3,6 +3,8 @@ import { Check, CheckCircle2, Clock, Copy, Edit3, Eye, Mail, Plus, Trash2, UserP
 import { FamilyInvitePanel } from '../FamilyInvitePanel';
 import { formatBRL, formatMonthYearPT, formatShortDateBR } from '../../../domain/finance/financeRules';
 import { CategoryIconBadge } from '../../ui/CategoryIconBadge';
+import { isSharedCardInvoice } from '../../../domain/family/sharedCardInvoice';
+import { NewSharedCardInvoiceButton, SharedCardInvoiceRowActions } from './SharedCardInvoiceControls';
 import type { SharedExpensesTabContext } from './sharedExpensesTabContext';
 
 export function SharedSubTabContent({ form }: { form: SharedExpensesTabContext }) {
@@ -11,6 +13,7 @@ export function SharedSubTabContent({ form }: { form: SharedExpensesTabContext }
     activeSubTab,
     activeSummary,
     cardMap,
+    cards,
     catMap,
     familyMembers,
     handleCopyWhatsAppInvoice,
@@ -22,15 +25,19 @@ export function SharedSubTabContent({ form }: { form: SharedExpensesTabContext }
     isGuestMirrorView,
     memberSummaries,
     onAcceptFamilyInvite,
+    onCreateSharedCardInvoice,
     onDeleteFamilyMember,
+    onDeleteSharedCardInvoice,
     onOpenNewSharedTransaction,
     onReopenSharedTransaction,
     onResendFamilyInvite,
+    onUpdateSharedCardInvoice,
     selectedMemberId,
     selectedMonth,
     setCopyFeedback,
     setIsGuestMirrorView,
     setSelectedMemberId,
+    transactions,
   } = form;
   return (
     <>
@@ -482,14 +489,25 @@ export function SharedSubTabContent({ form }: { form: SharedExpensesTabContext }
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                     Lançamentos Compartilhados Nacionais ({activeSummary.monthTxs.length})
                   </h3>
-                  <button
-                    type="button"
-                    onClick={() => onOpenNewSharedTransaction(activeSummary.member.id)}
-                    className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Adicionar Despesa Compartilhada
-                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+                    {cards.length > 0 && (
+                      <NewSharedCardInvoiceButton
+                        memberId={activeSummary.member.id}
+                        memberName={activeSummary.member.name}
+                        cards={cards}
+                        transactions={transactions}
+                        onCreate={onCreateSharedCardInvoice}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onOpenNewSharedTransaction(activeSummary.member.id)}
+                      className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Adicionar Despesa Compartilhada
+                    </button>
+                  </div>
                 </div>
 
                 {activeSummary.monthTxs.length === 0 ? (
@@ -631,7 +649,17 @@ export function SharedSubTabContent({ form }: { form: SharedExpensesTabContext }
                               </span>
                             </div>
 
-                            <div>
+                            <div className="flex flex-col items-end gap-2">
+                              {isPending && isSharedCardInvoice(tx) && (
+                                <SharedCardInvoiceRowActions
+                                  tx={tx}
+                                  memberName={activeSummary.member.name}
+                                  cards={cards}
+                                  transactions={transactions}
+                                  onUpdate={onUpdateSharedCardInvoice}
+                                  onDelete={onDeleteSharedCardInvoice}
+                                />
+                              )}
                               {isPending ? (
                                 <button
                                   type="button"

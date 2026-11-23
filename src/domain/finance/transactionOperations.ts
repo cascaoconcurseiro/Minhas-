@@ -162,6 +162,7 @@ export function getLinkedOperationRestriction(tx: Transaction, action: 'editar' 
 
 export function getTransactionEditRestriction(tx: Transaction): string | null {
   if (tx.isInvoicePayment) return 'Estorne o pagamento da fatura antes de corrigir seus dados.';
+  if (tx.id.startsWith('tx-cardinv-')) return 'Edite o valor da fatura do cartão adicional em Compartilhado.';
   if (tx.isCardRefund) return 'Estorno no cartão não pode ser editado: apague e lance de novo com o valor certo.';
   const linked = getLinkedOperationRestriction(tx, 'editar');
   if (linked) return linked;

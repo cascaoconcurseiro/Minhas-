@@ -26,10 +26,27 @@ export interface ReceivablesSummary {
   byPerson: Array<{ personName: string; balance: number; count: number }>;
 }
 
-export function summarizeReceivables(receivables: Receivable[], throughDate?: string): ReceivablesSummary {
+/**
+ * `extraOpen`: valores em aberto que não são itens de A Receber mas contam como dinheiro a receber no patrimônio
+ * (hoje: faturas de cartão adicional cobradas em Compartilhado).
+ */
+export function summarizeReceivables(
+  receivables: Receivable[],
+  throughDate?: string,
+  extraOpen: Array<{ personName: string; balance: number }> = []
+): ReceivablesSummary {
   const byPerson = new Map<string, { balance: number; count: number }>();
   let totalOpen = 0;
   let openCount = 0;
+  for (const extra of extraOpen) {
+    if (extra.balance <= 0) continue;
+    totalOpen += extra.balance;
+    openCount += 1;
+    const entry = byPerson.get(extra.personName) ?? { balance: 0, count: 0 };
+    entry.balance = round2(entry.balance + extra.balance);
+    entry.count += 1;
+    byPerson.set(extra.personName, entry);
+  }
   for (const receivable of receivables) {
     if (throughDate && receivable.createdDate > throughDate) continue;
     const balance = getReceivableBalance(receivable, throughDate);

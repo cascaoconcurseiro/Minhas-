@@ -1,19 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, CreditCard as CreditCardIcon, HandCoins, Plus, Trash2, Undo2 } from 'lucide-react';
+import { CheckCircle2, HandCoins, Plus, Trash2, Undo2 } from 'lucide-react';
 import type { BankAccount, CreditCard, FamilyMember, Receivable, Transaction } from '../../types/finance';
 import { formatBRL, formatMonthYearPT, formatShortDateBR, getLocalDateISO, parseBRLInput, sortChronologically } from '../../domain/finance/financeRules';
-import { getInvoiceMonthOptions, getReceivableBalance, getReceivablePaid, getReceivableStatus, summarizeReceivables } from '../../domain/receivables/receivables';
+import { getReceivableBalance, getReceivablePaid, getReceivableStatus, summarizeReceivables } from '../../domain/receivables/receivables';
 import { getAccountLabelWithBank } from '../../domain/finance/accountLabels';
 import { CurrencyInput } from '../ui/CurrencyInput';
 
+/** Novo valor a receber. Fatura de cartão adicional não nasce mais aqui: fica em Compartilhado. */
 export interface ReceivableCreateInput {
-  kind: 'card_invoice' | 'loan';
+  kind: 'loan';
   personName: string;
   description?: string;
   amount: number;
   date: string;
-  cardId?: string;
-  invoiceMonth?: string;
   fromAccountId?: string;
   note?: string;
 }
@@ -36,13 +35,11 @@ const labelClass = 'block text-xs font-semibold text-slate-700 dark:text-slate-3
 export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
   receivables, cards, accounts, familyMembers, transactions, onCreate, onRegisterPayment, onRemovePayment, onDelete,
 }) => {
-  const [formKind, setFormKind] = useState<'card_invoice' | 'loan' | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [person, setPerson] = useState('');
   const [description, setDescription] = useState('');
   const [amountStr, setAmountStr] = useState('');
   const [date, setDate] = useState(getLocalDateISO());
-  const [cardId, setCardId] = useState('');
-  const [invoiceMonth, setInvoiceMonth] = useState(getLocalDateISO().slice(0, 7));
   const [fromAccountId, setFromAccountId] = useState('');
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState('');
@@ -59,45 +56,34 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
     () => [...new Set([...familyMembers.map((member) => member.name), ...receivables.map((item) => item.personName)])].filter(Boolean),
     [familyMembers, receivables]
   );
-  const monthOptions = useMemo(() => getInvoiceMonthOptions(transactions, cardId, getLocalDateISO()), [transactions, cardId]);
-  const effectiveInvoiceMonth = monthOptions.includes(invoiceMonth) ? invoiceMonth : monthOptions[0];
   const cardName = (id?: string) => cards.find((card) => card.id === id)?.name ?? 'Cartão';
   const open = receivables.filter((item) => getReceivableBalance(item) > 0);
   const paid = receivables.filter((item) => getReceivableBalance(item) <= 0);
 
-  const openForm = (kind: 'card_invoice' | 'loan') => {
-    setFormKind(kind);
+  const openForm = () => {
+    setFormOpen(true);
     setFormError('');
-    // Fatura de cartão adicional: já vem com a pessoa da família (cônjuge, ou a única cadastrada).
-    const people = familyMembers.filter((member) => member.name);
-    const spouses = people.filter((member) => member.relationship === 'cônjuge');
-    const suggested = kind === 'card_invoice' ? (spouses.length === 1 ? spouses[0] : people.length === 1 ? people[0] : null) : null;
-    setPerson(suggested?.name ?? '');
+    setPerson('');
     setDescription('');
     setAmountStr('');
     setDate(getLocalDateISO());
-    setInvoiceMonth(getLocalDateISO().slice(0, 7));
-    setCardId(cards.length === 1 ? cards[0].id : '');
     setFromAccountId('');
     setNote('');
   };
 
   const submitForm = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!formKind) return;
     const error = onCreate({
-      kind: formKind,
+      kind: 'loan',
       personName: person,
       description,
       amount: parseBRLInput(amountStr),
       date,
-      cardId: formKind === 'card_invoice' ? cardId : undefined,
-      invoiceMonth: formKind === 'card_invoice' ? effectiveInvoiceMonth : undefined,
-      fromAccountId: formKind === 'loan' && fromAccountId ? fromAccountId : undefined,
+      fromAccountId: fromAccountId || undefined,
       note,
     });
     if (error) { setFormError(error); return; }
-    setFormKind(null);
+    setFormOpen(false);
   };
 
   const startPayment = (item: Receivable) => {
@@ -212,10 +198,7 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
             <p className="text-xs text-slate-500">Dinheiro que outras pessoas te devem. Não entra nas suas despesas nem nas suas receitas.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" data-testid="receivable-new-invoice" onClick={() => openForm('card_invoice')} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-white px-3 py-2 text-xs font-bold text-white dark:text-slate-900">
-              <CreditCardIcon className="h-3.5 w-3.5" /> Cobrar fatura de cartão adicional
-            </button>
-            <button type="button" data-testid="receivable-new-loan" onClick={() => openForm('loan')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100">
+            <button type="button" data-testid="receivable-new-loan" onClick={openForm} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100">
               <Plus className="h-3.5 w-3.5" /> Empréstimo / dívida
             </button>
           </div>
@@ -231,15 +214,11 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
         )}
       </section>
 
-      {formKind && (
+      {formOpen && (
         <form onSubmit={submitForm} data-testid="receivable-form" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-3">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-            {formKind === 'card_invoice' ? 'Cobrar a fatura do cartão adicional' : 'Novo empréstimo / dívida a receber'}
-          </h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Novo empréstimo / dívida a receber</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400">
-            {formKind === 'card_invoice'
-              ? 'Informe o valor cheio da fatura dela. Ele entra na fatura e no limite do seu cartão, mas não é gasto seu.'
-              : 'Sem prazo: você registra cada pagamento quando a pessoa pagar, e o saldo vai baixando.'}
+            Sem prazo: você registra cada pagamento quando a pessoa pagar, e o saldo vai baixando. Fatura de cartão adicional agora fica em Compartilhado.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -257,41 +236,20 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
               <datalist id="receivable-people">{knownPeople.map((name) => <option key={name} value={name} />)}</datalist>
             </div>
             <div>
-              <label className={labelClass} htmlFor="receivable-amount">{formKind === 'card_invoice' ? 'Valor cheio da fatura dela' : 'Valor'}</label>
+              <label className={labelClass} htmlFor="receivable-amount">Valor</label>
               <CurrencyInput id="receivable-amount" data-testid="receivable-amount" currency="BRL" value={amountStr} onValueChange={setAmountStr} placeholder="0,00" className={inputClass} />
             </div>
-            {formKind === 'card_invoice' ? (
-              <>
-                <div>
-                  <label className={labelClass} htmlFor="receivable-card">Cartão</label>
-                  <select id="receivable-card" data-testid="receivable-card" value={cardId} onChange={(e) => setCardId(e.target.value)} className={inputClass}>
-                    {!cardId && <option value="">Escolha o cartão…</option>}
-                    {cards.map((card) => <option key={card.id} value={card.id}>{card.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="receivable-month">Mês da fatura</label>
-                  <select id="receivable-month" data-testid="receivable-month" value={effectiveInvoiceMonth} onChange={(e) => setInvoiceMonth(e.target.value)} className={inputClass}>
-                    {monthOptions.map((month) => <option key={month} value={month}>{formatMonthYearPT(month)}</option>)}
-                  </select>
-                  <p className="mt-1 text-[11px] text-slate-500">Do mês atual até o último mês com compras neste cartão.</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className={labelClass} htmlFor="receivable-description">Descrição (opcional)</label>
-                  <input id="receivable-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Empréstimo para reforma" className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass} htmlFor="receivable-from">Saiu de qual conta? (opcional)</label>
-                  <select id="receivable-from" value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)} className={inputClass}>
-                    <option value="">Não descontar de nenhuma conta (só registrar)</option>
-                    {accounts.map((account) => <option key={account.id} value={account.id}>{getAccountLabelWithBank(account, accounts)}</option>)}
-                  </select>
-                </div>
-              </>
-            )}
+            <div>
+              <label className={labelClass} htmlFor="receivable-description">Descrição (opcional)</label>
+              <input id="receivable-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Empréstimo para reforma" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="receivable-from">Saiu de qual conta? (opcional)</label>
+              <select id="receivable-from" value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)} className={inputClass}>
+                <option value="">Não descontar de nenhuma conta (só registrar)</option>
+                {accounts.map((account) => <option key={account.id} value={account.id}>{getAccountLabelWithBank(account, accounts)}</option>)}
+              </select>
+            </div>
             <div>
               <label className={labelClass} htmlFor="receivable-date">Data</label>
               <input id="receivable-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
@@ -304,19 +262,19 @@ export const ReceivablesTab: React.FC<ReceivablesTabProps> = ({
           {formError && <p role="alert" className="text-xs font-semibold text-rose-700">{formError}</p>}
           <div className="flex gap-2">
             <button type="submit" data-testid="receivable-submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white">Registrar</button>
-            <button type="button" onClick={() => setFormKind(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Cancelar</button>
+            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Cancelar</button>
           </div>
         </form>
       )}
 
       {listError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{listError}</p>}
 
-      {receivables.length === 0 && !formKind ? (
+      {receivables.length === 0 && !formOpen ? (
         <section className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center space-y-2">
           <HandCoins className="mx-auto h-8 w-8 text-slate-400" />
           <p className="text-sm font-bold text-slate-900 dark:text-white">Nada a receber por enquanto</p>
           <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto">
-            Use "Cobrar fatura de cartão adicional" quando o cartão de outra pessoa fechar, ou "Empréstimo / dívida" para dinheiro que você emprestou e vai receber aos poucos.
+            Use "Empréstimo / dívida" para dinheiro que você emprestou e vai receber aos poucos. A fatura de cartão adicional fica em Compartilhado.
           </p>
         </section>
       ) : (

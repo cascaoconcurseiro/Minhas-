@@ -4,6 +4,7 @@ import { runFinancialIntegrityAudit } from '../domain/trips/travelRules';
 import { Transaction } from '../types/finance';
 import { calculateCurrentPosition, calculateNetWorth, calculateSharedAmount, formatMonthYearPT, getLocalDateISO, isSharedOnlyExpense, resolveCreditCardInvoiceMonth } from '../domain/finance/financeRules';
 import { summarizeReceivables } from '../domain/receivables/receivables';
+import { listOpenSharedCardInvoices } from '../domain/family/sharedCardInvoice';
 import { forecastCashBalance } from '../domain/budgets/cashForecast';
 import { assessDataHealth } from '../domain/budgets/dataHealth';
 import { detectRecurringExpenses, type RecurringCandidate } from '../domain/budgets/recurrenceDetection';
@@ -163,7 +164,10 @@ export function useNoticesAndInsights(app: AppStateApi & FinancialSnapshotApi & 
     () => calculateCurrentPosition(accounts, cards, transactions, todayDateStr),
     [accounts, cards, transactions, todayDateStr]
   );
-  const currentReceivables = useMemo(() => summarizeReceivables(receivables, todayDateStr), [receivables, todayDateStr]);
+  const currentReceivables = useMemo(
+    () => summarizeReceivables(receivables, todayDateStr, listOpenSharedCardInvoices(transactions, familyMembers, todayDateStr)),
+    [receivables, todayDateStr, transactions, familyMembers]
+  );
   const netWorthSnapshot = useMemo(
     () => calculateNetWorth(currentPosition.accountBalances, investments, currentPosition.cardSummaries, currentReceivables.totalOpen),
     [currentPosition, investments, currentReceivables.totalOpen]
