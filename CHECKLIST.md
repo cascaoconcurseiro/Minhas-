@@ -14,6 +14,7 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [x] **[Dev]** Os dois testes de navegador rodam no CI (job `e2e`, Playwright autorizado pelo dono em 20/11). [ ] Falta confirmar o primeiro resultado no GitHub e ampliar para família e backup.
 - [ ] **[Dono]** Registrar uma fatura de cartão adicional em Compartilhado, conferir o total do mês, corrigir o valor e liquidar; conferir que não aparece em Despesas/Receitas.
 - [ ] **[Dono]** Mover as faturas de cartão adicional antigas de A Receber para Compartilhado com o botão **Mover para Compartilhado** (só as sem recebimento; a pessoa precisa estar cadastrada com o mesmo nome).
+- [ ] **[Dono]** Conferir a **Previsão mês a mês** em Relatórios com os dados reais: lançar o saldo inicial real da conta e os gastos fixos do banco (hoje só aparece a luz), e conferir o aviso de que as entradas acabam em jul/2027.
 - [ ] **[Decidir]** Resultado pessoal: hoje um compartilhado que você pagou conta **inteiro** como despesa e o reembolso entra como **receita** (infla os dois lados). Passar para "só a minha parte" exige decidir também quando a sua parte de uma compra paga pela outra pessoa vira despesa (hoje só no acerto) e como tratar acerto compensado (um só PIX). Não foi mexido.
 - [ ] **[Dono]** Abrir o app e salvar/apagar um lançamento para confirmar a gravação após a migração 011.
 - [ ] **[Dono]** Conferir com a Fran se os 110 compartilhados apareceram para ela (gravados no Neon em 2026-11-15; o A Receber do cartão adicional não vai para a conta dela).

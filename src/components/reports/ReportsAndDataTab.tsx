@@ -8,6 +8,7 @@ import { useReportsChartData } from './reports-tab/useReportsChartData';
 import type { ReportsAndDataTabContext } from './reports-tab/reportsTabContext';
 
 import { ReportsDailyCashFlow } from './reports-tab/ReportsDailyCashFlow';
+import { ReportsMonthlyForecast } from './reports-tab/ReportsMonthlyForecast';
 import { ReportsMonthlyTable } from './reports-tab/ReportsMonthlyTable';
 import { ReportsPeriodSummary } from './reports-tab/ReportsPeriodSummary';
 import { ReportsPieCharts } from './reports-tab/ReportsPieCharts';
@@ -33,6 +34,8 @@ export const ReportsAndDataTab: React.FC<ReportsAndDataTabProps> = (props) => {
   return (
     <div className="module-page space-y-6 sm:space-y-8">
       <ReportsPeriodSummary form={form} />
+
+      <ReportsMonthlyForecast form={form} />
 
       <ReportsPieCharts form={form} />
 

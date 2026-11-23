@@ -273,6 +273,16 @@ try {
     assert.ok(text.length > 20, `a tela "${name}" abriu vazia`);
   }
   console.log(`PASS: abriu as ${menuTabs.length} telas do menu sem erro`);
+
+  // Previsão mês a mês (Relatórios): 12 meses, com as parcelas do cartão aparecendo nas faturas.
+  await goTab(page, 'Relatórios & DRE');
+  await page.getByTestId('monthly-forecast').waitFor({ timeout: 15000 });
+  assert.equal(await page.locator(phoneMode ? '[data-testid^="forecast-card-"]' : '[data-testid^="forecast-row-"]').count(), 12, 'a previsão mostra 12 meses');
+  const forecastText = await page.getByTestId('monthly-forecast').innerText();
+  assert.match(forecastText, /Previsão mês a mês/);
+  assert.match(forecastText, /100,00/, 'as parcelas de R$ 100,00 aparecem nas faturas previstas');
+  if (phoneMode) await noHorizontalScroll(page, 'Relatórios com a previsão mês a mês (celular)');
+  console.log('PASS: Relatórios mostra a previsão mês a mês com 12 meses e as faturas das parcelas');
   await page.getByRole('button', { name: 'Abrir configurações do aplicativo' }).first().click();
   const settings = page.getByRole('dialog');
   await settings.waitFor();
