@@ -20,7 +20,7 @@ Uma pessoa ou casal que quer enxergar com clareza: quanto tem em cada conta, qua
 | **A Receber** | Dinheiro que outras pessoas devem: empréstimos, com recebimentos parciais. (A fatura de cartão adicional fica em Compartilhado.) |
 | **Investimentos** | Carteira (renda fixa, FIIs, ações B3, exterior), aportes e resgates ligados à conta, cotações, rebalanceamento. |
 | **Metas & Reservas** | Metas com simulador de renda fixa (CDI, Selic, LCI/LCA, poupança). |
-| **Relatórios & DRE** | DRE pessoal, gráficos por período, patrimônio consolidado, exportação PDF/CSV/JSON. |
+| **Relatórios & DRE** | DRE pessoal, **previsão mês a mês de 12 meses**, gráficos por período, patrimônio consolidado, exportação PDF/CSV/JSON. |
 | **Configurações** | Conta e nuvem, Face ID, lembretes, categorias e divisão automática, backup, tema. |
 
 Detalhes de cada regra estão em [regras-de-negocio.md](./regras-de-negocio.md); o passo a passo de cada operação em [fluxos.md](./fluxos.md).

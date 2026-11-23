@@ -54,6 +54,16 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
+### 2026-11-23 — Previsão mês a mês de 12 meses em Relatórios
+- **O que mudou:** nova seção **Previsão mês a mês (12 meses)** no topo de Relatórios & DRE: entradas, faturas dos cartões, contas no banco, compras novas estimadas (caixa liga/desliga), sobra do mês, saldo acumulado a partir do saldo de hoje, quanto as pessoas te devem e saldo se pagarem. Avisa o primeiro mês negativo e quando as entradas acabam. Tabela no computador; cartões por mês no celular.
+- **Por quê:** o dono pediu uma tabela assim para ver a previsão mês a mês; o app só tinha a previsão de 45 dias.
+- **Arquivos/áreas:** `src/domain/budgets/monthlyForecast.ts` (+teste), `src/components/reports/reports-tab/ReportsMonthlyForecast.tsx`, `ReportsAndDataTab.tsx` (+teste), `scripts/e2e-browser.mjs`, docs.
+- **Como foi verificado:** `bun run check`; 7 testes novos (soma por mês, o que fica de fora, atrasados, pessoas devem, estimativa, avisos, tela); roteiro de navegador real (Chromium) contra PostgreSQL 16 local, no computador e em 390 px sem estourar a largura; captura de tela conferida nos dois tamanhos.
+- **Não verificado:** a tela com os dados reais do dono (os números dele foram conferidos só por consulta direta ao banco, não pela tela); iPhone/Safari; a estimativa de compras novas com histórico longo.
+- **Impacto em dados/Neon:** nenhum (só lê o que o app já tem).
+- **Documentação atualizada:** `docs/produto/regras-de-negocio.md` (5.5b), `docs/produto/visao-geral.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** o dono abrir Relatórios com os dados reais, ajustar saldo inicial e gastos fixos e dizer o que falta na tabela.
+
 ### 2026-11-23 — Patrimônio soma todo compartilhado a receber, mover fatura antiga, e-mail de teste de navegador
 - **O que mudou:** (1) o patrimônio ("a receber") soma tudo o que as pessoas ainda te devem em Compartilhado, não só a fatura de cartão adicional (`listOpenSharedReceivables`); "Eu devo" continua fora. (2) A Receber ganhou **Mover para Compartilhado** nas faturas de cartão adicional antigas sem recebimento. (3) A janela da fatura abre no mês que a tela mostra (antes a fatura podia entrar num mês que a pessoa não estava vendo). (4) O roteiro de navegador cobre registrar, corrigir e apagar a fatura em Compartilhado (computador e 390 px). (5) Documentação corrigida: o texto dizia que o compartilhado "desconta a parte a receber" do resultado pessoal, mas o código conta o valor inteiro.
 - **Por quê:** pedido do dono de aplicar as melhorias gerais sugeridas. A mudança do resultado pessoal para "só a minha parte" **não foi feita**: depende de decisão (ver CHECKLIST).

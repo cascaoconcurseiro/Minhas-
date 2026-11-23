@@ -459,3 +459,33 @@ test('fluxo de caixa diário explica ao passar o mouse a saída de fatura em atr
   assert.match(note.getAttribute('title') ?? '', /Fatura de Outubro de 2026 do Nubank, ainda não paga \(em atraso\)/);
   assert.match(note.textContent ?? '', /599,59/);
 });
+
+test('ReportsAndDataTab mostra a previsão mês a mês com 12 meses e liga/desliga a estimativa', async () => {
+  const nextMonth = (offset: number) => {
+    const now = new Date();
+    const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() + offset, 1));
+    return date.toISOString().slice(0, 7);
+  };
+  const month = nextMonth(1);
+  const base = { description: 'x', date: `${month}-05`, competenceMonth: month, status: 'pending' as const, categoryId: 'cat-outros', paymentMethod: 'pix' as const, recurrence: 'single' as const };
+  const page = renderReports({
+    transactions: [
+      { ...base, id: 'sal', type: 'income', amount: 5000, accountId: 'acc-synthetic' },
+      { ...base, id: 'luz', type: 'expense', amount: 400, accountId: 'acc-synthetic' },
+      { ...base, id: 'cartao', type: 'expense', amount: 1000, creditCardId: 'card-1', paymentMethod: 'credit_card' },
+    ],
+  });
+  const section = page.querySelector('[data-testid="monthly-forecast"]');
+  assert.ok(section, 'a seção de previsão aparece em Relatórios');
+  assert.equal(section.querySelectorAll('[data-testid^="forecast-row-"]').length, 12);
+  assert.match(section.textContent ?? '', /Previsão mês a mês/);
+  const row = section.querySelector(`[data-testid="forecast-row-${month}"]`);
+  assert.ok(row);
+  assert.match(row.textContent ?? '', /5\.000,00/);
+  const toggle = section.querySelector<HTMLInputElement>('[data-testid="forecast-estimate-toggle"]');
+  assert.ok(toggle);
+  assert.equal(toggle.checked, true);
+  assert.match(section.textContent ?? '', /média de/);
+  await act(async () => { toggle.click(); });
+  assert.equal(toggle.checked, false);
+});
