@@ -26,6 +26,30 @@ function disableViteClientWebSocketPlugin(): Plugin {
   };
 }
 
+// Só no site publicado: (1) tira o script que silencia avisos do servidor de desenvolvimento (lá ele não tem
+// função e atrasava a primeira pintura); (2) manda o navegador baixar a tela de entrada junto com o app,
+// em vez de esperar o app rodar para descobrir que precisa dela.
+function productionHtmlPlugin(): Plugin {
+  return {
+    name: 'production-html-tweaks',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const cleaned = html.replace(/\s*<script src="\/vite-websocket-guard\.js"><\/script>/, '');
+        const loginChunk = Object.values(ctx.bundle ?? {}).find(
+          (item) => item.type === 'chunk' && item.facadeModuleId?.replace(/\\/g, '/').endsWith('/components/auth/LoginPage.tsx')
+        );
+        if (!loginChunk) return cleaned;
+        return {
+          html: cleaned,
+          tags: [{ tag: 'link', attrs: { rel: 'modulepreload', crossorigin: true, href: `/${loginChunk.fileName}` }, injectTo: 'head' }],
+        };
+      },
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
     // Identifica a versão publicada (código curto do commit na Vercel) para o app mostrar qual versão está rodando.
@@ -37,11 +61,12 @@ export default defineConfig(() => {
     },
     plugins: [
       disableViteClientWebSocketPlugin(),
+      productionHtmlPlugin(),
       react(),
       tailwindcss(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['favicon.ico', 'favicon-32x32.png', 'apple-touch-icon.png', 'brand-mark.png'],
+        includeAssets: ['favicon.ico', 'favicon-32x32.png', 'apple-touch-icon.png', 'brand-mark.webp'],
         manifest: {
           id: '/',
           name: 'Minhas Economias BR',
@@ -79,33 +104,23 @@ export default defineConfig(() => {
           maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+          // Fica fora da instalação inicial (baixa só quando usado e depois fica guardado): gerador de PDF e suas
+          // bibliotecas, ícones grandes de instalação e fontes de alfabetos que o app não usa (~1 MB a menos na 1ª visita).
+          globIgnores: [
+            '**/assets/{jspdf,html2canvas,purify,index.es,reportPdfGenerator,tripPdfGenerator}*',
+            'vite-websocket-guard.js',
+            'pwa-*.png',
+            '**/assets/*-{latin-ext,cyrillic,cyrillic-ext,greek,greek-ext,vietnamese}-*.woff2',
+          ],
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              // Arquivos com código de versão no nome nunca mudam: o que ficou fora da instalação é guardado no 1º uso.
+              urlPattern: ({ sameOrigin, url }) => sameOrigin && url.pathname.startsWith('/assets/'),
               handler: 'CacheFirst',
               options: {
-                cacheName: 'google-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
-              },
-            },
-            {
-              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'gstatic-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365,
-                },
-                cacheableResponse: {
-                  statuses: [0, 200],
-                },
+                cacheName: 'assets-on-demand',
+                expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 180 },
+                cacheableResponse: { statuses: [200] },
               },
             },
           ],

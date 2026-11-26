@@ -215,7 +215,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <span className="text-base font-extrabold text-slate-900 dark:text-white block leading-none">
                 Minhas Economias
               </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] text-slate-600 dark:text-slate-400">
                 Controle Financeiro & Viagens
               </span>
             </div>
@@ -304,11 +304,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   {passkeyReady ? 'Entrar com Face ID' : 'Preparando o Face ID…'}
                 </button>
                 {!passkeyEnabledHere && (
-                  <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-center text-slate-600 dark:text-slate-400">
                     Ainda não ativou? Entre com e-mail e senha e ative o Face ID dentro do app.
                   </p>
                 )}
-                <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-400">
                   <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
                   ou use e-mail e senha
                   <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
@@ -396,7 +396,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 />
                 <span>
                   <span className="block font-bold">Manter conectado</span>
-                  <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="block text-[11px] text-slate-600 dark:text-slate-400">
                     {keepSignedIn
                       ? 'Neste aparelho você entra direto, sem digitar de novo, por até 30 dias.'
                       : 'Você sai ao fechar o app e terá de entrar de novo.'}
@@ -422,7 +422,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </form>
           </div>
 
-          <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
+          <p className="text-center text-[11px] text-slate-600 dark:text-slate-400">
             Suas alterações são salvas automaticamente após entrar.
           </p>
         </div>

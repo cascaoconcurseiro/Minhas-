@@ -27,6 +27,8 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** Ler **valor e data** de foto de comprovante e abrir o lançamento preenchido (categoria/pagamento/conta continuam obrigatórios).
 - [ ] **[Dev]** Atalho do iPhone (automação "Transação" do Apple Pay) abrindo o app com valor e estabelecimento preenchidos.
 
+- [ ] **[Dev]** Daqui a alguns dias de uso, listar as consultas mais lentas no Neon (`pg_stat_statements`, instalada em 26/11) e medir o tempo do app logado em produção (ver `docs/AUDITORIA_PERFORMANCE_2026-11-26.md`).
+
 ## B. Pendências do dono
 - [ ] **[Dono]** Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - [ ] **[Dono]** Conferir na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` existem em produção; decidir se configura `GEMINI_API_KEY` (câmbio ao vivo e cotações internacionais ficam indisponíveis sem ela).
@@ -71,6 +73,8 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 - [ ] **[Dev]** A18, A21, A22, A23, A24 (A24 = L5 da avaliação de 19/11): simulador por lote de aporte, patrimônio histórico com posições datadas, orçamento/saldo inicial com vigência, reserva exclusiva de ativo por meta, crédito/estorno de compra no cartão.
 
 ## E. Dívida técnica (sem mudar comportamento)
+- [ ] **[Dev]** Performance: a tela de entrada baixa o app inteiro (~70 KB de código que ela não usa). Separar exige dividir a cadeia de hooks do `App.tsx`; ganho só para quem ainda não entrou, por isso ficou de fora da auditoria de 26/11.
+- [ ] **[Decidir]** Acessibilidade: metade do texto da tela de entrada usa letra de 11 px (o Lighthouse pede 12 px ou mais). Aumentar muda o visual; não foi feito sem pedido.
 - [x] **[Dev]** `scripts/e2e-sync.mjs` cobre servidor fora do ar com nova tentativa (20/11).
 - [x] **[Dev]** Removido em 20/11: o aviso de conflito (`WorkspaceConflictModal` e o hook `useWorkspaceConflict`) **nunca aparece**: desde a regra "quem chegou primeiro ao Neon prevalece", nada cria o estado de conflito. Por isso não há como testá-lo no navegador. Remover esse caminho morto mexe em ~120 pontos da sincronização; só fazer com os testes de dois aparelhos rodando no CI.
 - [ ] **[Dev]** Build local da CLI da Vercel não aceita a configuração Node 26.x (produção roda Node 26); alinhar.

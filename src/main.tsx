@@ -1,6 +1,12 @@
 /// <reference types="vite-plugin-pwa/client" />
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+// Fontes servidas pelo próprio site (antes vinham do Google e travavam a primeira pintura da tela).
+// O navegador só baixa os arquivos dos caracteres e estilos que a tela usa.
+import '@fontsource-variable/dm-sans/opsz.css';
+import '@fontsource-variable/dm-sans/opsz-italic.css';
+import '@fontsource-variable/plus-jakarta-sans/wght.css';
+import '@fontsource-variable/jetbrains-mono/wght.css';
 import './index.css';
 import {PwaUpdateNotice} from './pwa/PwaUpdateNotice';
 import {ErrorBoundary} from './components/layout/ErrorBoundary';

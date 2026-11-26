@@ -35,10 +35,11 @@ export async function withWorkspaceRls<T>(
   let discardConnection = false;
   try {
     await client.query('BEGIN');
-    await client.query("SELECT set_config('app.user_id', $1, true)", [user.uid]);
-    await client.query("SELECT set_config('app.user_email', $1, true)", [
-      user.email.toLowerCase(),
-    ]);
+    // Os dois ajustes de RLS numa só consulta: cada ida ao Neon custa uma viagem de rede.
+    await client.query(
+      "SELECT set_config('app.user_id', $1, true), set_config('app.user_email', $2, true)",
+      [user.uid, user.email.toLowerCase()]
+    );
     const result = await operation(client, vaultId);
     await client.query('COMMIT');
     return result;
