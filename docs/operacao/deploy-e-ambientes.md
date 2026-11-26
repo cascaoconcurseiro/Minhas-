@@ -30,7 +30,7 @@ bun run dev                 # http://localhost:3000 (Express + Vite)
 2. Push em `main`. A Vercel faz o deploy sozinha.
 3. Conferir o CI no GitHub e abrir o app: Conta, Login & Nuvem → **Buscar atualização agora**.
 
-Cabeçalhos de segurança e cache estão em `vercel.json` (CSP, `sw.js` sem cache, `/assets` imutável, `/api` sem cache).
+Cabeçalhos de segurança e cache estão em `vercel.json` (CSP, `sw.js` sem cache, `/assets` imutável, `/api` sem cache). A API roda em São Paulo (`"regions": ["gru1"]`), na mesma região do Neon (`sa-east-1`): cada pedido faz várias consultas, e com a API longe do banco cada uma atravessava o continente.
 
 ## Agendamentos
 | O quê | Quando | Onde | Estado |

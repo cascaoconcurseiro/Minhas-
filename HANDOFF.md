@@ -3,7 +3,7 @@
 > **Documento obrigatório.** Toda entrega (commit que muda `src/`, `backend/`, `api/`, `db/`, `shared/` ou `package.json`) **precisa** de uma nova entrada na seção 7 e da atualização das seções 1–6 quando mudarem. O CI barra a entrega se isso não for feito (`bun run check:handoff`). Regras completas: [docs/processo/handoff-e-checklist.md](./docs/processo/handoff-e-checklist.md). Histórico antigo: [docs/arquivo/handoff/](./docs/arquivo/handoff/).
 
 ## 1. Estado atual
-- **Atualizado em:** 2026-11-23
+- **Atualizado em:** 2026-11-26
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber** só para empréstimos; a fatura de cartão adicional agora fica em **Compartilhado**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
 - **Verificação mais recente (2026-11-19):** auditoria técnica e limpeza publicadas em `main` (`2d2822d`, CI verde; produção já serve a versão nova). Migração 011 aplicada no Neon e Neon Auth antigo removido, com autorização do dono.
@@ -15,6 +15,7 @@
 | [Auditoria do sistema](docs/AUDITORIA_SISTEMA_2026-11-15.md) | Os 13 achados foram corrigidos e publicados em `e41b89a`; conferência posterior com a Fran pendente. |
 | [Auditoria técnica e limpeza](docs/AUDITORIA_TECNICA_2026-11-19.md) | Publicada em `main` e aplicada no Neon; falta só um uso autenticado em produção para confirmar que salvar continua normal. |
 | [Avaliação da lógica financeira](docs/AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md) | L1–L4 corrigidos e `financeRules.ts` dividido; L5–L7 aguardam decisão do dono. |
+| [Auditoria de performance](docs/AUDITORIA_PERFORMANCE_2026-11-26.md) | Correções aplicadas em 2026-11-26; falta medir o uso logado e as consultas no Neon depois de alguns dias. |
 | Reorganização e documentação (meta do dono em 2026-11-15) | Pastas, docs e HANDOFF concluídos; ver entrada de 2026-11-15 |
 
 ## 3. Próximos passos (ordem de prioridade)
@@ -53,6 +54,16 @@
 - Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-26 — Auditoria de performance (skill auditoria-performance)
+- **O que mudou:** (1) a API passa a rodar em **São Paulo** (`"regions": ["gru1"]` no `vercel.json`), ao lado do banco Neon (`sa-east-1`); antes rodava em Washington (`iad1`) e cada pedido logado cruzava o continente cerca de 6 vezes. (2) `withWorkspaceRls` faz os dois ajustes de RLS (`set_config`) numa só consulta (uma viagem ao banco a menos por pedido). (3) Fontes servidas pelo próprio site (`@fontsource-variable/*`, as mesmas DM Sans, Plus Jakarta Sans e JetBrains Mono) em vez do Google: some a cadeia de ~1 s que travava a primeira pintura; CSP sem `fonts.googleapis.com`/`fonts.gstatic.com`. (4) O site publicado não carrega mais `vite-websocket-guard.js` (só serve no desenvolvimento) e já pede a tela de entrada junto com o app (`modulepreload`). (5) Logo `brand-mark.png` (18,9 KB) virou `brand-mark.webp` 120 px (3,4 KB). (6) Instalação do app para uso sem internet: 3,4 MB → 2,4 MB (gerador de PDF, ícones grandes e fontes de outros alfabetos baixam só quando usados e depois ficam guardados). (7) Contraste de 5 textos pequenos da tela de entrada: `slate-400`/`slate-500` → `slate-600` (`#90a1b9`/`#62748e` → `#45556c`). (8) Extensão `pg_stat_statements` instalada no Neon (autorizado pelo dono) para medir as consultas.
+- **Por quê:** pedido do dono de rodar a skill de auditoria de performance e aplicar tudo o que foi achado ("sim pode fazer tudo").
+- **Arquivos/áreas:** `vercel.json`, `backend/database.ts`, `index.html`, `src/main.tsx`, `src/index.css`, `vite.config.ts`, `src/components/layout/BrandMark.tsx`, `public/brand-mark.webp` (sai o `.png`), `src/components/auth/LoginPage.tsx`, `package.json`/`bun.lock`, docs.
+- **Como foi verificado:** `bun run check` (840 testes); os 3 roteiros de navegador real (computador, celular 390 px e sincronização entre aparelhos) contra PostgreSQL 16 local; Chromium conferiu que as fontes vêm do próprio site, sem pedido ao Google nem ao script de desenvolvimento, sem erro no console e sem estourar a largura. Linha de base em produção (Lighthouse celular, 3 rodadas): desempenho 85–87, acessibilidade 94, FCP 2,5–2,6 s, LCP 3,5–3,7 s. Números depois da publicação: ver [docs/AUDITORIA_PERFORMANCE_2026-11-26.md](docs/AUDITORIA_PERFORMANCE_2026-11-26.md).
+- **Não verificado:** o ganho de tempo no uso logado em produção (não tenho login; a economia por pedido é estimada, não medida); iPhone/Safari; se o plano da Vercel aceita a região `gru1` (se não aceitar, a publicação avisa).
+- **Impacto em dados/Neon:** só a extensão `pg_stat_statements` (conta o tempo das consultas; não mexe nos dados). Nenhuma migração.
+- **Documentação atualizada:** `docs/AUDITORIA_PERFORMANCE_2026-11-26.md` (novo), `docs/operacao/deploy-e-ambientes.md`, `docs/tecnico/seguranca.md`, `CHECKLIST.md`, este HANDOFF.
+- **Próximo passo:** em alguns dias, listar as consultas mais lentas no Neon (`pg_stat_statements`) e o dono abrir o app logado para sentir a diferença.
 
 ### 2026-11-23 — Previsão mês a mês: estimativa de entradas
 - **O que mudou:** a Previsão mês a mês ganhou **Estimar entradas depois da última lançada** (caixa, ligada por padrão) e a coluna **Entradas (estim.)**. Nos meses depois da última entrada lançada usa a **mediana** das entradas dos últimos até 3 meses com entrada (13º/bônus isolado não puxa o valor). O aviso de "sem entrada depois de X" passa a dizer qual valor está sendo usado.

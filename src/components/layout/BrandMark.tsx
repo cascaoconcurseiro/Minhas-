@@ -8,7 +8,7 @@ interface BrandMarkProps {
 /** Logo oficial do Minhas Economias, usada no menu e na tela de entrada. */
 export const BrandMark: React.FC<BrandMarkProps> = ({ size = 'md', className = '' }) => (
   <img
-    src="/brand-mark.png"
+    src="/brand-mark.webp"
     alt=""
     aria-hidden="true"
     draggable={false}

@@ -15,6 +15,7 @@ Atualizado em: 2026-11-19.
 | Saber como o código está organizado | [tecnico/estrutura-do-codigo.md](./tecnico/estrutura-do-codigo.md) |
 | Ver os achados e a cobertura da auditoria de 15/11/2026 | [Auditoria funcional e financeira](./AUDITORIA_SISTEMA_2026-11-15.md) |
 | Ver a auditoria técnica, do banco Neon e a limpeza de 19/11/2026 | [Auditoria técnica e limpeza](./AUDITORIA_TECNICA_2026-11-19.md) |
+| Ver a auditoria de performance (velocidade e acessibilidade) de 26/11/2026 | [Auditoria de performance](./AUDITORIA_PERFORMANCE_2026-11-26.md) |
 | Ver o que falta na lógica financeira para nível profissional | [Avaliação da lógica financeira](./AVALIACAO_LOGICA_FINANCEIRA_2026-11-19.md) |
 | Ver a arquitetura (telas, servidor, banco) | [tecnico/arquitetura.md](./tecnico/arquitetura.md) |
 | Consultar as rotas da API | [tecnico/api.md](./tecnico/api.md) |

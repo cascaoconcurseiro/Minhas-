@@ -43,7 +43,7 @@
 
 ## Cabeçalhos e navegador
 
-`vercel.json` aplica Content-Security-Policy restritiva, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy` e `Permissions-Policy` (câmera, microfone e localização desativados). Respostas `/api/*` não são cacheadas e o `sw.js` nunca é cacheado.
+`vercel.json` aplica Content-Security-Policy restritiva (fontes servidas pelo próprio site desde 2026-11-26, sem domínios do Google), `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy` e `Permissions-Policy` (câmera, microfone e localização desativados). Respostas `/api/*` não são cacheadas e o `sw.js` nunca é cacheado.
 
 ## Limites de payload e abuso
 
