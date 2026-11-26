@@ -38,5 +38,23 @@ FCP = primeira coisa na tela · LCP = maior bloco na tela · TBT = tela travada 
 - Letra de 11 px na entrada: aumentar muda o visual; precisa de pedido do dono.
 - Neon "dorme" após 5 min sem uso no plano Free: o primeiro acesso depois disso é mais lento; é do plano, não do código.
 
-## Depois (produção)
-Preenchido após a publicação; ver abaixo.
+## Depois (produção, 2026-11-26, merge `3bb6dd4`)
+Mesmo método (Lighthouse 12.8.2, celular, 3 rodadas, site no ar). Confirmado antes de medir: o HTML publicado já não pede nada ao Google nem o script de desenvolvimento, e a API responde de `gru1` (cabeçalho `x-vercel-id: …::gru1::…`; antes `iad1`).
+
+| Rodada | Desempenho | Acessibilidade | Boas práticas | SEO | FCP | LCP | TBT | CLS |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 95 | 100 | 96 | 100 | 2,0 s | 2,6 s | 70 ms | 0 |
+| 2 | 95 | 100 | 96 | 100 | 2,0 s | 2,6 s | 70 ms | 0 |
+| 3 | 95 | 100 | 96 | 100 | 2,0 s | 2,6 s | 50 ms | 0 |
+
+| Métrica (mediana) | Antes | Depois |
+|---|---|---|
+| Desempenho | 86 | **95** |
+| Acessibilidade | 94 | **100** |
+| FCP | 2,6 s | **2,0 s** |
+| LCP | 3,5 s | **2,6 s** |
+| Espera para desenhar o LCP | 3,1 s | **2,0 s** |
+| Pedidos / peso | 27 / 360 KiB | 25 / 347 KiB |
+| Instalação offline | 3,4 MB | 2,4 MB |
+
+**Ainda amarelo/reprovado:** letra de 11 px (único item de Boas práticas; decisão do dono) e 98 KiB de código não usado na tela de entrada (item E do `CHECKLIST.md`). **Não medido:** o tempo do uso logado em produção (sem login) e as consultas no Neon (a contagem começou agora).
