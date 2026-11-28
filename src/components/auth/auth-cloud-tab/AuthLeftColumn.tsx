@@ -1,5 +1,6 @@
 /** Entrar, criar conta e perfil. Parte de AuthAndCloudTab (ver AuthAndCloudTab.tsx). */
 import { KeyRound, Lock, LogIn, LogOut, Mail, User as UserIcon, UserCheck, UserPlus } from 'lucide-react';
+import { ChangePasswordForm } from './ChangePasswordForm';
 import type { AuthAndCloudTabContext } from './authCloudTabContext';
 
 export function AuthLeftColumn({ form }: { form: AuthAndCloudTabContext }) {
@@ -129,10 +130,11 @@ export function AuthLeftColumn({ form }: { form: AuthAndCloudTabContext }) {
                       className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-2.5 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-colors"
                     >
                       <LogOut className="h-4 w-4" />
-                      <span>Sair da Conta (Logout)</span>
+                      <span>Sair da Conta (todos os aparelhos)</span>
                     </button>
                   </div>
                 </form>
+                <ChangePasswordForm />
               </div>
             ) : (
               <div className="space-y-4">

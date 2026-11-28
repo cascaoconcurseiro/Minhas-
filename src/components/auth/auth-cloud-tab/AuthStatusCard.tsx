@@ -89,7 +89,7 @@ export function AuthStatusCard({ form }: { form: AuthAndCloudTabContext }) {
                 className="inline-flex items-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Sair da Conta (Logout)</span>
+                <span>Sair da Conta (todos os aparelhos)</span>
               </button>
             )}
           </div>
