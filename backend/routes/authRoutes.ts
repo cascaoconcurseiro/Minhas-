@@ -197,6 +197,53 @@ export function registerSessionAuth(app: Express) {
     }
   });
 
+  // Troca de senha: exige a senha atual. Encerra todas as outras sessões (token_version) e devolve uma sessão nova
+  // para este aparelho. Sem e-mail configurado não há "esqueci a senha"; por isso esta rota é o caminho seguro.
+  const passwordLimiter = createAttemptLimiter(5, 15 * 60 * 1000);
+  app.post('/api/auth/password', verifyAuthUser, async (req, res) => {
+    const user = res.locals.authUser as AuthUserIdentity;
+    const body = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
+    const currentPassword = typeof body.currentPassword === 'string' ? body.currentPassword : '';
+    const newPassword = typeof body.newPassword === 'string' ? body.newPassword : '';
+    if (passwordLimiter.isBlocked(user.uid)) {
+      res.status(429).json({ error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' });
+      return;
+    }
+    if (!currentPassword || currentPassword.length > MAX_PASSWORD_LENGTH) {
+      res.status(400).json({ error: 'Informe a senha atual.' });
+      return;
+    }
+    if (newPassword.length < MIN_PASSWORD_LENGTH || newPassword.length > MAX_PASSWORD_LENGTH) {
+      res.status(400).json({ error: `A nova senha deve ter entre ${MIN_PASSWORD_LENGTH} e ${MAX_PASSWORD_LENGTH} caracteres.` });
+      return;
+    }
+    if (newPassword === currentPassword) {
+      res.status(400).json({ error: 'A nova senha precisa ser diferente da atual.' });
+      return;
+    }
+    try {
+      const found = await getNeonPool().query(`SELECT password_hash FROM public.app_users WHERE id = $1 LIMIT 1`, [user.uid]);
+      const stored = (found.rows[0] as { password_hash: string } | undefined)?.password_hash;
+      if (!stored || !(await verifyPassword(currentPassword, stored))) {
+        passwordLimiter.recordFailure(user.uid);
+        res.status(401).json({ error: 'A senha atual está incorreta.' });
+        return;
+      }
+      const result = await getNeonPool().query(
+        `UPDATE public.app_users
+            SET password_hash = $1, token_version = token_version + 1, updated_at = now()
+          WHERE id = $2
+      RETURNING id, email, display_name, email_verified, token_version`,
+        [await hashPassword(newPassword), user.uid]
+      );
+      passwordLimiter.reset(user.uid);
+      sendSession(res, 200, result.rows[0]);
+    } catch (error) {
+      console.error('Erro ao trocar a senha no Neon:', error);
+      res.status(503).json({ error: 'Não foi possível trocar a senha agora. Tente novamente.' });
+    }
+  });
+
   registerPasskeyRoutes(app, {
     getPool: getNeonPool,
     verifyAuthUser,

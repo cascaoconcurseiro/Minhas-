@@ -112,7 +112,7 @@ export function useCalendarData(ctx: MonthlyCalendarPropsApi & CalendarStateApi)
     }
 
     const openInvoices = cardInvoicesDue.filter((inv) => !inv.isPaid && inv.amount > 0);
-    const openInvoicesAmount = openInvoices.reduce((acc, inv) => acc + inv.amount, 0);
+    const openInvoicesAmount = openInvoices.reduce((acc, inv) => acc + Math.round(inv.amount * 100), 0) / 100;
 
     return {
       pendingBillsCount,

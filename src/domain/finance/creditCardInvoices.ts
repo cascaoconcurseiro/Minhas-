@@ -63,7 +63,7 @@ export function calculateCreditCardSummary(
 
   const usedLimit = cardAllTx
     .filter((tx) => tx.status === 'pending' && (tx.recurrence !== 'fixed' || tx.date <= referenceDate))
-    .reduce((sum, tx) => sum + tx.amount, 0);
+    .reduce((sum, tx) => sum + Math.round(tx.amount * 100), 0) / 100;
 
   const availableLimit = Math.max(0, card.limit - usedLimit);
   const usagePercent =

@@ -49,6 +49,13 @@ before(async () => {
       if (row) row.token_version += 1;
       return { rows: [], rowCount: row ? 1 : 0 };
     }
+    if (/UPDATE public\.app_users\s+SET password_hash/.test(sql)) {
+      const row = [...users.values()].find((u) => u.id === params[1]);
+      if (!row) return { rows: [], rowCount: 0 };
+      row.password_hash = params[0] as string;
+      row.token_version += 1;
+      return { rows: [row], rowCount: 1 };
+    }
     if (/FROM public\.app_users WHERE email/.test(sql)) {
       const row = users.get(params[0] as string);
       return { rows: row ? [row] : [], rowCount: row ? 1 : 0 };
@@ -151,6 +158,28 @@ test('logout invalida o token em todos os lugares, sem afetar outros usuários',
   assert.equal((await fetch(`${baseUrl}/api/auth/me`, { headers: auth(carol.body.token) })).status, 200);
   const again = await post('/api/auth/login', { email: 'bob@example.com', password: 'senha-do-bob-123' });
   assert.equal((await fetch(`${baseUrl}/api/auth/me`, { headers: auth(again.body.token) })).status, 200);
+});
+
+test('trocar a senha exige a atual, encerra outras sessões e vale no próximo login', async () => {
+  const dan = await post('/api/auth/register', { name: 'Dan', email: 'dan@example.com', password: 'senha-do-dan-123' });
+  assert.equal(dan.status, 201);
+  const call = (token: string, body: unknown) =>
+    fetch(`${baseUrl}/api/auth/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+  assert.equal((await call(dan.body.token, { currentPassword: 'errada-123456', newPassword: 'nova-senha-456' })).status, 401);
+  assert.equal((await call(dan.body.token, { currentPassword: 'senha-do-dan-123', newPassword: 'curta' })).status, 400);
+  assert.equal((await call(dan.body.token, { currentPassword: 'senha-do-dan-123', newPassword: 'senha-do-dan-123' })).status, 400);
+  const changed = await call(dan.body.token, { currentPassword: 'senha-do-dan-123', newPassword: 'nova-senha-456' });
+  assert.equal(changed.status, 200);
+  const session = await changed.json() as { token: string };
+  const me = (token: string) => fetch(`${baseUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal((await me(dan.body.token)).status, 401);
+  assert.equal((await me(session.token)).status, 200);
+  assert.equal((await post('/api/auth/login', { email: 'dan@example.com', password: 'senha-do-dan-123' })).status, 401);
+  assert.equal((await post('/api/auth/login', { email: 'dan@example.com', password: 'nova-senha-456' })).status, 200);
 });
 
 test('muitas senhas erradas bloqueiam novas tentativas por um tempo', async () => {

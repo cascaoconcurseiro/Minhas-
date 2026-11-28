@@ -29,6 +29,10 @@ Legenda: **[Dono]** depende do Wesley · **[Dev]** trabalho de desenvolvimento �
 
 - [ ] **[Dev]** Daqui a alguns dias de uso, listar as consultas mais lentas no Neon (`pg_stat_statements`, instalada em 26/11) e medir o tempo do app logado em produção (ver `docs/AUDITORIA_PERFORMANCE_2026-11-26.md`).
 
+- [ ] **[Decidir]** "Esqueci a senha" por e-mail: não existe e depende de SMTP no servidor. Hoje só há **Trocar senha** (logado) e Face ID; quem esquece a senha e não tem Face ID fica sem acesso.
+- [ ] **[Dev]** Atualizar `vite-plugin-pwa`/`workbox-build` quando sair versão sem `glob`/`minimatch` vulneráveis (2 avisos moderados do `bun audit`, só no build).
+- [ ] **[Dono]** Testar **Trocar senha** no app (computador e celular).
+
 ## B. Pendências do dono
 - [ ] **[Dono]** Guardar a chave privada de backup (`age`) fora do computador e testar a leitura em outro aparelho.
 - [ ] **[Dono]** Conferir na Vercel que `AUTH_SESSION_SECRET` e `CRON_SECRET` existem em produção; decidir se configura `GEMINI_API_KEY` (câmbio ao vivo e cotações internacionais ficam indisponíveis sem ela).

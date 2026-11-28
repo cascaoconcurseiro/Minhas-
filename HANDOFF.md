@@ -3,7 +3,7 @@
 > **Documento obrigatório.** Toda entrega (commit que muda `src/`, `backend/`, `api/`, `db/`, `shared/` ou `package.json`) **precisa** de uma nova entrada na seção 7 e da atualização das seções 1–6 quando mudarem. O CI barra a entrega se isso não for feito (`bun run check:handoff`). Regras completas: [docs/processo/handoff-e-checklist.md](./docs/processo/handoff-e-checklist.md). Histórico antigo: [docs/arquivo/handoff/](./docs/arquivo/handoff/).
 
 ## 1. Estado atual
-- **Atualizado em:** 2026-11-26
+- **Atualizado em:** 2026-11-28
 - **Produção:** branch `main` publicada na Vercel (projeto `minhaseconomias`), banco Neon `minhas-economias-br`.
 - **Resumo:** sistema financeiro completo em uso (lançamentos, cartões, contas, orçamentos, viagens, compartilhado, investimentos, relatórios, **A Receber** só para empréstimos; a fatura de cartão adicional agora fica em **Compartilhado**). Código reorganizado por áreas (`components/` por pasta, `domain/` regras, `services/` dados) e documentação refeita em `docs/`.
 - **Verificação mais recente (2026-11-19):** auditoria técnica e limpeza publicadas em `main` (`2d2822d`, CI verde; produção já serve a versão nova). Migração 011 aplicada no Neon e Neon Auth antigo removido, com autorização do dono.
@@ -54,6 +54,17 @@
 - Compra paga pelo familiar fica em **Compartilhado → Eu devo**, fora do resultado pessoal; o débito pessoal só nasce no acerto.
 
 ## 7. Registro de entregas (mais recente primeiro)
+
+### 2026-11-28 — Revisão de bugs: troca de senha, código de convite, arredondamentos
+- **O que mudou:** (1) nova rota `POST /api/auth/password` e formulário **Trocar senha** em Conta, Login & Nuvem: exige a senha atual, valida a nova (8–200, diferente da atual), limita 5 erros/15 min, encerra as outras sessões e devolve sessão nova a este aparelho. (2) Convite familiar recusado ou revogado que é reenviado ganha **código novo** (`created_at` renovado); convite ainda pendente mantém o código. (3) Três somas de dinheiro passaram a somar em centavos (limite usado do cartão, total de lembretes, faturas abertas do calendário). (4) Botão de sair agora diz "todos os aparelhos", que é o que ele já fazia.
+- **Por quê:** pedido do dono depois da busca de problemas ("corrigir tudo").
+- **Arquivos/áreas:** `backend/routes/authRoutes.ts`, `backend/routes/familyRoutes.ts`, `backend/authApi.test.ts`, `src/lib/authClient.ts`, `src/components/auth/auth-cloud-tab/ChangePasswordForm.tsx`, `AuthLeftColumn.tsx`, `AuthStatusCard.tsx`, `src/domain/finance/creditCardInvoices.ts`, `src/domain/reminders/reminderCalculation.ts`, `useCalendarData.ts`.
+- **Como foi verificado:** `bun run check` (841 testes; teste novo da troca de senha cobre senha errada, nova curta, nova igual, sessão antiga morrendo, login com a senha nova). Navegador real: não rodei.
+- **Não verificado:** a tela do formulário no navegador/celular; a troca de senha contra o Neon real; o novo código de convite (SQL do `ON CONFLICT`, sem teste automático porque o teste da família usa banco simulado).
+- **Decidido sem mudar:** sair continua revogando todos os aparelhos (é uma proteção contra token roubado; mudar enfraqueceria a segurança). Cadastro continua avisando que o e-mail já existe (o usuário precisa saber). Os 2 avisos do `bun audit` (`glob`/`minimatch` dentro de `vite-plugin-pwa`) só rodam no build; o conserto exige trocar de versão maior do workbox e foi deixado para não arriscar o PWA.
+- **Impacto em dados/Neon:** nenhum (sem migração). A troca de senha altera `password_hash`/`token_version` só quando o usuário usa.
+- **Documentação atualizada:** `docs/produto/fluxos.md`, `CHECKLIST.md`, este HANDOFF. `regras-de-negocio.md` não mudou: o arredondamento só corrige erro de ponto flutuante, sem mudar regra.
+- **Próximo passo:** o dono testar Trocar senha no app; decidir sobre "esqueci a senha" por e-mail (depende de SMTP, ver CHECKLIST).
 
 ### 2026-11-26 — Auditoria de performance (skill auditoria-performance)
 - **O que mudou:** (1) a API passa a rodar em **São Paulo** (`"regions": ["gru1"]` no `vercel.json`), ao lado do banco Neon (`sa-east-1`); antes rodava em Washington (`iad1`) e cada pedido logado cruzava o continente cerca de 6 vezes. (2) `withWorkspaceRls` faz os dois ajustes de RLS (`set_config`) numa só consulta (uma viagem ao banco a menos por pedido). (3) Fontes servidas pelo próprio site (`@fontsource-variable/*`, as mesmas DM Sans, Plus Jakarta Sans e JetBrains Mono) em vez do Google: some a cadeia de ~1 s que travava a primeira pintura; CSP sem `fonts.googleapis.com`/`fonts.gstatic.com`. (4) O site publicado não carrega mais `vite-websocket-guard.js` (só serve no desenvolvimento) e já pede a tela de entrada junto com o app (`modulepreload`). (5) Logo `brand-mark.png` (18,9 KB) virou `brand-mark.webp` 120 px (3,4 KB). (6) Instalação do app para uso sem internet: 3,4 MB → 2,4 MB (gerador de PDF, ícones grandes e fontes de outros alfabetos baixam só quando usados e depois ficam guardados). (7) Contraste de 5 textos pequenos da tela de entrada: `slate-400`/`slate-500` → `slate-600` (`#90a1b9`/`#62748e` → `#45556c`). (8) Extensão `pg_stat_statements` instalada no Neon (autorizado pelo dono) para medir as consultas.

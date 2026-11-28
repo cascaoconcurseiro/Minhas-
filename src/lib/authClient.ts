@@ -259,6 +259,18 @@ export async function registerWithEmail(displayName: string, email: string, pass
   return user;
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const token = readStoredToken();
+  if (!token) throw new AuthError('Entre na conta para trocar a senha.', 401);
+  const session = await requestJson<SessionResponse>('/api/auth/password', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  // A troca encerra as outras sessões; esta recebe uma sessão nova.
+  if (!applySession(session.token)) throw new AuthError('Sessão recebida é inválida. Entre novamente.', 502);
+}
+
 export async function signOutUser(): Promise<void> {
   const token = readStoredToken();
   // Always end the local session; the server call revokes the token everywhere.

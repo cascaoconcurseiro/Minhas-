@@ -218,7 +218,7 @@ export function summarizeReminders(reminders: ReminderItem[]) {
   const dueTodayCount = reminders.filter((r) => r.urgency === 'due_today').length;
   const dueSoonCount = reminders.filter((r) => r.urgency === 'due_soon').length;
   const urgentCount = overdueCount + dueTodayCount + dueSoonCount;
-  const totalPendingAmount = reminders.reduce((sum, r) => sum + r.amount, 0);
+  const totalPendingAmount = reminders.reduce((sum, r) => sum + Math.round(r.amount * 100), 0) / 100;
 
   return {
     totalCount: reminders.length,

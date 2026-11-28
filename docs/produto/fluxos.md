@@ -22,6 +22,7 @@ flowchart TD
     J --> K[Cria workspace vazio no Neon] --> D
 ```
 - Sessão dura 30 dias; **Sair da Conta** revoga todas as sessões da conta (versão do token).
+- **Trocar senha** (Conta, Login & Nuvem): pede a senha atual e a nova; encerra as sessões dos outros aparelhos e mantém este logado. Não há recuperação por e-mail.
 - No computador o Face ID não é oferecido; no celular o banner oferece cadastrar o rosto.
 - Conta nova: não há verificação de e-mail. Vínculo familiar só por convite dentro do sistema.
 
