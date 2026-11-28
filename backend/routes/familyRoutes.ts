@@ -80,12 +80,6 @@ export function registerFamilyRoutes(app: Express, ctx: GuardsApi) {
                      THEN finance_family_invitations.invited_user_id
                    ELSE NULL
                  END,
-                 -- Convite recusado ou revogado que volta a ser enviado ganha código novo (o código nasce de created_at);
-                 -- convite ainda pendente mantém o código que já foi passado à pessoa.
-                 created_at = CASE
-                   WHEN finance_family_invitations.status IN ('declined', 'revoked') THEN now()
-                   ELSE finance_family_invitations.created_at
-                 END,
                  updated_at = now(),
                  responded_at = CASE
                    WHEN finance_family_invitations.status = 'accepted'

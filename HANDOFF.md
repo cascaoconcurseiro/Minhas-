@@ -55,12 +55,13 @@
 
 ## 7. Registro de entregas (mais recente primeiro)
 
-### 2026-11-28 — Revisão de bugs: troca de senha, código de convite, arredondamentos
-- **O que mudou:** (1) nova rota `POST /api/auth/password` e formulário **Trocar senha** em Conta, Login & Nuvem: exige a senha atual, valida a nova (8–200, diferente da atual), limita 5 erros/15 min, encerra as outras sessões e devolve sessão nova a este aparelho. (2) Convite familiar recusado ou revogado que é reenviado ganha **código novo** (`created_at` renovado); convite ainda pendente mantém o código. (3) Três somas de dinheiro passaram a somar em centavos (limite usado do cartão, total de lembretes, faturas abertas do calendário). (4) Botão de sair agora diz "todos os aparelhos", que é o que ele já fazia.
+### 2026-11-28 — Revisão de bugs: troca de senha e arredondamentos
+- **O que mudou:** (1) nova rota `POST /api/auth/password` e formulário **Trocar senha** em Conta, Login & Nuvem: exige a senha atual, valida a nova (8–200, diferente da atual), limita 5 erros/15 min, encerra as outras sessões e devolve sessão nova a este aparelho. (2) Três somas de dinheiro passaram a somar em centavos (limite usado do cartão, total de lembretes, faturas abertas do calendário). (3) Botão de sair agora diz "todos os aparelhos", que é o que ele já fazia.
 - **Por quê:** pedido do dono depois da busca de problemas ("corrigir tudo").
 - **Arquivos/áreas:** `backend/routes/authRoutes.ts`, `backend/routes/familyRoutes.ts`, `backend/authApi.test.ts`, `src/lib/authClient.ts`, `src/components/auth/auth-cloud-tab/ChangePasswordForm.tsx`, `AuthLeftColumn.tsx`, `AuthStatusCard.tsx`, `src/domain/finance/creditCardInvoices.ts`, `src/domain/reminders/reminderCalculation.ts`, `useCalendarData.ts`.
 - **Como foi verificado:** `bun run check` (841 testes; teste novo da troca de senha cobre senha errada, nova curta, nova igual, sessão antiga morrendo, login com a senha nova). Navegador real: não rodei.
-- **Não verificado:** a tela do formulário no navegador/celular; a troca de senha contra o Neon real; o novo código de convite (SQL do `ON CONFLICT`, sem teste automático porque o teste da família usa banco simulado).
+- **Não verificado:** a tela do formulário no navegador/celular; a troca de senha contra o Neon real.
+- **Tentei e desfiz:** renovar o código do convite ao reconvidar. O teste com PostgreSQL real (`scripts/qa-postgres.ts`) mostrou que manter o mesmo código é decisão antiga (mensagem já enviada continua valendo); o risco que vi era baixo, então mantive a decisão.
 - **Decidido sem mudar:** sair continua revogando todos os aparelhos (é uma proteção contra token roubado; mudar enfraqueceria a segurança). Cadastro continua avisando que o e-mail já existe (o usuário precisa saber). Os 2 avisos do `bun audit` (`glob`/`minimatch` dentro de `vite-plugin-pwa`) só rodam no build; o conserto exige trocar de versão maior do workbox e foi deixado para não arriscar o PWA.
 - **Impacto em dados/Neon:** nenhum (sem migração). A troca de senha altera `password_hash`/`token_version` só quando o usuário usa.
 - **Documentação atualizada:** `docs/produto/fluxos.md`, `CHECKLIST.md`, este HANDOFF. `regras-de-negocio.md` não mudou: o arredondamento só corrige erro de ponto flutuante, sem mudar regra.
